@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}투자자 상세 - {{ investor.name }} - ERP Suite{% endblock %}
+{% block page_title %}투자자 상세{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'investment:investor_update' investor.pk %}" class="btn btn-secondary">수정</a>
+<a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">목록으로</a>
+{% endblock %}
+
+{% block content %}
+<!-- 기본 정보 -->
+<div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">기본 정보</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <p class="text-sm text-gray-500">투자자명</p>
+            <p class="mt-1 font-medium text-gray-900">{{ investor.name }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">소속회사</p>
+            <p class="mt-1 font-medium text-gray-900">{{ investor.company|default:"-" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">연락처</p>
+            <p class="mt-1 font-medium text-gray-900">{{ investor.contact|default:"-" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">전화번호</p>
+            <p class="mt-1 font-medium text-gray-900">{{ investor.phone|default:"-" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">이메일</p>
+            <p class="mt-1 font-medium text-gray-900">{{ investor.email|default:"-" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">등록일</p>
+            <p class="mt-1 font-medium text-gray-900">{{ investor.registration_date }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- 요약 -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <p class="text-sm font-medium text-gray-500">현재지분율</p>
+        <p class="mt-1 text-2xl font-bold text-blue-600">{{ current_share }}%</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <p class="text-sm font-medium text-gray-500">총투자금</p>
+        <p class="mt-1 text-2xl font-bold text-gray-900">{{ total_invested|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <p class="text-sm font-medium text-gray-500">총배당금</p>
+        <p class="mt-1 text-2xl font-bold text-green-600">{{ total_distributed|intcomma }}원</p>
+    </div>
+</div>
+
+<!-- 투자내역 -->
+<div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">투자내역</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200">
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">라운드</th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">투자금액</th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">지분율</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">투자일</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in investments %}
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 px-4 font-medium text-gray-900">{{ inv.round.name }}</td>
+                    <td class="py-3 px-4 text-right">{{ inv.amount|intcomma }}원</td>
+                    <td class="py-3 px-4 text-right">{{ inv.share_percentage }}%</td>
+                    <td class="py-3 px-4">{{ inv.investment_date }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="py-8 text-center text-gray-400">투자내역이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 지분변동이력 -->
+<div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">지분변동이력</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200">
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">변동유형</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">변동일</th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">변동 전</th>
+                    <th class="text-center py-3 px-4 font-medium text-gray-500"></th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">변동 후</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for change in equity_changes %}
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if change.change_type == '신규투자' %}bg-green-100 text-green-800
+                            {% elif change.change_type == '희석' %}bg-yellow-100 text-yellow-800
+                            {% elif change.change_type == '지분양도' %}bg-blue-100 text-blue-800
+                            {% elif change.change_type == '자사주매입' %}bg-purple-100 text-purple-800
+                            {% endif %}">
+                            {{ change.change_type }}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">{{ change.change_date }}</td>
+                    <td class="py-3 px-4 text-right">{{ change.before_percentage }}%</td>
+                    <td class="py-3 px-4 text-center text-gray-400">&rarr;</td>
+                    <td class="py-3 px-4 text-right font-medium">{{ change.after_percentage }}%</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="py-8 text-center text-gray-400">지분변동 이력이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 배당내역 -->
+<div class="bg-white rounded-xl shadow-sm p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">배당내역</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200">
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">분배유형</th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">금액</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">상태</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">예정일</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">지급일</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dist in distributions %}
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 px-4">{{ dist.distribution_type }}</td>
+                    <td class="py-3 px-4 text-right">{{ dist.amount|intcomma }}원</td>
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if dist.status == '예정' %}bg-blue-100 text-blue-800
+                            {% elif dist.status == '대기' %}bg-yellow-100 text-yellow-800
+                            {% elif dist.status == '지급완료' %}bg-green-100 text-green-800
+                            {% elif dist.status == '취소' %}bg-red-100 text-red-800
+                            {% endif %}">
+                            {{ dist.status }}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">{{ dist.scheduled_date }}</td>
+                    <td class="py-3 px-4">{{ dist.paid_date|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="py-8 text-center text-gray-400">배당내역이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

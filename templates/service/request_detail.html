@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}AS 상세 - {{ service_request.request_number }} - ERP Suite{% endblock %}
+{% block page_title %}AS 상세{% endblock %}
+
+{% block header_actions %}
+{% if service_request.status != '완료' and service_request.status != '취소' %}
+<a href="{% url 'service:request_update' service_request.pk %}" class="btn btn-primary">수정</a>
+{% endif %}
+<a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록으로</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- AS 정보 카드 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800">AS 정보</h2>
+            <div class="flex items-center gap-2">
+                {% if service_request.is_warranty %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">보증기간내</span>
+                {% else %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">보증만료</span>
+                {% endif %}
+
+                {% if service_request.status == '접수' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">접수</span>
+                {% elif service_request.status == '검수중' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">검수중</span>
+                {% elif service_request.status == '수리중' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">수리중</span>
+                {% elif service_request.status == '완료' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">완료</span>
+                {% elif service_request.status == '반송완료' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">반송완료</span>
+                {% elif service_request.status == '취소' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">취소</span>
+                {% else %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ service_request.get_status_display }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">AS번호</dt>
+                <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ service_request.request_number }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">고객</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    {% if service_request.customer %}
+                    <a href="{% url 'sales:customer_detail' service_request.customer.pk %}" class="text-blue-600 hover:text-blue-800">{{ service_request.customer.name }}</a>
+                    {% else %}
+                    -
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">연락처</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ service_request.customer.phone|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">제품</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ service_request.product.name|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">시리얼번호</dt>
+                <dd class="mt-1 text-sm font-mono text-gray-900">{{ service_request.serial_number|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">요청유형</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ service_request.get_request_type_display }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">접수일</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ service_request.created_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">담당자</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ service_request.assigned_to|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">완료일</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ service_request.completed_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+            </div>
+            {% if service_request.description %}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">증상 및 요청사항</dt>
+                <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">{{ service_request.description }}</dd>
+            </div>
+            {% endif %}
+            {% if service_request.notes %}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">비고</dt>
+                <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">{{ service_request.notes }}</dd>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 수리 이력 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-800">수리 이력</h2>
+            {% if service_request.status != '완료' and service_request.status != '취소' %}
+            <a href="{% url 'service:repair_create' service_request.pk %}" class="btn btn-primary text-sm">
+                <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                수리이력 추가
+            </a>
+            {% endif %}
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">#</th>
+                        <th class="px-4 py-3">수리일</th>
+                        <th class="px-4 py-3">수리내용</th>
+                        <th class="px-4 py-3">수리자</th>
+                        <th class="px-4 py-3 text-right">비용</th>
+                        <th class="px-4 py-3 text-center">관리</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for repair in repairs %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ repair.repair_date|date:"Y-m-d" }}</td>
+                        <td class="px-4 py-3 text-gray-900">{{ repair.description|truncatechars:60 }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ repair.technician|default:"-" }}</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ repair.cost|floatformat:0|default:"0" }}원</td>
+                        <td class="px-4 py-3 text-center">
+                            <a href="{% url 'service:repair_update' repair.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-400">수리 이력이 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if repairs %}
+                <tfoot>
+                    <tr class="bg-gray-50 font-semibold">
+                        <td colspan="4" class="px-4 py-3 text-right text-gray-700">수리비용 합계</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ total_repair_cost|floatformat:0|default:"0" }}원</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

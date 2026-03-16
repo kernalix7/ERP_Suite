@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "일정" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "일정" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'calendar_app:event_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "일정 등록" %}
+</a>
+<a href="{% url 'calendar_app:event_list' %}" class="btn btn-secondary">{% trans "목록 보기" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div id="calendar"></div>
+</div>
+
+<!-- 일정 상세 모달 -->
+<div id="event-modal" class="fixed inset-0 z-50 hidden" x-data="{ open: false }" x-show="open" x-cloak>
+    <div class="fixed inset-0 bg-black bg-opacity-50" @click="open = false; document.getElementById('event-modal').classList.add('hidden')"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative">
+            <button @click="open = false; document.getElementById('event-modal').classList.add('hidden')"
+                    class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+            <h3 id="modal-title" class="text-lg font-semibold text-gray-800 mb-4"></h3>
+            <div class="space-y-2 text-sm text-gray-600">
+                <p><span class="font-medium text-gray-700">{% trans "유형" %}:</span> <span id="modal-type"></span></p>
+                <p><span class="font-medium text-gray-700">{% trans "시작" %}:</span> <span id="modal-start"></span></p>
+                <p><span class="font-medium text-gray-700">{% trans "종료" %}:</span> <span id="modal-end"></span></p>
+                <p id="modal-location-row"><span class="font-medium text-gray-700">{% trans "장소" %}:</span> <span id="modal-location"></span></p>
+                <p><span class="font-medium text-gray-700">{% trans "생성자" %}:</span> <span id="modal-creator"></span></p>
+                <p id="modal-desc-row"><span class="font-medium text-gray-700">{% trans "설명" %}:</span></p>
+                <p id="modal-desc" class="whitespace-pre-wrap"></p>
+            </div>
+            <div class="mt-4 flex justify-end gap-2">
+                <a id="modal-edit-link" href="#" class="btn btn-primary text-sm">{% trans "수정" %}</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'ko',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+        },
+        buttonText: {
+            today: '오늘',
+            month: '월',
+            week: '주',
+            day: '일',
+            list: '목록'
+        },
+        events: {
+            url: '{% url "calendar_app:event_api" %}',
+            failure: function() {
+                alert('일정을 불러오는데 실패했습니다.');
+            }
+        },
+        editable: false,
+        selectable: true,
+        selectMirror: true,
+        dayMaxEvents: true,
+        height: 'auto',
+
+        // 날짜 클릭 시 일정 생성
+        dateClick: function(info) {
+            var url = '{% url "calendar_app:event_create" %}';
+            window.location.href = url + '?date=' + info.dateStr;
+        },
+
+        // 일정 클릭 시 모달 표시
+        eventClick: function(info) {
+            info.jsEvent.preventDefault();
+            var event = info.event;
+            var props = event.extendedProps;
+
+            document.getElementById('modal-title').textContent = event.title;
+            document.getElementById('modal-type').textContent = props.event_type || '';
+            document.getElementById('modal-start').textContent = formatDateTime(event.start);
+            document.getElementById('modal-end').textContent = event.end ? formatDateTime(event.end) : '-';
+            document.getElementById('modal-creator').textContent = props.creator || '';
+
+            var locRow = document.getElementById('modal-location-row');
+            var locEl = document.getElementById('modal-location');
+            if (props.location) {
+                locEl.textContent = props.location;
+                locRow.style.display = '';
+            } else {
+                locRow.style.display = 'none';
+            }
+
+            var descRow = document.getElementById('modal-desc-row');
+            var descEl = document.getElementById('modal-desc');
+            if (props.description) {
+                descEl.textContent = props.description;
+                descRow.style.display = '';
+                descEl.style.display = '';
+            } else {
+                descRow.style.display = 'none';
+                descEl.style.display = 'none';
+            }
+
+            document.getElementById('modal-edit-link').href = event.url;
+
+            var modal = document.getElementById('event-modal');
+            modal.classList.remove('hidden');
+            // Trigger Alpine open
+            modal.__x.$data.open = true;
+        }
+    });
+    calendar.render();
+
+    function formatDateTime(date) {
+        if (!date) return '';
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, '0');
+        var d = String(date.getDate()).padStart(2, '0');
+        var h = String(date.getHours()).padStart(2, '0');
+        var min = String(date.getMinutes()).padStart(2, '0');
+        return y + '-' + m + '-' + d + ' ' + h + ':' + min;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}세금계산서 상세 - {{ object.invoice_number }} - ERP Suite{% endblock %}
+{% block page_title %}세금계산서 상세{% endblock %}
+
+{% block header_actions %}
+<div class="flex flex-wrap items-center gap-2">
+    <a href="{% url 'accounting:taxinvoice_update' object.pk %}" class="btn btn-secondary">수정</a>
+    <a href="{% url 'accounting:taxinvoice_list' %}" class="btn btn-secondary">목록</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white shadow-sm rounded-xl overflow-hidden">
+        <!-- 헤더 -->
+        <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">{{ object.invoice_number }}</h2>
+                <p class="text-sm text-gray-500 mt-1">발행일: {{ object.issue_date }}</p>
+            </div>
+            <div>
+                {% if object.invoice_type == 'sales' %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">매출</span>
+                {% else %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">매입</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 상세 정보 -->
+        <div class="px-6 py-5 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">거래처</p>
+                    <p class="mt-1 text-gray-900">{{ object.partner }}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500">사업자등록번호</p>
+                    <p class="mt-1 text-gray-900">{{ object.business_number|default:"-" }}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500">대표자명</p>
+                    <p class="mt-1 text-gray-900">{{ object.representative|default:"-" }}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500">업태/종목</p>
+                    <p class="mt-1 text-gray-900">{{ object.business_type|default:"-" }} / {{ object.business_item|default:"-" }}</p>
+                </div>
+            </div>
+
+            <hr class="border-gray-100">
+
+            <!-- 금액 정보 -->
+            <div class="bg-gray-50 rounded-lg p-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">공급가액</p>
+                        <p class="mt-1 text-lg font-semibold text-gray-900 text-right">{{ object.supply_amount|intcomma }}원</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">부가세</p>
+                        <p class="mt-1 text-lg font-semibold text-gray-900 text-right">{{ object.tax_amount|intcomma }}원</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">합계</p>
+                        <p class="mt-1 text-lg font-bold text-blue-600 text-right">{{ object.total_amount|intcomma }}원</p>
+                    </div>
+                </div>
+            </div>
+
+            {% if object.description %}
+            <div>
+                <p class="text-sm font-medium text-gray-500">비고</p>
+                <p class="mt-1 text-gray-900">{{ object.description }}</p>
+            </div>
+            {% endif %}
+
+            {% if object.items.all %}
+            <hr class="border-gray-100">
+            <div>
+                <h3 class="text-sm font-semibold text-gray-700 mb-3">품목 내역</h3>
+                <div class="table-responsive">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+                        <tr>
+                            <th class="px-4 py-2 text-left font-semibold">품목명</th>
+                            <th class="px-4 py-2 text-right font-semibold">수량</th>
+                            <th class="px-4 py-2 text-right font-semibold">단가</th>
+                            <th class="px-4 py-2 text-right font-semibold">금액</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for item in object.items.all %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2 text-gray-900">{{ item.name }}</td>
+                            <td class="px-4 py-2 text-right text-gray-700">{{ item.quantity|intcomma }}</td>
+                            <td class="px-4 py-2 text-right text-gray-700">{{ item.unit_price|intcomma }}원</td>
+                            <td class="px-4 py-2 text-right font-medium text-gray-900">{{ item.amount|intcomma }}원</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 하단 메타 정보 -->
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex justify-between">
+            <span>등록일: {{ object.created_at|date:"Y-m-d H:i" }}</span>
+            <span>수정일: {{ object.updated_at|date:"Y-m-d H:i" }}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

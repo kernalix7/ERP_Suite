@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "일정 삭제" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "일정 삭제" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 max-w-lg mx-auto">
+    <div class="text-center">
+        <svg class="mx-auto w-12 h-12 text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+        </svg>
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">{% trans "일정을 삭제하시겠습니까?" %}</h3>
+        <p class="text-sm text-gray-500 mb-1">{{ object.title }}</p>
+        <p class="text-xs text-gray-400 mb-6">{{ object.start_datetime|date:"Y-m-d H:i" }} ~ {{ object.end_datetime|date:"Y-m-d H:i" }}</p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="flex justify-center gap-3">
+                <a href="{% url 'calendar_app:calendar_view' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+                <button type="submit" class="btn btn-primary bg-red-600 hover:bg-red-700">{% trans "삭제" %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

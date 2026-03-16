@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "미수금 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "미수금 관리" %}{% endblock %}
+
+{% block header_actions %}
+<span class="text-sm text-gray-600 mr-4">{% trans "미수잔액" %}: <strong class="text-red-600">{{ total_remaining|intcomma }}{% trans "원" %}</strong></span>
+<a href="{% url 'accounting:ar_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- 필터 -->
+<div class="mb-6 flex flex-wrap items-center gap-3">
+    <form method="get" class="flex items-center gap-2">
+        <select name="status" class="form-input text-sm" onchange="this.form.submit()">
+            <option value="">{% trans "전체 상태" %}</option>
+            {% for val, label in status_choices %}
+            <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="partner" class="form-input text-sm" onchange="this.form.submit()">
+            <option value="">{% trans "전체 거래처" %}</option>
+            {% for p in partners %}
+            <option value="{{ p.pk }}" {% if request.GET.partner == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '거래처 검색' %}" class="form-input text-sm">
+        <button type="submit" class="btn btn-secondary text-sm">{% trans "검색" %}</button>
+    </form>
+</div>
+
+<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-4 font-semibold">{% trans "거래처" %}</th>
+                    <th class="px-6 py-4 font-semibold">{% trans "주문" %}</th>
+                    <th class="px-6 py-4 font-semibold text-right">{% trans "청구금액" %}</th>
+                    <th class="px-6 py-4 font-semibold text-right">{% trans "입금액" %}</th>
+                    <th class="px-6 py-4 font-semibold text-right">{% trans "잔액" %}</th>
+                    <th class="px-6 py-4 font-semibold">{% trans "납기일" %}</th>
+                    <th class="px-6 py-4 font-semibold text-center">{% trans "상태" %}</th>
+                    <th class="px-6 py-4 font-semibold text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for ar in receivables %}
+                <tr class="hover:bg-gray-50 transition-colors {% if ar.is_overdue %}bg-red-50{% endif %}">
+                    <td class="px-6 py-4 font-medium text-gray-900">{{ ar.partner.name }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ ar.order.order_number|default:"-" }}</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ ar.amount|intcomma }}{% trans "원" %}</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ ar.paid_amount|intcomma }}{% trans "원" %}</td>
+                    <td class="px-6 py-4 text-right font-medium {% if ar.remaining_amount > 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ ar.remaining_amount|intcomma }}{% trans "원" %}</td>
+                    <td class="px-6 py-4 {% if ar.is_overdue %}text-red-600 font-semibold{% else %}text-gray-600{% endif %}">{{ ar.due_date }}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-2 py-1 text-xs rounded-full
+                            {% if ar.status == 'PAID' %}bg-green-100 text-green-700
+                            {% elif ar.status == 'PARTIAL' %}bg-yellow-100 text-yellow-700
+                            {% elif ar.status == 'OVERDUE' or ar.is_overdue %}bg-red-100 text-red-700
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {% if ar.is_overdue and ar.status != 'PAID' %}{% trans "연체" %}{% else %}{{ ar.get_status_display }}{% endif %}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <a href="{% url 'accounting:ar_detail' ar.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">{% trans "상세" %}</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-6 py-12 text-center text-gray-400">{% trans "등록된 미수금이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="mt-4 flex justify-center">
+    <nav class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&status={{ request.GET.status }}&partner={{ request.GET.partner }}&q={{ request.GET.q }}" class="px-3 py-1 text-sm border rounded hover:bg-gray-50">{% trans "이전" %}</a>
+        {% endif %}
+        <span class="px-3 py-1 text-sm text-gray-600">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&status={{ request.GET.status }}&partner={{ request.GET.partner }}&q={{ request.GET.q }}" class="px-3 py-1 text-sm border rounded hover:bg-gray-50">{% trans "다음" %}</a>
+        {% endif %}
+    </nav>
+</div>
+{% endif %}
+{% endblock %}

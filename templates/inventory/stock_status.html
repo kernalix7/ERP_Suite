@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}재고현황 - ERP Suite{% endblock %}
+{% block page_title %}재고현황{% endblock %}
+
+{% block content %}
+<!-- 요약 카드 -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">전체 제품</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ total_count|default:"0" }}</p>
+            </div>
+            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">정상 재고</p>
+                <p class="text-2xl font-bold text-green-600 mt-1">{{ normal_count|default:"0" }}</p>
+            </div>
+            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">재고 부족</p>
+                <p class="text-2xl font-bold text-red-600 mt-1">{{ shortage_count|default:"0" }}</p>
+            </div>
+            <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 재고 현황 테이블 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="제품코드 또는 제품명으로 검색..."
+                       class="form-input">
+            </div>
+            <div class="w-full sm:w-44">
+                <select name="status" class="form-input">
+                    <option value="">전체 상태</option>
+                    <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>정상</option>
+                    <option value="shortage" {% if request.GET.status == 'shortage' %}selected{% endif %}>부족</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-secondary">
+                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                검색
+            </button>
+        </form>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">제품코드</th>
+                    <th class="px-6 py-3 font-semibold">제품명</th>
+                    <th class="px-6 py-3 font-semibold">유형</th>
+                    <th class="px-6 py-3 font-semibold text-right">현재고</th>
+                    <th class="px-6 py-3 font-semibold text-right">안전재고</th>
+                    <th class="px-6 py-3 font-semibold text-center">상태</th>
+                    <th class="px-6 py-3 font-semibold text-center">재고율</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for product in products %}
+                <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onclick="location.href='{% url 'inventory:product_detail' product.pk %}'">
+                    <td class="px-6 py-4 font-mono text-blue-600 font-medium">{{ product.code }}</td>
+                    <td class="px-6 py-4 font-medium text-gray-900">{{ product.name }}</td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if product.product_type == 'RAW' %}bg-amber-100 text-amber-800
+                            {% elif product.product_type == 'HALF' %}bg-blue-100 text-blue-800
+                            {% elif product.product_type == 'FINISHED' %}bg-green-100 text-green-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ product.get_product_type_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right font-medium
+                        {% if product.current_stock < product.safety_stock %}text-red-600{% else %}text-gray-900{% endif %}">
+                        {{ product.current_stock }}
+                    </td>
+                    <td class="px-6 py-4 text-right text-gray-500">{{ product.safety_stock }}</td>
+                    <td class="px-6 py-4 text-center">
+                        {% if product.current_stock >= product.safety_stock %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            정상
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            부족
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if product.safety_stock > 0 %}
+                        {% widthratio product.current_stock product.safety_stock 100 as stock_pct %}
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full transition-all
+                                    {% if product.current_stock >= product.safety_stock %}bg-green-500{% else %}bg-red-500{% endif %}"
+                                     style="width: min({{ stock_pct }}%, 100%)"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 w-10 text-right">{{ stock_pct }}%</span>
+                        </div>
+                        {% else %}
+                        <span class="text-xs text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                        </svg>
+                        등록된 제품이 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">
+            총 {{ page_obj.paginator.count }}건
+        </p>
+        <nav class="flex items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}"
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&q={{ request.GET.q }}&status={{ request.GET.status }}"
+               class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}"
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

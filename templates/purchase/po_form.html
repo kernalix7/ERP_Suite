@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "발주" %} {{ form.instance.pk|yesno:"수정,등록" }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "발주" %} {{ form.instance.pk|yesno:"수정,등록" }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'purchase:po_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" x-data="poForm()">
+    {% csrf_token %}
+
+    <!-- 발주 기본정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "발주 정보" %}</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            {% for field in form %}
+            <div {% if field.name == 'notes' %}class="md:col-span-2"{% endif %}>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 발주 항목 (Formset) -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "발주 항목" %}</h2>
+            <button type="button" @click="addItem()" class="btn btn-primary text-sm">
+                <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                {% trans "항목 추가" %}
+            </button>
+        </div>
+
+        {{ formset.management_form }}
+
+        {% if formset.non_form_errors %}
+        <div class="px-6 pt-4">
+            {% for error in formset.non_form_errors %}
+            <p class="text-sm text-red-600">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3 w-8">#</th>
+                        <th class="px-4 py-3">{% trans "제품" %}</th>
+                        <th class="px-4 py-3 w-32">{% trans "수량" %}</th>
+                        <th class="px-4 py-3 w-40">{% trans "단가" %}</th>
+                        <th class="px-4 py-3 w-40 text-right">{% trans "소계" %}</th>
+                        <th class="px-4 py-3 w-16 text-center">{% trans "삭제" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100" id="formset-body">
+                    {% for item_form in formset %}
+                    <tr class="formset-row {% if item_form.DELETE.value %}hidden{% endif %}"
+                        x-show="!isDeleted({{ forloop.counter0 }})">
+                        <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
+                        <td class="px-4 py-3">
+                            {{ item_form.id }}
+                            {{ item_form.product }}
+                            {% for error in item_form.product.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                            {% endfor %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {{ item_form.quantity }}
+                            {% for error in item_form.quantity.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                            {% endfor %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {{ item_form.unit_price }}
+                            {% for error in item_form.unit_price.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                            {% endfor %}
+                        </td>
+                        <td class="px-4 py-3 text-right font-medium text-gray-900 subtotal">-</td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="hidden">{{ item_form.DELETE }}</div>
+                            <button type="button" @click="deleteItem({{ forloop.counter0 }})"
+                                    class="text-red-400 hover:text-red-600 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 합계 -->
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+            <div class="text-right">
+                <span class="text-sm text-gray-500 mr-4">{% trans "합계금액" %}</span>
+                <span class="text-lg font-bold text-gray-900" id="total-amount">0{% trans "원" %}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 버튼 -->
+    <div class="flex justify-end gap-3">
+        <a href="{% url 'purchase:po_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        <button type="submit" class="btn btn-primary">{% trans "저장" %}</button>
+    </div>
+</form>
+
+<script>
+function poForm() {
+    return {
+        deletedItems: new Set(),
+        deleteItem(index) {
+            this.deletedItems.add(index);
+            const rows = document.querySelectorAll('.formset-row');
+            if (rows[index]) {
+                const deleteCheckbox = rows[index].querySelector('input[type="checkbox"][name$="-DELETE"]');
+                if (deleteCheckbox) deleteCheckbox.checked = true;
+            }
+            this.updateTotal();
+        },
+        isDeleted(index) {
+            return this.deletedItems.has(index);
+        },
+        addItem() {
+            const totalForms = document.querySelector('#id_items-TOTAL_FORMS');
+            const currentCount = parseInt(totalForms.value);
+            const tbody = document.querySelector('#formset-body');
+            const firstRow = tbody.querySelector('.formset-row');
+            if (!firstRow) return;
+
+            const newRow = firstRow.cloneNode(true);
+            newRow.querySelectorAll('input, select, textarea').forEach(el => {
+                const name = el.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/-\d+-/, `-${currentCount}-`);
+                    el.setAttribute('name', newName);
+                    el.setAttribute('id', `id_${newName}`);
+                    if (el.type === 'checkbox') {
+                        el.checked = false;
+                    } else if (el.tagName === 'SELECT') {
+                        el.selectedIndex = 0;
+                    } else {
+                        el.value = '';
+                    }
+                }
+            });
+            newRow.querySelector('td:first-child').textContent = currentCount + 1;
+            newRow.style.display = '';
+            newRow.classList.remove('hidden');
+            tbody.appendChild(newRow);
+            totalForms.value = currentCount + 1;
+        },
+        updateTotal() {
+            let total = 0;
+            document.querySelectorAll('.formset-row').forEach((row, idx) => {
+                if (!this.deletedItems.has(idx)) {
+                    const qty = parseFloat(row.querySelector('[name$="-quantity"]')?.value) || 0;
+                    const price = parseFloat(row.querySelector('[name$="-unit_price"]')?.value) || 0;
+                    const subtotal = qty * price;
+                    row.querySelector('.subtotal').textContent = subtotal.toLocaleString() + '원';
+                    total += subtotal;
+                }
+            });
+            document.querySelector('#total-amount').textContent = total.toLocaleString() + '원';
+        },
+        init() {
+            this.updateTotal();
+            this.$el.addEventListener('input', (e) => {
+                if (e.target.name && (e.target.name.includes('-quantity') || e.target.name.includes('-unit_price'))) {
+                    this.updateTotal();
+                }
+            });
+        }
+    }
+}
+</script>
+{% endblock %}

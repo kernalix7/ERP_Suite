@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "조직도" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "조직도" %}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+    <a href="{% url 'hr:department_list' %}" class="btn btn-secondary">
+        {% trans "부서관리" %}
+    </a>
+    <a href="{% url 'hr:employee_list' %}" class="btn btn-secondary">
+        {% trans "직원목록" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    {% for dept in root_departments %}
+    {% include "hr/_org_dept_node.html" with department=dept level=0 %}
+    {% empty %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-400">
+        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+        {% trans "등록된 부서가 없습니다." %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

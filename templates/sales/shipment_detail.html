@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block page_title %}{% trans "배송" %} {{ shipment.shipment_number }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'sales:shipment_update' shipment.pk %}" class="btn btn-secondary text-xs">수정</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white shadow-sm rounded-xl p-5">
+        <h3 class="text-sm font-semibold text-gray-500 mb-3">배송 정보</h3>
+        <dl class="space-y-2 text-sm">
+            <div class="flex"><dt class="w-28 text-gray-500">배송번호</dt><dd class="font-medium">{{ shipment.shipment_number }}</dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">택배사</dt><dd>{{ shipment.get_carrier_display }}</dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">운송장번호</dt>
+                <dd>{% if shipment.tracking_url %}<a href="{{ shipment.tracking_url }}" target="_blank" class="text-blue-600 hover:underline">{{ shipment.tracking_number }} ↗</a>{% else %}{{ shipment.tracking_number|default:"-" }}{% endif %}</dd>
+            </div>
+            <div class="flex"><dt class="w-28 text-gray-500">상태</dt>
+                <dd>{% if shipment.status == 'DELIVERED' %}<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">배송완료</span>
+                {% elif shipment.status == 'IN_TRANSIT' %}<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">배송중</span>
+                {% else %}<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{{ shipment.get_status_display }}</span>{% endif %}</dd>
+            </div>
+            <div class="flex"><dt class="w-28 text-gray-500">발송일</dt><dd>{{ shipment.shipped_date|default:"-" }}</dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">도착일</dt><dd>{{ shipment.delivered_date|default:"-" }}</dd></div>
+        </dl>
+    </div>
+    <div class="bg-white shadow-sm rounded-xl p-5">
+        <h3 class="text-sm font-semibold text-gray-500 mb-3">수취인 정보</h3>
+        <dl class="space-y-2 text-sm">
+            <div class="flex"><dt class="w-28 text-gray-500">주문번호</dt><dd><a href="{% url 'sales:order_detail' shipment.order.pk %}" class="text-blue-600 hover:underline">{{ shipment.order.order_number }}</a></dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">수취인</dt><dd>{{ shipment.receiver_name|default:"-" }}</dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">연락처</dt><dd>{{ shipment.receiver_phone|default:"-" }}</dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">배송주소</dt><dd>{{ shipment.receiver_address|default:"-" }}</dd></div>
+        </dl>
+    </div>
+</div>
+{% endblock %}

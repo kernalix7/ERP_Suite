@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}제품 삭제 - ERP Suite{% endblock %}
+{% block page_title %}제품 삭제{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'inventory:product_detail' product.pk %}" class="btn btn-secondary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    돌아가기
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+            </div>
+            <h2 class="text-lg font-bold text-gray-900 mb-2">제품을 삭제하시겠습니까?</h2>
+            <p class="text-sm text-gray-500 mb-1">
+                <span class="font-mono text-gray-700">{{ product.code }}</span> - <span class="font-medium text-gray-700">{{ product.name }}</span>
+            </p>
+            <p class="text-sm text-red-600 mt-3">
+                이 작업은 되돌릴 수 없습니다. 관련된 모든 데이터가 삭제됩니다.
+            </p>
+        </div>
+
+        <form method="post" class="mt-8">
+            {% csrf_token %}
+            <div class="flex items-center justify-center gap-3">
+                <a href="{% url 'inventory:product_detail' product.pk %}" class="btn btn-secondary">취소</a>
+                <button type="submit" class="btn btn-danger">삭제</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

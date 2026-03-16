@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "출퇴근 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "전체 직원 출퇴근 관리" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'attendance:dashboard' %}" class="btn btn-secondary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    {% trans "대시보드" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <!-- 날짜 선택 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-3">
+            <div class="w-full sm:w-48">
+                <input type="date" name="date" value="{{ selected_date }}" class="form-input">
+            </div>
+            <button type="submit" class="btn btn-secondary">
+                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                {% trans "조회" %}
+            </button>
+        </form>
+    </div>
+
+    <!-- 출근한 직원 테이블 -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">{% trans "직원" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "역할" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "출근" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "퇴근" %}</th>
+                    <th class="px-6 py-3 font-semibold text-right">{% trans "근무시간" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "상태" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for record in records %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-gray-900">{{ record.user }}</td>
+                    <td class="px-6 py-4 text-gray-500">{{ record.user.get_role_display }}</td>
+                    <td class="px-6 py-4 text-gray-700">
+                        {% if record.check_in %}{{ record.check_in|time:"H:i" }}{% else %}<span class="text-gray-400">-</span>{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-gray-700">
+                        {% if record.check_out %}{{ record.check_out|time:"H:i" }}{% else %}<span class="text-gray-400">-</span>{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right text-gray-700">
+                        {% if record.work_hours %}{{ record.work_hours }}h{% else %}<span class="text-gray-400">-</span>{% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if record.status == 'NORMAL' %}bg-green-100 text-green-800
+                            {% elif record.status == 'LATE' %}bg-yellow-100 text-yellow-800
+                            {% elif record.status == 'EARLY_LEAVE' %}bg-orange-100 text-orange-800
+                            {% elif record.status == 'ABSENT' %}bg-red-100 text-red-800
+                            {% elif record.status == 'HOLIDAY' %}bg-blue-100 text-blue-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ record.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                        {% trans "해당 날짜의 출퇴근 기록이 없습니다." %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 미출근 직원 -->
+{% if absent_users %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mt-6">
+    <div class="p-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-800">{% trans "미출근 직원" %}</h3>
+    </div>
+    <div class="p-4">
+        <div class="flex flex-wrap gap-2">
+            {% for user in absent_users %}
+            <span class="inline-flex items-center px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-sm font-medium">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+                {{ user }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}스토어 대시보드 - ERP Suite{% endblock %}
+{% block page_title %}스토어 대시보드{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">주문 목록</a>
+{% endblock %}
+
+{% block content %}
+<!-- 상태별 주문건수 카드 -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white shadow-sm rounded-xl p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">신규주문</p>
+                <p class="mt-2 text-2xl font-bold text-blue-600">{{ new_order_count|default:0 }}</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white shadow-sm rounded-xl p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">확인</p>
+                <p class="mt-2 text-2xl font-bold text-yellow-600">{{ confirmed_count|default:0 }}</p>
+            </div>
+            <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white shadow-sm rounded-xl p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">발송완료</p>
+                <p class="mt-2 text-2xl font-bold text-indigo-600">{{ shipped_count|default:0 }}</p>
+            </div>
+            <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white shadow-sm rounded-xl p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">배송완료</p>
+                <p class="mt-2 text-2xl font-bold text-green-600">{{ delivered_count|default:0 }}</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 최근 동기화 정보 -->
+<div class="bg-white shadow-sm rounded-xl p-6 mb-8">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">최근 동기화 정보</h3>
+    {% if last_sync %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <p class="text-sm text-gray-500">마지막 동기화</p>
+            <p class="text-sm font-medium text-gray-900">{{ last_sync.started_at|date:"Y-m-d H:i" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">동기화 건수</p>
+            <p class="text-sm font-medium text-gray-900">{{ last_sync.total_count }}건 (성공: {{ last_sync.success_count }} / 실패: {{ last_sync.fail_count }})</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">상태</p>
+            <p class="text-sm font-medium {% if last_sync.fail_count > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                {% if last_sync.fail_count > 0 %}일부 실패{% else %}정상 완료{% endif %}
+            </p>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400">동기화 이력이 없습니다.</p>
+    {% endif %}
+</div>
+
+<!-- 최근 주문 5건 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-800">최근 주문</h3>
+        <a href="{% url 'marketplace:order_list' %}" class="text-sm text-blue-600 hover:text-blue-800">전체보기</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">주문번호</th>
+                    <th class="px-4 py-3">상품명</th>
+                    <th class="px-4 py-3 text-right">금액</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3">주문일</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for order in recent_orders %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono text-gray-900">
+                        <a href="{% url 'marketplace:order_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            {{ order.order_number }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">{{ order.product_name|truncatechars:30 }}</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ order.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if order.status == '신규주문' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">신규주문</span>
+                        {% elif order.status == '확인' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">확인</span>
+                        {% elif order.status == '발송완료' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">발송완료</span>
+                        {% elif order.status == '배송완료' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">배송완료</span>
+                        {% elif order.status == '취소' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">취소</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ order.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ order.order_date|date:"Y-m-d" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">최근 주문이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

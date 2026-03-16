@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ post.title }} - ERP Suite{% endblock %}
+{% block page_title %}{{ post.board.name }}{% endblock %}
+
+{% block header_actions %}
+{% if post.author == request.user or request.user.role == 'admin' or request.user.role == 'manager' %}
+<a href="{% url 'board:post_update' post.pk %}" class="btn btn-secondary">{% trans "수정" %}</a>
+<a href="{% url 'board:post_delete' post.pk %}" class="btn btn-secondary text-red-600 hover:text-red-800">{% trans "삭제" %}</a>
+{% endif %}
+<a href="{% url 'board:post_list' post.board.slug %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 게시글 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center gap-2 mb-2">
+                {% if post.is_pinned %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "고정" %}</span>
+                {% endif %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ post.board.name }}</span>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800">{{ post.title }}</h2>
+            <div class="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                <span>{{ post.author }}</span>
+                <span>{{ post.created_at|date:"Y-m-d H:i" }}</span>
+                <span>{% trans "조회" %} {{ post.view_count }}</span>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="prose max-w-none text-sm text-gray-700 whitespace-pre-wrap">{{ post.content }}</div>
+        </div>
+    </div>
+
+    <!-- 댓글 목록 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">{% trans "댓글" %} ({{ post.comments.count }})</h3>
+        </div>
+        <div class="divide-y divide-gray-100">
+            {% for comment in comments %}
+            <div class="p-4" id="comment-{{ comment.pk }}">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-gray-900">{{ comment.author }}</span>
+                        <span class="text-xs text-gray-400">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
+                    </div>
+                    <button type="button" onclick="document.getElementById('reply-form-{{ comment.pk }}').classList.toggle('hidden')"
+                            class="text-xs text-blue-600 hover:text-blue-800">{% trans "답글" %}</button>
+                </div>
+                <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ comment.content }}</p>
+
+                <!-- 답글 폼 -->
+                <div id="reply-form-{{ comment.pk }}" class="hidden mt-3">
+                    <form method="post" action="{% url 'board:comment_create' post.pk %}" class="flex gap-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="parent" value="{{ comment.pk }}">
+                        <textarea name="content" rows="2" class="form-input flex-1" placeholder="{% trans '답글을 입력하세요...' %}"></textarea>
+                        <button type="submit" class="btn btn-primary self-end">{% trans "등록" %}</button>
+                    </form>
+                </div>
+
+                <!-- 대댓글 -->
+                {% for reply in comment.replies.all %}
+                <div class="ml-8 mt-3 pl-4 border-l-2 border-gray-200" id="comment-{{ reply.pk }}">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-medium text-gray-900">{{ reply.author }}</span>
+                        <span class="text-xs text-gray-400">{{ reply.created_at|date:"Y-m-d H:i" }}</span>
+                    </div>
+                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ reply.content }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% empty %}
+            <div class="p-6 text-center text-gray-400 text-sm">
+                {% trans "아직 댓글이 없습니다." %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 댓글 작성 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">{% trans "댓글 작성" %}</h3>
+        <form method="post" action="{% url 'board:comment_create' post.pk %}">
+            {% csrf_token %}
+            <div class="mb-4">
+                <textarea name="content" rows="4" class="form-input w-full" placeholder="{% trans '댓글을 입력하세요...' %}"></textarea>
+            </div>
+            <div class="flex justify-end">
+                <button type="submit" class="btn btn-primary">{% trans "댓글 등록" %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}작업지시 상세 - {{ object.order_number }} - ERP Suite{% endblock %}
+{% block page_title %}작업지시 상세{% endblock %}
+
+{% block header_actions %}
+<div class="flex flex-wrap items-center space-x-2">
+    <a href="{% url 'production:workorder_update' object.pk %}" class="btn btn-primary">수정</a>
+    <a href="{% url 'production:workorder_list' %}" class="btn btn-secondary">목록</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- 기본 정보 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">기본 정보</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+            <dt class="text-sm font-medium text-gray-500">지시번호</dt>
+            <dd class="mt-1 text-sm text-gray-900 font-medium">{{ object.order_number }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">생산계획</dt>
+            <dd class="mt-1 text-sm">
+                <a href="{% url 'production:plan_detail' object.production_plan.pk %}" class="text-blue-600 hover:text-blue-800">
+                    {{ object.production_plan.plan_number }}
+                </a>
+            </dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">생산제품</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ object.production_plan.product.name }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">지시수량</dt>
+            <dd class="mt-1 text-sm text-gray-900 font-medium">{{ object.quantity|floatformat:0 }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">상태</dt>
+            <dd class="mt-1">
+                {% if object.status == 'PENDING' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">대기</span>
+                {% elif object.status == 'IN_PROGRESS' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">작업중</span>
+                {% elif object.status == 'COMPLETED' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">완료</span>
+                {% elif object.status == 'CANCELLED' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">취소</span>
+                {% endif %}
+            </dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">담당자</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ object.assigned_to.name|default:"-" }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">작업시작</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ object.started_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">작업완료</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ object.completed_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+        </div>
+    </dl>
+</div>
+
+<!-- 생산실적 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-800">생산실적</h2>
+        <a href="{% url 'production:record_create' %}?workorder={{ object.pk }}" class="btn btn-secondary text-xs">
+            <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            실적 등록
+        </a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-600">실적일</th>
+                    <th class="px-6 py-3 text-right font-semibold text-gray-600">양품수량</th>
+                    <th class="px-6 py-3 text-right font-semibold text-gray-600">불량수량</th>
+                    <th class="px-6 py-3 text-right font-semibold text-gray-600">합계</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-600">작업자</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for record in object.records.all %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 text-gray-900">{{ record.record_date|date:"Y-m-d" }}</td>
+                    <td class="px-6 py-4 text-right text-green-700 font-medium">{{ record.good_quantity|floatformat:0 }}</td>
+                    <td class="px-6 py-4 text-right text-red-600 font-medium">{{ record.defect_quantity|floatformat:0 }}</td>
+                    <td class="px-6 py-4 text-right text-gray-900 font-medium">{{ record.total_quantity|floatformat:0 }}</td>
+                    <td class="px-6 py-4 text-gray-700">{{ record.worker.name|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                        등록된 생산실적이 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

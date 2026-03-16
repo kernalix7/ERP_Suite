@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}손익분기점 분석 - ERP Suite{% endblock %}
+{% block page_title %}손익분기점 분석{% endblock %}
+
+{% block content %}
+<!-- 이달 고정비 합계 -->
+<div class="mb-6">
+    <div class="bg-white shadow-sm rounded-xl p-6 inline-block">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500">이달 고정비 합계</p>
+                <p class="text-2xl font-bold text-gray-900">{{ monthly_fixed_cost|intcomma }}원</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 제품별 손익분기점 테이블 -->
+<div class="bg-white shadow-sm rounded-xl overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-800">제품별 손익분기점</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-4 font-semibold">제품명</th>
+                    <th class="px-6 py-4 font-semibold text-right">판매가</th>
+                    <th class="px-6 py-4 font-semibold text-right">변동비</th>
+                    <th class="px-6 py-4 font-semibold text-right">공헌이익</th>
+                    <th class="px-6 py-4 font-semibold text-right">BEP 수량</th>
+                    <th class="px-6 py-4 font-semibold text-right">BEP 매출</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for item in breakeven_data %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.product_name }}</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ item.price|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ item.variable_cost|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ item.contribution_margin|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right font-semibold text-blue-600">{{ item.bep_quantity|intcomma }}개</td>
+                    <td class="px-6 py-4 text-right font-semibold text-blue-600">{{ item.bep_revenue|intcomma }}원</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">분석 가능한 제품이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- 손익분기점 차트 -->
+    <div class="bg-white shadow-sm rounded-xl p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">손익분기점 차트</h3>
+        {% if breakeven_data %}
+        <p class="text-sm text-gray-500 mb-4">기준 제품: {{ breakeven_data.0.product_name }}</p>
+        <canvas id="breakevenChart" height="300"></canvas>
+        {% else %}
+        <p class="text-gray-400 text-center py-12">표시할 데이터가 없습니다.</p>
+        {% endif %}
+    </div>
+
+    <!-- 고정비 구성 -->
+    <div class="bg-white shadow-sm rounded-xl p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">고정비 구성</h3>
+        {% if fixed_cost_breakdown %}
+        <div class="space-y-3">
+            {% for item in fixed_cost_breakdown %}
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700">{{ item.category }}</span>
+                <span class="text-sm font-bold text-gray-900">{{ item.total|intcomma }}원</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-blue-600 h-2 rounded-full" style="width: {% widthratio item.total monthly_fixed_cost 100 %}%"></div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-400 text-center py-12">등록된 고정비가 없습니다.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if breakeven_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const bepData = {{ breakeven_json|safe }};
+    const fixedCost = bepData.fixed_cost;
+    const price = bepData.price;
+    const variableCost = bepData.variable_cost;
+    const bepQty = bepData.bep_quantity;
+    const maxQty = Math.ceil(bepQty * 2);
+
+    const quantities = [];
+    const revenueLine = [];
+    const costLine = [];
+    const step = Math.max(1, Math.floor(maxQty / 20));
+
+    for (let q = 0; q <= maxQty; q += step) {
+        quantities.push(q);
+        revenueLine.push(price * q);
+        costLine.push(fixedCost + variableCost * q);
+    }
+
+    new Chart(document.getElementById('breakevenChart'), {
+        type: 'line',
+        data: {
+            labels: quantities,
+            datasets: [
+                {
+                    label: '매출',
+                    data: revenueLine,
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1
+                },
+                {
+                    label: '총비용',
+                    data: costLine,
+                    borderColor: 'rgba(239, 68, 68, 1)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                annotation: {
+                    annotations: {
+                        bepPoint: {
+                            type: 'point',
+                            xValue: bepQty,
+                            yValue: price * bepQty,
+                            backgroundColor: 'rgba(234, 179, 8, 1)',
+                            radius: 6,
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + '원';
+                        },
+                        title: function(tooltipItems) {
+                            return '수량: ' + tooltipItems[0].label + '개';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: '수량 (개)'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: '금액 (원)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString() + '원';
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

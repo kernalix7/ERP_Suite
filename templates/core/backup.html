@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}백업 관리 - ERP Suite{% endblock %}
+{% block page_title %}백업 관리{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h2 class="text-lg font-semibold text-gray-800">데이터 백업</h2>
+                <p class="mt-2 text-sm text-gray-600">
+                    현재 시스템의 모든 데이터를 JSON 형식으로 백업할 수 있습니다.
+                    백업 파일에는 모든 테이블의 데이터가 포함되며, 복원 시 사용할 수 있습니다.
+                </p>
+                <p class="mt-2 text-sm text-gray-500">
+                    정기적으로 백업을 수행하여 데이터 손실을 예방하시기 바랍니다.
+                </p>
+                <div class="mt-6">
+                    <a href="{% url 'core:backup_download' %}" class="btn btn-primary">
+                        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        JSON 백업 다운로드
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

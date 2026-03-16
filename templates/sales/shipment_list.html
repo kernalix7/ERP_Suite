@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block page_title %}{% trans "배송 관리" %}{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <form method="get" class="flex flex-col sm:flex-row gap-2 flex-1">
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="배송번호, 운송장, 주문번호..." class="form-input max-w-xs">
+        <select name="status" class="form-input max-w-[160px]" onchange="this.form.submit()">
+            <option value="">전체 상태</option>
+            <option value="PREPARING" {% if request.GET.status == 'PREPARING' %}selected{% endif %}>준비중</option>
+            <option value="SHIPPED" {% if request.GET.status == 'SHIPPED' %}selected{% endif %}>발송</option>
+            <option value="IN_TRANSIT" {% if request.GET.status == 'IN_TRANSIT' %}selected{% endif %}>배송중</option>
+            <option value="DELIVERED" {% if request.GET.status == 'DELIVERED' %}selected{% endif %}>배송완료</option>
+        </select>
+        <button type="submit" class="btn btn-secondary">{% trans "검색" %}</button>
+    </form>
+</div>
+
+<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div class="table-responsive">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">배송번호</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">택배사</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">운송장번호</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">수취인</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">발송일</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for s in shipments %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-medium"><a href="{% url 'sales:shipment_detail' s.pk %}" class="text-blue-600 hover:underline">{{ s.shipment_number }}</a></td>
+                    <td class="px-4 py-3 text-sm"><a href="{% url 'sales:order_detail' s.order.pk %}" class="text-blue-600 hover:underline">{{ s.order.order_number }}</a></td>
+                    <td class="px-4 py-3 text-sm">{{ s.get_carrier_display }}</td>
+                    <td class="px-4 py-3 text-sm">
+                        {% if s.tracking_url %}<a href="{{ s.tracking_url }}" target="_blank" class="text-blue-600 hover:underline">{{ s.tracking_number }}</a>
+                        {% else %}{{ s.tracking_number|default:"-" }}{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm">{{ s.receiver_name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if s.status == 'DELIVERED' %}<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">배송완료</span>
+                        {% elif s.status == 'IN_TRANSIT' or s.status == 'SHIPPED' %}<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">{{ s.get_status_display }}</span>
+                        {% elif s.status == 'RETURNED' %}<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">반품</span>
+                        {% else %}<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{{ s.get_status_display }}</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm">{{ s.shipped_date|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">배송 내역이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_paginated %}
+<div class="mt-4 flex justify-center">
+    <nav class="flex gap-1">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary text-xs">이전</a>{% endif %}
+        <span class="btn text-xs">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary text-xs">다음</a>{% endif %}
+    </nav>
+</div>
+{% endif %}
+{% endblock %}

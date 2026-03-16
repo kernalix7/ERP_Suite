@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "휴가 내역" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "휴가 내역" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'attendance:leave_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "휴가 신청" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">{% trans "유형" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "기간" %}</th>
+                    <th class="px-6 py-3 font-semibold text-right">{% trans "일수" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "사유" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "상태" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "승인자" %}</th>
+                    {% if request.user.is_manager_role %}
+                    <th class="px-6 py-3 font-semibold">{% trans "처리" %}</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for leave in leaves %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if leave.leave_type == 'ANNUAL' %}bg-blue-100 text-blue-800
+                            {% elif leave.leave_type == 'HALF_AM' %}bg-cyan-100 text-cyan-800
+                            {% elif leave.leave_type == 'HALF_PM' %}bg-teal-100 text-teal-800
+                            {% elif leave.leave_type == 'SICK' %}bg-red-100 text-red-800
+                            {% elif leave.leave_type == 'SPECIAL' %}bg-purple-100 text-purple-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ leave.get_leave_type_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-700">{{ leave.start_date|date:"Y-m-d" }} ~ {{ leave.end_date|date:"Y-m-d" }}</td>
+                    <td class="px-6 py-4 text-right font-medium text-gray-900">{{ leave.days }}{% trans "일" %}</td>
+                    <td class="px-6 py-4 text-gray-700 max-w-xs truncate">{{ leave.reason }}</td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if leave.status == 'PENDING' %}bg-yellow-100 text-yellow-800
+                            {% elif leave.status == 'APPROVED' %}bg-green-100 text-green-800
+                            {% elif leave.status == 'REJECTED' %}bg-red-100 text-red-800
+                            {% elif leave.status == 'CANCELLED' %}bg-gray-100 text-gray-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ leave.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-500">{{ leave.approved_by|default:"-" }}</td>
+                    {% if request.user.is_manager_role %}
+                    <td class="px-6 py-4">
+                        {% if leave.status == 'PENDING' %}
+                        <div class="flex gap-1">
+                            <form method="post" action="{% url 'attendance:leave_approve' leave.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="approve">
+                                <button type="submit" class="px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded transition-colors">
+                                    {% trans "승인" %}
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'attendance:leave_approve' leave.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="reject">
+                                <button type="submit" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition-colors">
+                                    {% trans "반려" %}
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        {% trans "휴가 신청 내역이 없습니다." %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">
+            {% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}
+        </p>
+        <nav class="flex items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}"
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}"
+               class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}"
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

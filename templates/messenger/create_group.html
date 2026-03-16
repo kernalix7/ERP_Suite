@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}그룹 대화 만들기 - 사내 메신저 - ERP Suite{% endblock %}
+{% block page_title %}사내 메신저{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'messenger:chat_list' %}" class="btn btn-secondary">목록으로</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-6">그룹 대화 만들기</h2>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- 그룹명 -->
+            <div class="mb-6">
+                <label for="id_name" class="block text-sm font-medium text-gray-700 mb-1">그룹명</label>
+                <input type="text" name="name" id="id_name" maxlength="100" required
+                       value="{{ form.name.value|default:'' }}"
+                       class="form-input"
+                       placeholder="그룹 대화방 이름을 입력하세요">
+                {% if form.name.errors %}
+                <p class="text-xs text-red-500 mt-1">{{ form.name.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- 참여자 선택 -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">참여자 선택</label>
+                <div class="border border-gray-200 rounded-lg max-h-64 overflow-y-auto divide-y divide-gray-100">
+                    {% for choice in form.participants %}
+                    <label class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer">
+                        {{ choice.tag }}
+                        <span class="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            {{ choice.choice_label|truncatechars:1 }}
+                        </span>
+                        <span class="text-sm text-gray-700">{{ choice.choice_label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% if form.participants.errors %}
+                <p class="text-xs text-red-500 mt-1">{{ form.participants.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="flex items-center justify-end gap-3">
+                <a href="{% url 'messenger:chat_list' %}" class="btn btn-secondary">취소</a>
+                <button type="submit" class="btn btn-primary">만들기</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

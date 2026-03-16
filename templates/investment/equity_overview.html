@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}지분 현황 - ERP Suite{% endblock %}
+{% block page_title %}지분 현황{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'investment:dashboard' %}" class="btn btn-secondary">대시보드로</a>
+{% endblock %}
+
+{% block content %}
+<!-- 차트 & 요약 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- 지분 분포 차트 -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">지분 분포</h3>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <div class="flex justify-center">
+            <canvas id="equityDistChart" style="max-height: 320px;"></canvas>
+        </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const chartData = {{ chart_json|safe }};
+                const colors = [
+                    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+                    '#EC4899', '#06B6D4', '#F97316', '#6366F1', '#14B8A6'
+                ];
+                new Chart(document.getElementById('equityDistChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: chartData.map(d => d.name),
+                        datasets: [{
+                            data: chartData.map(d => d.share),
+                            backgroundColor: colors.slice(0, chartData.length),
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { padding: 16, usePointStyle: true, pointStyleWidth: 10 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(ctx) {
+                                        return ctx.label + ': ' + ctx.parsed.toFixed(2) + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        </script>
+    </div>
+
+    <!-- 요약 카드 -->
+    <div class="space-y-6">
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">지분 요약</h3>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                    <div>
+                        <p class="text-sm text-blue-600 font-medium">대표/창업자 지분</p>
+                    </div>
+                    <p class="text-2xl font-bold text-blue-700">{{ founder_share }}%</p>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                    <div>
+                        <p class="text-sm text-green-600 font-medium">투자자 지분 합계</p>
+                    </div>
+                    <p class="text-2xl font-bold text-green-700">{{ total_share }}%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 투자자별 현황 -->
+<div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">투자자별 현황</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">투자자</th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">지분율</th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">총투자금</th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">총배당금</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for data in equity_data %}
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 px-4 font-medium text-gray-900">{{ data.name }}</td>
+                    <td class="py-3 px-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <div class="w-20 bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: {{ data.share }}%"></div>
+                            </div>
+                            <span>{{ data.share }}%</span>
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 text-right">{{ data.total_invested|intcomma }}원</td>
+                    <td class="py-3 px-4 text-right">{{ data.total_distributed|intcomma }}원</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="py-8 text-center text-gray-400">투자자 데이터가 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 지분변동이력 -->
+<div class="bg-white rounded-xl shadow-sm p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">지분변동이력</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">투자자</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">변동유형</th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">변동 전</th>
+                    <th class="text-center py-3 px-4 font-medium text-gray-500"></th>
+                    <th class="text-right py-3 px-4 font-medium text-gray-500">변동 후</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">변동일</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-500">관련 라운드</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for change in equity_changes %}
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 px-4 font-medium text-gray-900">{{ change.investor.name }}</td>
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if change.change_type == '신규투자' %}bg-green-100 text-green-800
+                            {% elif change.change_type == '희석' %}bg-yellow-100 text-yellow-800
+                            {% elif change.change_type == '지분양도' %}bg-blue-100 text-blue-800
+                            {% elif change.change_type == '자사주매입' %}bg-purple-100 text-purple-800
+                            {% endif %}">
+                            {{ change.change_type }}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-right">{{ change.before_percentage }}%</td>
+                    <td class="py-3 px-4 text-center text-gray-400">&rarr;</td>
+                    <td class="py-3 px-4 text-right font-medium">{{ change.after_percentage }}%</td>
+                    <td class="py-3 px-4">{{ change.change_date }}</td>
+                    <td class="py-3 px-4">{{ change.related_round|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="py-8 text-center text-gray-400">지분변동 이력이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

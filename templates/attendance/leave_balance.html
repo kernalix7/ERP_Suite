@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "연차 현황" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "연차 현황" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'attendance:dashboard' %}" class="btn btn-secondary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    {% trans "대시보드" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- 연차 잔여 카드 -->
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-6">{{ balance.year }}{% trans "년 연차 현황" %}</h3>
+
+        <div class="grid grid-cols-3 gap-6 mb-8">
+            <div class="text-center">
+                <p class="text-sm text-gray-500 mb-1">{% trans "총 연차" %}</p>
+                <p class="text-3xl font-bold text-gray-900">{{ balance.total_days }}</p>
+                <p class="text-sm text-gray-400">{% trans "일" %}</p>
+            </div>
+            <div class="text-center">
+                <p class="text-sm text-gray-500 mb-1">{% trans "사용" %}</p>
+                <p class="text-3xl font-bold text-blue-600">{{ balance.used_days }}</p>
+                <p class="text-sm text-gray-400">{% trans "일" %}</p>
+            </div>
+            <div class="text-center">
+                <p class="text-sm text-gray-500 mb-1">{% trans "잔여" %}</p>
+                <p class="text-3xl font-bold {% if balance.remaining_days > 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ balance.remaining_days }}</p>
+                <p class="text-sm text-gray-400">{% trans "일" %}</p>
+            </div>
+        </div>
+
+        <!-- 프로그레스 바 -->
+        <div>
+            <div class="flex justify-between text-sm text-gray-500 mb-2">
+                <span>{% trans "사용률" %}</span>
+                <span>
+                    {% widthratio balance.used_days balance.total_days 100 %}%
+                </span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-4">
+                <div class="h-4 rounded-full transition-all duration-500
+                    {% widthratio balance.used_days balance.total_days 100 as usage_pct %}
+                    {% if usage_pct > 80 %}bg-red-500{% elif usage_pct > 50 %}bg-yellow-500{% else %}bg-green-500{% endif %}"
+                    style="width: {% widthratio balance.used_days balance.total_days 100 %}%">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 올해 사용 내역 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="p-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">{% trans "올해 휴가 사용 내역" %}</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                    <tr>
+                        <th class="px-6 py-3 font-semibold">{% trans "유형" %}</th>
+                        <th class="px-6 py-3 font-semibold">{% trans "기간" %}</th>
+                        <th class="px-6 py-3 font-semibold text-right">{% trans "일수" %}</th>
+                        <th class="px-6 py-3 font-semibold">{% trans "사유" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for leave in used_leaves %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if leave.leave_type == 'ANNUAL' %}bg-blue-100 text-blue-800
+                                {% elif leave.leave_type == 'HALF_AM' %}bg-cyan-100 text-cyan-800
+                                {% elif leave.leave_type == 'HALF_PM' %}bg-teal-100 text-teal-800
+                                {% elif leave.leave_type == 'SICK' %}bg-red-100 text-red-800
+                                {% elif leave.leave_type == 'SPECIAL' %}bg-purple-100 text-purple-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ leave.get_leave_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-gray-700">{{ leave.start_date|date:"Y-m-d" }} ~ {{ leave.end_date|date:"Y-m-d" }}</td>
+                        <td class="px-6 py-4 text-right font-medium text-gray-900">{{ leave.days }}{% trans "일" %}</td>
+                        <td class="px-6 py-4 text-gray-700 max-w-xs truncate">{{ leave.reason }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                            {% trans "올해 사용한 휴가가 없습니다." %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

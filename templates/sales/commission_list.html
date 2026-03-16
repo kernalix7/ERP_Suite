@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}수수료 내역 - ERP Suite{% endblock %}
+{% block page_title %}수수료 내역{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'sales:commission_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    수수료 등록
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <!-- 필터 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <select name="status" class="form-input w-auto">
+                <option value="">전체 상태</option>
+                <option value="미정산" {% if request.GET.status == '미정산' %}selected{% endif %}>미정산</option>
+                <option value="정산완료" {% if request.GET.status == '정산완료' %}selected{% endif %}>정산완료</option>
+            </select>
+            <select name="partner" class="form-input w-auto">
+                <option value="">전체 거래처</option>
+                {% for partner in partners %}
+                <option value="{{ partner.pk }}" {% if request.GET.partner == partner.pk|stringformat:"d" %}selected{% endif %}>{{ partner.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">검색</button>
+        </form>
+    </div>
+
+    <!-- 테이블 -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">거래처</th>
+                    <th class="px-4 py-3">주문</th>
+                    <th class="px-4 py-3 text-right">주문금액</th>
+                    <th class="px-4 py-3 text-right">수수료율</th>
+                    <th class="px-4 py-3 text-right">수수료금액</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3">정산일</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for commission in object_list %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-900 font-medium">{{ commission.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">
+                        <a href="{% url 'sales:order_detail' commission.order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            {{ commission.order.order_number }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ commission.order_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ commission.rate }}%</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ commission.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if commission.status == '미정산' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">미정산</span>
+                        {% elif commission.status == '정산완료' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">정산완료</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ commission.settled_date|date:"Y-m-d"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                        등록된 수수료 내역이 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&status={{ request.GET.status }}&partner={{ request.GET.partner }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&status={{ request.GET.status }}&partner={{ request.GET.partner }}"
+               class="px-3 py-1 text-sm rounded border {% if page_obj.number == num %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 hover:bg-gray-50{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&status={{ request.GET.status }}&partner={{ request.GET.partner }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

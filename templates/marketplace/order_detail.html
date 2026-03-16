@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}스토어 주문상세 - {{ object.order_number }} - ERP Suite{% endblock %}
+{% block page_title %}스토어 주문상세{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">목록으로</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 주문정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800">주문 정보</h2>
+            {% if object.status == '신규주문' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">신규주문</span>
+            {% elif object.status == '확인' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">확인</span>
+            {% elif object.status == '발송완료' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">발송완료</span>
+            {% elif object.status == '배송완료' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">배송완료</span>
+            {% elif object.status == '취소' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">취소</span>
+            {% else %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ object.status }}</span>
+            {% endif %}
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">주문번호</dt>
+                <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ object.order_number }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">상품명</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.product_name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">수량</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.quantity }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">금액</dt>
+                <dd class="mt-1 text-sm font-bold text-gray-900">{{ object.amount|intcomma }}원</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">주문자</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.buyer_name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">주문일</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.order_date|date:"Y-m-d H:i" }}</dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- 배송정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">배송 정보</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">수령인</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.receiver_name|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">연락처</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.receiver_phone|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">택배사</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.delivery_company|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">운송장번호</dt>
+                <dd class="mt-1 text-sm font-mono text-gray-900">{{ object.tracking_number|default:"-" }}</dd>
+            </div>
+            <div class="md:col-span-2">
+                <dt class="text-sm text-gray-500">배송지</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.shipping_address|default:"-" }}</dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- ERP 연결 주문 -->
+    {% if object.erp_order %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">ERP 연결 주문</h2>
+        <a href="{% url 'sales:order_detail' object.erp_order.pk %}" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+            {{ object.erp_order.order_number }} - 주문 상세 보기
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

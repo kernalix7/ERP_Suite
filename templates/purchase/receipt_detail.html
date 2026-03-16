@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "입고 상세" %} - {{ receipt.receipt_number }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "입고 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'purchase:po_detail' receipt.purchase_order.pk %}" class="btn btn-secondary">{% trans "발주서 보기" %}</a>
+<a href="{% url 'purchase:receipt_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 입고 기본정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "입고 정보" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "입고번호" %}</dt>
+                <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ receipt.receipt_number }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "발주번호" %}</dt>
+                <dd class="mt-1 text-sm font-mono text-gray-900">
+                    <a href="{% url 'purchase:po_detail' receipt.purchase_order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        {{ receipt.purchase_order.po_number }}
+                    </a>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "공급처" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ receipt.purchase_order.partner.name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "입고일" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ receipt.receipt_date|date:"Y-m-d" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "작성자" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ receipt.created_by|default:"-" }}</dd>
+            </div>
+            {% if receipt.notes %}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">{% trans "비고" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ receipt.notes }}</dd>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 입고 항목 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "입고 항목" %}</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3 w-8">#</th>
+                        <th class="px-4 py-3">{% trans "제품" %}</th>
+                        <th class="px-4 py-3 text-right">{% trans "입고수량" %}</th>
+                        <th class="px-4 py-3 text-center">{% trans "검수완료" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in items %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
+                        <td class="px-4 py-3 text-gray-900 font-medium">{{ item.po_item.product }}</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ item.received_quantity }}</td>
+                        <td class="px-4 py-3 text-center">
+                            {% if item.is_inspected %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "완료" %}</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "미검수" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-400">{% trans "입고 항목이 없습니다." %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

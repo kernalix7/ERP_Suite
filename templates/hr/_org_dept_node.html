@@ -1,0 +1,54 @@
+{% load i18n %}
+<div x-data="{ open: {{ level }} < 2 ? true : false }" class="{% if level > 0 %}ml-6 border-l-2 border-blue-200 pl-4{% endif %}">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-3">
+        <!-- 부서 헤더 -->
+        <div class="px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors rounded-t-xl"
+             @click="open = !open">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-blue-500 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                <div>
+                    <h3 class="text-sm font-bold text-gray-900">{{ department.name }}</h3>
+                    <p class="text-xs text-gray-500 font-mono">{{ department.code }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                {% if department.manager %}
+                <span class="text-xs text-gray-500">
+                    {% trans "부서장" %}: <span class="font-medium text-gray-700">{{ department.manager }}</span>
+                </span>
+                {% endif %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {{ department.employees.count }}{% trans "명" %}
+                </span>
+            </div>
+        </div>
+
+        <!-- 소속 직원 목록 -->
+        <div x-show="open" x-transition class="border-t border-gray-100">
+            {% for emp in department.employees.all %}
+            <a href="{% url 'hr:employee_detail' emp.pk %}"
+               class="flex items-center gap-3 px-5 py-2.5 hover:bg-blue-50 transition-colors {% if not forloop.last %}border-b border-gray-50{% endif %}">
+                <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                    {{ emp.user.name|default:emp.user.username|truncatechars:1 }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">{{ emp.user.name|default:emp.user.username }}</p>
+                    <p class="text-xs text-gray-500">{{ emp.position|default:"-" }}</p>
+                </div>
+                <span class="text-xs font-mono text-gray-400">{{ emp.employee_number }}</span>
+            </a>
+            {% empty %}
+            <p class="px-5 py-3 text-xs text-gray-400">{% trans "소속 직원이 없습니다." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 하위 부서 (재귀) -->
+    <div x-show="open" x-transition>
+        {% for child in department.children.all %}
+        {% include "hr/_org_dept_node.html" with department=child level=level|add:"1" %}
+        {% endfor %}
+    </div>
+</div>

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} - 제품 상세 - ERP Suite{% endblock %}
+{% block page_title %}제품 상세{% endblock %}
+
+{% block header_actions %}
+<div class="flex flex-wrap items-center gap-2">
+    <a href="{% url 'inventory:product_update' product.pk %}" class="btn btn-primary">수정</a>
+    <a href="{% url 'inventory:product_delete' product.pk %}" class="btn btn-danger">삭제</a>
+    <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary">목록</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- 제품 정보 카드 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <div class="flex items-start justify-between mb-6">
+        <div>
+            <h2 class="text-xl font-bold text-gray-900">{{ product.name }}</h2>
+            <p class="text-sm text-gray-500 font-mono mt-1">{{ product.code }}</p>
+        </div>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+            {% if product.product_type == 'RAW' %}bg-amber-100 text-amber-800
+            {% elif product.product_type == 'HALF' %}bg-blue-100 text-blue-800
+            {% elif product.product_type == 'FINISHED' %}bg-green-100 text-green-800
+            {% else %}bg-gray-100 text-gray-800{% endif %}">
+            {{ product.get_product_type_display }}
+        </span>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">카테고리</p>
+            <p class="text-sm font-medium text-gray-900">{{ product.category|default:"-" }}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">단가</p>
+            <p class="text-sm font-medium text-gray-900">{{ product.unit_price|floatformat:0 }} 원</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">현재고</p>
+            <p class="text-sm font-medium {% if product.current_stock < product.safety_stock %}text-red-600{% else %}text-gray-900{% endif %}">
+                {{ product.current_stock }} {{ product.unit|default:"개" }}
+                {% if product.current_stock < product.safety_stock %}
+                <span class="text-xs ml-1 text-red-500">(부족)</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">안전재고</p>
+            <p class="text-sm font-medium text-gray-900">{{ product.safety_stock }} {{ product.unit|default:"개" }}</p>
+        </div>
+    </div>
+
+    {% if product.description %}
+    <div class="mt-6 pt-6 border-t border-gray-200">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">설명</p>
+        <p class="text-sm text-gray-700">{{ product.description }}</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 최근 입출고 이력 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-gray-900">최근 입출고 이력</h3>
+        <a href="{% url 'inventory:movement_list' %}?product={{ product.pk }}" class="text-sm text-blue-600 hover:text-blue-800">전체보기</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">전표번호</th>
+                    <th class="px-6 py-3 font-semibold">유형</th>
+                    <th class="px-6 py-3 font-semibold">창고</th>
+                    <th class="px-6 py-3 font-semibold text-right">수량</th>
+                    <th class="px-6 py-3 font-semibold">입출고일</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for movement in movements %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-3">
+                        <a href="{% url 'inventory:movement_detail' movement.pk %}" class="text-blue-600 hover:text-blue-800 font-mono">
+                            {{ movement.movement_number }}
+                        </a>
+                    </td>
+                    <td class="px-6 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if movement.movement_type == 'IN' %}bg-green-100 text-green-800
+                            {% elif movement.movement_type == 'OUT' %}bg-red-100 text-red-800
+                            {% elif movement.movement_type == 'ADJ' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-purple-100 text-purple-800{% endif %}">
+                            {{ movement.get_movement_type_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-3 text-gray-700">{{ movement.warehouse }}</td>
+                    <td class="px-6 py-3 text-right font-medium
+                        {% if movement.movement_type == 'IN' %}text-green-600{% elif movement.movement_type == 'OUT' %}text-red-600{% else %}text-gray-900{% endif %}">
+                        {% if movement.movement_type == 'IN' %}+{% elif movement.movement_type == 'OUT' %}-{% endif %}{{ movement.quantity }}
+                    </td>
+                    <td class="px-6 py-3 text-gray-500">{{ movement.date|date:"Y-m-d" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-8 text-center text-gray-400">입출고 이력이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

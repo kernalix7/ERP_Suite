@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}{{ display_name }} - 사내 메신저 - ERP Suite{% endblock %}
+{% block page_title %}사내 메신저{% endblock %}
+
+{% block content %}
+<div class="flex h-[calc(100vh-10rem)] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+
+    <!-- 대화방 목록 사이드바 -->
+    <div class="hidden lg:flex lg:w-80 flex-col border-r border-gray-200 flex-shrink-0">
+        <!-- 상단 헤더 -->
+        <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+            <h2 class="text-sm font-semibold text-gray-700">대화 목록</h2>
+            <div x-data="{ open: false }" class="relative">
+                <button @click="open = !open"
+                        class="btn btn-primary text-xs px-3 py-1.5">
+                    + 새 대화
+                </button>
+                <div x-show="open" x-cloak @click.outside="open = false"
+                     class="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1">
+                    <a href="{% url 'messenger:create_group' %}"
+                       class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        그룹 대화 만들기
+                    </a>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    <p class="px-4 py-1 text-xs text-gray-400 uppercase">1:1 대화 시작</p>
+                    {% for u in users %}
+                    <form method="post" action="{% url 'messenger:create_direct' u.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                            <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                {{ u.name|default:u.username|truncatechars:1 }}
+                            </span>
+                            {{ u.name|default:u.username }}
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 대화방 리스트 -->
+        <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+            {% for item in rooms_data %}
+            <a href="{% url 'messenger:chat_room' item.room.pk %}"
+               class="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors cursor-pointer
+                      {% if item.room.pk == room.pk %}bg-blue-50 border-l-2 border-blue-500{% endif %}">
+                <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
+                    {% if item.room.room_type == 'group' %}bg-emerald-100 text-emerald-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                    {% if item.room.room_type == 'group' %}G{% else %}{{ item.display_name|truncatechars:1 }}{% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-medium text-gray-900 truncate">{{ item.display_name }}</p>
+                        {% if item.last_message %}
+                        <span class="text-xs text-gray-400 flex-shrink-0 ml-2">{{ item.last_message.sent_at|date:"H:i" }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center justify-between mt-0.5">
+                        <p class="text-xs text-gray-500 truncate">
+                            {% if item.last_message %}{{ item.last_message.content|truncatechars:30 }}{% else %}-{% endif %}
+                        </p>
+                        {% if item.unread_count > 0 %}
+                        <span class="ml-2 flex-shrink-0 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 font-medium">
+                            {{ item.unread_count }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 채팅 영역 -->
+    <div class="flex-1 flex flex-col min-w-0"
+         x-data="chatApp()"
+         x-init="init()">
+
+        <!-- 채팅 헤더 -->
+        <div class="px-4 py-3 border-b border-gray-200 flex items-center gap-3 bg-gray-50 flex-shrink-0">
+            <a href="{% url 'messenger:chat_list' %}" class="lg:hidden text-gray-500 hover:text-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
+                {% if room.room_type == 'group' %}bg-emerald-100 text-emerald-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                {% if room.room_type == 'group' %}G{% else %}{{ display_name|truncatechars:1 }}{% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-gray-900 truncate">{{ display_name }}</p>
+                <p class="text-xs text-gray-500">
+                    {% if room.room_type == 'group' %}
+                        참여자 {{ participants.count }}명
+                    {% else %}
+                        1:1 대화
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- 메시지 영역 -->
+        <div id="message-area"
+             class="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50"
+             x-ref="messageArea">
+
+            <!-- 서버에서 로드된 초기 메시지 -->
+            {% for msg in messages %}
+            <div class="flex {% if msg.sender_id == request.user.pk %}justify-end{% else %}justify-start{% endif %} gap-2">
+                {% if msg.sender_id != request.user.pk %}
+                <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-600 flex-shrink-0 mt-1">
+                    {{ msg.sender.name|default:msg.sender.username|truncatechars:1 }}
+                </div>
+                {% endif %}
+                <div class="max-w-[70%]">
+                    {% if msg.sender_id != request.user.pk %}
+                    <p class="text-xs text-gray-500 mb-1 ml-1">{{ msg.sender.name|default:msg.sender.username }}</p>
+                    {% endif %}
+                    <div class="{% if msg.sender_id == request.user.pk %}bg-blue-500 text-white{% else %}bg-white text-gray-800 border border-gray-200{% endif %} rounded-2xl px-4 py-2.5 shadow-sm">
+                        <p class="text-sm whitespace-pre-wrap break-words">{{ msg.content }}</p>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1 {% if msg.sender_id == request.user.pk %}text-right mr-1{% else %}ml-1{% endif %}">
+                        {{ msg.sent_at|date:"H:i" }}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- WebSocket으로 수신된 실시간 메시지 -->
+            <template x-for="msg in newMessages" :key="msg.id">
+                <div :class="msg.sender_id == currentUserId ? 'justify-end' : 'justify-start'"
+                     class="flex gap-2">
+                    <template x-if="msg.sender_id != currentUserId">
+                        <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-600 flex-shrink-0 mt-1"
+                             x-text="msg.sender_name.charAt(0)"></div>
+                    </template>
+                    <div class="max-w-[70%]">
+                        <template x-if="msg.sender_id != currentUserId">
+                            <p class="text-xs text-gray-500 mb-1 ml-1" x-text="msg.sender_name"></p>
+                        </template>
+                        <div :class="msg.sender_id == currentUserId
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-white text-gray-800 border border-gray-200'"
+                             class="rounded-2xl px-4 py-2.5 shadow-sm">
+                            <p class="text-sm whitespace-pre-wrap break-words" x-text="msg.content"></p>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1"
+                           :class="msg.sender_id == currentUserId ? 'text-right mr-1' : 'ml-1'"
+                           x-text="msg.sent_at"></p>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- 입력 영역 -->
+        <div class="px-4 py-3 border-t border-gray-200 bg-white flex-shrink-0">
+            <form @submit.prevent="sendMessage()" class="flex items-end gap-2">
+                <div class="flex-1 relative">
+                    <textarea x-model="messageText"
+                              x-ref="messageInput"
+                              @keydown.enter.prevent="if (!$event.shiftKey) sendMessage()"
+                              rows="1"
+                              placeholder="메시지를 입력하세요..."
+                              class="w-full px-4 py-2.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none max-h-32 overflow-y-auto"
+                              style="min-height: 42px;"></textarea>
+                </div>
+                <button type="submit"
+                        :disabled="!messageText.trim()"
+                        class="p-2.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function chatApp() {
+    return {
+        messageText: '',
+        newMessages: [],
+        ws: null,
+        currentUserId: {{ request.user.pk }},
+        roomId: {{ room.pk }},
+
+        init() {
+            this.connectWebSocket();
+            this.$nextTick(() => this.scrollToBottom());
+        },
+
+        connectWebSocket() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = proto + '//' + location.host + '/ws/chat/' + this.roomId + '/';
+            this.ws = new WebSocket(url);
+
+            this.ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if (data.type === 'message') {
+                    this.newMessages.push(data.data);
+                    this.$nextTick(() => this.scrollToBottom());
+                }
+            };
+
+            this.ws.onclose = () => {
+                // 재접속 시도
+                setTimeout(() => this.connectWebSocket(), 3000);
+            };
+        },
+
+        sendMessage() {
+            const text = this.messageText.trim();
+            if (!text || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+            this.ws.send(JSON.stringify({
+                type: 'message',
+                content: text,
+            }));
+
+            this.messageText = '';
+            this.$refs.messageInput.style.height = '42px';
+        },
+
+        scrollToBottom() {
+            const area = this.$refs.messageArea;
+            if (area) {
+                area.scrollTop = area.scrollHeight;
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,316 @@
+from datetime import date
+from decimal import Decimal
+
+from django.db import IntegrityError
+from django.test import TestCase
+
+from .models import (
+    Distribution,
+    EquityChange,
+    Investment,
+    InvestmentRound,
+    Investor,
+)
+
+
+class InvestorTests(TestCase):
+    """투자자 모델 테스트"""
+
+    def test_creation(self):
+        """투자자 생성"""
+        investor = Investor.objects.create(
+            name='테스트 투자자',
+            company='테스트 벤처캐피탈',
+            phone='02-1234-5678',
+            email='investor@test.com',
+            registration_date=date(2026, 1, 1),
+        )
+        self.assertEqual(str(investor), '테스트 투자자')
+        self.assertEqual(investor.company, '테스트 벤처캐피탈')
+
+    def test_total_invested_no_investments(self):
+        """투자 내역 없을 때 total_invested = 0"""
+        investor = Investor.objects.create(
+            name='신규 투자자',
+            registration_date=date(2026, 1, 1),
+        )
+        self.assertEqual(investor.total_invested, 0)
+
+    def test_total_invested_with_investments(self):
+        """투자 내역 합산"""
+        investor = Investor.objects.create(
+            name='다중투자자',
+            registration_date=date(2025, 1, 1),
+        )
+        round1 = InvestmentRound.objects.create(
+            name='시드 라운드',
+            round_type=InvestmentRound.RoundType.SEED,
+            round_date=date(2025, 6, 1),
+        )
+        round2 = InvestmentRound.objects.create(
+            name='시리즈A',
+            round_type=InvestmentRound.RoundType.SERIES_A,
+            round_date=date(2026, 1, 1),
+        )
+        Investment.objects.create(
+            investor=investor,
+            round=round1,
+            amount=Decimal('100000000'),
+            share_percentage=Decimal('10.000'),
+            investment_date=date(2025, 6, 1),
+        )
+        Investment.objects.create(
+            investor=investor,
+            round=round2,
+            amount=Decimal('300000000'),
+            share_percentage=Decimal('15.000'),
+            investment_date=date(2026, 1, 1),
+        )
+        self.assertEqual(investor.total_invested, Decimal('400000000'))
+
+    def test_current_share_from_equity_change(self):
+        """최신 지분변동으로 현재 지분율 조회"""
+        investor = Investor.objects.create(
+            name='지분 투자자',
+            registration_date=date(2025, 1, 1),
+        )
+        round1 = InvestmentRound.objects.create(
+            name='시드',
+            round_type=InvestmentRound.RoundType.SEED,
+            round_date=date(2025, 6, 1),
+        )
+        Investment.objects.create(
+            investor=investor,
+            round=round1,
+            amount=Decimal('100000000'),
+            share_percentage=Decimal('10.000'),
+            investment_date=date(2025, 6, 1),
+        )
+        EquityChange.objects.create(
+            investor=investor,
+            change_type=EquityChange.ChangeType.DILUTION,
+            change_date=date(2026, 1, 1),
+            before_percentage=Decimal('10.000'),
+            after_percentage=Decimal('7.500'),
+        )
+        self.assertEqual(investor.current_share, Decimal('7.500'))
+
+    def test_current_share_no_equity_change(self):
+        """지분변동 없으면 최근 투자의 share_percentage 반환"""
+        investor = Investor.objects.create(
+            name='무변동 투자자',
+            registration_date=date(2025, 1, 1),
+        )
+        round1 = InvestmentRound.objects.create(
+            name='시드',
+            round_type=InvestmentRound.RoundType.SEED,
+            round_date=date(2025, 6, 1),
+        )
+        Investment.objects.create(
+            investor=investor,
+            round=round1,
+            amount=Decimal('50000000'),
+            share_percentage=Decimal('5.000'),
+            investment_date=date(2025, 6, 1),
+        )
+        self.assertEqual(investor.current_share, Decimal('5.000'))
+
+    def test_total_distributed(self):
+        """지급완료(PAID) 배당만 합산"""
+        investor = Investor.objects.create(
+            name='배당 투자자',
+            registration_date=date(2025, 1, 1),
+        )
+        Distribution.objects.create(
+            investor=investor,
+            distribution_type=Distribution.DistributionType.DIVIDEND,
+            amount=Decimal('10000000'),
+            scheduled_date=date(2026, 3, 1),
+            status=Distribution.PaymentStatus.PAID,
+            fiscal_year=2025,
+        )
+        Distribution.objects.create(
+            investor=investor,
+            distribution_type=Distribution.DistributionType.DIVIDEND,
+            amount=Decimal('5000000'),
+            scheduled_date=date(2026, 6, 1),
+            status=Distribution.PaymentStatus.SCHEDULED,
+            fiscal_year=2025,
+        )
+        # PAID 건만 합산
+        self.assertEqual(investor.total_distributed, Decimal('10000000'))
+
+
+class InvestmentRoundTests(TestCase):
+    """투자라운드 모델 테스트"""
+
+    def test_creation(self):
+        """투자라운드 생성"""
+        inv_round = InvestmentRound.objects.create(
+            name='시리즈A 라운드',
+            round_type=InvestmentRound.RoundType.SERIES_A,
+            target_amount=Decimal('1000000000'),
+            round_date=date(2026, 1, 15),
+            pre_valuation=Decimal('5000000000'),
+            post_valuation=Decimal('6000000000'),
+        )
+        self.assertEqual(str(inv_round), '시리즈A 라운드 (시리즈A)')
+
+    def test_total_invested_and_investor_count(self):
+        """라운드 총 투자금액 및 투자자 수"""
+        inv_round = InvestmentRound.objects.create(
+            name='시드 라운드',
+            round_type=InvestmentRound.RoundType.SEED,
+            round_date=date(2025, 6, 1),
+        )
+        investor_a = Investor.objects.create(
+            name='투자자A',
+            registration_date=date(2025, 1, 1),
+        )
+        investor_b = Investor.objects.create(
+            name='투자자B',
+            registration_date=date(2025, 2, 1),
+        )
+        Investment.objects.create(
+            investor=investor_a,
+            round=inv_round,
+            amount=Decimal('200000000'),
+            share_percentage=Decimal('10.000'),
+            investment_date=date(2025, 6, 1),
+        )
+        Investment.objects.create(
+            investor=investor_b,
+            round=inv_round,
+            amount=Decimal('100000000'),
+            share_percentage=Decimal('5.000'),
+            investment_date=date(2025, 6, 1),
+        )
+        self.assertEqual(inv_round.total_invested, Decimal('300000000'))
+        self.assertEqual(inv_round.investor_count, 2)
+
+
+class InvestmentTests(TestCase):
+    """투자내역 모델 테스트"""
+
+    def setUp(self):
+        self.investor = Investor.objects.create(
+            name='투자자',
+            registration_date=date(2025, 1, 1),
+        )
+        self.inv_round = InvestmentRound.objects.create(
+            name='시드',
+            round_type=InvestmentRound.RoundType.SEED,
+            round_date=date(2025, 6, 1),
+        )
+
+    def test_creation(self):
+        """투자내역 생성"""
+        inv = Investment.objects.create(
+            investor=self.investor,
+            round=self.inv_round,
+            amount=Decimal('100000000'),
+            share_percentage=Decimal('10.000'),
+            investment_date=date(2025, 6, 1),
+        )
+        self.assertIn('투자자', str(inv))
+        self.assertIn('시드', str(inv))
+
+    def test_unique_together_investor_round(self):
+        """같은 투자자-라운드 조합은 중복 불가"""
+        Investment.objects.create(
+            investor=self.investor,
+            round=self.inv_round,
+            amount=Decimal('100000000'),
+            share_percentage=Decimal('10.000'),
+            investment_date=date(2025, 6, 1),
+        )
+        with self.assertRaises(IntegrityError):
+            Investment.objects.create(
+                investor=self.investor,
+                round=self.inv_round,
+                amount=Decimal('50000000'),
+                share_percentage=Decimal('5.000'),
+                investment_date=date(2025, 7, 1),
+            )
+
+
+class EquityChangeTests(TestCase):
+    """지분변동 모델 테스트"""
+
+    def test_creation(self):
+        """지분변동 생성"""
+        investor = Investor.objects.create(
+            name='지분변동 투자자',
+            registration_date=date(2025, 1, 1),
+        )
+        ec = EquityChange.objects.create(
+            investor=investor,
+            change_type=EquityChange.ChangeType.INVESTMENT,
+            change_date=date(2025, 6, 1),
+            before_percentage=Decimal('0.000'),
+            after_percentage=Decimal('10.000'),
+        )
+        self.assertEqual(
+            str(ec), '지분변동 투자자 0.000% → 10.000%'
+        )
+
+    def test_dilution(self):
+        """희석에 의한 지분 감소"""
+        investor = Investor.objects.create(
+            name='희석 투자자',
+            registration_date=date(2025, 1, 1),
+        )
+        ec = EquityChange.objects.create(
+            investor=investor,
+            change_type=EquityChange.ChangeType.DILUTION,
+            change_date=date(2026, 1, 1),
+            before_percentage=Decimal('10.000'),
+            after_percentage=Decimal('7.500'),
+        )
+        self.assertLess(ec.after_percentage, ec.before_percentage)
+
+
+class DistributionTests(TestCase):
+    """배당/분배 모델 테스트"""
+
+    def setUp(self):
+        self.investor = Investor.objects.create(
+            name='배당 투자자',
+            registration_date=date(2025, 1, 1),
+        )
+
+    def test_creation(self):
+        """배당 생성"""
+        dist = Distribution.objects.create(
+            investor=self.investor,
+            distribution_type=Distribution.DistributionType.DIVIDEND,
+            amount=Decimal('10000000'),
+            scheduled_date=date(2026, 3, 31),
+            status=Distribution.PaymentStatus.SCHEDULED,
+            fiscal_year=2025,
+        )
+        self.assertEqual(str(dist), '배당 투자자 - 배당 (2025)')
+        self.assertEqual(dist.status, 'SCHEDULED')
+
+    def test_payment_status_workflow(self):
+        """SCHEDULED → PENDING → PAID 상태 전환"""
+        dist = Distribution.objects.create(
+            investor=self.investor,
+            distribution_type=Distribution.DistributionType.PROFIT_SHARE,
+            amount=Decimal('5000000'),
+            scheduled_date=date(2026, 6, 30),
+            fiscal_year=2025,
+        )
+        self.assertEqual(dist.status, Distribution.PaymentStatus.SCHEDULED)
+
+        dist.status = Distribution.PaymentStatus.PENDING
+        dist.save()
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.PaymentStatus.PENDING)
+
+        dist.status = Distribution.PaymentStatus.PAID
+        dist.paid_date = date(2026, 6, 30)
+        dist.save()
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.PaymentStatus.PAID)
+        self.assertEqual(dist.paid_date, date(2026, 6, 30))

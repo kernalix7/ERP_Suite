@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "미지급금 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "미지급금 상세" %}{% endblock %}
+
+{% block header_actions %}
+{% if object.status != 'PAID' %}
+<a href="{% url 'accounting:disbursement_create' object.pk %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "출금 등록" %}
+</a>
+{% endif %}
+<a href="{% url 'accounting:ap_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- 미지급금 정보 -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">{% trans "미지급금 정보" %}</h3>
+            <span class="px-3 py-1 text-sm rounded-full
+                {% if object.status == 'PAID' %}bg-green-100 text-green-700
+                {% elif object.status == 'PARTIAL' %}bg-yellow-100 text-yellow-700
+                {% elif object.is_overdue %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                {% if object.is_overdue and object.status != 'PAID' %}{% trans "연체" %}{% else %}{{ object.get_status_display }}{% endif %}
+            </span>
+        </div>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div><dt class="text-sm text-gray-500">{% trans "거래처" %}</dt><dd class="font-medium">{{ object.partner.name }}</dd></div>
+            <div><dt class="text-sm text-gray-500">{% trans "세금계산서" %}</dt><dd>{{ object.invoice.invoice_number|default:"-" }}</dd></div>
+            <div><dt class="text-sm text-gray-500">{% trans "납기일" %}</dt><dd class="{% if object.is_overdue %}text-red-600 font-semibold{% endif %}">{{ object.due_date }}</dd></div>
+            <div><dt class="text-sm text-gray-500">{% trans "등록일" %}</dt><dd>{{ object.created_at|date:"Y-m-d" }}</dd></div>
+            <div><dt class="text-sm text-gray-500">{% trans "금액" %}</dt><dd class="font-medium text-lg">{{ object.amount|intcomma }}{% trans "원" %}</dd></div>
+            <div><dt class="text-sm text-gray-500">{% trans "지급액" %}</dt><dd class="font-medium text-lg text-green-600">{{ object.paid_amount|intcomma }}{% trans "원" %}</dd></div>
+        </dl>
+
+        <!-- 잔액 표시 -->
+        <div class="border-t pt-4">
+            <div class="flex items-center justify-between">
+                <span class="text-lg font-semibold text-gray-700">{% trans "미지급 잔액" %}</span>
+                <span class="text-2xl font-bold {% if object.remaining_amount > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                    {{ object.remaining_amount|intcomma }}{% trans "원" %}
+                </span>
+            </div>
+            {% if object.amount > 0 %}
+            <div class="mt-3 w-full bg-gray-200 rounded-full h-3">
+                <div class="bg-green-500 h-3 rounded-full transition-all" style="width: {% widthratio object.paid_amount object.amount 100 %}%"></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-1 text-right">{% widthratio object.paid_amount object.amount 100 %}% {% trans "지급" %}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 비고 -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h4 class="font-semibold mb-3">{% trans "추가 정보" %}</h4>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">{% trans "등록자" %}</span>
+                    <span>{{ object.created_by|default:"-" }}</span>
+                </div>
+            </div>
+            {% if object.notes %}
+            <div class="mt-3 pt-3 border-t">
+                <p class="text-sm text-gray-500 mb-1">{% trans "비고" %}</p>
+                <p class="text-sm text-gray-700">{{ object.notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 출금 이력 -->
+<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-800">{% trans "출금 이력" %}</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "입출금번호" %}</th>
+                    <th class="px-4 py-3">{% trans "출금일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "금액" %}</th>
+                    <th class="px-4 py-3">{% trans "결제수단" %}</th>
+                    <th class="px-4 py-3">{% trans "참조" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for payment in payments %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ payment.payment_number }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ payment.payment_date }}</td>
+                    <td class="px-4 py-3 text-right font-medium text-green-600">{{ payment.amount|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ payment.get_payment_method_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ payment.reference|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "출금 이력이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

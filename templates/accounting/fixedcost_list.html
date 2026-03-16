@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}고정비 관리 - ERP Suite{% endblock %}
+{% block page_title %}고정비 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:fixedcost_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    등록
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- 이달 고정비 합계 카드 -->
+<div class="mb-6">
+    <div class="bg-white shadow-sm rounded-xl p-6 inline-block">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500">이달 고정비 합계</p>
+                <p class="text-2xl font-bold text-gray-900">{{ monthly_total|intcomma }}원</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 비용구분 필터 -->
+<div class="mb-6 flex items-center gap-2 flex-wrap">
+    <span class="text-sm font-medium text-gray-600">비용구분:</span>
+    <a href="{% url 'accounting:fixedcost_list' %}"
+       class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+              {% if not current_category %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+        전체
+    </a>
+    {% for cat in categories %}
+    <a href="?category={{ cat.value }}"
+       class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+              {% if current_category == cat.value %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+        {{ cat.label }}
+    </a>
+    {% endfor %}
+</div>
+
+<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-4 font-semibold">비용명</th>
+                    <th class="px-6 py-4 font-semibold text-center">비용구분</th>
+                    <th class="px-6 py-4 font-semibold text-right">금액</th>
+                    <th class="px-6 py-4 font-semibold">해당월</th>
+                    <th class="px-6 py-4 font-semibold text-center">반복여부</th>
+                    <th class="px-6 py-4 font-semibold text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for cost in object_list %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-gray-900">{{ cost.name }}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if cost.category == 'rent' %}bg-blue-100 text-blue-800
+                            {% elif cost.category == 'salary' %}bg-green-100 text-green-800
+                            {% elif cost.category == 'insurance' %}bg-yellow-100 text-yellow-800
+                            {% elif cost.category == 'depreciation' %}bg-purple-100 text-purple-800
+                            {% elif cost.category == 'utility' %}bg-cyan-100 text-cyan-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ cost.get_category_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right text-gray-900 font-medium">{{ cost.amount|intcomma }}원</td>
+                    <td class="px-6 py-4 text-gray-600">{{ cost.month }}</td>
+                    <td class="px-6 py-4 text-center">
+                        {% if cost.is_recurring %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">반복</span>
+                        {% else %}
+                            <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <a href="{% url 'accounting:fixedcost_update' cost.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">등록된 고정비가 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

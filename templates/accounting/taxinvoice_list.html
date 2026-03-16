@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}세금계산서 목록 - ERP Suite{% endblock %}
+{% block page_title %}세금계산서 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:taxinvoice_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    등록
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- 유형 필터 -->
+<div class="mb-6 flex flex-wrap items-center gap-2">
+    <span class="text-sm font-medium text-gray-600">유형:</span>
+    <a href="{% url 'accounting:taxinvoice_list' %}"
+       class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+              {% if not current_type %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+        전체
+    </a>
+    <a href="?type=sales"
+       class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+              {% if current_type == 'sales' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+        매출
+    </a>
+    <a href="?type=purchase"
+       class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+              {% if current_type == 'purchase' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+        매입
+    </a>
+</div>
+
+<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-4 font-semibold">계산서번호</th>
+                    <th class="px-6 py-4 font-semibold text-center">유형</th>
+                    <th class="px-6 py-4 font-semibold">거래처</th>
+                    <th class="px-6 py-4 font-semibold text-right">공급가액</th>
+                    <th class="px-6 py-4 font-semibold text-right">부가세</th>
+                    <th class="px-6 py-4 font-semibold text-right">합계</th>
+                    <th class="px-6 py-4 font-semibold">발행일</th>
+                    <th class="px-6 py-4 font-semibold text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for invoice in object_list %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-gray-900">
+                        <a href="{% url 'accounting:taxinvoice_detail' invoice.pk %}" class="text-blue-600 hover:text-blue-800">
+                            {{ invoice.invoice_number }}
+                        </a>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        {% if invoice.invoice_type == 'sales' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">매출</span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">매입</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-gray-700">{{ invoice.partner }}</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ invoice.supply_amount|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ invoice.tax_amount|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right font-medium text-gray-900">{{ invoice.total_amount|intcomma }}원</td>
+                    <td class="px-6 py-4 text-gray-600">{{ invoice.issue_date }}</td>
+                    <td class="px-6 py-4 text-center">
+                        <a href="{% url 'accounting:taxinvoice_detail' invoice.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">상세</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-6 py-12 text-center text-gray-400">등록된 세금계산서가 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

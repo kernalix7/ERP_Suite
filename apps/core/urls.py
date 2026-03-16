@@ -1,0 +1,25 @@
+from django.urls import path
+
+from . import views
+from .backup import BackupView, BackupDownloadView
+from .trash import TrashListView, RestoreView
+from .attachment_views import AttachmentUploadView, AttachmentDeleteView, AttachmentListView
+
+app_name = 'core'
+
+urlpatterns = [
+    path('', views.DashboardView.as_view(), name='dashboard'),
+    # 백업
+    path('backup/', BackupView.as_view(), name='backup'),
+    path('backup/download/', BackupDownloadView.as_view(), name='backup_download'),
+    # 휴지통
+    path('trash/', TrashListView.as_view(), name='trash'),
+    path('trash/restore/<str:app_label>/<str:model_name>/<int:pk>/',
+         RestoreView.as_view(), name='restore'),
+    # 증빙 첨부
+    path('attachments/', AttachmentListView.as_view(), name='attachment_list'),
+    path('attachments/upload/<str:app_label>/<str:model_name>/<int:pk>/',
+         AttachmentUploadView.as_view(), name='attachment_upload'),
+    path('attachments/<int:pk>/delete/',
+         AttachmentDeleteView.as_view(), name='attachment_delete'),
+]

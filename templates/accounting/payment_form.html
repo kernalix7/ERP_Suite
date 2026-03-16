@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}{% if is_receipt %}{% trans "입금 등록" %}{% else %}{% trans "출금 등록" %}{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}{% if is_receipt %}{% trans "입금 등록" %}{% else %}{% trans "출금 등록" %}{% endif %}{% endblock %}
+
+{% block header_actions %}
+{% if is_receipt %}
+<a href="{% url 'accounting:ar_detail' receivable.pk %}" class="btn btn-secondary">{% trans "돌아가기" %}</a>
+{% else %}
+<a href="{% url 'accounting:ap_detail' payable.pk %}" class="btn btn-secondary">{% trans "돌아가기" %}</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- 관련 정보 요약 -->
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+    <h4 class="text-sm font-medium text-blue-800 mb-2">{% if is_receipt %}{% trans "미수금 정보" %}{% else %}{% trans "미지급금 정보" %}{% endif %}</h4>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        {% if is_receipt %}
+        <div><span class="text-blue-600">{% trans "거래처" %}</span><p class="font-medium">{{ receivable.partner.name }}</p></div>
+        <div><span class="text-blue-600">{% trans "청구금액" %}</span><p class="font-medium">{{ receivable.amount|intcomma }}{% trans "원" %}</p></div>
+        <div><span class="text-blue-600">{% trans "기입금액" %}</span><p class="font-medium">{{ receivable.paid_amount|intcomma }}{% trans "원" %}</p></div>
+        <div><span class="text-blue-600">{% trans "미수잔액" %}</span><p class="font-bold text-red-600">{{ receivable.remaining_amount|intcomma }}{% trans "원" %}</p></div>
+        {% else %}
+        <div><span class="text-blue-600">{% trans "거래처" %}</span><p class="font-medium">{{ payable.partner.name }}</p></div>
+        <div><span class="text-blue-600">{% trans "금액" %}</span><p class="font-medium">{{ payable.amount|intcomma }}{% trans "원" %}</p></div>
+        <div><span class="text-blue-600">{% trans "기지급액" %}</span><p class="font-medium">{{ payable.paid_amount|intcomma }}{% trans "원" %}</p></div>
+        <div><span class="text-blue-600">{% trans "미지급잔액" %}</span><p class="font-bold text-red-600">{{ payable.remaining_amount|intcomma }}{% trans "원" %}</p></div>
+        {% endif %}
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">{% if is_receipt %}{% trans "입금 정보" %}{% else %}{% trans "출금 정보" %}{% endif %}</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            {% for field in form %}
+            {% if field.name != 'payment_type' and field.name != 'partner' %}
+            <div {% if field.name == 'notes' or field.name == 'reference' %}class="md:col-span-2"{% endif %}>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    <div class="flex justify-end gap-3">
+        {% if is_receipt %}
+        <a href="{% url 'accounting:ar_detail' receivable.pk %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        {% else %}
+        <a href="{% url 'accounting:ap_detail' payable.pk %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">{% trans "저장" %}</button>
+    </div>
+</form>
+{% endblock %}

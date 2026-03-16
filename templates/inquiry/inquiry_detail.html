@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}문의 상세 - {{ object.title }} - ERP Suite{% endblock %}
+{% block page_title %}문의 상세{% endblock %}
+
+{% block header_actions %}
+{% if inquiry.status == 'RECEIVED' or inquiry.status == 'WAITING' %}
+<form method="post" action="{% url 'inquiry:inquiry_generate_reply' inquiry.pk %}"
+      onsubmit="return confirm('AI 답변을 생성하시겠습니까?');" class="inline">
+    {% csrf_token %}
+    <button type="submit"
+            class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors">
+        <svg class="w-4 h-4 mr-1.5 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        AI 답변 생성
+    </button>
+</form>
+{% endif %}
+<a href="{% url 'inquiry:inquiry_list' %}" class="btn btn-secondary">목록으로</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="inquiryDetail()">
+    <!-- 문의 정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800">문의 정보</h2>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{{ object.channel }}</span>
+                {% if object.status == '접수' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">접수</span>
+                {% elif object.status == '답변대기' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">답변대기</span>
+                {% elif object.status == '답변완료' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">답변완료</span>
+                {% elif object.status == '종료' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">종료</span>
+                {% endif %}
+
+                {% if object.priority == '낮음' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">낮음</span>
+                {% elif object.priority == '보통' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">보통</span>
+                {% elif object.priority == '높음' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">높음</span>
+                {% elif object.priority == '긴급' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">긴급</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">제목</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ object.title }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">고객명</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.customer_name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">담당자</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.assignee|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">접수일</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.created_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">문의 내용</dt>
+                <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ object.content }}</dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- 답변 목록 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">답변 목록</h2>
+        </div>
+        <div class="divide-y divide-gray-100">
+            {% for reply in object.replies.all %}
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-gray-900">{{ reply.author|default:"시스템" }}</span>
+                        {% if reply.is_ai_generated %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">AI 생성</span>
+                        {% endif %}
+                    </div>
+                    <span class="text-xs text-gray-500">{{ reply.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ reply.content }}</p>
+            </div>
+            {% empty %}
+            <div class="p-6 text-center text-gray-400 text-sm">
+                아직 답변이 없습니다.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 답변 작성 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800">답변 작성</h2>
+            <button type="button"
+                    @click="generateAiReply()"
+                    :disabled="aiLoading"
+                    class="btn bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <template x-if="aiLoading">
+                    <svg class="w-4 h-4 inline mr-1 -mt-0.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </template>
+                <template x-if="!aiLoading">
+                    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </template>
+                <span x-text="aiLoading ? 'AI 답변 생성 중...' : 'AI 답변 생성'"></span>
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'inquiry:inquiry_detail' object.pk %}">
+            {% csrf_token %}
+            {% for field in reply_form %}
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {% if field.name == 'content' %}
+                <textarea name="{{ field.name }}" id="id_reply_content" rows="5"
+                          class="form-input" placeholder="답변 내용을 입력하세요..."
+                          x-ref="replyContent">{{ field.value|default:"" }}</textarea>
+                {% else %}
+                {{ field }}
+                {% endif %}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+            <!-- AI 에러 메시지 -->
+            <template x-if="aiError">
+                <div class="mb-4 px-4 py-3 rounded-lg text-sm bg-red-50 text-red-800 border border-red-200" x-text="aiError"></div>
+            </template>
+
+            <div class="flex justify-end">
+                <button type="submit" class="btn btn-primary">답변 등록</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function inquiryDetail() {
+    return {
+        aiLoading: false,
+        aiError: '',
+        async generateAiReply() {
+            this.aiLoading = true;
+            this.aiError = '';
+            try {
+                const response = await fetch("{% url 'inquiry:llm_generate' object.pk %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    throw new Error('AI 답변 생성에 실패했습니다.');
+                }
+                const data = await response.json();
+                this.$refs.replyContent.value = data.content || data.reply || '';
+            } catch (error) {
+                this.aiError = error.message || 'AI 답변 생성 중 오류가 발생했습니다.';
+            } finally {
+                this.aiLoading = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

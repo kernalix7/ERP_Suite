@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "인사발령 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "인사발령 목록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'hr:action_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "발령 등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">{% trans "발령일" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "직원" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "발령유형" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "부서 변경" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "직급 변경" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "사유" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for action in actions %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 text-gray-700">{{ action.effective_date|date:"Y-m-d" }}</td>
+                    <td class="px-6 py-4 font-medium text-gray-900">
+                        <a href="{% url 'hr:employee_detail' action.employee.pk %}" class="text-blue-600 hover:text-blue-800">
+                            {{ action.employee.user.name|default:action.employee.user.username }}
+                        </a>
+                        <span class="text-xs text-gray-400 ml-1 font-mono">{{ action.employee.employee_number }}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if action.action_type == 'HIRE' %}bg-green-100 text-green-800
+                            {% elif action.action_type == 'PROMOTION' %}bg-blue-100 text-blue-800
+                            {% elif action.action_type == 'TRANSFER' %}bg-indigo-100 text-indigo-800
+                            {% elif action.action_type == 'DEMOTION' %}bg-orange-100 text-orange-800
+                            {% elif action.action_type == 'RESIGNATION' %}bg-red-100 text-red-800
+                            {% elif action.action_type == 'LEAVE' %}bg-amber-100 text-amber-800
+                            {% elif action.action_type == 'RETURN' %}bg-teal-100 text-teal-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ action.get_action_type_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-700 text-sm">
+                        {% if action.from_department or action.to_department %}
+                        {{ action.from_department|default:"-" }}
+                        <svg class="w-3 h-3 inline-block mx-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        {{ action.to_department|default:"-" }}
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-gray-700 text-sm">
+                        {% if action.from_position or action.to_position %}
+                        {{ action.from_position|default:"-" }}
+                        <svg class="w-3 h-3 inline-block mx-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        {{ action.to_position|default:"-" }}
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-gray-500 text-sm max-w-xs truncate">{{ action.reason|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        {% trans "등록된 인사발령이 없습니다." %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">{% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}</p>
+        <nav class="flex items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}"
+               class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

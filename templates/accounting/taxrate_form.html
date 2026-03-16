@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}세율 수정{% else %}세율 등록{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}{% if object %}세율 수정{% else %}세율 등록{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white shadow-sm rounded-xl p-6">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                {% for error in form.non_field_errors %}
+                <p class="text-sm text-red-700">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="space-y-5">
+                {% for field in form %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ field.label_tag }}
+                    </label>
+                    {% if field.field.widget.input_type == 'checkbox' %}
+                        <div class="flex items-center">
+                            {{ field }}
+                            <span class="ml-2 text-sm text-gray-600">{{ field.help_text }}</span>
+                        </div>
+                    {% else %}
+                        {{ field }}
+                    {% endif %}
+                    {% if field.errors %}
+                    <div class="mt-1">
+                        {% for error in field.errors %}
+                        <p class="text-sm text-red-600">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if field.help_text and field.field.widget.input_type != 'checkbox' %}
+                    <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="mt-8 flex items-center justify-end gap-3">
+                <a href="{% url 'accounting:taxrate_list' %}" class="btn btn-secondary">취소</a>
+                <button type="submit" class="btn btn-primary">
+                    {% if object %}수정{% else %}등록{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

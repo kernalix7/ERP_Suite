@@ -1,0 +1,585 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ERP Suite{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        .form-input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm;
+        }
+        .form-checkbox {
+            @apply rounded border-gray-300 text-blue-600 focus:ring-blue-500;
+        }
+        .btn {
+            @apply px-4 py-2 rounded-lg font-medium text-sm transition-colors duration-150;
+        }
+        .btn-primary {
+            @apply bg-blue-600 text-white hover:bg-blue-700;
+        }
+        .btn-secondary {
+            @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+        }
+        .btn-danger {
+            @apply bg-red-600 text-white hover:bg-red-700;
+        }
+        .btn-success {
+            @apply bg-green-600 text-white hover:bg-green-700;
+        }
+        [x-cloak] { display: none !important; }
+        /* 모바일 테이블 가로 스크롤 */
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        /* 모바일 터치 타겟 확대 */
+        @media (max-width: 640px) {
+            .btn { min-height: 44px; min-width: 44px; }
+            .form-input { font-size: 16px; min-height: 44px; }
+            main { padding: 1rem !important; }
+            table th, table td { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
+        }
+        /* 인쇄 시 사이드바 숨김 */
+        @media print {
+            aside, header, #toast-container { display: none !important; }
+            main { padding: 0 !important; }
+            .no-print { display: none !important; }
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Pretendard', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full" x-data="{ sidebarOpen: true, mobileSidebar: false }">
+    {% if user.is_authenticated %}
+    <div class="flex h-full">
+        <!-- Mobile sidebar overlay -->
+        <div x-show="mobileSidebar" x-cloak
+             class="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+             @click="mobileSidebar = false"></div>
+
+        <!-- Sidebar -->
+        <aside :class="sidebarOpen ? 'w-64' : 'w-16'"
+               class="fixed inset-y-0 left-0 z-50 bg-slate-800 text-white transition-all duration-300 flex flex-col
+                      lg:relative lg:translate-x-0"
+               :class="{ '-translate-x-full': !mobileSidebar, 'translate-x-0': mobileSidebar }"
+               x-init="if(window.innerWidth < 1024) sidebarOpen = true">
+
+            <!-- Logo -->
+            <div class="flex items-center h-16 px-4 bg-slate-900">
+                <span class="text-xl font-bold" x-show="sidebarOpen">ERP Suite</span>
+                <span class="text-xl font-bold mx-auto" x-show="!sidebarOpen">E</span>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 py-4 overflow-y-auto">
+                <ul class="space-y-1 px-3">
+                    <!-- 대시보드 -->
+                    <li>
+                        <a href="{% url 'core:dashboard' %}"
+                           class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                  {% if request.resolver_match.app_name == 'core' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                            </svg>
+                            <span class="ml-3" x-show="sidebarOpen">{% trans "대시보드" %}</span>
+                        </a>
+                    </li>
+
+                    <!-- 재고관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'inventory' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'inventory' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "재고관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'inventory:product_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "제품 관리" %}</a></li>
+                            <li><a href="{% url 'inventory:category_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "카테고리" %}</a></li>
+                            <li><a href="{% url 'inventory:warehouse_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "창고 관리" %}</a></li>
+                            <li><a href="{% url 'inventory:movement_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "입출고" %}</a></li>
+                            <li><a href="{% url 'inventory:transfer_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "창고간이동" %}</a></li>
+                            <li><a href="{% url 'inventory:stock_status' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "재고현황" %}</a></li>
+                            <li><a href="{% url 'inventory:barcode_scan' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "바코드 스캔" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 생산관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'production' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'production' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "생산관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'production:bom_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "BOM 관리" %}</a></li>
+                            <li><a href="{% url 'production:plan_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "생산계획" %}</a></li>
+                            <li><a href="{% url 'production:workorder_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "작업지시" %}</a></li>
+                            <li><a href="{% url 'production:record_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "생산실적" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 판매관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'sales' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'sales' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "판매관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'sales:partner_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "거래처" %}</a></li>
+                            <li><a href="{% url 'sales:customer_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "고객" %}</a></li>
+                            <li><a href="{% url 'sales:order_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "주문" %}</a></li>
+                            <li><a href="{% url 'sales:sold_product_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "판매제품 관리" %}</a></li>
+                            <li><a href="{% url 'sales:commission_rate_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "수수료율" %}</a></li>
+                            <li><a href="{% url 'sales:commission_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "수수료내역" %}</a></li>
+                            <li><a href="{% url 'sales:commission_summary' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "정산요약" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- AS관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'service' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'service' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "AS관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'service:request_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "AS 접수" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 회계관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'accounting' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'accounting' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "회계관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'accounting:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "재무 대시보드" %}</a></li>
+                            <li><a href="{% url 'accounting:taxinvoice_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세금계산서" %}</a></li>
+                            <li><a href="{% url 'accounting:vat_summary' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "부가세 집계" %}</a></li>
+                            <li><a href="{% url 'accounting:fixedcost_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "고정비 관리" %}</a></li>
+                            <li><a href="{% url 'accounting:breakeven' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "손익분기점" %}</a></li>
+                            <li><a href="{% url 'accounting:monthly_pl' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "월별 손익" %}</a></li>
+                            <li><a href="{% url 'accounting:taxrate_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세율 관리" %}</a></li>
+                            <li><a href="{% url 'accounting:withholding_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "원천징수" %}</a></li>
+                            <li><a href="{% url 'accounting:accountcode_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계정과목" %}</a></li>
+                            <li><a href="{% url 'accounting:voucher_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "전표" %}</a></li>
+                            <li><a href="{% url 'accounting:approval_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결재/품의" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 투자관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'investment' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'investment' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "투자관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'investment:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자 대시보드" %}</a></li>
+                            <li><a href="{% url 'investment:investor_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자자 관리" %}</a></li>
+                            <li><a href="{% url 'investment:round_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자 라운드" %}</a></li>
+                            <li><a href="{% url 'investment:equity_overview' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "지분 현황" %}</a></li>
+                            <li><a href="{% url 'investment:distribution_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "배당/분배" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 외부스토어 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'marketplace' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'marketplace' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "외부스토어" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'marketplace:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 대시보드" %}</a></li>
+                            <li><a href="{% url 'marketplace:order_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 주문" %}</a></li>
+                            <li><a href="{% url 'marketplace:config' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 설정" %}</a></li>
+                            <li><a href="{% url 'marketplace:sync_log_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "동기화 이력" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 문의관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'inquiry' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'inquiry' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "문의관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'inquiry:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "문의 대시보드" %}</a></li>
+                            <li><a href="{% url 'inquiry:inquiry_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "문의 목록" %}</a></li>
+                            <li><a href="{% url 'inquiry:template_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "답변 템플릿" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 정품등록 -->
+                    <li>
+                        <a href="{% url 'warranty:registration_list' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'warranty' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            <span class="ml-3" x-show="sidebarOpen">{% trans "정품등록" %}</span>
+                        </a>
+                    </li>
+
+                    {% if user.is_admin_role %}
+                    <!-- 시스템관리 -->
+                    <li x-data="{ open: false }" class="mt-4 pt-4 border-t border-slate-700">
+                        <button @click="open = !open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "시스템관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'accounts:user_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "사용자관리" %}</a></li>
+                            <li><a href="{% url 'core:backup' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "백업/복원" %}</a></li>
+                            <li><a href="{% url 'core:trash' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "휴지통" %}</a></li>
+                            <li><a href="{% url 'core:attachment_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "증빙관리" %}</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+
+            <!-- User info -->
+            <div class="border-t border-slate-700 p-4" x-show="sidebarOpen">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center text-sm font-medium">
+                        {{ user.name|default:user.username|truncatechars:1 }}
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="text-sm font-medium">{{ user.name|default:user.username }}</p>
+                        <p class="text-xs text-slate-400">{{ user.get_role_display }}</p>
+                    </div>
+                    <a href="{% url 'accounts:logout' %}" class="text-slate-400 hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <div class="flex-1 flex flex-col min-w-0" :class="sidebarOpen ? 'lg:ml-0' : 'lg:ml-0'">
+            <!-- Top bar -->
+            <header class="h-16 bg-white border-b border-gray-200 flex items-center px-4 gap-4">
+                <button @click="sidebarOpen = !sidebarOpen" class="hidden lg:block text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <button @click="mobileSidebar = !mobileSidebar" class="lg:hidden text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <h1 class="text-lg font-semibold text-gray-800">{% block page_title %}{% trans "대시보드" %}{% endblock %}</h1>
+                <div class="flex-1"></div>
+                <!-- Language switcher -->
+                <div x-data="{ langOpen: false }" class="relative">
+                    <button @click="langOpen = !langOpen" class="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        <span>{% get_current_language as CURRENT_LANGUAGE %}{% if CURRENT_LANGUAGE == 'ko' %}KO{% else %}EN{% endif %}</span>
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    </button>
+                    <div x-show="langOpen" x-cloak @click.outside="langOpen = false"
+                         class="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1">
+                        <form method="post" action="/i18n/setlang/">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <button type="submit" name="language" value="ko"
+                                    class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 {% if CURRENT_LANGUAGE == 'ko' %}text-blue-600 font-medium{% else %}text-gray-700{% endif %}">
+                                한국어
+                            </button>
+                            <button type="submit" name="language" value="en"
+                                    class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 {% if CURRENT_LANGUAGE == 'en' %}text-blue-600 font-medium{% else %}text-gray-700{% endif %}">
+                                English
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <!-- 실시간 알림 벨 -->
+                <div x-data="notificationBell()" x-init="init()" class="relative">
+                    <button @click="open = !open" class="relative text-gray-500 hover:text-gray-700 p-1">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                        <span x-show="unreadCount > 0" x-cloak
+                              x-text="unreadCount > 99 ? '99+' : unreadCount"
+                              class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 font-medium">
+                        </span>
+                    </button>
+                    <!-- 알림 드롭다운 -->
+                    <div x-show="open" x-cloak @click.outside="open = false"
+                         class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                            <span class="text-sm font-semibold text-gray-700">알림</span>
+                            <button x-show="unreadCount > 0" @click="markAllRead()"
+                                    class="text-xs text-blue-600 hover:text-blue-800">모두 읽음</button>
+                        </div>
+                        <template x-if="notifications.length === 0">
+                            <div class="px-4 py-6 text-center text-sm text-gray-400">새 알림이 없습니다</div>
+                        </template>
+                        <template x-for="noti in notifications" :key="noti.id || noti.title + noti.timestamp">
+                            <a :href="noti.link || '#'" @click="markRead(noti)"
+                               class="block px-4 py-3 hover:bg-gray-50 border-b border-gray-50 transition-colors">
+                                <div class="flex items-start gap-2">
+                                    <span class="mt-1 w-2 h-2 rounded-full flex-shrink-0"
+                                          :class="noti.is_read ? 'bg-transparent' : 'bg-blue-500'"></span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800 truncate" x-text="noti.title"></p>
+                                        <p class="text-xs text-gray-500 mt-0.5 line-clamp-2" x-text="noti.message"></p>
+                                    </div>
+                                </div>
+                            </a>
+                        </template>
+                    </div>
+                </div>
+                {% block header_actions %}{% endblock %}
+            </header>
+
+            <!-- Messages -->
+            {% if messages %}
+            <div class="px-4 pt-4">
+                {% for message in messages %}
+                <div class="mb-2 px-4 py-3 rounded-lg text-sm
+                    {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200
+                    {% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200
+                    {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200
+                    {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Page content -->
+            <main class="flex-1 p-6 overflow-auto">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    <!-- 토스트 알림 컨테이너 -->
+    <div id="toast-container" x-data="toastNotifications()" x-init="init()"
+         class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+        <template x-for="toast in toasts" :key="toast.id">
+            <div x-show="toast.show"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-x-8"
+                 x-transition:enter-end="opacity-100 translate-x-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-x-0"
+                 x-transition:leave-end="opacity-0 translate-x-8"
+                 class="pointer-events-auto bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm w-80">
+                <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+                         :class="{
+                            'bg-blue-100 text-blue-600': toast.noti_type === 'SYSTEM',
+                            'bg-red-100 text-red-600': toast.noti_type === 'STOCK_LOW',
+                            'bg-green-100 text-green-600': toast.noti_type === 'ORDER_NEW' || toast.noti_type === 'PRODUCTION',
+                            'bg-yellow-100 text-yellow-600': toast.noti_type === 'SERVICE_DUE',
+                         }">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-gray-800 truncate" x-text="toast.title"></p>
+                        <p class="text-xs text-gray-500 mt-0.5 line-clamp-2" x-text="toast.message"></p>
+                    </div>
+                    <button @click="removeToast(toast.id)" class="flex-shrink-0 text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <script>
+    /* WebSocket 실시간 알림 */
+    (function() {
+        const isAuthenticated = {{ user.is_authenticated|yesno:"true,false" }};
+        if (!isAuthenticated) return;
+
+        let ws = null;
+        let reconnectTimer = null;
+        let reconnectDelay = 1000;
+        const MAX_RECONNECT_DELAY = 30000;
+
+        function getWsUrl() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            return proto + '//' + location.host + '/ws/notifications/';
+        }
+
+        function connect() {
+            if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+            ws = new WebSocket(getWsUrl());
+
+            ws.onopen = function() {
+                reconnectDelay = 1000;
+                window._erpWs = ws;
+                window.dispatchEvent(new Event('ws-connected'));
+            };
+
+            ws.onmessage = function(e) {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'notification') {
+                    window.dispatchEvent(new CustomEvent('ws-notification', { detail: msg.data }));
+                } else if (msg.type === 'unread_count') {
+                    window.dispatchEvent(new CustomEvent('ws-unread-count', { detail: msg.count }));
+                }
+            };
+
+            ws.onclose = function() {
+                window._erpWs = null;
+                scheduleReconnect();
+            };
+
+            ws.onerror = function() {
+                ws.close();
+            };
+        }
+
+        function scheduleReconnect() {
+            if (reconnectTimer) return;
+            reconnectTimer = setTimeout(function() {
+                reconnectTimer = null;
+                reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+                connect();
+            }, reconnectDelay);
+        }
+
+        connect();
+
+        /* Alpine.js 알림 벨 컴포넌트 */
+        window.notificationBell = function() {
+            return {
+                open: false,
+                unreadCount: 0,
+                notifications: [],
+                init() {
+                    window.addEventListener('ws-notification', (e) => {
+                        const data = e.detail;
+                        this.notifications.unshift({
+                            id: Date.now(),
+                            title: data.title,
+                            message: data.message,
+                            noti_type: data.noti_type || 'SYSTEM',
+                            link: data.link || '',
+                            is_read: false,
+                            timestamp: new Date().toISOString(),
+                        });
+                        if (this.notifications.length > 20) this.notifications.pop();
+                        this.unreadCount++;
+                    });
+                    window.addEventListener('ws-unread-count', (e) => {
+                        this.unreadCount = e.detail;
+                    });
+                },
+                markRead(noti) {
+                    if (noti.is_read) return;
+                    noti.is_read = true;
+                    if (window._erpWs && window._erpWs.readyState === WebSocket.OPEN && noti.id) {
+                        window._erpWs.send(JSON.stringify({ action: 'mark_read', id: noti.id }));
+                    }
+                },
+                markAllRead() {
+                    this.notifications.forEach(n => n.is_read = true);
+                    this.unreadCount = 0;
+                    if (window._erpWs && window._erpWs.readyState === WebSocket.OPEN) {
+                        window._erpWs.send(JSON.stringify({ action: 'mark_all_read' }));
+                    }
+                }
+            };
+        };
+
+        /* Alpine.js 토스트 알림 컴포넌트 */
+        window.toastNotifications = function() {
+            return {
+                toasts: [],
+                nextId: 0,
+                init() {
+                    window.addEventListener('ws-notification', (e) => {
+                        this.addToast(e.detail);
+                    });
+                },
+                addToast(data) {
+                    const id = this.nextId++;
+                    const toast = {
+                        id: id,
+                        title: data.title,
+                        message: data.message,
+                        noti_type: data.noti_type || 'SYSTEM',
+                        show: true,
+                    };
+                    this.toasts.push(toast);
+                    setTimeout(() => this.removeToast(id), 5000);
+                },
+                removeToast(id) {
+                    const t = this.toasts.find(t => t.id === id);
+                    if (t) t.show = false;
+                    setTimeout(() => {
+                        this.toasts = this.toasts.filter(t => t.id !== id);
+                    }, 300);
+                }
+            };
+        };
+    })();
+    </script>
+    {% else %}
+    {% block public_content %}{% endblock %}
+    {% endif %}
+</body>
+</html>

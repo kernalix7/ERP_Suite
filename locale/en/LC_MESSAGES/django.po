@@ -1,0 +1,266 @@
+# English translations for ERP Suite.
+# Copyright (C) 2026 ERP Suite
+# This file is distributed under the same license as the ERP Suite package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ERP Suite 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-16 00:00+0900\n"
+"PO-Revision-Date: 2026-03-16 00:00+0900\n"
+"Last-Translator: \n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# Navigation menu items
+msgid "대시보드"
+msgstr "Dashboard"
+
+msgid "재고관리"
+msgstr "Inventory"
+
+msgid "생산관리"
+msgstr "Production"
+
+msgid "판매관리"
+msgstr "Sales"
+
+msgid "회계관리"
+msgstr "Accounting"
+
+msgid "투자관리"
+msgstr "Investment"
+
+msgid "AS관리"
+msgstr "Service"
+
+msgid "외부스토어"
+msgstr "Marketplace"
+
+msgid "문의관리"
+msgstr "Inquiries"
+
+msgid "정품등록"
+msgstr "Warranty"
+
+msgid "시스템관리"
+msgstr "System"
+
+msgid "사용자관리"
+msgstr "Users"
+
+# Inventory sub-menu
+msgid "제품 관리"
+msgstr "Products"
+
+msgid "카테고리"
+msgstr "Categories"
+
+msgid "창고 관리"
+msgstr "Warehouses"
+
+msgid "입출고"
+msgstr "Stock Movements"
+
+msgid "창고간이동"
+msgstr "Transfers"
+
+msgid "재고현황"
+msgstr "Stock Status"
+
+msgid "바코드 스캔"
+msgstr "Barcode Scan"
+
+# Production sub-menu
+msgid "BOM 관리"
+msgstr "BOM Management"
+
+msgid "생산계획"
+msgstr "Production Plans"
+
+msgid "작업지시"
+msgstr "Work Orders"
+
+msgid "생산실적"
+msgstr "Production Records"
+
+# Sales sub-menu
+msgid "거래처"
+msgstr "Partners"
+
+msgid "고객"
+msgstr "Customers"
+
+msgid "주문"
+msgstr "Orders"
+
+msgid "수수료율"
+msgstr "Commission Rates"
+
+msgid "수수료내역"
+msgstr "Commission History"
+
+msgid "정산요약"
+msgstr "Settlement Summary"
+
+# Service sub-menu
+msgid "AS 접수"
+msgstr "Service Requests"
+
+# Accounting sub-menu
+msgid "재무 대시보드"
+msgstr "Financial Dashboard"
+
+msgid "세금계산서"
+msgstr "Tax Invoices"
+
+msgid "부가세 집계"
+msgstr "VAT Summary"
+
+msgid "고정비 관리"
+msgstr "Fixed Costs"
+
+msgid "손익분기점"
+msgstr "Break-even Point"
+
+msgid "월별 손익"
+msgstr "Monthly P&L"
+
+msgid "세율 관리"
+msgstr "Tax Rates"
+
+msgid "원천징수"
+msgstr "Withholding Tax"
+
+msgid "계정과목"
+msgstr "Account Codes"
+
+msgid "전표"
+msgstr "Vouchers"
+
+msgid "결재/품의"
+msgstr "Approvals"
+
+# Investment sub-menu
+msgid "투자 대시보드"
+msgstr "Investment Dashboard"
+
+msgid "투자자 관리"
+msgstr "Investors"
+
+msgid "투자 라운드"
+msgstr "Investment Rounds"
+
+msgid "지분 현황"
+msgstr "Equity Overview"
+
+msgid "배당/분배"
+msgstr "Dividends"
+
+# Marketplace sub-menu
+msgid "스토어 대시보드"
+msgstr "Store Dashboard"
+
+msgid "스토어 주문"
+msgstr "Store Orders"
+
+msgid "스토어 설정"
+msgstr "Store Settings"
+
+msgid "동기화 이력"
+msgstr "Sync History"
+
+# Inquiry sub-menu
+msgid "문의 대시보드"
+msgstr "Inquiry Dashboard"
+
+msgid "문의 목록"
+msgstr "Inquiry List"
+
+msgid "답변 템플릿"
+msgstr "Reply Templates"
+
+# System sub-menu
+msgid "백업/복원"
+msgstr "Backup/Restore"
+
+msgid "휴지통"
+msgstr "Trash"
+
+msgid "증빙관리"
+msgstr "Attachments"
+
+# Common actions
+msgid "추가"
+msgstr "Add"
+
+msgid "수정"
+msgstr "Edit"
+
+msgid "삭제"
+msgstr "Delete"
+
+msgid "저장"
+msgstr "Save"
+
+msgid "취소"
+msgstr "Cancel"
+
+msgid "검색"
+msgstr "Search"
+
+msgid "내보내기"
+msgstr "Export"
+
+msgid "가져오기"
+msgstr "Import"
+
+# Common labels
+msgid "목록"
+msgstr "List"
+
+msgid "상세"
+msgstr "Detail"
+
+msgid "상태"
+msgstr "Status"
+
+msgid "날짜"
+msgstr "Date"
+
+msgid "금액"
+msgstr "Amount"
+
+msgid "수량"
+msgstr "Quantity"
+
+# Dashboard widgets
+msgid "재고 부족"
+msgstr "Low Stock"
+
+msgid "금일 주문"
+msgstr "Today's Orders"
+
+msgid "진행중 생산"
+msgstr "Active Production"
+
+msgid "미처리 AS"
+msgstr "Open Service Requests"
+
+msgid "월 매출"
+msgstr "Monthly Revenue"
+
+# Header
+msgid "로그아웃"
+msgstr "Logout"
+
+# Language names
+msgid "한국어"
+msgstr "Korean"
+
+msgid "English"
+msgstr "English"

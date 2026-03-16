@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "출퇴근 이력" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "출퇴근 이력" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'attendance:dashboard' %}" class="btn btn-secondary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    {% trans "대시보드" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <!-- 월 선택 필터 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-3">
+            <div class="w-full sm:w-32">
+                <select name="year" class="form-input">
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}{% trans "년" %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-full sm:w-32">
+                <select name="month" class="form-input">
+                    {% for m in months %}
+                    <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>{{ m }}{% trans "월" %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-secondary">
+                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                {% trans "조회" %}
+            </button>
+        </form>
+    </div>
+
+    <!-- 테이블 -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">{% trans "날짜" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "출근" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "퇴근" %}</th>
+                    <th class="px-6 py-3 font-semibold text-right">{% trans "근무시간" %}</th>
+                    <th class="px-6 py-3 font-semibold text-right">{% trans "초과근무" %}</th>
+                    <th class="px-6 py-3 font-semibold">{% trans "상태" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for record in records %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-gray-900">{{ record.date|date:"Y-m-d (D)" }}</td>
+                    <td class="px-6 py-4 text-gray-700">
+                        {% if record.check_in %}
+                            {{ record.check_in|time:"H:i" }}
+                        {% else %}
+                            <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-gray-700">
+                        {% if record.check_out %}
+                            {{ record.check_out|time:"H:i" }}
+                        {% else %}
+                            <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right text-gray-700">
+                        {% if record.work_hours %}
+                            {{ record.work_hours }}{% trans "h" %}
+                        {% else %}
+                            <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right text-gray-700">
+                        {% if record.overtime_hours > 0 %}
+                            <span class="text-orange-600 font-medium">+{{ record.overtime_hours }}{% trans "h" %}</span>
+                        {% else %}
+                            <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if record.status == 'NORMAL' %}bg-green-100 text-green-800
+                            {% elif record.status == 'LATE' %}bg-yellow-100 text-yellow-800
+                            {% elif record.status == 'EARLY_LEAVE' %}bg-orange-100 text-orange-800
+                            {% elif record.status == 'ABSENT' %}bg-red-100 text-red-800
+                            {% elif record.status == 'HOLIDAY' %}bg-blue-100 text-blue-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ record.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        {% trans "해당 월의 출퇴근 기록이 없습니다." %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

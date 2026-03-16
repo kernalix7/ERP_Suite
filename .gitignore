@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+db.sqlite3
+media/
+staticfiles/
+*.log
+.DS_Store
+node_modules/
+
+# 로컬 전용 (민감 데이터, 테스트 DB 등)
+local/
+
+# Virtual environment
+.venv/
+venv/

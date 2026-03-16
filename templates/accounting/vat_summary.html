@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}부가가치세 요약 - ERP Suite{% endblock %}
+{% block page_title %}부가가치세 분기별 요약{% endblock %}
+
+{% block header_actions %}
+<form method="get" class="flex items-center gap-2">
+    <label class="text-sm font-medium text-gray-600">연도:</label>
+    <select name="year" onchange="this.form.submit()"
+            class="form-input w-32">
+        {% for y in available_years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}년</option>
+        {% endfor %}
+    </select>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-800">{{ selected_year }}년 부가가치세 현황</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-6 py-4 font-semibold">분기</th>
+                    <th class="px-6 py-4 font-semibold text-right">매출 공급가액</th>
+                    <th class="px-6 py-4 font-semibold text-right">매출 부가세</th>
+                    <th class="px-6 py-4 font-semibold text-right">매입 공급가액</th>
+                    <th class="px-6 py-4 font-semibold text-right">매입 부가세</th>
+                    <th class="px-6 py-4 font-semibold text-right">납부세액</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for q in quarters %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-gray-900">{{ q.label }}</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ q.sales_supply|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ q.sales_tax|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ q.purchase_supply|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-gray-900">{{ q.purchase_tax|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right font-semibold {% if q.net_vat >= 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                        {{ q.net_vat|intcomma }}원
+                    </td>
+                </tr>
+                {% endfor %}
+                <!-- 연간합계 -->
+                <tr class="bg-blue-50 font-bold">
+                    <td class="px-6 py-4 text-blue-900">연간합계</td>
+                    <td class="px-6 py-4 text-right text-blue-900">{{ annual_total.sales_supply|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-blue-900">{{ annual_total.sales_tax|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-blue-900">{{ annual_total.purchase_supply|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right text-blue-900">{{ annual_total.purchase_tax|intcomma }}원</td>
+                    <td class="px-6 py-4 text-right {% if annual_total.net_vat >= 0 %}text-red-700{% else %}text-green-700{% endif %}">
+                        {{ annual_total.net_vat|intcomma }}원
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

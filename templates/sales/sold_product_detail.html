@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "판매제품 상세" %} - {{ order_item.product.name }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "판매제품 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'sales:sold_product_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 주문 정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "주문 정보" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "주문번호" %}</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">
+                    <a href="{% url 'sales:order_detail' order_item.order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline font-mono">
+                        {{ order_item.order.order_number }}
+                    </a>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "주문일" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.order_date|date:"Y-m-d" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "상태" %}</dt>
+                <dd class="mt-1">
+                    {% if order_item.order.status == 'SHIPPED' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{% trans "출고완료" %}</span>
+                    {% elif order_item.order.status == 'DELIVERED' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "배송완료" %}</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ order_item.order.get_status_display }}</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "거래처/고객" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    {% if order_item.order.partner %}
+                        {{ order_item.order.partner.name }}
+                    {% endif %}
+                    {% if order_item.order.customer %}
+                        {{ order_item.order.customer.name }}
+                    {% endif %}
+                    {% if not order_item.order.partner and not order_item.order.customer %}
+                        -
+                    {% endif %}
+                </dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- 제품 정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "제품 정보" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "제품코드" %}</dt>
+                <dd class="mt-1 text-sm font-mono text-gray-900">{{ order_item.product.code }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "제품명" %}</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.product.name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "제품유형" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.product.get_product_type_display }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "단가" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.unit_price|floatformat:0 }}{% trans "원" %}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "수량" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.quantity }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "공급가액" %}</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.amount|floatformat:0 }}{% trans "원" %}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "부가세" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.tax_amount|floatformat:0 }}{% trans "원" %}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "합계(세포함)" %}</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.total_with_tax|floatformat:0 }}{% trans "원" %}</dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- 고객 정보 -->
+    {% if order_item.order.customer %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "고객 정보" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "고객명" %}</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">
+                    <a href="{% url 'sales:customer_detail' order_item.order.customer.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        {{ order_item.order.customer.name }}
+                    </a>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "연락처" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.customer.phone|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "이메일" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.customer.email|default:"-" }}</dd>
+            </div>
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">{% trans "주소" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.customer.address|default:"-" }}</dd>
+            </div>
+        </div>
+    </div>
+    {% elif order_item.order.partner %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "거래처 정보" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "거래처명" %}</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.order.partner.name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "연락처" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.partner.phone|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "이메일" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.partner.email|default:"-" }}</dd>
+            </div>
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">{% trans "주소" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.partner.address|default:"-" }}</dd>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 보증 정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "보증 정보" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "시리얼번호" %}</dt>
+                <dd class="mt-1 text-sm font-mono text-gray-900">{{ warranty_info.serial_number|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "보증만료일" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ warranty_info.warranty_end|date:"Y-m-d"|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "보증상태" %}</dt>
+                <dd class="mt-1">
+                    {% if warranty_info.warranty_end %}
+                        {% if warranty_info.is_valid %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "유효" %}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "만료" %}</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">{% trans "미등록" %}</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "정보출처" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    {% if warranty_info.source == 'registration' %}
+                        {% trans "정품등록" %}
+                    {% elif warranty_info.source == 'customer' %}
+                        {% trans "고객정보" %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- AS 이력 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "AS 이력" %}</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">{% trans "AS번호" %}</th>
+                        <th class="px-4 py-3">{% trans "요청유형" %}</th>
+                        <th class="px-4 py-3">{% trans "상태" %}</th>
+                        <th class="px-4 py-3">{% trans "증상" %}</th>
+                        <th class="px-4 py-3">{% trans "접수일" %}</th>
+                        <th class="px-4 py-3">{% trans "완료일" %}</th>
+                        <th class="px-4 py-3">{% trans "수리이력" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for sr in service_requests %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 font-mono text-gray-900">
+                            <a href="{% url 'service:request_detail' sr.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                {{ sr.request_number }}
+                            </a>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">{{ sr.get_request_type_display }}</td>
+                        <td class="px-4 py-3">
+                            {% if sr.status == 'RECEIVED' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{% trans "접수" %}</span>
+                            {% elif sr.status == 'INSPECTING' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "검수중" %}</span>
+                            {% elif sr.status == 'REPAIRING' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">{% trans "수리중" %}</span>
+                            {% elif sr.status == 'COMPLETED' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "완료" %}</span>
+                            {% elif sr.status == 'RETURNED' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{% trans "반송완료" %}</span>
+                            {% elif sr.status == 'CANCELLED' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "취소" %}</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ sr.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-gray-600 max-w-xs truncate">{{ sr.symptom|truncatechars:50 }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ sr.received_date|date:"Y-m-d" }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ sr.completed_date|date:"Y-m-d"|default:"-" }}</td>
+                        <td class="px-4 py-3">
+                            {% if sr.repairs.all %}
+                            <ul class="space-y-1">
+                                {% for repair in sr.repairs.all %}
+                                <li class="text-xs text-gray-600">
+                                    <span class="font-medium">{{ repair.repair_date|date:"Y-m-d" }}</span>
+                                    - {{ repair.description|truncatechars:30 }}
+                                    {% if repair.cost %}
+                                    <span class="text-gray-500">({{ repair.cost|floatformat:0 }}{% trans "원" %})</span>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                            {% trans "AS 이력이 없습니다." %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

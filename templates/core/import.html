@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} - ERP Suite{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+    <a href="{{ sample_url }}" class="btn btn-secondary">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        샘플 다운로드
+    </a>
+    <a href="{{ cancel_url }}" class="btn btn-secondary">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        목록
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- 업로드 폼 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <svg class="w-5 h-5 inline-block mr-1 -mt-0.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            파일 업로드
+        </h3>
+        <form method="post" enctype="multipart/form-data" id="importForm">
+            {% csrf_token %}
+            <div class="flex flex-col sm:flex-row gap-4 items-end">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Excel / CSV 파일 선택
+                    </label>
+                    <input type="file" name="import_file" accept=".xlsx,.xls,.csv"
+                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
+                                  file:rounded-lg file:border-0 file:text-sm file:font-semibold
+                                  file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100
+                                  border border-gray-300 rounded-lg cursor-pointer"
+                           required>
+                    <p class="mt-1 text-xs text-gray-500">지원 형식: .xlsx, .xls, .csv</p>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" name="action" value="preview" class="btn btn-secondary">
+                        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        미리보기
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 에러 표시 -->
+    {% if errors %}
+    <div class="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+        <h3 class="text-base font-semibold text-red-800 mb-3">
+            <svg class="w-5 h-5 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            가져오기 오류
+        </h3>
+        <div class="space-y-1 max-h-60 overflow-y-auto">
+            {% for error in errors %}
+            <p class="text-sm text-red-700">{{ error }}</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 미리보기 결과 -->
+    {% if preview %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div class="p-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <svg class="w-5 h-5 inline-block mr-1 -mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                미리보기 결과
+            </h3>
+            <div class="mt-2 flex flex-wrap gap-3 text-sm">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-green-100 text-green-800 font-medium">
+                    신규: {{ preview.totals.new }}건
+                </span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium">
+                    수정: {{ preview.totals.update }}건
+                </span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-800 font-medium">
+                    건너뜀: {{ preview.totals.skip }}건
+                </span>
+                {% if preview.totals.error > 0 %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-medium">
+                    오류: {{ preview.totals.error }}건
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if preview.headers and preview.rows %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                    <tr>
+                        <th class="px-4 py-3 font-semibold">상태</th>
+                        {% for header in preview.headers %}
+                        <th class="px-4 py-3 font-semibold">{{ header }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in preview.rows %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3">
+                            {% if row.status == 'new' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">신규</span>
+                            {% elif row.status == 'update' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">수정</span>
+                            {% elif row.status == 'skip' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">건너뜀</span>
+                            {% elif row.status == 'error' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">오류</span>
+                            {% endif %}
+                        </td>
+                        {% for value in row.values %}
+                        <td class="px-4 py-3 text-gray-700">{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- 확인 가져오기 버튼 -->
+        {% if preview.totals.error == 0 and preview.has_valid_rows %}
+        <div class="p-4 border-t border-gray-200 flex justify-end">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="import_file_name" value="{{ preview.file_name }}">
+                <input type="hidden" name="action" value="confirm">
+                <input type="file" name="import_file" class="hidden" id="confirmFile">
+                <p class="text-sm text-gray-500 mb-3">
+                    미리보기가 정상이면 아래 버튼을 눌러 실제로 가져오기를 실행하세요.
+                    <br>
+                    <strong class="text-gray-700">동일한 파일을 다시 선택</strong>한 후 가져오기 버튼을 클릭하세요.
+                </p>
+                <div class="flex items-center gap-3">
+                    <input type="file" name="import_file" accept=".xlsx,.xls,.csv"
+                           class="block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
+                                  file:rounded-lg file:border-0 file:text-sm file:font-semibold
+                                  file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100
+                                  border border-gray-300 rounded-lg cursor-pointer"
+                           required>
+                    <button type="submit" class="btn btn-primary whitespace-nowrap">
+                        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        가져오기 실행
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 안내 -->
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <h3 class="text-base font-semibold text-blue-800 mb-3">
+            <svg class="w-5 h-5 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            가져오기 안내
+        </h3>
+        <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
+            <li>먼저 <strong>샘플 다운로드</strong> 버튼으로 양식을 받아 데이터를 입력하세요.</li>
+            <li><strong>미리보기</strong>로 데이터를 확인한 후 <strong>가져오기 실행</strong>을 하세요.</li>
+            <li>기존 데이터와 동일한 식별 코드가 있으면 해당 항목이 <strong>수정</strong>됩니다.</li>
+            {% for hint in field_hints %}
+            <li>{{ hint }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

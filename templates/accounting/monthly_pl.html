@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}월별 손익계산서 - ERP Suite{% endblock %}
+{% block page_title %}월별 손익계산서{% endblock %}
+
+{% block header_actions %}
+<form method="get" class="flex items-center gap-2">
+    <label class="text-sm font-medium text-gray-600">연도:</label>
+    <select name="year" onchange="this.form.submit()"
+            class="form-input w-32">
+        {% for y in available_years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}년</option>
+        {% endfor %}
+    </select>
+</form>
+{% endblock %}
+
+{% block content %}
+<!-- 월별 손익 테이블 -->
+<div class="bg-white shadow-sm rounded-xl overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-800">{{ selected_year }}년 월별 손익현황</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                <tr>
+                    <th class="px-4 py-4 font-semibold sticky left-0 bg-gray-50 z-10">구분</th>
+                    {% for m in monthly_data %}
+                    <th class="px-4 py-4 font-semibold text-right whitespace-nowrap">{{ m.month }}월</th>
+                    {% endfor %}
+                    <th class="px-4 py-4 font-semibold text-right bg-blue-50 text-blue-800">연간합계</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <!-- 매출 -->
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900 sticky left-0 bg-white z-10">매출</td>
+                    {% for m in monthly_data %}
+                    <td class="px-4 py-3 text-right text-gray-900">{{ m.revenue|intcomma }}</td>
+                    {% endfor %}
+                    <td class="px-4 py-3 text-right font-semibold bg-blue-50 text-blue-900">{{ annual.revenue|intcomma }}</td>
+                </tr>
+                <!-- 매출원가 -->
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900 sticky left-0 bg-white z-10">매출원가</td>
+                    {% for m in monthly_data %}
+                    <td class="px-4 py-3 text-right text-gray-600">{{ m.cogs|intcomma }}</td>
+                    {% endfor %}
+                    <td class="px-4 py-3 text-right font-semibold bg-blue-50 text-blue-900">{{ annual.cogs|intcomma }}</td>
+                </tr>
+                <!-- 매출총이익 -->
+                <tr class="bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <td class="px-4 py-3 font-bold text-gray-900 sticky left-0 bg-gray-50 z-10">매출총이익</td>
+                    {% for m in monthly_data %}
+                    <td class="px-4 py-3 text-right font-semibold {% if m.gross_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        {{ m.gross_profit|intcomma }}
+                    </td>
+                    {% endfor %}
+                    <td class="px-4 py-3 text-right font-bold bg-blue-50 {% if annual.gross_profit >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+                        {{ annual.gross_profit|intcomma }}
+                    </td>
+                </tr>
+                <!-- 고정비 -->
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900 sticky left-0 bg-white z-10">고정비</td>
+                    {% for m in monthly_data %}
+                    <td class="px-4 py-3 text-right text-gray-600">{{ m.fixed_cost|intcomma }}</td>
+                    {% endfor %}
+                    <td class="px-4 py-3 text-right font-semibold bg-blue-50 text-blue-900">{{ annual.fixed_cost|intcomma }}</td>
+                </tr>
+                <!-- 영업이익 -->
+                <tr class="bg-yellow-50 hover:bg-yellow-100 transition-colors">
+                    <td class="px-4 py-3 font-bold text-gray-900 sticky left-0 bg-yellow-50 z-10">영업이익</td>
+                    {% for m in monthly_data %}
+                    <td class="px-4 py-3 text-right font-bold {% if m.net_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        {{ m.net_profit|intcomma }}
+                    </td>
+                    {% endfor %}
+                    <td class="px-4 py-3 text-right font-bold bg-blue-50 {% if annual.net_profit >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+                        {{ annual.net_profit|intcomma }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 차트 -->
+<div class="bg-white shadow-sm rounded-xl p-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">월별 손익 추이</h3>
+    <canvas id="plChart" height="350"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const monthlyJson = {{ monthly_json|safe }};
+
+    const labels = monthlyJson.map(item => item.month + '월');
+    const revenueData = monthlyJson.map(item => item.revenue);
+    const cogsData = monthlyJson.map(item => item.cogs);
+    const fixedData = monthlyJson.map(item => item.fixed_cost);
+    const profitData = monthlyJson.map(item => item.net_profit);
+
+    new Chart(document.getElementById('plChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '매출',
+                    data: revenueData,
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1,
+                    stack: 'revenue',
+                    order: 2
+                },
+                {
+                    label: '매출원가',
+                    data: cogsData,
+                    backgroundColor: 'rgba(249, 115, 22, 0.7)',
+                    borderColor: 'rgba(249, 115, 22, 1)',
+                    borderWidth: 1,
+                    stack: 'cost',
+                    order: 3
+                },
+                {
+                    label: '고정비',
+                    data: fixedData,
+                    backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                    borderColor: 'rgba(168, 85, 247, 1)',
+                    borderWidth: 1,
+                    stack: 'cost',
+                    order: 4
+                },
+                {
+                    label: '영업이익',
+                    data: profitData,
+                    type: 'line',
+                    borderColor: profitData.map(v => v >= 0 ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)'),
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    pointBackgroundColor: profitData.map(v => v >= 0 ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)'),
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    tension: 0.3,
+                    order: 1,
+                    segment: {
+                        borderColor: function(ctx) {
+                            return ctx.p0.parsed.y >= 0 && ctx.p1.parsed.y >= 0
+                                ? 'rgba(34, 197, 94, 1)'
+                                : ctx.p0.parsed.y < 0 && ctx.p1.parsed.y < 0
+                                ? 'rgba(239, 68, 68, 1)'
+                                : 'rgba(234, 179, 8, 1)';
+                        }
+                    }
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            scales: {
+                x: {
+                    stacked: true
+                },
+                y: {
+                    stacked: false,
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString() + '원';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + '원';
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

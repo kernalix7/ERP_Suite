@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ board.name }} - ERP Suite{% endblock %}
+{% block page_title %}{{ board.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'board:post_create' board.slug %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "글쓰기" %}
+</a>
+<a href="{% url 'board:board_list' %}" class="btn btn-secondary">{% trans "게시판 목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <!-- 검색 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '제목 또는 내용 검색' %}" class="form-input flex-1 min-w-[200px]">
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+
+    <!-- 테이블 -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3 w-12 text-center">#</th>
+                    <th class="px-4 py-3">{% trans "제목" %}</th>
+                    <th class="px-4 py-3 w-28">{% trans "작성자" %}</th>
+                    <th class="px-4 py-3 w-28 text-center">{% trans "작성일" %}</th>
+                    <th class="px-4 py-3 w-20 text-center">{% trans "조회" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for post in posts %}
+                <tr class="hover:bg-gray-50 transition-colors {% if post.is_pinned %}bg-yellow-50{% endif %}">
+                    <td class="px-4 py-3 text-center text-gray-500">
+                        {% if post.is_pinned %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "고정" %}</span>
+                        {% else %}
+                        {{ post.pk }}
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">
+                        <a href="{% url 'board:post_detail' post.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            {{ post.title|truncatechars:60 }}
+                        </a>
+                        {% if post.comments.count > 0 %}
+                        <span class="ml-1 text-xs text-blue-500">[{{ post.comments.count }}]</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ post.author }}</td>
+                    <td class="px-4 py-3 text-center text-gray-500">{{ post.created_at|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-center text-gray-500">{{ post.view_count }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-12 text-center text-gray-400">
+                        {% trans "등록된 게시글이 없습니다." %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">{% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}</p>
+        <nav class="flex gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "이전" %}</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&q={{ request.GET.q }}"
+               class="px-3 py-1 text-sm rounded border {% if page_obj.number == num %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 hover:bg-gray-50{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "다음" %}</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
