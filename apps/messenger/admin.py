@@ -17,7 +17,7 @@ class ChatRoomAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(Message)
-class MessageAdmin(admin.ModelAdmin):
+class MessageAdmin(SimpleHistoryAdmin):
     list_display = ('id', 'room', 'sender', 'content_preview', 'message_type', 'sent_at')
     list_filter = ('message_type', 'sent_at')
     search_fields = ('content', 'sender__name', 'sender__username')

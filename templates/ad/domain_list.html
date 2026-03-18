@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "AD 도메인 관리" %} - ERP Suite{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">{% trans "AD 도메인 관리" %}</h1>
+        <a href="{% url 'ad:domain_create' %}" class="btn btn-primary">{% trans "도메인 추가" %}</a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="table-responsive">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "도메인명" %}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "도메인 주소" %}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "LDAP 서버" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "SSL" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "자동동기화" %}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "마지막 동기화" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "관리" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for domain in domains %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4">
+                            <a href="{% url 'ad:domain_detail' domain.pk %}" class="font-medium text-blue-600 hover:underline">{{ domain.name }}</a>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ domain.domain }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ domain.ldap_server }}</td>
+                        <td class="px-6 py-4 text-center">
+                            {% if domain.use_ssl %}<span class="text-green-500">&#10003;</span>{% else %}<span class="text-gray-300">-</span>{% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if domain.sync_enabled %}<span class="text-green-500">&#10003;</span> <span class="text-xs text-gray-400">{{ domain.sync_interval_minutes }}{% trans "분" %}</span>{% else %}<span class="text-gray-300">-</span>{% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            {% if domain.last_sync_at %}{{ domain.last_sync_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <a href="{% url 'ad:domain_update' domain.pk %}" class="text-blue-600 hover:underline text-sm">{% trans "수정" %}</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-8 text-center text-gray-400">{% trans "등록된 도메인이 없습니다." %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

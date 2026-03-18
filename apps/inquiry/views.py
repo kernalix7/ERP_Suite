@@ -2,7 +2,7 @@ import json
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Avg, F
+from django.db.models import Count
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy, reverse
@@ -22,12 +22,12 @@ class InquiryDashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['status_counts'] = (
-            Inquiry.objects.values('status')
+            Inquiry.objects.filter(is_active=True).values('status')
             .annotate(count=Count('id'))
             .order_by('status')
         )
-        context['recent_inquiries'] = Inquiry.objects.all()[:10]
-        context['total_inquiries'] = Inquiry.objects.count()
+        context['recent_inquiries'] = Inquiry.objects.filter(is_active=True)[:10]
+        context['total_inquiries'] = Inquiry.objects.filter(is_active=True).count()
         return context
 
 
@@ -38,7 +38,7 @@ class InquiryListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True)
         status = self.request.GET.get('status')
         channel = self.request.GET.get('channel')
         if status:
@@ -49,7 +49,7 @@ class InquiryListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['channels'] = InquiryChannel.objects.all()
+        context['channels'] = InquiryChannel.objects.filter(is_active=True)
         return context
 
 
@@ -166,7 +166,7 @@ class GenerateReplyView(LoginRequiredMixin, View):
                 created_by=request.user,
             )
             if inquiry.status in (Inquiry.Status.RECEIVED, Inquiry.Status.WAITING):
-                inquiry.status = Inquiry.Status.WAITING
+                inquiry.status = Inquiry.Status.REPLIED
                 inquiry.save(update_fields=['status', 'updated_at'])
             messages.success(request, 'AI 답변이 성공적으로 생성되었습니다.')
         else:

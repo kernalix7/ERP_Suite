@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, F, Sum, Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -198,7 +198,7 @@ class LeaveRequestListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return LeaveRequest.objects.filter(
             user=self.request.user
-        ).order_by('-created_at')
+        ).select_related('approved_by').order_by('-created_at')
 
 
 class LeaveRequestCreateView(LoginRequiredMixin, CreateView):
@@ -245,8 +245,10 @@ class LeaveApproveView(ManagerRequiredMixin, View):
                     year=leave.start_date.year,
                     defaults={'created_by': request.user},
                 )
-                balance.used_days += leave.days
-                balance.save(update_fields=['used_days', 'updated_at'])
+                AnnualLeaveBalance.objects.filter(pk=balance.pk).update(
+                    used_days=F('used_days') + leave.days
+                )
+                balance.refresh_from_db()
 
             messages.success(request, '휴가가 승인되었습니다.')
 

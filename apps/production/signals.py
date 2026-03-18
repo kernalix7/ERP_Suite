@@ -1,8 +1,12 @@
+import logging
+
 from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from apps.inventory.models import StockMovement, Warehouse
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender='production.ProductionRecord')
@@ -13,6 +17,10 @@ def auto_stock_on_production(sender, instance, created, **kwargs):
 
     warehouse = Warehouse.objects.first()
     if not warehouse:
+        logger.error(
+            'No warehouse configured — cannot create stock movement for %s',
+            instance,
+        )
         return
 
     work_order = instance.work_order
@@ -51,19 +59,19 @@ def auto_stock_on_production(sender, instance, created, **kwargs):
                     created_by=instance.created_by,
                 )
 
-    # 작업지시 상태 자동 전환
-    total_produced = sum(r.good_quantity for r in work_order.records.all())
-    if total_produced >= work_order.quantity:
-        from django.utils import timezone
-        work_order.status = 'COMPLETED'
-        work_order.completed_at = timezone.now()
-        work_order.save(update_fields=['status', 'completed_at', 'updated_at'])
+        # 작업지시 상태 자동 전환
+        total_produced = sum(r.good_quantity for r in work_order.records.all())
+        if total_produced >= work_order.quantity:
+            from django.utils import timezone
+            work_order.status = 'COMPLETED'
+            work_order.completed_at = timezone.now()
+            work_order.save(update_fields=['status', 'completed_at', 'updated_at'])
 
-    # 생산계획 상태 자동 전환
-    all_complete = all(
-        wo.status == 'COMPLETED' for wo in plan.work_orders.all()
-    )
-    if all_complete and plan.status == 'IN_PROGRESS':
-        plan.status = 'COMPLETED'
-        plan.actual_cost = int(bom.total_material_cost * plan.produced_quantity)
-        plan.save(update_fields=['status', 'actual_cost', 'updated_at'])
+        # 생산계획 상태 자동 전환
+        all_complete = all(
+            wo.status == 'COMPLETED' for wo in plan.work_orders.all()
+        )
+        if all_complete and plan.status == 'IN_PROGRESS':
+            plan.status = 'COMPLETED'
+            plan.actual_cost = int(bom.total_material_cost * plan.produced_quantity)
+            plan.save(update_fields=['status', 'actual_cost', 'updated_at'])

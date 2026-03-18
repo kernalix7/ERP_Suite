@@ -10,10 +10,29 @@ scrape_configs:
         labels:
           app: erp-suite
 
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
-
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['db:5432']
+  # To monitor PostgreSQL and Redis, add dedicated exporter services
+  # to docker-compose.yml:
+  #
+  # postgres_exporter:
+  #   image: prometheuscommunity/postgres-exporter
+  #   environment:
+  #     DATA_SOURCE_NAME: "postgresql://user:password@db:5432/erp?sslmode=disable"
+  #   ports:
+  #     - "9187:9187"
+  #
+  # redis_exporter:
+  #   image: oliver006/redis_exporter
+  #   environment:
+  #     REDIS_ADDR: "redis://redis:6379"
+  #   ports:
+  #     - "9121:9121"
+  #
+  # Then uncomment the following scrape configs:
+  #
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres_exporter:9187']
+  #
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis_exporter:9121']

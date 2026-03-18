@@ -1,0 +1,160 @@
+# Korean translations for ERP Suite.
+# Copyright (C) 2026 ERP Suite
+# This file is distributed under the same license as the ERP Suite package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ERP Suite 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-17 00:00+0900\n"
+"PO-Revision-Date: 2026-03-17 00:00+0900\n"
+"Last-Translator: ERP Suite Team\n"
+"Language-Team: Korean\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: templates/board/board_list.html
+msgid "게시판"
+msgstr "게시판"
+
+#: templates/board/board_list.html
+msgid "공지"
+msgstr "공지"
+
+#: templates/board/board_list.html
+msgid "글쓰기 권한"
+msgstr "글쓰기 권한"
+
+#: templates/board/board_list.html
+msgid "등록된 게시판이 없습니다."
+msgstr "등록된 게시판이 없습니다."
+
+#: templates/board/post_list.html
+msgid "글쓰기"
+msgstr "글쓰기"
+
+#: templates/board/post_list.html
+msgid "게시판 목록"
+msgstr "게시판 목록"
+
+#: templates/board/post_list.html
+msgid "제목 또는 내용 검색"
+msgstr "제목 또는 내용 검색"
+
+#: templates/board/post_list.html
+msgid "검색"
+msgstr "검색"
+
+#: templates/board/post_list.html
+msgid "제목"
+msgstr "제목"
+
+#: templates/board/post_list.html
+msgid "작성자"
+msgstr "작성자"
+
+#: templates/board/post_list.html
+msgid "작성일"
+msgstr "작성일"
+
+#: templates/board/post_list.html
+msgid "조회"
+msgstr "조회"
+
+#: templates/board/post_list.html
+msgid "고정"
+msgstr "고정"
+
+#: templates/board/post_list.html
+msgid "등록된 게시글이 없습니다."
+msgstr "등록된 게시글이 없습니다."
+
+#: templates/board/post_list.html
+msgid "총"
+msgstr "총"
+
+#: templates/board/post_list.html
+msgid "건"
+msgstr "건"
+
+#: templates/board/post_list.html
+msgid "이전"
+msgstr "이전"
+
+#: templates/board/post_list.html
+msgid "다음"
+msgstr "다음"
+
+#: templates/board/post_detail.html
+msgid "수정"
+msgstr "수정"
+
+#: templates/board/post_detail.html
+msgid "삭제"
+msgstr "삭제"
+
+#: templates/board/post_detail.html
+msgid "목록으로"
+msgstr "목록으로"
+
+#: templates/board/post_detail.html
+msgid "댓글"
+msgstr "댓글"
+
+#: templates/board/post_detail.html
+msgid "답글"
+msgstr "답글"
+
+#: templates/board/post_detail.html
+msgid "답글을 입력하세요..."
+msgstr "답글을 입력하세요..."
+
+#: templates/board/post_detail.html
+msgid "등록"
+msgstr "등록"
+
+#: templates/board/post_detail.html
+msgid "아직 댓글이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
+#: templates/board/post_detail.html
+msgid "댓글 작성"
+msgstr "댓글 작성"
+
+#: templates/board/post_detail.html
+msgid "댓글을 입력하세요..."
+msgstr "댓글을 입력하세요..."
+
+#. Common UI strings
+msgid "저장"
+msgstr "저장"
+
+msgid "취소"
+msgstr "취소"
+
+msgid "확인"
+msgstr "확인"
+
+msgid "목록"
+msgstr "목록"
+
+msgid "상세"
+msgstr "상세"
+
+msgid "추가"
+msgstr "추가"
+
+msgid "로그인"
+msgstr "로그인"
+
+msgid "로그아웃"
+msgstr "로그아웃"
+
+msgid "대시보드"
+msgstr "대시보드"
+
+msgid "설정"
+msgstr "설정"

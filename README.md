@@ -1,157 +1,234 @@
 # ERP Suite
 
-제조업 기반 중소기업을 위한 범용 통합 ERP 시스템
+Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 
-## 주요 기능
+> [Korean version (한국어)](README_ko.md)
 
-### 재고관리
-- 제품/원자재/반제품 마스터 관리
-- 입출고 자동 재고 반영 (시그널 기반)
-- 창고간 이동, 안전재고 알림
-- 바코드 지원, Excel 다운로드
+## Key Features
 
-### 생산관리
-- BOM(자재명세서) 관리
-- 생산계획 → 작업지시 → 생산실적 워크플로우
-- 생산 완료 시 완제품 입고 + 원자재 출고 자동 처리
+### ERP Modules
 
-### 판매관리
-- 거래처/고객 관리
-- 주문 생성 → 출고 자동 연동
-- 부가세 10% 자동 계산
-- 파트너 수수료율 설정 및 정산
+| Module | Description |
+|--------|-------------|
+| **Inventory** | Products (raw/semi/finished), warehouses, stock movements, inter-warehouse transfers, barcode/QR scanning, safety stock alerts |
+| **Production** | BOM management, production planning, work orders, production records with auto stock adjustments |
+| **Sales** | Partners, customers, orders, quotes (with one-click order conversion), shipment tracking, commission management |
+| **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking |
+| **Service** | Service requests, repair history tracking, warranty period verification |
+| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, vouchers, account codes, withholding tax, multi-step approval workflow |
+| **Investment** | Investors, funding rounds, equity tracking (donut charts), dividend/distribution records |
+| **Marketplace** | Naver/Coupang store integration, order sync, sync history |
+| **Inquiry** | Multi-channel inquiry management, Claude AI auto-reply drafts, reply templates |
+| **Warranty** | Serial number authentication, warranty period management, QR verification |
+| **Advertising** | Ad platforms (Google/Naver/Kakao/Meta), campaigns, creatives, performance tracking (ROAS/CTR/CPC), budget management |
 
-### AS관리
-- AS 접수/수리 워크플로우
-- 보증기간 자동 확인
-- 수리이력 추적
+### Groupware Modules
 
-### 회계관리
-- 세금계산서 (매출/매입)
-- 부가세 분기 집계
-- 고정비 관리 (임대/인건비/장비 등)
-- 손익분기점 분석 (Chart.js)
-- 월별 손익계산서
-- 전표 작성 (입금/출금/대체)
-- 계정과목 관리
-- 원천징수 관리
+| Module | Description |
+|--------|-------------|
+| **HR** | Departments, positions, employee profiles, personnel actions, org chart |
+| **Attendance** | Check-in/out records, leave requests/approvals, annual leave balance |
+| **Board** | Notice/free boards, posts, comments (nested replies) |
+| **Calendar** | Schedule management with FullCalendar.js, AJAX API |
+| **Messenger** | Internal messaging (1:1 and group chat), real-time WebSocket |
 
-### 투자관리
-- 투자자/투자라운드 관리
-- 지분율 추적 (도넛차트)
-- 배당/수익분배 기록
+### System Modules
 
-### 스마트스토어 연동
-- 네이버 스마트스토어 주문 동기화
-- 동기화 이력 관리
+| Module | Description |
+|--------|-------------|
+| **Core** | Dashboard, notifications, Excel/PDF export, barcode generation, backup/restore, audit trail, access logs |
+| **Accounts** | Authentication, RBAC (admin/manager/staff), login protection (django-axes) |
+| **API** | REST API (DRF ViewSets), JWT authentication (SimpleJWT) |
+| **Active Directory** | LDAP/AD integration, user/group sync, group policy-based role mapping |
 
-### 문의관리
-- 채널별 문의 통합 관리 (스마트스토어/인스타/카카오)
-- Claude AI 기반 답변 초안 자동 생성
-- 답변 템플릿 관리
+## Tech Stack
 
-### 정품등록
-- 시리얼번호 기반 정품 인증
-- 보증기간 관리
-- API 조회 지원
+| Layer | Technology |
+|-------|------------|
+| Backend | Django 5.x / Python 3.13 |
+| Frontend | Django Templates + Tailwind CSS (CDN) + HTMX + Alpine.js + Chart.js + FullCalendar.js |
+| Database | SQLite (dev) / PostgreSQL 16 (prod) |
+| Real-time | Django Channels + WebSocket (Daphne ASGI) |
+| Async Tasks | Celery + Redis (task queue, scheduled backups) |
+| Caching | Redis (django-redis) |
+| API | Django REST Framework + JWT (SimpleJWT) |
+| Security | django-axes (login throttling), RBAC, HSTS/CSP, django-prometheus |
+| Monitoring | Prometheus + Grafana + Sentry |
+| Deployment | Docker Compose (7 containers) |
+| CI/CD | GitHub Actions |
+| i18n | Korean / English (django i18n) |
+| History | django-simple-history (all models) |
 
-### 시스템관리
-- 역할기반 접근제어 (관리자/매니저/직원)
-- 로그인 보호 (5회 실패 시 1시간 잠금)
-- 데이터 백업/복원
-- Excel 내보내기
+## Quick Start
 
-## 기술 스택
-
-| 구분 | 기술 |
-|------|------|
-| Backend | Django 5.x / Python 3.12 |
-| Frontend | Django Templates + Tailwind CSS + HTMX + Alpine.js + Chart.js |
-| Database | SQLite (개발) / PostgreSQL (운영) |
-| 보안 | django-axes, RBAC, HSTS, CSP |
-| 배포 | Docker Compose |
-
-## 시작하기
-
-### 사전 요구사항
-- Python 3.12+
+### Prerequisites
+- Python 3.13+
 - pip
 
-### 설치
+### Installation
 
 ```bash
-# 저장소 복제
+# Clone repository
 git clone https://github.com/your-org/ERP_Suite.git
 cd ERP_Suite
 
-# 가상환경 생성 및 활성화
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# 의존성 설치
-pip install -r requirements/dev.txt
+# Install dependencies
+pip install -r requirements/base.txt
 
-# 환경변수 설정
+# Configure environment
 mkdir -p local
 cp .env.example local/.env
-# local/.env 파일을 편집하여 SECRET_KEY 등 설정
+# Edit local/.env and set SECRET_KEY
 
-# 데이터베이스 마이그레이션
+# Run migrations
 python manage.py migrate
 
-# 관리자 계정 생성
+# Create admin user
 python manage.py createsuperuser
 
-# 개발 서버 실행
-python manage.py runserver
+# Set admin role
+python manage.py shell -c "
+from apps.accounts.models import User
+u = User.objects.get(username='admin')
+u.role = 'admin'; u.name = 'Admin'; u.save()
+"
+
+# Compile translations
+python manage.py compilemessages
+
+# Start development server
+python manage.py runserver 0.0.0.0:8000
 ```
 
-브라우저에서 http://localhost:8000 으로 접속합니다.
+Open http://localhost:8000 in your browser.
 
-### Docker 배포
+### Docker Deployment
 
 ```bash
-# 환경변수 설정
+# Set environment variables
 export DB_PASSWORD=your-secure-password
 export SECRET_KEY=your-secret-key
 export ALLOWED_HOSTS=your-domain.com
 
-# 컨테이너 빌드 및 실행
+# Build and start all services
 docker-compose up -d
-
-# 데이터베이스 마이그레이션
-docker-compose exec web python manage.py migrate
-
-# 관리자 계정 생성
-docker-compose exec web python manage.py createsuperuser
 ```
 
-## 프로젝트 구조
+**Docker services (7 containers):**
+
+| Service | Port | Description |
+|---------|------|-------------|
+| web | 8000 | Django app (Daphne ASGI) |
+| db | 5432 | PostgreSQL 16 |
+| redis | 6379 | Cache + message broker |
+| celery_worker | - | Async task processing |
+| celery_beat | - | Periodic task scheduler |
+| prometheus | 9090 | Metrics collection |
+| grafana | 3000 | Monitoring dashboards |
+
+## Project Structure
 
 ```
 ERP_Suite/
 ├── apps/
-│   ├── core/          # 공통 모델, 믹스인, 유틸리티, 대시보드
-│   ├── accounts/      # 사용자 인증, 역할 관리
-│   ├── inventory/     # 재고관리 (제품, 창고, 입출고, 이동)
-│   ├── production/    # 생산관리 (BOM, 생산계획, 작업지시, 실적)
-│   ├── sales/         # 판매관리 (거래처, 고객, 주문, 수수료)
-│   ├── service/       # AS관리 (접수, 수리이력)
-│   ├── accounting/    # 회계관리 (세금계산서, 부가세, 고정비, 전표)
-│   ├── investment/    # 투자관리 (투자자, 라운드, 지분, 배당)
-│   ├── smartstore/    # 스마트스토어 연동
-│   ├── inquiry/       # 문의관리 (문의, AI 답변, 템플릿)
-│   └── warranty/      # 정품등록 (시리얼번호, 보증)
-├── config/            # Django 설정 (base, development, production)
-├── templates/         # HTML 템플릿 (앱별 하위 폴더)
-├── static/            # 정적 파일 (CSS, JS, 이미지)
-├── locale/            # 다국어 번역 파일
-├── requirements/      # pip 의존성 (dev.txt, prod.txt)
-├── docker-compose.yml # Docker Compose 설정
-├── Dockerfile         # Docker 이미지 빌드
-└── manage.py          # Django 관리 명령어
+│   ├── core/            # Common: BaseModel, notifications, Excel/PDF, barcode, backup, dashboard, audit
+│   ├── accounts/        # Authentication, RBAC (admin/manager/staff)
+│   ├── inventory/       # Products, categories, warehouses, stock movements, transfers, barcode/QR
+│   ├── production/      # BOM, production plans, work orders, production records
+│   ├── sales/           # Partners, customers, orders, quotes, shipments, commissions
+│   ├── purchase/        # Purchase orders, receiving, auto inventory integration
+│   ├── service/         # Service requests, repair history
+│   ├── accounting/      # Tax invoices, VAT, fixed costs, break-even, P&L, vouchers, approvals
+│   ├── investment/      # Investors, rounds, equity, dividends
+│   ├── marketplace/     # Naver/Coupang store integration, order sync
+│   ├── inquiry/         # Inquiry management, Claude AI auto-reply, templates
+│   ├── warranty/        # Serial number authentication, warranty verification
+│   ├── hr/              # Departments, positions, employee profiles, personnel actions, org chart
+│   ├── attendance/      # Check-in/out, leave requests, annual leave balance
+│   ├── board/           # Notice/free boards, posts, comments
+│   ├── calendar_app/    # Schedule management (FullCalendar.js, AJAX API)
+│   ├── messenger/       # Internal chat (1:1/group, WebSocket real-time)
+│   ├── ad/              # Active Directory / LDAP integration
+│   ├── advertising/     # Ad campaign/creative management, performance tracking, budgets
+│   └── api/             # REST API (DRF ViewSets, JWT auth)
+├── config/              # Django settings (base/dev/prod), celery, asgi, wsgi
+├── templates/           # 190+ HTML templates (Tailwind CSS, responsive)
+├── static/              # CSS, JS, PWA (manifest.json, sw.js)
+├── tests/verification/  # Verification tests (security/integrity/performance/workflow/DR)
+├── e2e/                 # Playwright E2E tests
+├── loadtest/            # Locust load tests
+├── monitoring/          # Prometheus & Grafana configs
+├── docs/                # Verification criteria, guides
+├── locale/              # i18n translations (ko, en)
+├── local/               # Git-ignored: .env, db.sqlite3, logs, backups
+├── requirements/        # pip dependencies (base.txt, dev.txt, prod.txt)
+├── docker-compose.yml   # Docker Compose (7 services)
+├── Dockerfile           # Docker image build
+└── manage.py            # Django management commands
 ```
 
-## 라이선스
+## Testing
+
+```bash
+# Unit tests (440+ tests across all apps)
+python manage.py test apps/ -v 2
+
+# Verification tests (security/integrity/performance/workflow/disaster recovery)
+python manage.py test tests.verification -v 2
+
+# E2E tests (Playwright)
+cd e2e && pytest -v
+
+# Load tests (Locust)
+cd loadtest && locust -f locustfile.py --host http://localhost:8000
+```
+
+**Test coverage: 440+ tests (unit + verification)**
+
+Verification criteria cover 82+ items across 7 categories:
+- SEC-001~020: Security (OWASP Top 10)
+- INT-001~015: Data integrity
+- PERF-001~007: Performance
+- FUNC-001~015: Functional workflows
+- AD-001~010: Active Directory integration
+- DR-001~007: Disaster recovery
+- DEPLOY-001~005: Deployment/integration
+
+## Key Data Flows
+
+- **Stock Management**: `StockMovement` signals use `F()` expressions for atomic `Product.current_stock` updates (race-condition safe)
+- **Order Fulfillment**: Order shipped (SHIPPED) → auto stock OUT via signal
+- **Production**: Production record → auto finished goods IN + raw materials OUT (transactional)
+- **Purchasing**: Receipt confirmation → auto stock IN + PO status transition
+- **Quotes**: One-click quote-to-order conversion (items auto-copied)
+- **Tax**: `OrderItem.save()` → auto 10% VAT calculation
+- **Approvals**: Multi-step approval workflow (draft → level 1 → level 2 → ... → final)
+- **AR/AP**: Payment registration → auto balance recalculation
+
+## Security
+
+- RBAC: `AdminRequiredMixin` (user mgmt, backups), `ManagerRequiredMixin` (accounting, investment, HR)
+- Login protection: django-axes (5 failures → 1 hour lockout)
+- API: JWT Bearer tokens (1 hour expiry) + session dual auth
+- Stock updates: `F()` expressions to prevent race conditions
+- File uploads: extension whitelist + 10MB size limit
+- Production: HSTS, SSL redirect, HttpOnly cookies, 8-hour session expiry
+- Audit trail: django-simple-history on all models
+- Access logs: `AccessLogMiddleware` (user/path/response time)
+- Monitoring: Prometheus metrics + Sentry error tracking
+
+## Scale
+
+- **20 apps**, **82+ models** (all with history tracking)
+- **265+ views**, **190+ templates**, **270+ URL endpoints**
+- **~17,000 lines** of Python (excluding migrations)
+- **440+ tests** (unit + verification)
+- **90+ migrations**, **25 packages**
+
+## License
 
 Apache 2.0

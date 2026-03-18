@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     'apps.calendar_app',
     'apps.hr',
     'apps.messenger',
+    'apps.ad',
+    'apps.advertising',
 ]
 
 MIDDLEWARE = [
@@ -226,6 +228,14 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '20/minute',
+        'user': '60/minute',
+    },
 }
 
 # CORS

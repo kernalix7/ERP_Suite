@@ -158,29 +158,49 @@
                             <li><a href="{% url 'sales:partner_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "거래처" %}</a></li>
                             <li><a href="{% url 'sales:customer_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "고객" %}</a></li>
                             <li><a href="{% url 'sales:order_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "주문" %}</a></li>
-                            <li><a href="{% url 'sales:sold_product_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "판매제품 관리" %}</a></li>
-                            <li><a href="{% url 'sales:commission_rate_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "수수료율" %}</a></li>
-                            <li><a href="{% url 'sales:commission_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "수수료내역" %}</a></li>
-                            <li><a href="{% url 'sales:commission_summary' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "정산요약" %}</a></li>
+                            <li><a href="{% url 'sales:quote_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "견적" %}</a></li>
+                            <li><a href="{% url 'sales:commission_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "수수료 관리" %}</a></li>
                         </ul>
                     </li>
 
-                    <!-- AS관리 -->
-                    <li x-data="{ open: {% if request.resolver_match.app_name == 'service' %}true{% else %}false{% endif %} }">
+                    <!-- 구매관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'purchase' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
                                 class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
-                                       {% if request.resolver_match.app_name == 'service' %}bg-slate-700{% endif %}">
+                                       {% if request.resolver_match.app_name == 'purchase' %}bg-slate-700{% endif %}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
                             </svg>
-                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "AS관리" %}</span>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "구매관리" %}</span>
                             <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
                             </svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'purchase:po_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "발주서" %}</a></li>
+                            <li><a href="{% url 'purchase:receipt_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "입고확인" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 기기관리 (출고제품 + AS + 정품) -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'service' or request.resolver_match.app_name == 'warranty' or request.resolver_match.url_name == 'sold_product_list' or request.resolver_match.url_name == 'shipment_list' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'service' or request.resolver_match.app_name == 'warranty' or request.resolver_match.url_name == 'sold_product_list' or request.resolver_match.url_name == 'shipment_list' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "기기관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'sales:sold_product_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'sold_product_list' %}text-white bg-slate-600{% endif %}">{% trans "판매기기 목록" %}</a></li>
+                            <li><a href="{% url 'sales:shipment_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'shipment_list' %}text-white bg-slate-600{% endif %}">{% trans "출하추적" %}</a></li>
                             <li><a href="{% url 'service:request_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "AS 접수" %}</a></li>
+                            <li><a href="{% url 'warranty:registration_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "정품등록" %}</a></li>
+                            <li><a href="{% url 'warranty:warranty_verify' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "정품인증" %}</a></li>
                         </ul>
                     </li>
 
@@ -199,16 +219,19 @@
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
                             <li><a href="{% url 'accounting:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "재무 대시보드" %}</a></li>
+                            <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "전표/세무" %}</span></li>
+                            <li><a href="{% url 'accounting:voucher_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "전표" %}</a></li>
                             <li><a href="{% url 'accounting:taxinvoice_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세금계산서" %}</a></li>
                             <li><a href="{% url 'accounting:vat_summary' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "부가세 집계" %}</a></li>
-                            <li><a href="{% url 'accounting:fixedcost_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "고정비 관리" %}</a></li>
-                            <li><a href="{% url 'accounting:breakeven' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "손익분기점" %}</a></li>
-                            <li><a href="{% url 'accounting:monthly_pl' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "월별 손익" %}</a></li>
-                            <li><a href="{% url 'accounting:taxrate_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세율 관리" %}</a></li>
                             <li><a href="{% url 'accounting:withholding_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "원천징수" %}</a></li>
+                            <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "분석/관리" %}</span></li>
+                            <li><a href="{% url 'accounting:monthly_pl' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "월별 손익" %}</a></li>
+                            <li><a href="{% url 'accounting:breakeven' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "손익분기점" %}</a></li>
+                            <li><a href="{% url 'accounting:fixedcost_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "고정비" %}</a></li>
+                            <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "기본설정" %}</span></li>
                             <li><a href="{% url 'accounting:accountcode_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계정과목" %}</a></li>
-                            <li><a href="{% url 'accounting:voucher_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "전표" %}</a></li>
-                            <li><a href="{% url 'accounting:approval_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결재/품의" %}</a></li>
+                            <li><a href="{% url 'accounting:taxrate_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세율" %}</a></li>
+                            <li><a href="{% url 'accounting:approval_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결재" %}</a></li>
                         </ul>
                     </li>
 
@@ -234,6 +257,27 @@
                         </ul>
                     </li>
 
+                    <!-- 마케팅/채널 구분선 -->
+                    <li class="mt-4 pt-4 border-t border-slate-700">
+                        <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider" x-show="sidebarOpen">{% trans "마케팅/채널" %}</span>
+                    </li>
+
+                    <!-- 광고관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'advertising' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'advertising' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "광고" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'advertising:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고 현황" %}</a></li>
+                            <li><a href="{% url 'advertising:campaign_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "캠페인" %}</a></li>
+                            <li><a href="{% url 'advertising:creative_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고소재" %}</a></li>
+                            <li><a href="{% url 'advertising:performance_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "성과분석" %}</a></li>
+                            <li><a href="{% url 'advertising:budget_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고예산" %}</a></li>
+                        </ul>
+                    </li>
+
                     <!-- 외부스토어 -->
                     <li x-data="{ open: {% if request.resolver_match.app_name == 'marketplace' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'marketplace' %}bg-slate-700{% endif %}">
@@ -242,10 +286,9 @@
                             <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'marketplace:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 대시보드" %}</a></li>
+                            <li><a href="{% url 'marketplace:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 현황" %}</a></li>
                             <li><a href="{% url 'marketplace:order_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 주문" %}</a></li>
                             <li><a href="{% url 'marketplace:config' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 설정" %}</a></li>
-                            <li><a href="{% url 'marketplace:sync_log_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "동기화 이력" %}</a></li>
                         </ul>
                     </li>
 
@@ -253,21 +296,60 @@
                     <li x-data="{ open: {% if request.resolver_match.app_name == 'inquiry' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'inquiry' %}bg-slate-700{% endif %}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "문의관리" %}</span>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "문의" %}</span>
                             <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'inquiry:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "문의 대시보드" %}</a></li>
                             <li><a href="{% url 'inquiry:inquiry_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "문의 목록" %}</a></li>
                             <li><a href="{% url 'inquiry:template_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "답변 템플릿" %}</a></li>
                         </ul>
                     </li>
 
-                    <!-- 정품등록 -->
+                    <!-- 그룹웨어 구분선 -->
+                    <li class="mt-4 pt-4 border-t border-slate-700">
+                        <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider" x-show="sidebarOpen">{% trans "그룹웨어" %}</span>
+                    </li>
+
+                    <!-- 인사/근태 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'hr' or request.resolver_match.app_name == 'attendance' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'hr' or request.resolver_match.app_name == 'attendance' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "인사/근태" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'hr:org_chart' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "조직도" %}</a></li>
+                            <li><a href="{% url 'hr:department_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "부서" %}</a></li>
+                            <li><a href="{% url 'hr:employee_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "직원" %}</a></li>
+                            <li><a href="{% url 'hr:action_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "인사발령" %}</a></li>
+                            <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "근태" %}</span></li>
+                            <li><a href="{% url 'attendance:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "근태현황" %}</a></li>
+                            <li><a href="{% url 'attendance:record_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "출퇴근기록" %}</a></li>
+                            <li><a href="{% url 'attendance:leave_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "휴가" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 게시판 -->
                     <li>
-                        <a href="{% url 'warranty:registration_list' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'warranty' %}bg-slate-700{% endif %}">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                            <span class="ml-3" x-show="sidebarOpen">{% trans "정품등록" %}</span>
+                        <a href="{% url 'board:board_list' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'board' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                            <span class="ml-3" x-show="sidebarOpen">{% trans "게시판" %}</span>
+                        </a>
+                    </li>
+
+                    <!-- 일정 -->
+                    <li>
+                        <a href="{% url 'calendar_app:calendar_view' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'calendar_app' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <span class="ml-3" x-show="sidebarOpen">{% trans "일정" %}</span>
+                        </a>
+                    </li>
+
+                    <!-- 메신저 -->
+                    <li>
+                        <a href="{% url 'messenger:chat_list' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'messenger' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/></svg>
+                            <span class="ml-3" x-show="sidebarOpen">{% trans "메신저" %}</span>
                         </a>
                     </li>
 
@@ -284,6 +366,7 @@
                             <li><a href="{% url 'core:backup' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "백업/복원" %}</a></li>
                             <li><a href="{% url 'core:trash' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "휴지통" %}</a></li>
                             <li><a href="{% url 'core:attachment_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "증빙관리" %}</a></li>
+                            <li><a href="{% url 'ad:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.app_name == 'ad' %}text-white bg-slate-600{% endif %}">{% trans "AD 연동" %}</a></li>
                         </ul>
                     </li>
                     {% endif %}

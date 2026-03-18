@@ -21,7 +21,7 @@ class ProductListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('category')
         q = self.request.GET.get('q')
         product_type = self.request.GET.get('type')
         if q:
@@ -48,7 +48,7 @@ class ProductDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['movements'] = self.object.movements.all()[:20]
+        context['movements'] = self.object.movements.select_related('warehouse')[:20]
         return context
 
 
@@ -122,7 +122,7 @@ class StockMovementListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('product', 'warehouse')
         movement_type = self.request.GET.get('type')
         if movement_type:
             qs = qs.filter(movement_type=movement_type)
@@ -150,7 +150,7 @@ class StockStatusView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        products = Product.objects.all()
+        products = Product.objects.select_related('category').all()
         q = self.request.GET.get('q')
         if q:
             products = products.filter(name__icontains=q) | products.filter(code__icontains=q)
@@ -163,7 +163,7 @@ class StockStatusView(LoginRequiredMixin, TemplateView):
 class ProductExcelView(LoginRequiredMixin, View):
     def get(self, request):
         from apps.core.excel import export_to_excel
-        products = Product.objects.all()
+        products = Product.objects.select_related('category').all()
         headers = [
             ('제품코드', 15), ('제품명', 25), ('유형', 10),
             ('판매단가', 15), ('원가', 15), ('현재고', 10), ('안전재고', 10),
@@ -185,6 +185,11 @@ class StockTransferListView(LoginRequiredMixin, ListView):
     template_name = 'inventory/transfer_list.html'
     context_object_name = 'transfers'
     paginate_by = 20
+
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'product', 'from_warehouse', 'to_warehouse',
+        )
 
 
 class StockTransferCreateView(LoginRequiredMixin, CreateView):

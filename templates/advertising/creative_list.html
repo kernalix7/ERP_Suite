@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "광고 소재" %} - ERP Suite{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">{% trans "광고 소재 관리" %}</h1>
+        <a href="{% url 'advertising:creative_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">{% trans "소재 추가" %}</a>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "소재명" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "캠페인" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "유형" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "제목" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for c in creatives %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-medium">{{ c.name }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500"><a href="{% url 'advertising:campaign_detail' c.campaign.pk %}" class="text-blue-600 hover:underline">{{ c.campaign.name }}</a></td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ c.get_creative_type_display }}</td>
+                    <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs {% if c.status == 'ACTIVE' %}bg-green-100 text-green-700{% elif c.status == 'PAUSED' %}bg-yellow-100 text-yellow-700{% elif c.status == 'REJECTED' %}bg-red-100 text-red-700{% else %}bg-gray-100 text-gray-500{% endif %}">{{ c.get_status_display }}</span></td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ c.headline|truncatechars:30 }}</td>
+                    <td class="px-4 py-3 text-sm text-right"><a href="{% url 'advertising:creative_update' c.pk %}" class="text-blue-600 hover:underline">{% trans "수정" %}</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">{% trans "소재가 없습니다" %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="flex justify-center space-x-2">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded text-sm">&laquo;</a>{% endif %}
+        <span class="px-3 py-1 text-sm text-gray-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded text-sm">&raquo;</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

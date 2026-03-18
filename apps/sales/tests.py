@@ -1,11 +1,16 @@
 from decimal import Decimal
 from datetime import date, timedelta
 
+from django.db import IntegrityError
 from django.test import TestCase
 
 from apps.accounts.models import User
 from apps.inventory.models import Product, Warehouse, StockMovement
-from apps.sales.models import Partner, Customer, Order, OrderItem
+from apps.sales.models import (
+    Partner, Customer, Order, OrderItem,
+    Quotation, QuotationItem, Shipment,
+)
+from apps.sales.commission import CommissionRate, CommissionRecord
 
 
 class OrderItemCalculationTest(TestCase):
@@ -158,11 +163,12 @@ class OrderShipSignalTest(TestCase):
         self.order.status = 'SHIPPED'
         self.order.save()
 
-        initial_count = StockMovement.objects.filter(movement_type='OUT').count()
+        out_qs = StockMovement.objects.filter(movement_type='OUT')
+        initial_count = out_qs.count()
 
         # 같은 주문을 다시 저장 (SHIPPED → SHIPPED)
         self.order.save()
-        after_count = StockMovement.objects.filter(movement_type='OUT').count()
+        after_count = out_qs.count()
 
         self.assertEqual(initial_count, after_count)
 
@@ -236,3 +242,413 @@ class CustomerWarrantyTest(TestCase):
             created_by=self.user,
         )
         self.assertFalse(customer.is_warranty_valid)
+
+
+class PartnerModelTest(TestCase):
+    """거래처 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='partneruser', password='testpass123',
+            role='staff',
+        )
+
+    def test_partner_creation(self):
+        """거래처 생성"""
+        partner = Partner.objects.create(
+            code='PT-001', name='테스트거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        self.assertEqual(partner.code, 'PT-001')
+        self.assertEqual(partner.name, '테스트거래처')
+
+    def test_partner_str(self):
+        """거래처 문자열 표현"""
+        partner = Partner.objects.create(
+            code='PT-STR', name='문자열거래처',
+            partner_type=Partner.PartnerType.SUPPLIER,
+            created_by=self.user,
+        )
+        self.assertEqual(str(partner), '문자열거래처')
+
+    def test_partner_unique_code(self):
+        """거래처코드 중복 불가"""
+        Partner.objects.create(
+            code='PT-DUP', name='거래처1',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            Partner.objects.create(
+                code='PT-DUP', name='거래처2',
+                partner_type=Partner.PartnerType.SUPPLIER,
+                created_by=self.user,
+            )
+
+    def test_partner_type_choices(self):
+        """거래처 유형 선택지"""
+        choices = dict(Partner.PartnerType.choices)
+        self.assertIn('CUSTOMER', choices)
+        self.assertIn('SUPPLIER', choices)
+        self.assertIn('BOTH', choices)
+
+    def test_partner_soft_delete(self):
+        """거래처 soft delete"""
+        partner = Partner.objects.create(
+            code='PT-SD', name='삭제거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        partner.soft_delete()
+        self.assertFalse(
+            Partner.objects.filter(pk=partner.pk).exists()
+        )
+        self.assertTrue(
+            Partner.all_objects.filter(pk=partner.pk).exists()
+        )
+
+
+class QuotationModelTest(TestCase):
+    """견적서 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='quoteuser', password='testpass123',
+            role='staff',
+        )
+        self.partner = Partner.objects.create(
+            code='QT-P001', name='견적거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='QT-PRD-001', name='견적제품',
+            product_type='FINISHED',
+            unit_price=10000, cost_price=7000,
+            created_by=self.user,
+        )
+
+    def test_quotation_creation(self):
+        """견적서 생성"""
+        quote = Quotation.objects.create(
+            quote_number='QT-001',
+            partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        self.assertEqual(quote.status, 'DRAFT')
+        self.assertEqual(str(quote), 'QT-001')
+
+    def test_quotation_unique_number(self):
+        """견적번호 중복 불가"""
+        Quotation.objects.create(
+            quote_number='QT-DUP',
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            Quotation.objects.create(
+                quote_number='QT-DUP',
+                quote_date=date.today(),
+                valid_until=date.today() + timedelta(days=30),
+                created_by=self.user,
+            )
+
+    def test_quotation_item_auto_calc(self):
+        """견적항목 저장 시 금액 자동 계산"""
+        quote = Quotation.objects.create(
+            quote_number='QT-CALC-001',
+            partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        item = QuotationItem.objects.create(
+            quotation=quote,
+            product=self.product,
+            quantity=10,
+            unit_price=Decimal('10000'),
+            created_by=self.user,
+        )
+        # amount = 10 * 10000 = 100000
+        self.assertEqual(item.amount, Decimal('100000'))
+        # tax = int(100000 * 0.1) = 10000
+        self.assertEqual(item.tax_amount, Decimal('10000'))
+
+    def test_quotation_update_total(self):
+        """견적서 합계 갱신"""
+        quote = Quotation.objects.create(
+            quote_number='QT-TOTAL-001',
+            partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        QuotationItem.objects.create(
+            quotation=quote, product=self.product,
+            quantity=5, unit_price=Decimal('10000'),
+            created_by=self.user,
+        )
+        quote.update_total()
+        quote.refresh_from_db()
+        self.assertEqual(quote.total_amount, Decimal('50000'))
+        self.assertEqual(quote.tax_total, Decimal('5000'))
+        self.assertEqual(quote.grand_total, Decimal('55000'))
+
+    def test_quotation_status_choices(self):
+        """견적서 상태 선택지"""
+        choices = dict(Quotation.Status.choices)
+        self.assertIn('DRAFT', choices)
+        self.assertIn('SENT', choices)
+        self.assertIn('ACCEPTED', choices)
+        self.assertIn('CONVERTED', choices)
+        self.assertIn('EXPIRED', choices)
+
+    def test_quotation_status_transition(self):
+        """견적서 상태 전환"""
+        quote = Quotation.objects.create(
+            quote_number='QT-TRANS-001',
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        self.assertEqual(quote.status, 'DRAFT')
+        quote.status = Quotation.Status.SENT
+        quote.save()
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, 'SENT')
+
+        quote.status = Quotation.Status.ACCEPTED
+        quote.save()
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, 'ACCEPTED')
+
+
+class ShipmentModelTest(TestCase):
+    """배송 추적 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='shipuser', password='testpass123',
+            role='staff',
+        )
+        self.order = Order.objects.create(
+            order_number='ORD-SHIP-T001',
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+        )
+
+    def test_shipment_creation(self):
+        """배송 생성"""
+        shipment = Shipment.objects.create(
+            order=self.order,
+            shipment_number='SH-001',
+            carrier=Shipment.Carrier.CJ,
+            tracking_number='1234567890',
+            created_by=self.user,
+        )
+        self.assertEqual(shipment.status, 'PREPARING')
+        self.assertEqual(shipment.carrier, 'CJ')
+
+    def test_shipment_str(self):
+        """배송 문자열 표현"""
+        shipment = Shipment.objects.create(
+            order=self.order,
+            shipment_number='SH-STR-001',
+            carrier=Shipment.Carrier.HANJIN,
+            status=Shipment.Status.SHIPPED,
+            created_by=self.user,
+        )
+        result = str(shipment)
+        self.assertIn('SH-STR-001', result)
+        self.assertIn('발송', result)
+
+    def test_shipment_tracking_url(self):
+        """택배사별 조회 URL 생성"""
+        shipment = Shipment.objects.create(
+            order=self.order,
+            shipment_number='SH-URL-001',
+            carrier=Shipment.Carrier.CJ,
+            tracking_number='9999999',
+            created_by=self.user,
+        )
+        url = shipment.tracking_url
+        self.assertIn('9999999', url)
+        self.assertIn('cjlogistics', url)
+
+    def test_shipment_tracking_url_hanjin(self):
+        """한진택배 조회 URL"""
+        shipment = Shipment.objects.create(
+            order=self.order,
+            shipment_number='SH-HJ-001',
+            carrier=Shipment.Carrier.HANJIN,
+            tracking_number='1111111',
+            created_by=self.user,
+        )
+        self.assertIn('hanjin', shipment.tracking_url)
+
+    def test_shipment_tracking_url_etc(self):
+        """기타 택배사는 빈 URL"""
+        shipment = Shipment.objects.create(
+            order=self.order,
+            shipment_number='SH-ETC-001',
+            carrier=Shipment.Carrier.ETC,
+            tracking_number='0000000',
+            created_by=self.user,
+        )
+        self.assertEqual(shipment.tracking_url, '')
+
+    def test_shipment_unique_number(self):
+        """배송번호 중복 불가"""
+        Shipment.objects.create(
+            order=self.order,
+            shipment_number='SH-DUP-001',
+            carrier=Shipment.Carrier.CJ,
+            created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            Shipment.objects.create(
+                order=self.order,
+                shipment_number='SH-DUP-001',
+                carrier=Shipment.Carrier.LOTTE,
+                created_by=self.user,
+            )
+
+    def test_shipment_status_transition(self):
+        """배송 상태 전환"""
+        shipment = Shipment.objects.create(
+            order=self.order,
+            shipment_number='SH-TRANS-001',
+            carrier=Shipment.Carrier.CJ,
+            created_by=self.user,
+        )
+        self.assertEqual(shipment.status, 'PREPARING')
+        shipment.status = Shipment.Status.SHIPPED
+        shipment.shipped_date = date.today()
+        shipment.save()
+        shipment.refresh_from_db()
+        self.assertEqual(shipment.status, 'SHIPPED')
+
+        shipment.status = Shipment.Status.DELIVERED
+        shipment.delivered_date = date.today()
+        shipment.save()
+        shipment.refresh_from_db()
+        self.assertEqual(shipment.status, 'DELIVERED')
+
+
+class CommissionModelTest(TestCase):
+    """수수료 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='commuser', password='testpass123',
+            role='staff',
+        )
+        self.partner = Partner.objects.create(
+            code='CM-P001', name='수수료거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='CM-PRD-001', name='수수료제품',
+            product_type='FINISHED',
+            unit_price=10000, cost_price=7000,
+            created_by=self.user,
+        )
+
+    def test_commission_rate_creation(self):
+        """수수료율 생성"""
+        rate = CommissionRate.objects.create(
+            partner=self.partner,
+            product=self.product,
+            rate=Decimal('5.00'),
+            created_by=self.user,
+        )
+        self.assertEqual(rate.rate, Decimal('5.00'))
+
+    def test_commission_rate_str_with_product(self):
+        """제품 지정 수수료율 문자열"""
+        rate = CommissionRate.objects.create(
+            partner=self.partner,
+            product=self.product,
+            rate=Decimal('3.50'),
+            created_by=self.user,
+        )
+        result = str(rate)
+        self.assertIn('수수료거래처', result)
+        self.assertIn('수수료제품', result)
+        self.assertIn('3.50', result)
+
+    def test_commission_rate_str_without_product(self):
+        """제품 미지정 수수료율 문자열"""
+        rate = CommissionRate.objects.create(
+            partner=self.partner,
+            rate=Decimal('2.00'),
+            created_by=self.user,
+        )
+        result = str(rate)
+        self.assertIn('수수료거래처', result)
+        self.assertIn('2.00', result)
+
+    def test_commission_rate_unique_together(self):
+        """거래처+제품 수수료율 중복 불가"""
+        CommissionRate.objects.create(
+            partner=self.partner,
+            product=self.product,
+            rate=Decimal('5.00'),
+            created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            CommissionRate.objects.create(
+                partner=self.partner,
+                product=self.product,
+                rate=Decimal('3.00'),
+                created_by=self.user,
+            )
+
+    def test_commission_record_creation(self):
+        """수수료 내역 생성"""
+        record = CommissionRecord.objects.create(
+            partner=self.partner,
+            order_amount=Decimal('1000000'),
+            commission_rate=Decimal('5.00'),
+            commission_amount=Decimal('50000'),
+            created_by=self.user,
+        )
+        self.assertEqual(record.status, 'PENDING')
+        self.assertEqual(
+            record.commission_amount, Decimal('50000')
+        )
+
+    def test_commission_record_str(self):
+        """수수료 내역 문자열 표현"""
+        record = CommissionRecord.objects.create(
+            partner=self.partner,
+            order_amount=Decimal('500000'),
+            commission_rate=Decimal('3.00'),
+            commission_amount=Decimal('15000'),
+            created_by=self.user,
+        )
+        result = str(record)
+        self.assertIn('수수료거래처', result)
+        self.assertIn('15000', result)
+
+    def test_commission_record_settlement(self):
+        """수수료 정산 처리"""
+        record = CommissionRecord.objects.create(
+            partner=self.partner,
+            order_amount=Decimal('1000000'),
+            commission_rate=Decimal('5.00'),
+            commission_amount=Decimal('50000'),
+            created_by=self.user,
+        )
+        record.status = CommissionRecord.Status.SETTLED
+        record.settled_date = date.today()
+        record.save()
+        record.refresh_from_db()
+        self.assertEqual(record.status, 'SETTLED')
+        self.assertEqual(record.settled_date, date.today())

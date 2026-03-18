@@ -20,8 +20,8 @@
         <form method="get" class="flex flex-wrap gap-3">
             <select name="status" class="form-input w-auto">
                 <option value="">전체 상태</option>
-                <option value="미정산" {% if request.GET.status == '미정산' %}selected{% endif %}>미정산</option>
-                <option value="정산완료" {% if request.GET.status == '정산완료' %}selected{% endif %}>정산완료</option>
+                <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>미정산</option>
+                <option value="SETTLED" {% if request.GET.status == 'SETTLED' %}selected{% endif %}>정산완료</option>
             </select>
             <select name="partner" class="form-input w-auto">
                 <option value="">전체 거래처</option>
@@ -60,9 +60,9 @@
                     <td class="px-4 py-3 text-right text-gray-600">{{ commission.rate }}%</td>
                     <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ commission.amount|intcomma }}원</td>
                     <td class="px-4 py-3 text-center">
-                        {% if commission.status == '미정산' %}
+                        {% if commission.status == 'PENDING' %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">미정산</span>
-                        {% elif commission.status == '정산완료' %}
+                        {% elif commission.status == 'SETTLED' %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">정산완료</span>
                         {% endif %}
                     </td>

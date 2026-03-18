@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ campaign.name }} - ERP Suite{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">{{ campaign.name }}</h1>
+        <div class="flex space-x-2">
+            <a href="{% url 'advertising:campaign_update' campaign.pk %}" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">{% trans "수정" %}</a>
+            <a href="{% url 'advertising:campaign_list' %}" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">{% trans "목록" %}</a>
+        </div>
+    </div>
+
+    <!-- 캠페인 정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div><p class="text-xs text-gray-500">{% trans "플랫폼" %}</p><p class="font-medium">{{ campaign.platform.name }}</p></div>
+            <div><p class="text-xs text-gray-500">{% trans "유형" %}</p><p class="font-medium">{{ campaign.get_campaign_type_display }}</p></div>
+            <div><p class="text-xs text-gray-500">{% trans "상태" %}</p><p><span class="px-2 py-1 rounded-full text-xs {% if campaign.status == 'ACTIVE' %}bg-green-100 text-green-700{% elif campaign.status == 'PAUSED' %}bg-yellow-100 text-yellow-700{% else %}bg-gray-100 text-gray-600{% endif %}">{{ campaign.get_status_display }}</span></p></div>
+            <div><p class="text-xs text-gray-500">{% trans "기간" %}</p><p class="font-medium">{{ campaign.start_date }} ~ {{ campaign.end_date }}</p></div>
+            <div><p class="text-xs text-gray-500">{% trans "예산" %}</p><p class="font-medium">{{ campaign.budget|intcomma }}원</p></div>
+            <div><p class="text-xs text-gray-500">{% trans "집행액" %}</p><p class="font-medium">{{ campaign.spent|intcomma }}원</p></div>
+            <div><p class="text-xs text-gray-500">{% trans "집행률" %}</p><p class="font-medium">{{ campaign.budget_utilization }}%</p></div>
+        </div>
+    </div>
+
+    <!-- 성과 KPI -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <p class="text-xs text-gray-500">{% trans "노출" %}</p>
+            <p class="text-xl font-bold">{{ perf_summary.total_impressions|default:0|intcomma }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <p class="text-xs text-gray-500">{% trans "클릭" %}</p>
+            <p class="text-xl font-bold">{{ perf_summary.total_clicks|default:0|intcomma }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <p class="text-xs text-gray-500">CTR</p>
+            <p class="text-xl font-bold">{{ total_ctr }}%</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <p class="text-xs text-gray-500">{% trans "전환" %}</p>
+            <p class="text-xl font-bold">{{ perf_summary.total_conversions|default:0|intcomma }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <p class="text-xs text-gray-500">ROAS</p>
+            <p class="text-xl font-bold text-green-600">{{ total_roas }}%</p>
+        </div>
+    </div>
+
+    <!-- 소재 목록 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="p-5 border-b border-gray-100"><h2 class="text-lg font-semibold">{% trans "광고 소재" %}</h2></div>
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "소재명" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "유형" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "제목" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for cr in creatives %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-medium">{{ cr.name }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ cr.get_creative_type_display }}</td>
+                    <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs {% if cr.status == 'ACTIVE' %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-500{% endif %}">{{ cr.get_status_display }}</span></td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ cr.headline }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">{% trans "소재가 없습니다" %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 일별 성과 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="p-5 border-b border-gray-100"><h2 class="text-lg font-semibold">{% trans "일별 성과" %}</h2></div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "날짜" %}</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "노출" %}</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "클릭" %}</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">CTR</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "전환" %}</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "비용" %}</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "매출" %}</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">ROAS</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for p in performances %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm">{{ p.date }}</td>
+                        <td class="px-4 py-3 text-sm text-right">{{ p.impressions|intcomma }}</td>
+                        <td class="px-4 py-3 text-sm text-right">{{ p.clicks|intcomma }}</td>
+                        <td class="px-4 py-3 text-sm text-right">{{ p.ctr }}%</td>
+                        <td class="px-4 py-3 text-sm text-right">{{ p.conversions }}</td>
+                        <td class="px-4 py-3 text-sm text-right">{{ p.cost|intcomma }}원</td>
+                        <td class="px-4 py-3 text-sm text-right">{{ p.revenue|intcomma }}원</td>
+                        <td class="px-4 py-3 text-sm text-right {% if p.roas >= 200 %}text-green-600{% elif p.roas >= 100 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ p.roas }}%</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">{% trans "성과 데이터가 없습니다" %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

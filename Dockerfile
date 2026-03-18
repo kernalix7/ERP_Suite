@@ -1,8 +1,7 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SETTINGS_MODULE=config.settings.production
 
 WORKDIR /app
 
@@ -10,8 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements/prod.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements/prod.txt requirements/prod.txt
+COPY requirements/base.txt requirements/base.txt
+RUN pip install --no-cache-dir -r requirements/prod.txt
 
 COPY . .
 

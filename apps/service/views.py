@@ -14,7 +14,7 @@ class ServiceRequestListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True).select_related('product', 'customer')
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)

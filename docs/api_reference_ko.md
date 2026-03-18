@@ -246,16 +246,16 @@
 | `/investment/distributions/create/` | `investment:distribution_create` | 배당/분배 등록 |
 | `/investment/distributions/<id>/edit/` | `investment:distribution_update` | 배당/분배 수정 |
 
-## 스마트스토어 (smartstore)
+## 마켓플레이스 (marketplace)
 
 | URL 패턴 | 이름 | 설명 |
 |----------|------|------|
-| `/smartstore/` | `smartstore:dashboard` | 스토어 대시보드 |
-| `/smartstore/orders/` | `smartstore:order_list` | 스토어 주문 목록 |
-| `/smartstore/orders/<id>/` | `smartstore:order_detail` | 스토어 주문 상세 |
-| `/smartstore/config/` | `smartstore:config` | 스토어 API 설정 |
-| `/smartstore/sync-logs/` | `smartstore:sync_log_list` | 동기화 이력 목록 |
-| `/smartstore/sync/` | `smartstore:manual_sync` | 수동 동기화 실행 |
+| `/marketplace/` | `marketplace:dashboard` | 마켓플레이스 대시보드 |
+| `/marketplace/orders/` | `marketplace:order_list` | 마켓플레이스 주문 목록 |
+| `/marketplace/orders/<id>/` | `marketplace:order_detail` | 마켓플레이스 주문 상세 |
+| `/marketplace/config/` | `marketplace:config` | 마켓플레이스 API 설정 |
+| `/marketplace/sync-logs/` | `marketplace:sync_log_list` | 동기화 이력 목록 |
+| `/marketplace/sync/` | `marketplace:manual_sync` | 수동 동기화 실행 |
 
 ## 문의관리 (inquiry)
 

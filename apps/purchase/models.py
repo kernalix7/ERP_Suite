@@ -62,7 +62,8 @@ class PurchaseOrder(BaseModel):
 
 class PurchaseOrderItem(BaseModel):
     purchase_order = models.ForeignKey(
-        PurchaseOrder, on_delete=models.CASCADE, related_name='items',
+        PurchaseOrder, verbose_name='발주서',
+        on_delete=models.CASCADE, related_name='items',
     )
     product = models.ForeignKey(
         Product, verbose_name='제품', on_delete=models.PROTECT,
@@ -111,7 +112,8 @@ class GoodsReceipt(BaseModel):
 
 class GoodsReceiptItem(BaseModel):
     goods_receipt = models.ForeignKey(
-        GoodsReceipt, on_delete=models.CASCADE, related_name='items',
+        GoodsReceipt, verbose_name='입고확인',
+        on_delete=models.CASCADE, related_name='items',
     )
     po_item = models.ForeignKey(
         PurchaseOrderItem, verbose_name='발주항목',

@@ -21,9 +21,18 @@ ERP_Suite/
 │   ├── service/             # AS관리
 │   ├── accounting/          # 회계관리
 │   ├── investment/          # 투자관리
-│   ├── smartstore/          # 스마트스토어 연동
+│   ├── purchase/            # 구매관리
+│   ├── marketplace/         # 외부 스토어 연동 (네이버/쿠팡)
 │   ├── inquiry/             # 문의관리
-│   └── warranty/            # 정품등록
+│   ├── warranty/            # 정품등록
+│   ├── hr/                  # 인사관리
+│   ├── attendance/          # 근태관리
+│   ├── board/               # 게시판 (공지/자유)
+│   ├── calendar_app/        # 일정관리
+│   ├── messenger/           # 사내 메신저
+│   ├── ad/                  # Active Directory 연동
+│   ├── advertising/         # 광고관리
+│   └── api/                 # REST API
 ├── config/
 │   ├── settings/
 │   │   ├── __init__.py      # 환경별 설정 로드

@@ -1,9 +1,13 @@
+import logging
+
 from django.db import transaction
 from django.db.models import F, Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from .models import GoodsReceiptItem, PurchaseOrder
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=GoodsReceiptItem)
@@ -21,7 +25,12 @@ def handle_goods_receipt(sender, instance, created, **kwargs):
         from apps.inventory.models import StockMovement, Warehouse
 
         warehouse = Warehouse.objects.first()
-        if warehouse:
+        if not warehouse:
+            logger.error(
+                'No warehouse configured — cannot create stock movement for %s',
+                instance,
+            )
+        else:
             # 고유한 movement_number 생성
             movement_number = f'GR-{goods_receipt.receipt_number}-{instance.pk}'
             StockMovement.objects.create(

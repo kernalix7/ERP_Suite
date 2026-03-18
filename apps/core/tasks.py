@@ -51,9 +51,20 @@ def backup_database():
 
 @shared_task
 def cleanup_old_notifications():
-    """Delete Notification records older than 30 days."""
+    """Soft-delete (mark is_read) Notification records older than 90 days,
+    then hard-delete records older than 180 days to reclaim storage."""
     from apps.core.notification import Notification
 
-    cutoff = timezone.now() - timedelta(days=30)
-    deleted_count, _ = Notification.objects.filter(created_at__lt=cutoff).delete()
-    return f'Deleted {deleted_count} old notifications'
+    # 90일 이상: 읽음 처리 (soft archive)
+    soft_cutoff = timezone.now() - timedelta(days=90)
+    archived_count = Notification.objects.filter(
+        created_at__lt=soft_cutoff, is_read=False,
+    ).update(is_read=True)
+
+    # 180일 이상: 물리 삭제 (storage 확보)
+    hard_cutoff = timezone.now() - timedelta(days=180)
+    deleted_count, _ = Notification.objects.filter(
+        created_at__lt=hard_cutoff,
+    ).delete()
+
+    return f'Archived {archived_count}, deleted {deleted_count} old notifications'

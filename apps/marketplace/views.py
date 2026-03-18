@@ -21,11 +21,11 @@ class MarketplaceDashboardView(ManagerRequiredMixin, TemplateView):
         context['config'] = MarketplaceConfig.objects.first()
         context['recent_logs'] = SyncLog.objects.all()[:10]
         context['order_counts'] = (
-            MarketplaceOrder.objects.values('status')
+            MarketplaceOrder.objects.filter(is_active=True).values('status')
             .annotate(count=Count('id'))
             .order_by('status')
         )
-        context['total_orders'] = MarketplaceOrder.objects.count()
+        context['total_orders'] = MarketplaceOrder.objects.filter(is_active=True).count()
         return context
 
 
@@ -36,7 +36,7 @@ class MarketplaceOrderListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True)
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)

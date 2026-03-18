@@ -1,5 +1,5 @@
 from django import forms
-from apps.inventory.forms import BaseForm
+from apps.core.forms import BaseForm
 from .models import PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem
 
 

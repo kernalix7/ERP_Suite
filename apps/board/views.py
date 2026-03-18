@@ -1,6 +1,6 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q, F
+from django.db.models import F
 from django.shortcuts import get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views.generic import (
@@ -17,7 +17,7 @@ class BoardListView(LoginRequiredMixin, ListView):
     context_object_name = 'boards'
 
     def get_queryset(self):
-        return Board.objects.all()
+        return Board.objects.filter(is_active=True)
 
 
 class PostListView(LoginRequiredMixin, ListView):
@@ -28,7 +28,7 @@ class PostListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         self.board = get_object_or_404(Board, slug=self.kwargs['slug'])
-        qs = Post.objects.filter(board=self.board).select_related('author')
+        qs = Post.objects.filter(board=self.board, is_active=True).select_related('author')
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(Q(title__icontains=q) | Q(content__icontains=q))

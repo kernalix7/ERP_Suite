@@ -1,8 +1,10 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class User(AbstractUser):
+    history = HistoricalRecords()
     class Role(models.TextChoices):
         ADMIN = 'admin', '관리자'
         MANAGER = 'manager', '매니저'

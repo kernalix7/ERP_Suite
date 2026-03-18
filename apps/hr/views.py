@@ -30,6 +30,11 @@ class DepartmentListView(ManagerRequiredMixin, ListView):
     context_object_name = 'departments'
     paginate_by = 20
 
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True).select_related(
+            'parent', 'manager',
+        )
+
 
 class DepartmentCreateView(ManagerRequiredMixin, CreateView):
     model = Department
@@ -57,6 +62,9 @@ class PositionListView(ManagerRequiredMixin, ListView):
     context_object_name = 'positions'
     paginate_by = 20
 
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
 
 class PositionCreateView(ManagerRequiredMixin, CreateView):
     model = Position
@@ -78,7 +86,7 @@ class EmployeeListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('user', 'department', 'position')
+        qs = super().get_queryset().filter(is_active=True).select_related('user', 'department', 'position')
         q = self.request.GET.get('q')
         dept = self.request.GET.get('dept')
         position = self.request.GET.get('position')
@@ -148,7 +156,7 @@ class PersonnelActionListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return super().get_queryset().select_related(
+        return super().get_queryset().filter(is_active=True).select_related(
             'employee__user', 'from_department', 'to_department',
             'from_position', 'to_position',
         )

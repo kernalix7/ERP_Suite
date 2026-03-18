@@ -1,23 +1,9 @@
 from django import forms
 from django.core.validators import FileExtensionValidator
+from apps.core.forms import BaseForm
 from .models import Category, Product, Warehouse, StockMovement, StockTransfer
 
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5MB
-
-
-class BaseForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            if isinstance(field.widget, forms.Textarea):
-                field.widget.attrs.setdefault('class', 'form-input h-24')
-                field.widget.attrs.setdefault('rows', 3)
-            elif isinstance(field.widget, (forms.Select, forms.SelectMultiple)):
-                field.widget.attrs.setdefault('class', 'form-input')
-            elif isinstance(field.widget, forms.CheckboxInput):
-                field.widget.attrs.setdefault('class', 'form-checkbox')
-            else:
-                field.widget.attrs.setdefault('class', 'form-input')
 
 
 class ProductForm(BaseForm):

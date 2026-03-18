@@ -122,7 +122,8 @@ class Order(BaseModel):
 
 class OrderItem(BaseModel):
     order = models.ForeignKey(
-        Order, on_delete=models.CASCADE, related_name='items',
+        Order, verbose_name='주문',
+        on_delete=models.CASCADE, related_name='items',
     )
     product = models.ForeignKey(
         Product, verbose_name='제품', on_delete=models.PROTECT,
@@ -132,6 +133,8 @@ class OrderItem(BaseModel):
     amount = models.DecimalField('공급가액', max_digits=15, decimal_places=0, default=0)
     tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0, default=0)
     total_with_tax = models.DecimalField('합계(세포함)', max_digits=15, decimal_places=0, default=0)
+
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = '주문항목'
@@ -211,7 +214,8 @@ class Quotation(BaseModel):
 
 class QuotationItem(BaseModel):
     quotation = models.ForeignKey(
-        Quotation, on_delete=models.CASCADE,
+        Quotation, verbose_name='견적서',
+        on_delete=models.CASCADE,
         related_name='quote_items',
     )
     product = models.ForeignKey(
@@ -227,6 +231,8 @@ class QuotationItem(BaseModel):
     tax_amount = models.DecimalField(
         '부가세', max_digits=15, decimal_places=0, default=0,
     )
+
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = '견적항목'

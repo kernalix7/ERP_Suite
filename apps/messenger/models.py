@@ -74,6 +74,8 @@ class ChatParticipant(models.Model):
     joined_at = models.DateTimeField('참여일', auto_now_add=True)
     last_read_at = models.DateTimeField('마지막 읽은 시간', null=True, blank=True)
 
+    history = HistoricalRecords()
+
     class Meta:
         verbose_name = '대화 참여자'
         verbose_name_plural = '대화 참여자'
@@ -115,6 +117,8 @@ class Message(models.Model):
         blank=True,
     )
     sent_at = models.DateTimeField('전송 시간', auto_now_add=True)
+
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = '메시지'

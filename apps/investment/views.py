@@ -65,7 +65,7 @@ class InvestorListView(ManagerRequiredMixin, ListView):
     context_object_name = 'investors'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True)
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(name__icontains=q)
@@ -108,6 +108,9 @@ class RoundListView(ManagerRequiredMixin, ListView):
     model = InvestmentRound
     template_name = 'investment/round_list.html'
     context_object_name = 'rounds'
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
 
 
 class RoundCreateView(ManagerRequiredMixin, CreateView):
@@ -190,7 +193,7 @@ class DistributionListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True)
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)

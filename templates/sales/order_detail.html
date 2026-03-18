@@ -4,7 +4,7 @@
 {% block page_title %}주문 상세{% endblock %}
 
 {% block header_actions %}
-{% if order.status == '작성중' %}
+{% if order.status == 'DRAFT' %}
 <a href="{% url 'sales:order_update' order.pk %}" class="btn btn-primary">수정</a>
 {% endif %}
 <a href="{% url 'sales:order_list' %}" class="btn btn-secondary">목록으로</a>
@@ -16,15 +16,15 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-800">주문 정보</h2>
-            {% if order.status == '작성중' %}
+            {% if order.status == 'DRAFT' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">작성중</span>
-            {% elif order.status == '확정' %}
+            {% elif order.status == 'CONFIRMED' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">확정</span>
-            {% elif order.status == '출고완료' %}
+            {% elif order.status == 'SHIPPED' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">출고완료</span>
-            {% elif order.status == '배송완료' %}
+            {% elif order.status == 'DELIVERED' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">배송완료</span>
-            {% elif order.status == '취소' %}
+            {% elif order.status == 'CANCELLED' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">취소</span>
             {% else %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ order.get_status_display }}</span>

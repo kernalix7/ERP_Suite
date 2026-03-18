@@ -31,7 +31,7 @@ class BOM(BaseModel):
 
 
 class BOMItem(BaseModel):
-    bom = models.ForeignKey(BOM, on_delete=models.CASCADE, related_name='items')
+    bom = models.ForeignKey(BOM, verbose_name='BOM', on_delete=models.CASCADE, related_name='items')
     material = models.ForeignKey(
         Product, verbose_name='자재',
         on_delete=models.PROTECT,
@@ -39,6 +39,7 @@ class BOMItem(BaseModel):
     )
     quantity = models.DecimalField('소요량', max_digits=10, decimal_places=3)
     loss_rate = models.DecimalField('손실률(%)', max_digits=5, decimal_places=2, default=0)
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = 'BOM 항목'
@@ -53,7 +54,7 @@ class BOMItem(BaseModel):
 
     @property
     def material_cost(self):
-        return int(self.effective_quantity * self.material.cost_price)
+        return round(self.effective_quantity * self.material.cost_price)
 
 
 class ProductionPlan(BaseModel):

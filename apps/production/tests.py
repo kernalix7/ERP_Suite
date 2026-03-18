@@ -91,7 +91,8 @@ class ProductionSignalTest(TestCase):
             created_by=self.user,
         )
 
-    def _create_record(self, good_quantity, defect_quantity=0, work_order=None):
+    def _create_record(self, good_quantity,
+                       defect_quantity=0, work_order=None):
         """ProductionRecord 생성 헬퍼"""
         return ProductionRecord.objects.create(
             work_order=work_order or self.work_order,
@@ -261,3 +262,277 @@ class BOMPropertyTest(TestCase):
     def test_total_material_cost(self):
         """BOM total_material_cost가 전체 항목 합산인지 확인"""
         self.assertEqual(self.bom.total_material_cost, 6300)
+
+
+class BOMModelTest(TestCase):
+    """BOM 모델 추가 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='bom_model_user', password='testpass123',
+        )
+        self.finished = Product.objects.create(
+            code='BOM-FIN', name='BOM완제품', product_type='FINISHED',
+            unit_price=50000, cost_price=30000, created_by=self.user,
+        )
+        self.raw1 = Product.objects.create(
+            code='BOM-RAW1', name='BOM원자재1', product_type='RAW',
+            unit_price=0, cost_price=1000, created_by=self.user,
+        )
+        self.raw2 = Product.objects.create(
+            code='BOM-RAW2', name='BOM원자재2', product_type='RAW',
+            unit_price=0, cost_price=2000, created_by=self.user,
+        )
+
+    def test_bom_str(self):
+        """BOM 문자열 표현"""
+        bom = BOM.objects.create(
+            product=self.finished, version='2.0', created_by=self.user,
+        )
+        self.assertEqual(str(bom), 'BOM완제품 v2.0')
+
+    def test_bom_unique_together(self):
+        """같은 제품+버전 BOM 중복 불가"""
+        from django.db import IntegrityError
+        BOM.objects.create(
+            product=self.finished, version='1.0', created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            BOM.objects.create(
+                product=self.finished, version='1.0', created_by=self.user,
+            )
+
+    def test_bom_multiple_materials(self):
+        """BOM에 여러 자재 항목"""
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0', created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=bom, material=self.raw1,
+            quantity=Decimal('5.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=bom, material=self.raw2,
+            quantity=Decimal('3.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        # total = (5 * 1000) + (3 * 2000) = 5000 + 6000 = 11000
+        self.assertEqual(bom.total_material_cost, 11000)
+
+    def test_bom_item_str(self):
+        """BOMItem 문자열 표현"""
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0', created_by=self.user,
+        )
+        item = BOMItem.objects.create(
+            bom=bom, material=self.raw1,
+            quantity=Decimal('10.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        self.assertEqual(str(item), 'BOM원자재1 x 10.000')
+
+    def test_bom_default_flag(self):
+        """기본 BOM 플래그"""
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        self.assertTrue(bom.is_default)
+
+    def test_bom_soft_delete(self):
+        """BOM soft delete"""
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0', created_by=self.user,
+        )
+        bom.soft_delete()
+        self.assertFalse(BOM.objects.filter(pk=bom.pk).exists())
+        self.assertTrue(BOM.all_objects.filter(pk=bom.pk).exists())
+
+
+class ProductionPlanModelTest(TestCase):
+    """생산계획 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='plan_user', password='testpass123',
+        )
+        self.product = Product.objects.create(
+            code='PLAN-FP', name='계획완제품', product_type='FINISHED',
+            unit_price=10000, cost_price=5000, created_by=self.user,
+        )
+        self.raw = Product.objects.create(
+            code='PLAN-RM', name='계획원자재', product_type='RAW',
+            cost_price=1000, current_stock=10000, created_by=self.user,
+        )
+        self.bom = BOM.objects.create(
+            product=self.product, version='1.0', created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.raw,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+
+    def test_plan_str(self):
+        """생산계획 문자열 표현"""
+        plan = ProductionPlan.objects.create(
+            plan_number='PP-STR-001',
+            product=self.product, bom=self.bom,
+            planned_quantity=100,
+            planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=7),
+            created_by=self.user,
+        )
+        self.assertIn('PP-STR-001', str(plan))
+        self.assertIn('계획완제품', str(plan))
+
+    def test_plan_status_choices(self):
+        """생산계획 상태 선택지"""
+        choices = dict(ProductionPlan.Status.choices)
+        self.assertIn('DRAFT', choices)
+        self.assertIn('CONFIRMED', choices)
+        self.assertIn('IN_PROGRESS', choices)
+        self.assertIn('COMPLETED', choices)
+        self.assertIn('CANCELLED', choices)
+
+    def test_plan_progress_rate_zero(self):
+        """진행률 - 생산 전 0%"""
+        plan = ProductionPlan.objects.create(
+            plan_number='PP-PROG-001',
+            product=self.product, bom=self.bom,
+            planned_quantity=100,
+            planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=7),
+            created_by=self.user,
+        )
+        self.assertEqual(plan.progress_rate, 0)
+
+    def test_plan_progress_rate_with_production(self):
+        """진행률 - 생산 후 계산"""
+        Warehouse.objects.create(
+            code='WH-PLAN', name='계획창고',
+            created_by=self.user,
+        )
+        plan = ProductionPlan.objects.create(
+            plan_number='PP-PROG-002',
+            product=self.product, bom=self.bom,
+            planned_quantity=100,
+            planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=7),
+            status='IN_PROGRESS',
+            created_by=self.user,
+        )
+        wo = WorkOrder.objects.create(
+            order_number='WO-PROG-001',
+            production_plan=plan,
+            quantity=100,
+            status='IN_PROGRESS',
+            created_by=self.user,
+        )
+        ProductionRecord.objects.create(
+            work_order=wo,
+            good_quantity=50,
+            record_date=date.today(),
+            created_by=self.user,
+        )
+        self.assertEqual(plan.progress_rate, 50.0)
+
+    def test_plan_soft_delete(self):
+        """생산계획 soft delete"""
+        plan = ProductionPlan.objects.create(
+            plan_number='PP-SD-001',
+            product=self.product, bom=self.bom,
+            planned_quantity=10,
+            planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=1),
+            created_by=self.user,
+        )
+        plan.soft_delete()
+        self.assertFalse(ProductionPlan.objects.filter(pk=plan.pk).exists())
+
+
+class WorkOrderModelTest(TestCase):
+    """작업지시 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='wo_user', password='testpass123',
+        )
+        self.product = Product.objects.create(
+            code='WO-FP', name='작업지시완제품', product_type='FINISHED',
+            unit_price=10000, cost_price=5000, created_by=self.user,
+        )
+        self.bom = BOM.objects.create(
+            product=self.product, version='1.0', created_by=self.user,
+        )
+        self.plan = ProductionPlan.objects.create(
+            plan_number='PP-WO-001',
+            product=self.product, bom=self.bom,
+            planned_quantity=100,
+            planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=7),
+            created_by=self.user,
+        )
+
+    def test_work_order_str(self):
+        """작업지시 문자열 표현"""
+        wo = WorkOrder.objects.create(
+            order_number='WO-STR-001',
+            production_plan=self.plan,
+            quantity=50,
+            created_by=self.user,
+        )
+        self.assertEqual(str(wo), 'WO-STR-001')
+
+    def test_work_order_status_choices(self):
+        """작업지시 상태 선택지"""
+        choices = dict(WorkOrder.Status.choices)
+        self.assertIn('PENDING', choices)
+        self.assertIn('IN_PROGRESS', choices)
+        self.assertIn('COMPLETED', choices)
+        self.assertIn('CANCELLED', choices)
+
+    def test_work_order_default_status(self):
+        """기본 상태는 PENDING"""
+        wo = WorkOrder.objects.create(
+            order_number='WO-DEF-001',
+            production_plan=self.plan,
+            quantity=50,
+            created_by=self.user,
+        )
+        self.assertEqual(wo.status, WorkOrder.Status.PENDING)
+
+    def test_production_record_str(self):
+        """생산실적 문자열 표현"""
+        wo = WorkOrder.objects.create(
+            order_number='WO-REC-STR',
+            production_plan=self.plan,
+            quantity=100,
+            created_by=self.user,
+        )
+        rec = ProductionRecord.objects.create(
+            work_order=wo,
+            good_quantity=10,
+            record_date=date(2026, 3, 17),
+            created_by=self.user,
+        )
+        self.assertIn('WO-REC-STR', str(rec))
+        self.assertIn('2026-03-17', str(rec))
+
+    def test_production_record_total_quantity(self):
+        """생산실적 총수량 = 양품 + 불량"""
+        wo = WorkOrder.objects.create(
+            order_number='WO-TOT-001',
+            production_plan=self.plan,
+            quantity=100,
+            created_by=self.user,
+        )
+        rec = ProductionRecord.objects.create(
+            work_order=wo,
+            good_quantity=80,
+            defect_quantity=5,
+            record_date=date.today(),
+            created_by=self.user,
+        )
+        self.assertEqual(rec.total_quantity, 85)

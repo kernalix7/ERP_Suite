@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ domain.name }} - {% trans "AD 도메인" %} - ERP Suite{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">{{ domain.name }}</h1>
+        <div class="flex space-x-2">
+            <form method="post" action="{% url 'ad:connection_test' domain.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary">{% trans "연결 테스트" %}</button>
+            </form>
+            <a href="{% url 'ad:domain_update' domain.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+        </div>
+    </div>
+
+    <!-- 도메인 정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 class="font-semibold text-gray-900 mb-4">{% trans "도메인 정보" %}</h2>
+        <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div><dt class="text-gray-500">{% trans "도메인" %}</dt><dd class="font-medium">{{ domain.domain }}</dd></div>
+            <div><dt class="text-gray-500">{% trans "LDAP 서버" %}</dt><dd class="font-medium">{{ domain.ldap_server }}</dd></div>
+            <div><dt class="text-gray-500">{% trans "Base DN" %}</dt><dd class="font-medium font-mono text-xs">{{ domain.base_dn }}</dd></div>
+            <div><dt class="text-gray-500">{% trans "SSL/TLS" %}</dt><dd class="font-medium">{% if domain.use_ssl %}SSL{% elif domain.use_start_tls %}StartTLS{% else %}{% trans "없음" %}{% endif %}</dd></div>
+            <div><dt class="text-gray-500">{% trans "자동 동기화" %}</dt><dd class="font-medium">{% if domain.sync_enabled %}{{ domain.sync_interval_minutes }}{% trans "분 주기" %}{% else %}{% trans "비활성" %}{% endif %}</dd></div>
+            <div><dt class="text-gray-500">{% trans "마지막 동기화" %}</dt><dd class="font-medium">{% if domain.last_sync_at %}{{ domain.last_sync_at|date:"Y-m-d H:i:s" }}{% else %}-{% endif %}</dd></div>
+        </dl>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- OU 목록 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h2 class="font-semibold text-gray-900">{% trans "조직단위 (OU)" %} <span class="text-gray-400 text-sm">({{ ous.count }})</span></h2>
+            </div>
+            <div class="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                {% for ou in ous %}
+                <div class="px-6 py-2 text-sm">
+                    <p class="font-medium">{{ ou.name }}</p>
+                    <p class="text-xs text-gray-400 font-mono">{{ ou.distinguished_name }}</p>
+                    {% if ou.mapped_department %}<p class="text-xs text-blue-500">{% trans "매핑" %}: {{ ou.mapped_department }}</p>{% endif %}
+                </div>
+                {% empty %}
+                <p class="px-6 py-4 text-sm text-gray-400">{% trans "동기화된 OU가 없습니다." %}</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 그룹 목록 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h2 class="font-semibold text-gray-900">{% trans "그룹" %} <span class="text-gray-400 text-sm">({{ groups.count }})</span></h2>
+            </div>
+            <div class="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                {% for group in groups %}
+                <div class="px-6 py-2 text-sm flex justify-between items-center">
+                    <div>
+                        <p class="font-medium">{{ group.sam_account_name }}</p>
+                        <p class="text-xs text-gray-400">{{ group.get_group_type_display }}</p>
+                    </div>
+                    {% if group.mapped_role %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ group.mapped_role }}</span>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <p class="px-6 py-4 text-sm text-gray-400">{% trans "동기화된 그룹이 없습니다." %}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 사용자 매핑 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h2 class="font-semibold text-gray-900">{% trans "사용자 매핑" %}</h2>
+            <a href="{% url 'ad:usermapping_list' %}?domain={{ domain.pk }}" class="text-sm text-blue-600 hover:underline">{% trans "전체보기" %}</a>
+        </div>
+        <div class="table-responsive">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "AD 계정" %}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "ERP 사용자" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "마지막 동기화" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for mapping in user_mappings %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-3 text-sm font-medium">{{ mapping.sam_account_name }}</td>
+                        <td class="px-6 py-3 text-sm text-gray-500">{{ mapping.user }}</td>
+                        <td class="px-6 py-3 text-center">
+                            {% if mapping.sync_status == 'SYNCED' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ mapping.get_sync_status_display }}</span>
+                            {% elif mapping.sync_status == 'ERROR' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{{ mapping.get_sync_status_display }}</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{{ mapping.get_sync_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-3 text-sm text-gray-400">{% if mapping.last_sync_at %}{{ mapping.last_sync_at|date:"m/d H:i" }}{% else %}-{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="px-6 py-4 text-center text-gray-400 text-sm">{% trans "매핑된 사용자가 없습니다." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 동기화 로그 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h2 class="font-semibold text-gray-900">{% trans "최근 동기화 로그" %}</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "유형" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "생성" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "수정" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "비활성" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "오류" %}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "시작" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for log in sync_logs %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-3 text-sm">{{ log.get_sync_type_display }}</td>
+                        <td class="px-6 py-3 text-center">
+                            {% if log.status == 'SUCCESS' %}<span class="text-green-600 text-sm font-medium">{{ log.get_status_display }}</span>
+                            {% elif log.status == 'FAILED' %}<span class="text-red-600 text-sm font-medium">{{ log.get_status_display }}</span>
+                            {% else %}<span class="text-yellow-600 text-sm font-medium">{{ log.get_status_display }}</span>{% endif %}
+                        </td>
+                        <td class="px-6 py-3 text-center text-sm">{{ log.users_created }}</td>
+                        <td class="px-6 py-3 text-center text-sm">{{ log.users_updated }}</td>
+                        <td class="px-6 py-3 text-center text-sm">{{ log.users_disabled }}</td>
+                        <td class="px-6 py-3 text-center text-sm {% if log.errors_count > 0 %}text-red-600 font-medium{% endif %}">{{ log.errors_count }}</td>
+                        <td class="px-6 py-3 text-sm text-gray-400">{{ log.started_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="px-6 py-4 text-center text-gray-400 text-sm">{% trans "동기화 이력이 없습니다." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

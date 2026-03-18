@@ -45,10 +45,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ).count()
 
         # 최근 주문 5건
-        context['recent_orders'] = Order.objects.all()[:5]
+        context['recent_orders'] = Order.objects.select_related(
+            'partner', 'customer'
+        ).all()[:5]
 
         # 최근 AS 5건
-        context['recent_services'] = ServiceRequest.objects.all()[:5]
+        context['recent_services'] = ServiceRequest.objects.select_related(
+            'product', 'customer'
+        ).all()[:5]
 
         # 재무 KPI
         this_month_orders = Order.objects.filter(

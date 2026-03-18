@@ -294,3 +294,456 @@ class WithholdingTaxTests(TestCase):
             net_amount=Decimal('9780000'),
         )
         self.assertEqual(str(wht), '(주)테스트 - 2026-06-01')
+
+
+class VoucherLineTests(TestCase):
+    """전표 항목 상세 테스트"""
+
+    def setUp(self):
+        self.account_cash = AccountCode.objects.create(
+            code='110', name='보통예금',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        self.account_expense = AccountCode.objects.create(
+            code='501', name='복리후생비',
+            account_type=AccountCode.AccountType.EXPENSE,
+        )
+        self.voucher = Voucher.objects.create(
+            voucher_number='V-LINE-001',
+            voucher_type=Voucher.VoucherType.PAYMENT,
+            voucher_date=date(2026, 3, 10),
+            description='복리후생비 지출',
+        )
+
+    def test_voucher_line_str(self):
+        """전표항목 문자열 표현"""
+        line = VoucherLine.objects.create(
+            voucher=self.voucher,
+            account=self.account_expense,
+            debit=Decimal('100000'),
+            credit=Decimal('0'),
+        )
+        self.assertIn('복리후생비', str(line))
+        self.assertIn('100000', str(line))
+
+    def test_multiple_lines_balance(self):
+        """복수 전표항목 균형 확인"""
+        VoucherLine.objects.create(
+            voucher=self.voucher, account=self.account_expense,
+            debit=Decimal('100000'), credit=Decimal('0'),
+        )
+        VoucherLine.objects.create(
+            voucher=self.voucher, account=self.account_expense,
+            debit=Decimal('50000'), credit=Decimal('0'),
+        )
+        VoucherLine.objects.create(
+            voucher=self.voucher, account=self.account_cash,
+            debit=Decimal('0'), credit=Decimal('150000'),
+        )
+        self.assertEqual(self.voucher.total_debit, Decimal('150000'))
+        self.assertEqual(self.voucher.total_credit, Decimal('150000'))
+        self.assertTrue(self.voucher.is_balanced)
+
+    def test_voucher_approval_status_choices(self):
+        """전표 승인 상태 선택지"""
+        choices = dict(Voucher.ApprovalStatus.choices)
+        self.assertIn('DRAFT', choices)
+        self.assertIn('SUBMITTED', choices)
+        self.assertIn('APPROVED', choices)
+        self.assertIn('REJECTED', choices)
+
+    def test_voucher_approval_flow(self):
+        """전표 승인 워크플로우"""
+        self.assertEqual(self.voucher.approval_status, 'DRAFT')
+        self.voucher.approval_status = Voucher.ApprovalStatus.SUBMITTED
+        self.voucher.save()
+        self.voucher.refresh_from_db()
+        self.assertEqual(self.voucher.approval_status, 'SUBMITTED')
+
+        self.voucher.approval_status = Voucher.ApprovalStatus.APPROVED
+        self.voucher.save()
+        self.voucher.refresh_from_db()
+        self.assertEqual(self.voucher.approval_status, 'APPROVED')
+
+
+class ApprovalStepTests(TestCase):
+    """다단계 결재 테스트"""
+
+    def setUp(self):
+        self.requester = User.objects.create_user(
+            username='step_req', password='testpass123',
+            name='기안자', role=User.Role.STAFF,
+        )
+        self.approver1 = User.objects.create_user(
+            username='step_appr1', password='testpass123',
+            name='1차결재자', role=User.Role.MANAGER,
+        )
+        self.approver2 = User.objects.create_user(
+            username='step_appr2', password='testpass123',
+            name='2차결재자', role=User.Role.ADMIN,
+        )
+
+    def test_multi_step_approval(self):
+        """다단계 결재선 생성 및 순차 승인"""
+        from apps.accounting.models import ApprovalStep
+
+        req = ApprovalRequest.objects.create(
+            request_number='AP-STEP-001',
+            category=ApprovalRequest.DocCategory.PURCHASE,
+            title='다단계 결재 테스트',
+            content='내용',
+            amount=Decimal('1000000'),
+            requester=self.requester,
+            status=ApprovalRequest.Status.SUBMITTED,
+            submitted_at=timezone.now(),
+        )
+        step1 = ApprovalStep.objects.create(
+            request=req, step_order=1,
+            approver=self.approver1,
+        )
+        step2 = ApprovalStep.objects.create(
+            request=req, step_order=2,
+            approver=self.approver2,
+        )
+        # 1단계 승인
+        step1.status = ApprovalStep.Status.APPROVED
+        step1.acted_at = timezone.now()
+        step1.comment = '승인합니다'
+        step1.save()
+        step1.refresh_from_db()
+        self.assertEqual(step1.status, 'APPROVED')
+
+        # 2단계 승인
+        step2.status = ApprovalStep.Status.APPROVED
+        step2.acted_at = timezone.now()
+        step2.save()
+        step2.refresh_from_db()
+        self.assertEqual(step2.status, 'APPROVED')
+
+        # 모든 단계 승인 확인
+        all_approved = all(
+            s.status == 'APPROVED'
+            for s in req.steps.all()
+        )
+        self.assertTrue(all_approved)
+
+    def test_approval_step_rejection(self):
+        """결재 단계 반려"""
+        from apps.accounting.models import ApprovalStep
+
+        req = ApprovalRequest.objects.create(
+            request_number='AP-STEP-REJ',
+            category=ApprovalRequest.DocCategory.EXPENSE,
+            title='반려 테스트',
+            content='내용',
+            amount=Decimal('500000'),
+            requester=self.requester,
+            status=ApprovalRequest.Status.SUBMITTED,
+            submitted_at=timezone.now(),
+        )
+        step = ApprovalStep.objects.create(
+            request=req, step_order=1,
+            approver=self.approver1,
+        )
+        step.status = ApprovalStep.Status.REJECTED
+        step.comment = '예산 부족'
+        step.acted_at = timezone.now()
+        step.save()
+        step.refresh_from_db()
+        self.assertEqual(step.status, 'REJECTED')
+        self.assertEqual(step.comment, '예산 부족')
+
+    def test_approval_step_str(self):
+        """결재 단계 문자열 표현"""
+        from apps.accounting.models import ApprovalStep
+
+        req = ApprovalRequest.objects.create(
+            request_number='AP-STEP-STR',
+            category=ApprovalRequest.DocCategory.GENERAL,
+            title='문자열 테스트',
+            content='내용',
+            requester=self.requester,
+        )
+        step = ApprovalStep.objects.create(
+            request=req, step_order=1,
+            approver=self.approver1,
+        )
+        result = str(step)
+        self.assertIn('AP-STEP-STR', result)
+        self.assertIn('1', result)
+
+    def test_unique_together_request_step_order(self):
+        """같은 결재요청에 같은 단계순서 중복 불가"""
+        from apps.accounting.models import ApprovalStep
+
+        req = ApprovalRequest.objects.create(
+            request_number='AP-STEP-UNIQ',
+            category=ApprovalRequest.DocCategory.GENERAL,
+            title='중복 테스트',
+            content='내용',
+            requester=self.requester,
+        )
+        ApprovalStep.objects.create(
+            request=req, step_order=1,
+            approver=self.approver1,
+        )
+        with self.assertRaises(IntegrityError):
+            ApprovalStep.objects.create(
+                request=req, step_order=1,
+                approver=self.approver2,
+            )
+
+
+class AccountReceivablePayableTests(TestCase):
+    """미수금/미지급금 잔액 추적 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='ARAP-001', name='미수미지급 거래처',
+            partner_type=Partner.PartnerType.BOTH,
+        )
+
+    def test_ar_remaining_amount(self):
+        """미수금 잔액 계산"""
+        from apps.accounting.models import AccountReceivable
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            paid_amount=Decimal('300000'),
+            due_date=date(2026, 4, 1),
+        )
+        self.assertEqual(ar.remaining_amount, Decimal('700000'))
+
+    def test_ar_fully_paid(self):
+        """미수금 완납 시 잔액 0"""
+        from apps.accounting.models import AccountReceivable
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            paid_amount=Decimal('500000'),
+            due_date=date(2026, 4, 1),
+            status=AccountReceivable.Status.PAID,
+        )
+        self.assertEqual(ar.remaining_amount, Decimal('0'))
+
+    def test_ar_is_overdue(self):
+        """미수금 연체 판정"""
+        from apps.accounting.models import AccountReceivable
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            due_date=date(2020, 1, 1),  # 과거 날짜
+        )
+        self.assertTrue(ar.is_overdue)
+
+    def test_ar_not_overdue_when_paid(self):
+        """완납 시 연체 아님"""
+        from apps.accounting.models import AccountReceivable
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            paid_amount=Decimal('500000'),
+            due_date=date(2020, 1, 1),
+            status=AccountReceivable.Status.PAID,
+        )
+        self.assertFalse(ar.is_overdue)
+
+    def test_ar_str(self):
+        """미수금 문자열 표현"""
+        from apps.accounting.models import AccountReceivable
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            due_date=date(2026, 4, 1),
+        )
+        result = str(ar)
+        self.assertIn('미수미지급 거래처', result)
+        self.assertIn('1000000', result)
+
+    def test_ap_remaining_amount(self):
+        """미지급금 잔액 계산"""
+        from apps.accounting.models import AccountPayable
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('2000000'),
+            paid_amount=Decimal('500000'),
+            due_date=date(2026, 4, 1),
+        )
+        self.assertEqual(ap.remaining_amount, Decimal('1500000'))
+
+    def test_ap_is_overdue(self):
+        """미지급금 연체 판정"""
+        from apps.accounting.models import AccountPayable
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            due_date=date(2020, 1, 1),
+        )
+        self.assertTrue(ap.is_overdue)
+
+    def test_ap_str(self):
+        """미지급금 문자열 표현"""
+        from apps.accounting.models import AccountPayable
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('3000000'),
+            due_date=date(2026, 5, 1),
+        )
+        result = str(ap)
+        self.assertIn('미수미지급 거래처', result)
+        self.assertIn('3000000', result)
+
+
+class AccountCodeTests(TestCase):
+    """계정과목 테스트"""
+
+    def test_account_code_creation(self):
+        """계정과목 생성"""
+        ac = AccountCode.objects.create(
+            code='100', name='현금및현금성자산',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        self.assertEqual(ac.code, '100')
+        self.assertEqual(ac.account_type, 'ASSET')
+
+    def test_account_code_str(self):
+        """계정과목 문자열 표현"""
+        ac = AccountCode.objects.create(
+            code='200', name='매입채무',
+            account_type=AccountCode.AccountType.LIABILITY,
+        )
+        self.assertEqual(str(ac), '[200] 매입채무')
+
+    def test_account_code_unique(self):
+        """계정코드 중복 불가"""
+        AccountCode.objects.create(
+            code='DUP', name='중복1',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        with self.assertRaises(IntegrityError):
+            AccountCode.objects.create(
+                code='DUP', name='중복2',
+                account_type=AccountCode.AccountType.LIABILITY,
+            )
+
+    def test_account_type_choices(self):
+        """계정유형 선택지"""
+        choices = dict(AccountCode.AccountType.choices)
+        self.assertIn('ASSET', choices)
+        self.assertIn('LIABILITY', choices)
+        self.assertIn('EQUITY', choices)
+        self.assertIn('REVENUE', choices)
+        self.assertIn('EXPENSE', choices)
+
+    def test_account_code_hierarchy(self):
+        """계정과목 상하위 관계"""
+        parent = AccountCode.objects.create(
+            code='100', name='유동자산',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        child = AccountCode.objects.create(
+            code='101', name='현금',
+            account_type=AccountCode.AccountType.ASSET,
+            parent=parent,
+        )
+        self.assertEqual(child.parent, parent)
+
+    def test_account_code_ordering(self):
+        """계정과목은 코드순 정렬"""
+        AccountCode.objects.create(
+            code='300', name='자본금',
+            account_type=AccountCode.AccountType.EQUITY,
+        )
+        AccountCode.objects.create(
+            code='100', name='현금',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        codes = list(AccountCode.objects.all())
+        self.assertEqual(codes[0].code, '100')
+        self.assertEqual(codes[1].code, '300')
+
+
+class TaxRateTests(TestCase):
+    """세율 테스트"""
+
+    def test_tax_rate_creation(self):
+        """세율 생성"""
+        rate = TaxRate.objects.create(
+            name='부가가치세',
+            code='VAT10',
+            rate=Decimal('10.00'),
+            is_default=True,
+            effective_from=date(2026, 1, 1),
+        )
+        self.assertEqual(rate.rate, Decimal('10.00'))
+        self.assertTrue(rate.is_default)
+
+    def test_tax_rate_str(self):
+        """세율 문자열 표현"""
+        rate = TaxRate.objects.create(
+            name='영세율',
+            code='ZERO',
+            rate=Decimal('0.00'),
+            effective_from=date(2026, 1, 1),
+        )
+        self.assertEqual(str(rate), '영세율 (0.00%)')
+
+    def test_tax_rate_unique_code(self):
+        """세율코드 중복 불가"""
+        TaxRate.objects.create(
+            name='세율1', code='DUP-RATE',
+            rate=Decimal('10.00'),
+            effective_from=date(2026, 1, 1),
+        )
+        with self.assertRaises(IntegrityError):
+            TaxRate.objects.create(
+                name='세율2', code='DUP-RATE',
+                rate=Decimal('5.00'),
+                effective_from=date(2026, 1, 1),
+            )
+
+
+class PaymentTests(TestCase):
+    """입출금 기록 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='PAY-001', name='입출금 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+
+    def test_payment_creation(self):
+        """입출금 기록 생성"""
+        from apps.accounting.models import Payment
+        payment = Payment.objects.create(
+            payment_number='PAY-2026-001',
+            payment_type=Payment.PaymentType.RECEIPT,
+            partner=self.partner,
+            amount=Decimal('500000'),
+            payment_date=date(2026, 3, 17),
+        )
+        self.assertEqual(payment.payment_type, 'RECEIPT')
+        self.assertEqual(payment.amount, Decimal('500000'))
+
+    def test_payment_str(self):
+        """입출금 문자열 표현"""
+        from apps.accounting.models import Payment
+        payment = Payment.objects.create(
+            payment_number='PAY-STR-001',
+            payment_type=Payment.PaymentType.DISBURSEMENT,
+            partner=self.partner,
+            amount=Decimal('300000'),
+            payment_date=date(2026, 3, 17),
+        )
+        result = str(payment)
+        self.assertIn('PAY-STR-001', result)
+        self.assertIn('출금', result)
+
+    def test_payment_method_choices(self):
+        """결제수단 선택지"""
+        from apps.accounting.models import Payment
+        choices = dict(Payment.PaymentMethod.choices)
+        self.assertIn('BANK_TRANSFER', choices)
+        self.assertIn('CASH', choices)
+        self.assertIn('CHECK', choices)
+        self.assertIn('CARD', choices)

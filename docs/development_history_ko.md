@@ -156,7 +156,7 @@ ERP로써 어느정도 구현이 되었는지 부족한건 뭔지 개선할 건 
 ### 3-1. 사전 요구사항
 
 ```
-Python 3.12+
+Python 3.13+
 Git
 (선택) Docker Desktop
 ```
@@ -349,9 +349,9 @@ ERP_Suite/
 | 로그인 보호 | django-axes (5회 실패 → 1시간 잠금) |
 | RBAC | AdminRequiredMixin, ManagerRequiredMixin |
 | 재고 동시성 | F() 표현식 (레이스 컨디션 방지) |
-| 파일 업로드 | 확장자 화이트리스트 + 5MB 제한 |
+| 파일 업로드 | 확장자 화이트리스트 + 10MB 제한 |
 | 소프트 삭제 | is_active=False (물리 삭제 금지) |
-| 변경 이력 | simple_history (전 모델 40개) |
+| 변경 이력 | simple_history (전 모델 82개+) |
 | 운영 보안 | HSTS, SSL Redirect, HttpOnly 쿠키 |
 | 감사 추적 | /audit/ — 전 모델 변경이력 통합 조회 |
 | 요청 로깅 | 민감 경로 접근 자동 로깅 |

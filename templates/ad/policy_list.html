@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "AD 그룹 정책" %} - ERP Suite{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">{% trans "AD 그룹 정책" %}</h1>
+        <a href="{% url 'ad:policy_create' %}" class="btn btn-primary">{% trans "정책 추가" %}</a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="table-responsive">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "정책명" %}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "AD 그룹" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "동작" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "값" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "우선순위" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "관리" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for policy in policies %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 font-medium text-gray-900">{{ policy.name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ policy.ad_group.sam_account_name }}</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">{{ policy.get_action_display }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center text-sm font-mono">{{ policy.action_value }}</td>
+                        <td class="px-6 py-4 text-center text-sm">{{ policy.priority }}</td>
+                        <td class="px-6 py-4 text-center">
+                            <a href="{% url 'ad:policy_update' policy.pk %}" class="text-blue-600 hover:underline text-sm">{% trans "수정" %}</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="px-6 py-8 text-center text-gray-400">{% trans "등록된 정책이 없습니다." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

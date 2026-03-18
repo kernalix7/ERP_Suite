@@ -57,6 +57,12 @@ class Product(BaseModel):
             models.Index(fields=['product_type', 'is_active'], name='idx_product_type_active'),
             models.Index(fields=['current_stock'], name='idx_product_stock'),
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(current_stock__gte=0),
+                name='stock_non_negative',
+            ),
+        ]
 
     def __str__(self):
         return f'[{self.code}] {self.name}'

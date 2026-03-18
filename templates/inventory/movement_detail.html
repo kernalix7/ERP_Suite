@@ -5,8 +5,6 @@
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
-    <a href="{% url 'inventory:movement_update' movement.pk %}" class="btn btn-primary">수정</a>
-    <a href="{% url 'inventory:movement_delete' movement.pk %}" class="btn btn-danger">삭제</a>
     <a href="{% url 'inventory:movement_list' %}" class="btn btn-secondary">목록</a>
 </div>
 {% endblock %}

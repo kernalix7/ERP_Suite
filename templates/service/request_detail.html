@@ -4,7 +4,7 @@
 {% block page_title %}AS 상세{% endblock %}
 
 {% block header_actions %}
-{% if service_request.status != '완료' and service_request.status != '취소' %}
+{% if service_request.status != 'COMPLETED' and service_request.status != 'CANCELLED' %}
 <a href="{% url 'service:request_update' service_request.pk %}" class="btn btn-primary">수정</a>
 {% endif %}
 <a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록으로</a>
@@ -23,17 +23,17 @@
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">보증만료</span>
                 {% endif %}
 
-                {% if service_request.status == '접수' %}
+                {% if service_request.status == 'RECEIVED' %}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">접수</span>
-                {% elif service_request.status == '검수중' %}
+                {% elif service_request.status == 'INSPECTING' %}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">검수중</span>
-                {% elif service_request.status == '수리중' %}
+                {% elif service_request.status == 'REPAIRING' %}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">수리중</span>
-                {% elif service_request.status == '완료' %}
+                {% elif service_request.status == 'COMPLETED' %}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">완료</span>
-                {% elif service_request.status == '반송완료' %}
+                {% elif service_request.status == 'RETURNED' %}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">반송완료</span>
-                {% elif service_request.status == '취소' %}
+                {% elif service_request.status == 'CANCELLED' %}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">취소</span>
                 {% else %}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ service_request.get_status_display }}</span>
@@ -102,8 +102,8 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-800">수리 이력</h2>
-            {% if service_request.status != '완료' and service_request.status != '취소' %}
-            <a href="{% url 'service:repair_create' service_request.pk %}" class="btn btn-primary text-sm">
+            {% if service_request.status != 'COMPLETED' and service_request.status != 'CANCELLED' %}
+            <a href="{% url 'service:repair_create' %}" class="btn btn-primary text-sm">
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -132,7 +132,7 @@
                         <td class="px-4 py-3 text-gray-600">{{ repair.technician|default:"-" }}</td>
                         <td class="px-4 py-3 text-right text-gray-900">{{ repair.cost|floatformat:0|default:"0" }}원</td>
                         <td class="px-4 py-3 text-center">
-                            <a href="{% url 'service:repair_update' repair.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                            <span class="text-gray-400 text-sm">-</span>
                         </td>
                     </tr>
                     {% empty %}

@@ -6,6 +6,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q
 from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
@@ -28,7 +29,9 @@ class PartnerListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True).annotate(
+            order_count=Count('orders'),
+        )
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(name__icontains=q)
@@ -60,7 +63,7 @@ class CustomerListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True).select_related('product')
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(name__icontains=q) | qs.filter(phone__icontains=q)
@@ -82,10 +85,19 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
     model = Customer
     template_name = 'sales/customer_detail.html'
 
+    def get_queryset(self):
+        return super().get_queryset().select_related('product')
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['orders'] = self.object.orders.all()
-        ctx['service_requests'] = self.object.service_requests.all()
+        ctx['orders'] = self.object.orders.select_related(
+            'partner', 'customer',
+        ).all()
+        ctx['service_requests'] = (
+            self.object.service_requests
+            .select_related('product')
+            .all()
+        )
         return ctx
 
 
@@ -103,7 +115,9 @@ class OrderListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'partner', 'customer',
+        ).prefetch_related('items')
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
@@ -134,7 +148,7 @@ class OrderCreateView(LoginRequiredMixin, CreateView):
             formset.instance = self.object
             formset.save()
             self.object.update_total()
-            return super().form_valid(form)
+            return redirect(self.get_success_url())
         return self.form_invalid(form)
 
 
@@ -142,9 +156,16 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
     model = Order
     template_name = 'sales/order_detail.html'
 
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'partner', 'customer',
+        )
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['items'] = self.object.items.all()
+        ctx['items'] = self.object.items.select_related(
+            'product',
+        ).all()
         return ctx
 
 
@@ -181,6 +202,11 @@ class CommissionRateListView(LoginRequiredMixin, ListView):
     context_object_name = 'commission_rates'
     paginate_by = 20
 
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'partner', 'product',
+        )
+
 
 class CommissionRateCreateView(LoginRequiredMixin, CreateView):
     model = CommissionRate
@@ -208,7 +234,9 @@ class CommissionRecordListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related(
+            'partner', 'order',
+        )
         status = self.request.GET.get('status')
         partner = self.request.GET.get('partner')
         if status:
@@ -793,7 +821,7 @@ class QuotationListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('partner', 'customer')
+        qs = super().get_queryset().filter(is_active=True).select_related('partner', 'customer')
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(
@@ -811,7 +839,7 @@ class QuotationCreateView(LoginRequiredMixin, CreateView):
     model = Quotation
     fields = [
         'quote_number', 'partner', 'customer', 'quote_date',
-        'valid_until', 'shipping_address', 'notes',
+        'valid_until', 'notes',
     ]
     template_name = 'sales/quote_form.html'
     success_url = reverse_lazy('sales:quote_list')
@@ -858,7 +886,7 @@ class QuotationConvertView(LoginRequiredMixin, View):
     """견적서 → 주문 전환"""
 
     def post(self, request, pk):
-        quote = Quotation.objects.get(pk=pk)
+        quote = get_object_or_404(Quotation, pk=pk)
         if quote.status == Quotation.Status.CONVERTED:
             messages.error(request, '이미 주문으로 전환된 견적입니다.')
             return HttpResponseRedirect(
@@ -911,7 +939,7 @@ class ShipmentListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('order', 'order__partner')
+        qs = super().get_queryset().filter(is_active=True).select_related('order', 'order__partner')
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(
@@ -953,7 +981,7 @@ class ShipmentCreateView(LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['order'] = Order.objects.get(pk=self.kwargs['order_pk'])
+        ctx['order'] = get_object_or_404(Order, pk=self.kwargs['order_pk'])
         return ctx
 
 

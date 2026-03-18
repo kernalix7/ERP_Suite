@@ -1,5 +1,5 @@
 from django import forms
-from apps.inventory.forms import BaseForm
+from apps.core.forms import BaseForm
 from .models import Partner, Customer, Order, OrderItem
 
 
@@ -32,6 +32,10 @@ class OrderForm(BaseForm):
             'order_number', 'partner', 'customer', 'order_date',
             'delivery_date', 'shipping_address', 'notes',
         ]
+        widgets = {
+            'order_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'delivery_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+        }
 
 
 class OrderStatusForm(BaseForm):
@@ -39,10 +43,6 @@ class OrderStatusForm(BaseForm):
     class Meta:
         model = Order
         fields = ['status']
-        widgets = {
-            'order_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
-            'delivery_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
-        }
 
 
 class OrderItemForm(BaseForm):

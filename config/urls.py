@@ -22,6 +22,8 @@ urlpatterns = [
     path('calendar/', include('apps.calendar_app.urls')),
     path('hr/', include('apps.hr.urls')),
     path('messenger/', include('apps.messenger.urls')),
+    path('ad/', include('apps.ad.urls')),
+    path('advertising/', include('apps.advertising.urls')),
     path('', include('apps.core.urls')),
     # API
     path('api/', include('apps.api.urls')),

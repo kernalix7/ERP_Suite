@@ -1,4 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -23,7 +24,7 @@ class EventListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         return (
-            Event.objects.filter(end_datetime__gte=timezone.now())
+            Event.objects.filter(is_active=True, end_datetime__gte=timezone.now())
             .select_related('creator')
             .order_by('start_datetime')
         )
@@ -48,6 +49,12 @@ class EventUpdateView(LoginRequiredMixin, UpdateView):
     form_class = EventForm
     template_name = 'calendar_app/event_form.html'
 
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if obj.creator != request.user and not request.user.is_admin_role:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
     def get_success_url(self):
         return reverse('calendar_app:calendar_view')
 
@@ -56,10 +63,16 @@ class EventDeleteView(LoginRequiredMixin, DeleteView):
     model = Event
     template_name = 'calendar_app/event_confirm_delete.html'
 
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if obj.creator != request.user and not request.user.is_admin_role:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
     def get_success_url(self):
         return reverse('calendar_app:calendar_view')
 
-    def delete(self, request, *args, **kwargs):
+    def form_valid(self, form):
         """Soft delete instead of hard delete."""
         self.object = self.get_object()
         success_url = self.get_success_url()
@@ -75,7 +88,7 @@ class EventAPIView(LoginRequiredMixin, View):
         start = request.GET.get('start')
         end = request.GET.get('end')
 
-        qs = Event.objects.select_related('creator')
+        qs = Event.objects.filter(is_active=True).select_related('creator')
         if start:
             qs = qs.filter(end_datetime__gte=start)
         if end:

@@ -15,7 +15,7 @@ class RegistrationListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True)
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(serial_number__icontains=q) | qs.filter(customer_name__icontains=q)

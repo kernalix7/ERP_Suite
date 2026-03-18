@@ -1,6 +1,6 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
@@ -20,7 +20,7 @@ class PurchaseOrderListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('partner')
+        qs = super().get_queryset().filter(is_active=True).select_related('partner')
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(
@@ -56,7 +56,7 @@ class PurchaseOrderCreateView(LoginRequiredMixin, CreateView):
             formset.instance = self.object
             formset.save()
             self.object.update_total()
-            return super().form_valid(form)
+            return redirect(self.get_success_url())
         return self.form_invalid(form)
 
 

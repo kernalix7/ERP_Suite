@@ -2,11 +2,14 @@ import json
 from datetime import date
 from decimal import Decimal
 
+from django.contrib import messages
+from django.db import transaction
 from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect
 from django.views import View
 
 from apps.core.mixins import ManagerRequiredMixin
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
 
@@ -104,6 +107,9 @@ class TaxRateListView(ManagerRequiredMixin, ListView):
     template_name = 'accounting/taxrate_list.html'
     context_object_name = 'tax_rates'
 
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
 
 class TaxRateCreateView(ManagerRequiredMixin, CreateView):
     model = TaxRate
@@ -131,7 +137,9 @@ class TaxInvoiceListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'partner', 'order',
+        )
         inv_type = self.request.GET.get('type')
         if inv_type:
             qs = qs.filter(invoice_type=inv_type)
@@ -152,6 +160,11 @@ class TaxInvoiceCreateView(ManagerRequiredMixin, CreateView):
 class TaxInvoiceDetailView(ManagerRequiredMixin, DetailView):
     model = TaxInvoice
     template_name = 'accounting/taxinvoice_detail.html'
+
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'partner', 'order',
+        )
 
 
 class TaxInvoiceUpdateView(ManagerRequiredMixin, UpdateView):
@@ -214,7 +227,7 @@ class FixedCostListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True)
         category = self.request.GET.get('category')
         if category:
             qs = qs.filter(category=category)
@@ -363,6 +376,9 @@ class WithholdingTaxListView(ManagerRequiredMixin, ListView):
     context_object_name = 'withholdings'
     paginate_by = 20
 
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
 
 class WithholdingTaxCreateView(ManagerRequiredMixin, CreateView):
     model = WithholdingTax
@@ -387,6 +403,9 @@ class AccountCodeListView(ManagerRequiredMixin, ListView):
     model = AccountCode
     template_name = 'accounting/accountcode_list.html'
     context_object_name = 'account_codes'
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
 
 
 class AccountCodeCreateView(ManagerRequiredMixin, CreateView):
@@ -415,7 +434,9 @@ class VoucherListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'approved_by',
+        )
         voucher_type = self.request.GET.get('type')
         status = self.request.GET.get('status')
         if voucher_type:
@@ -454,7 +475,7 @@ class VoucherCreateView(ManagerRequiredMixin, CreateView):
             self.object.save()
             formset.instance = self.object
             formset.save()
-            return super().form_valid(form)
+            return redirect(self.get_success_url())
         return self.form_invalid(form)
 
 
@@ -464,7 +485,9 @@ class VoucherDetailView(ManagerRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['lines'] = self.object.lines.all()
+        ctx['lines'] = self.object.lines.select_related(
+            'account',
+        ).all()
         return ctx
 
 
@@ -501,7 +524,9 @@ class ApprovalListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related(
+            'requester', 'approver',
+        )
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
@@ -509,7 +534,10 @@ class ApprovalListView(ManagerRequiredMixin, ListView):
         if tab == 'my':
             qs = qs.filter(requester=self.request.user)
         elif tab == 'pending':
-            qs = qs.filter(approver=self.request.user, status='SUBMITTED')
+            qs = qs.filter(
+                approver=self.request.user,
+                status='SUBMITTED',
+            )
         return qs
 
     def get_context_data(self, **kwargs):
@@ -535,6 +563,11 @@ class ApprovalCreateView(ManagerRequiredMixin, CreateView):
 class ApprovalDetailView(ManagerRequiredMixin, DetailView):
     model = ApprovalRequest
     template_name = 'accounting/approval_detail.html'
+
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'requester', 'approver',
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -566,7 +599,7 @@ class ApprovalDetailView(ManagerRequiredMixin, DetailView):
 class ApprovalSubmitView(ManagerRequiredMixin, View):
     def post(self, request, pk):
         from django.utils import timezone
-        obj = ApprovalRequest.objects.get(pk=pk, requester=request.user)
+        obj = get_object_or_404(ApprovalRequest, pk=pk, requester=request.user)
         if obj.status == 'DRAFT':
             obj.status = 'SUBMITTED'
             obj.submitted_at = timezone.now()
@@ -577,7 +610,7 @@ class ApprovalSubmitView(ManagerRequiredMixin, View):
 class ApprovalActionView(ManagerRequiredMixin, View):
     def post(self, request, pk):
         from django.utils import timezone
-        obj = ApprovalRequest.objects.get(pk=pk, approver=request.user)
+        obj = get_object_or_404(ApprovalRequest, pk=pk, approver=request.user)
         if obj.status != 'SUBMITTED':
             return HttpResponseRedirect(reverse_lazy('accounting:approval_detail', args=[pk]))
         action = request.POST.get('action')
@@ -637,9 +670,18 @@ class ARDetailView(ManagerRequiredMixin, DetailView):
     model = AccountReceivable
     template_name = 'accounting/ar_detail.html'
 
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'partner', 'order',
+        )
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['payments'] = self.object.payments.order_by('-payment_date')
+        ctx['payments'] = (
+            self.object.payments
+            .select_related('partner')
+            .order_by('-payment_date')
+        )
         return ctx
 
 
@@ -671,25 +713,37 @@ class PaymentCreateView(ManagerRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['receivable'] = AccountReceivable.objects.get(pk=self.kwargs['pk'])
+        ctx['receivable'] = get_object_or_404(AccountReceivable, pk=self.kwargs['pk'])
         ctx['is_receipt'] = True
         return ctx
 
     def form_valid(self, form):
-        ar = AccountReceivable.objects.get(pk=self.kwargs['pk'])
-        form.instance.receivable = ar
-        form.instance.payment_type = 'RECEIPT'
-        form.instance.partner = ar.partner
-        form.instance.created_by = self.request.user
-        response = super().form_valid(form)
-        # Update AR
-        ar.paid_amount += form.instance.amount
-        if ar.paid_amount >= ar.amount:
-            ar.status = 'PAID'
-        else:
-            ar.status = 'PARTIAL'
-        ar.save(update_fields=['paid_amount', 'status', 'updated_at'])
-        return response
+        with transaction.atomic():
+            ar = AccountReceivable.objects.select_for_update().get(pk=self.kwargs['pk'])
+            amount = form.cleaned_data['amount']
+            if amount > ar.remaining_amount:
+                form.add_error('amount', f'잔액({ar.remaining_amount:,}원)을 초과할 수 없습니다.')
+                return self.form_invalid(form)
+
+            payment = form.save(commit=False)
+            payment.receivable = ar
+            payment.partner = ar.partner
+            payment.payment_type = 'RECEIPT'
+            payment.created_by = self.request.user
+            payment.save()
+
+            ar.paid_amount = F('paid_amount') + amount
+            ar.save(update_fields=['paid_amount', 'updated_at'])
+            ar.refresh_from_db()
+
+            if ar.paid_amount >= ar.amount:
+                ar.status = 'PAID'
+            elif ar.paid_amount > 0:
+                ar.status = 'PARTIAL'
+            ar.save(update_fields=['status', 'updated_at'])
+
+        messages.success(self.request, f'{amount:,}원 입금 처리 완료')
+        return redirect('accounting:ar_detail', pk=ar.pk)
 
     def get_success_url(self):
         return reverse_lazy('accounting:ar_detail', args=[self.kwargs['pk']])
@@ -731,9 +785,18 @@ class APDetailView(ManagerRequiredMixin, DetailView):
     model = AccountPayable
     template_name = 'accounting/ap_detail.html'
 
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'partner',
+        )
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['payments'] = self.object.payments.order_by('-payment_date')
+        ctx['payments'] = (
+            self.object.payments
+            .select_related('partner')
+            .order_by('-payment_date')
+        )
         return ctx
 
 
@@ -765,25 +828,37 @@ class DisbursementCreateView(ManagerRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['payable'] = AccountPayable.objects.get(pk=self.kwargs['pk'])
+        ctx['payable'] = get_object_or_404(AccountPayable, pk=self.kwargs['pk'])
         ctx['is_receipt'] = False
         return ctx
 
     def form_valid(self, form):
-        ap = AccountPayable.objects.get(pk=self.kwargs['pk'])
-        form.instance.payable = ap
-        form.instance.payment_type = 'DISBURSEMENT'
-        form.instance.partner = ap.partner
-        form.instance.created_by = self.request.user
-        response = super().form_valid(form)
-        # Update AP
-        ap.paid_amount += form.instance.amount
-        if ap.paid_amount >= ap.amount:
-            ap.status = 'PAID'
-        else:
-            ap.status = 'PARTIAL'
-        ap.save(update_fields=['paid_amount', 'status', 'updated_at'])
-        return response
+        with transaction.atomic():
+            ap = AccountPayable.objects.select_for_update().get(pk=self.kwargs['pk'])
+            amount = form.cleaned_data['amount']
+            if amount > ap.remaining_amount:
+                form.add_error('amount', f'잔액({ap.remaining_amount:,}원)을 초과할 수 없습니다.')
+                return self.form_invalid(form)
+
+            payment = form.save(commit=False)
+            payment.payable = ap
+            payment.partner = ap.partner
+            payment.payment_type = 'DISBURSEMENT'
+            payment.created_by = self.request.user
+            payment.save()
+
+            ap.paid_amount = F('paid_amount') + amount
+            ap.save(update_fields=['paid_amount', 'updated_at'])
+            ap.refresh_from_db()
+
+            if ap.paid_amount >= ap.amount:
+                ap.status = 'PAID'
+            elif ap.paid_amount > 0:
+                ap.status = 'PARTIAL'
+            ap.save(update_fields=['status', 'updated_at'])
+
+        messages.success(self.request, f'{amount:,}원 출금 처리 완료')
+        return redirect('accounting:ap_detail', pk=ap.pk)
 
     def get_success_url(self):
         return reverse_lazy('accounting:ap_detail', args=[self.kwargs['pk']])

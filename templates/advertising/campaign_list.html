@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "광고 캠페인" %} - ERP Suite{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">{% trans "광고 캠페인" %}</h1>
+        <a href="{% url 'advertising:campaign_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">{% trans "캠페인 생성" %}</a>
+    </div>
+
+    <!-- 필터 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <form method="get" class="flex flex-wrap gap-4 items-end">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">{% trans "상태" %}</label>
+                <select name="status" class="form-input text-sm">
+                    <option value="">{% trans "전체" %}</option>
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if current_status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">{% trans "플랫폼" %}</label>
+                <select name="platform" class="form-input text-sm">
+                    <option value="">{% trans "전체" %}</option>
+                    {% for p in platforms %}
+                    <option value="{{ p.pk }}" {% if current_platform == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">{% trans "검색" %}</button>
+        </form>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "캠페인명" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "플랫폼" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "유형" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "예산" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "집행액" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "기간" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for c in campaigns %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm"><a href="{% url 'advertising:campaign_detail' c.pk %}" class="text-blue-600 hover:underline font-medium">{{ c.name }}</a></td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ c.platform.name }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ c.get_campaign_type_display }}</td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="px-2 py-1 rounded-full text-xs {% if c.status == 'ACTIVE' %}bg-green-100 text-green-700{% elif c.status == 'PAUSED' %}bg-yellow-100 text-yellow-700{% elif c.status == 'DRAFT' %}bg-gray-100 text-gray-600{% elif c.status == 'COMPLETED' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-500{% endif %}">{{ c.get_status_display }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-right">{{ c.budget|intcomma }}원</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ c.spent|intcomma }}원</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ c.start_date }} ~ {{ c.end_date }}</td>
+                    <td class="px-4 py-3 text-sm text-right">
+                        <a href="{% url 'advertising:campaign_update' c.pk %}" class="text-blue-600 hover:underline">{% trans "수정" %}</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">{% trans "캠페인이 없습니다" %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="flex justify-center space-x-2">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded text-sm">&laquo;</a>{% endif %}
+        <span class="px-3 py-1 text-sm text-gray-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded text-sm">&raquo;</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

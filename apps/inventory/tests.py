@@ -4,7 +4,9 @@ from datetime import date
 from django.test import TestCase
 
 from apps.accounts.models import User
-from apps.inventory.models import Product, Warehouse, StockMovement
+from apps.inventory.models import (
+    Product, Category, Warehouse, StockMovement,
+)
 
 
 class StockMovementSignalTest(TestCase):
@@ -191,3 +193,235 @@ class StockMovementSignalTest(TestCase):
             created_by=self.user,
         )
         self.assertEqual(product.profit_margin, 0)
+
+
+class CategoryModelTest(TestCase):
+    """카테고리 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='catuser', password='testpass123', role='staff',
+        )
+
+    def test_category_creation(self):
+        """카테고리 생성"""
+        cat = Category.objects.create(
+            name='전자부품', created_by=self.user,
+        )
+        self.assertEqual(cat.name, '전자부품')
+
+    def test_category_str(self):
+        """카테고리 문자열 표현"""
+        cat = Category.objects.create(
+            name='기계부품', created_by=self.user,
+        )
+        self.assertEqual(str(cat), '기계부품')
+
+    def test_category_hierarchy(self):
+        """카테고리 상하위 관계"""
+        parent = Category.objects.create(
+            name='원자재', created_by=self.user,
+        )
+        child = Category.objects.create(
+            name='금속', parent=parent, created_by=self.user,
+        )
+        self.assertEqual(child.parent, parent)
+        self.assertIn(child, parent.children.all())
+
+    def test_category_ordering(self):
+        """카테고리는 이름순 정렬"""
+        Category.objects.create(name='ZZZ', created_by=self.user)
+        Category.objects.create(name='AAA', created_by=self.user)
+        cats = list(Category.objects.all())
+        self.assertEqual(cats[0].name, 'AAA')
+
+    def test_category_soft_delete(self):
+        """카테고리 soft delete"""
+        cat = Category.objects.create(
+            name='삭제테스트', created_by=self.user,
+        )
+        cat.soft_delete()
+        self.assertFalse(Category.objects.filter(pk=cat.pk).exists())
+        self.assertTrue(Category.all_objects.filter(pk=cat.pk).exists())
+
+
+class WarehouseModelTest(TestCase):
+    """창고 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='whuser', password='testpass123', role='staff',
+        )
+
+    def test_warehouse_creation(self):
+        """창고 생성"""
+        wh = Warehouse.objects.create(
+            code='WH-TEST', name='테스트창고',
+            location='서울시 강남구', created_by=self.user,
+        )
+        self.assertEqual(wh.code, 'WH-TEST')
+        self.assertEqual(wh.name, '테스트창고')
+
+    def test_warehouse_str(self):
+        """창고 문자열 표현"""
+        wh = Warehouse.objects.create(
+            code='WH-STR', name='문자열창고', created_by=self.user,
+        )
+        self.assertEqual(str(wh), '문자열창고')
+
+    def test_warehouse_unique_code(self):
+        """창고코드 중복 불가"""
+        from django.db import IntegrityError
+        Warehouse.objects.create(
+            code='WH-DUP', name='창고1', created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            Warehouse.objects.create(
+                code='WH-DUP', name='창고2', created_by=self.user,
+            )
+
+
+class StockTransferModelTest(TestCase):
+    """창고간 이동 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='tfuser', password='testpass123', role='staff',
+        )
+        self.wh1 = Warehouse.objects.create(
+            code='WH-FROM', name='출발창고', created_by=self.user,
+        )
+        self.wh2 = Warehouse.objects.create(
+            code='WH-TO', name='도착창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='TF-PRD-001', name='이동제품',
+            product_type='FINISHED', unit_price=1000, cost_price=500,
+            current_stock=100, created_by=self.user,
+        )
+
+    def test_transfer_creation(self):
+        """창고간 이동 생성"""
+        from apps.inventory.models import StockTransfer
+        transfer = StockTransfer.objects.create(
+            transfer_number='TF-001',
+            from_warehouse=self.wh1,
+            to_warehouse=self.wh2,
+            product=self.product,
+            quantity=50,
+            transfer_date=date.today(),
+            created_by=self.user,
+        )
+        self.assertEqual(transfer.from_warehouse, self.wh1)
+        self.assertEqual(transfer.to_warehouse, self.wh2)
+        self.assertEqual(transfer.quantity, 50)
+
+    def test_transfer_str(self):
+        """창고간 이동 문자열 표현"""
+        from apps.inventory.models import StockTransfer
+        transfer = StockTransfer.objects.create(
+            transfer_number='TF-STR-001',
+            from_warehouse=self.wh1,
+            to_warehouse=self.wh2,
+            product=self.product,
+            quantity=10,
+            transfer_date=date.today(),
+            created_by=self.user,
+        )
+        self.assertEqual(str(transfer), 'TF-STR-001')
+
+    def test_transfer_unique_number(self):
+        """이동번호 중복 불가"""
+        from django.db import IntegrityError
+        from apps.inventory.models import StockTransfer
+        StockTransfer.objects.create(
+            transfer_number='TF-DUP-001',
+            from_warehouse=self.wh1,
+            to_warehouse=self.wh2,
+            product=self.product,
+            quantity=10,
+            transfer_date=date.today(),
+            created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            StockTransfer.objects.create(
+                transfer_number='TF-DUP-001',
+                from_warehouse=self.wh2,
+                to_warehouse=self.wh1,
+                product=self.product,
+                quantity=5,
+                transfer_date=date.today(),
+                created_by=self.user,
+            )
+
+    def test_transfer_soft_delete(self):
+        """창고간 이동 soft delete"""
+        from apps.inventory.models import StockTransfer
+        transfer = StockTransfer.objects.create(
+            transfer_number='TF-SD-001',
+            from_warehouse=self.wh1,
+            to_warehouse=self.wh2,
+            product=self.product,
+            quantity=10,
+            transfer_date=date.today(),
+            created_by=self.user,
+        )
+        transfer.soft_delete()
+        qs = StockTransfer.objects.filter(pk=transfer.pk)
+        self.assertFalse(qs.exists())
+        qs_all = StockTransfer.all_objects.filter(pk=transfer.pk)
+        self.assertTrue(qs_all.exists())
+
+
+class StockMovementModelTest(TestCase):
+    """StockMovement 모델 자체 프로퍼티 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='smuser', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-SM', name='프로퍼티창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='SM-PRD-001', name='프로퍼티제품',
+            product_type='FINISHED', unit_price=10000, cost_price=5000,
+            current_stock=0, created_by=self.user,
+        )
+
+    def test_total_amount_property(self):
+        """total_amount = quantity * unit_price"""
+        movement = StockMovement.objects.create(
+            movement_number='SM-AMT-001',
+            movement_type='IN',
+            product=self.product,
+            warehouse=self.warehouse,
+            quantity=10,
+            unit_price=5000,
+            movement_date=date.today(),
+            created_by=self.user,
+        )
+        self.assertEqual(movement.total_amount, 50000)
+
+    def test_stock_movement_str(self):
+        """StockMovement 문자열 표현"""
+        movement = StockMovement.objects.create(
+            movement_number='SM-STR-001',
+            movement_type='IN',
+            product=self.product,
+            warehouse=self.warehouse,
+            quantity=10,
+            unit_price=1000,
+            movement_date=date.today(),
+            created_by=self.user,
+        )
+        result = str(movement)
+        self.assertIn('SM-STR-001', result)
+        self.assertIn('입고', result)
+
+    def test_product_type_choices(self):
+        """제품 유형 선택지 확인"""
+        choices = dict(Product.ProductType.choices)
+        self.assertIn('RAW', choices)
+        self.assertIn('SEMI', choices)
+        self.assertIn('FINISHED', choices)

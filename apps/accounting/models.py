@@ -192,11 +192,12 @@ class Voucher(BaseModel):
 
 
 class VoucherLine(BaseModel):
-    voucher = models.ForeignKey(Voucher, on_delete=models.CASCADE, related_name='lines')
+    voucher = models.ForeignKey(Voucher, verbose_name='전표', on_delete=models.CASCADE, related_name='lines')
     account = models.ForeignKey(AccountCode, verbose_name='계정과목', on_delete=models.PROTECT)
     debit = models.DecimalField('차변', max_digits=15, decimal_places=0, default=0)
     credit = models.DecimalField('대변', max_digits=15, decimal_places=0, default=0)
     description = models.CharField('적요', max_length=200, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = '전표항목'
