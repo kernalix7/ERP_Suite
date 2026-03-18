@@ -5,8 +5,8 @@ from celery import shared_task
 logger = logging.getLogger(__name__)
 
 
-@shared_task
-def sync_all_domains():
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def sync_all_domains(self):
     """모든 활성 AD 도메인 동기화 (Celery Beat 스케줄)"""
     from .models import ADDomain
     from .services import ADService
@@ -30,8 +30,8 @@ def sync_all_domains():
     return '; '.join(results)
 
 
-@shared_task
-def sync_domain(domain_id, sync_type='FULL', triggered_by_id=None):
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def sync_domain(self, domain_id, sync_type='FULL', triggered_by_id=None):
     """특정 도메인 동기화 (비동기 실행)"""
     from apps.accounts.models import User
     from .models import ADDomain

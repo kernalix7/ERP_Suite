@@ -1,14 +1,12 @@
 """증빙/증적 첨부파일 뷰"""
 from django.apps import apps
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponseRedirect, Http404
-from django.urls import reverse
 from django.views import View
-from django.views.generic import ListView, TemplateView
+from django.views.generic import ListView
 
 from apps.core.mixins import ManagerRequiredMixin
-from .attachment import Attachment, ALLOWED_EXTENSIONS, MAX_FILE_SIZE
+from .attachment import Attachment, MAX_FILE_SIZE
 
 
 class AttachmentListView(ManagerRequiredMixin, ListView):
@@ -31,8 +29,8 @@ class AttachmentListView(ManagerRequiredMixin, ListView):
         return ctx
 
 
-class AttachmentUploadView(LoginRequiredMixin, View):
-    """증빙 파일 업로드 (POST)"""
+class AttachmentUploadView(ManagerRequiredMixin, View):
+    """증빙 파일 업로드 (POST) — 매니저 이상만 첨부 가능"""
     def post(self, request, app_label, model_name, pk):
         try:
             model = apps.get_model(app_label, model_name)
@@ -40,7 +38,7 @@ class AttachmentUploadView(LoginRequiredMixin, View):
             raise Http404
 
         try:
-            obj = model.objects.get(pk=pk)
+            obj = model.objects.get(pk=pk, is_active=True)
         except model.DoesNotExist:
             raise Http404
 

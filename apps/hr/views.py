@@ -107,8 +107,8 @@ class EmployeeListView(ManagerRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['departments'] = Department.objects.all()
-        context['positions'] = Position.objects.all()
+        context['departments'] = Department.objects.filter(is_active=True)
+        context['positions'] = Position.objects.filter(is_active=True)
         context['status_choices'] = EmployeeProfile.Status.choices
         return context
 

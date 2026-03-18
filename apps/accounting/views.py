@@ -658,7 +658,7 @@ class ARListView(ManagerRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx['status_choices'] = AccountReceivable.Status.choices
         from apps.sales.models import Partner
-        ctx['partners'] = Partner.objects.all()
+        ctx['partners'] = Partner.objects.filter(is_active=True)
         total = AccountReceivable.objects.filter(
             status__in=['PENDING', 'PARTIAL', 'OVERDUE']
         ).aggregate(total=Sum('amount'), paid=Sum('paid_amount'))
@@ -773,7 +773,7 @@ class APListView(ManagerRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx['status_choices'] = AccountPayable.Status.choices
         from apps.sales.models import Partner
-        ctx['partners'] = Partner.objects.all()
+        ctx['partners'] = Partner.objects.filter(is_active=True)
         total = AccountPayable.objects.filter(
             status__in=['PENDING', 'PARTIAL', 'OVERDUE']
         ).aggregate(total=Sum('amount'), paid=Sum('paid_amount'))

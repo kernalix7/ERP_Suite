@@ -32,7 +32,7 @@ class InvestmentDashboardView(ManagerRequiredMixin, TemplateView):
         ctx['latest_round'] = latest_round
 
         # 지분 현황 (파이차트용)
-        investors = Investor.objects.all()
+        investors = Investor.objects.filter(is_active=True)
         equity_data = []
         total_share = 0
         for inv in investors:
@@ -63,6 +63,7 @@ class InvestorListView(ManagerRequiredMixin, ListView):
     model = Investor
     template_name = 'investment/investor_list.html'
     context_object_name = 'investors'
+    paginate_by = 20
 
     def get_queryset(self):
         qs = super().get_queryset().filter(is_active=True)
@@ -108,6 +109,7 @@ class RoundListView(ManagerRequiredMixin, ListView):
     model = InvestmentRound
     template_name = 'investment/round_list.html'
     context_object_name = 'rounds'
+    paginate_by = 20
 
     def get_queryset(self):
         return super().get_queryset().filter(is_active=True)
@@ -159,7 +161,7 @@ class EquityOverviewView(ManagerRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        investors = Investor.objects.all()
+        investors = Investor.objects.filter(is_active=True)
         equity_data = []
         total_share = 0
         for inv in investors:

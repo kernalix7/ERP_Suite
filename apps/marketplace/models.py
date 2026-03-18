@@ -53,6 +53,10 @@ class MarketplaceOrder(BaseModel):
         verbose_name = '스토어주문'
         verbose_name_plural = '스토어주문'
         ordering = ['-ordered_at']
+        indexes = [
+            models.Index(fields=['status'], name='idx_mktorder_status'),
+            models.Index(fields=['ordered_at'], name='idx_mktorder_date'),
+        ]
 
     def __str__(self):
         return f'{self.store_order_id} - {self.product_name}'

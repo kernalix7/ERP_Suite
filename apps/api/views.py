@@ -15,7 +15,13 @@ from apps.api.permissions import IsManagerOrReadOnly
 
 
 class BaseModelViewSet(viewsets.ModelViewSet):
-    """ViewSet that auto-sets created_by on create."""
+    """ViewSet that auto-sets created_by on create and filters inactive records."""
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if hasattr(qs.model, 'is_active'):
+            qs = qs.filter(is_active=True)
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

@@ -8,6 +8,12 @@ class MarketplaceConfigForm(BaseForm):
     class Meta:
         model = MarketplaceConfig
         fields = ['shop_name', 'client_id', 'client_secret', 'notes']
+        widgets = {
+            'client_secret': forms.PasswordInput(
+                attrs={'class': 'form-input'},
+                render_value=True,
+            ),
+        }
 
 
 class MarketplaceOrderForm(BaseForm):

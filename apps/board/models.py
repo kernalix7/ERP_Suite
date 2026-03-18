@@ -60,6 +60,9 @@ class Post(BaseModel):
         verbose_name = '게시글'
         verbose_name_plural = '게시글'
         ordering = ['-is_pinned', '-created_at']
+        indexes = [
+            models.Index(fields=['board', 'is_active'], name='idx_post_board_active'),
+        ]
 
     def __str__(self):
         return self.title
@@ -95,6 +98,9 @@ class Comment(BaseModel):
         verbose_name = '댓글'
         verbose_name_plural = '댓글'
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['post'], name='idx_comment_post'),
+        ]
 
     def __str__(self):
         return f'{self.author} - {self.content[:30]}'
