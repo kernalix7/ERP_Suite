@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'channels',
     'django_celery_beat',
     'django_prometheus',
+    'drf_spectacular',
     # Local apps
     'apps.core',
     'apps.accounts',
@@ -237,6 +238,17 @@ REST_FRAMEWORK = {
         'anon': '20/minute',
         'user': '60/minute',
     },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# drf-spectacular
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'ERP Suite API',
+    'DESCRIPTION': '제조/영업 통합 ERP + 그룹웨어 REST API',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': r'/api/',
 }
 
 # CORS
