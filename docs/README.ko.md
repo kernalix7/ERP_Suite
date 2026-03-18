@@ -2,7 +2,7 @@
 
 중소기업을 위한 제조/판매 통합 ERP + 그룹웨어 시스템
 
-> [English version](README.md)
+[English](../README.md) | **한국어**
 
 ## 주요 기능
 
@@ -179,6 +179,14 @@ cd loadtest && locust -f locustfile.py --host http://localhost:8000
 - 감사추적: django-simple-history (전 모델)
 - 접근 로그: `AccessLogMiddleware` (사용자/경로/응답시간)
 - 모니터링: Prometheus 메트릭 + Sentry 에러 추적
+
+## 기여
+
+개발 환경 설정과 작업 흐름은 [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md)를 참조하세요.
+
+## 보안 정책
+
+보안 이슈는 [SECURITY.ko.md](SECURITY.ko.md)의 제보 절차를 따라 주세요.
 
 ## 현재 규모
 

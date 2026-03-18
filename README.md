@@ -2,7 +2,7 @@
 
 Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 
-> [Korean version (한국어)](README_ko.md)
+**English** | [한국어](docs/README.ko.md)
 
 ## Key Features
 
@@ -228,6 +228,14 @@ Verification criteria cover 82+ items across 7 categories:
 - **~17,000 lines** of Python (excluding migrations)
 - **440+ tests** (unit + verification)
 - **90+ migrations**, **25 packages**
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and workflow.
+
+## Security
+
+For security issues, follow the process in [SECURITY.md](SECURITY.md).
 
 ## License
 

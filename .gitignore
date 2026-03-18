@@ -1,19 +1,39 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 dist/
 build/
-.env
-db.sqlite3
-media/
-staticfiles/
-*.log
-.DS_Store
-node_modules/
-
-# 로컬 전용 (민감 데이터, 테스트 DB 등)
-local/
 
 # Virtual environment
 .venv/
 venv/
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+# Environment
+.env
+.env.*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+node_modules/
+
+# Logs
+*.log
+
+# Local (sensitive data, test DB, backups)
+local/
+
+# AI config (actual files in .priv-storage/, root has symlinks)
+.priv-storage/
+CLAUDE.md
+.cursorrules
+.claude
+.vscode
+WORK_STATUS.md
