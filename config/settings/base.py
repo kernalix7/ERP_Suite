@@ -69,6 +69,7 @@ MIDDLEWARE = [
     'simple_history.middleware.HistoryRequestMiddleware',
     'axes.middleware.AxesMiddleware',
     'apps.core.middleware.AccessLogMiddleware',
+    'csp.middleware.CSPMiddleware',
     'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
 
