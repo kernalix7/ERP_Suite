@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from apps.core import excel_views
 
 app_name = 'accounting'
 
@@ -50,4 +51,13 @@ urlpatterns = [
     path('payables/<int:pk>/disbursement/', views.DisbursementCreateView.as_view(), name='disbursement_create'),
     # PDF
     path('invoices/<int:pk>/pdf/', views.TaxInvoicePDFView.as_view(), name='taxinvoice_pdf'),
+    # Excel 내보내기
+    path('invoices/excel/', excel_views.TaxInvoiceExcelView.as_view(), name='taxinvoice_excel'),
+    path('vouchers/excel/', excel_views.VoucherExcelView.as_view(), name='voucher_excel'),
+    path('accounts/excel/', excel_views.AccountCodeExcelView.as_view(), name='accountcode_excel'),
+    path('fixed-costs/excel/', excel_views.FixedCostExcelView.as_view(), name='fixedcost_excel'),
+    path('receivables/excel/', excel_views.ARExcelView.as_view(), name='ar_excel'),
+    path('payables/excel/', excel_views.APExcelView.as_view(), name='ap_excel'),
+    path('approvals/excel/', excel_views.ApprovalExcelView.as_view(), name='approval_excel'),
+    path('withholding/excel/', excel_views.WithholdingTaxExcelView.as_view(), name='withholding_excel'),
 ]

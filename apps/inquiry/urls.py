@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from apps.core import excel_views
 
 app_name = 'inquiry'
 
@@ -16,4 +17,6 @@ urlpatterns = [
     path('templates/', views.ReplyTemplateListView.as_view(), name='template_list'),
     path('templates/create/', views.ReplyTemplateCreateView.as_view(), name='template_create'),
     path('templates/<int:pk>/edit/', views.ReplyTemplateUpdateView.as_view(), name='template_update'),
+    # Excel 내보내기
+    path('excel/', excel_views.InquiryExcelView.as_view(), name='inquiry_excel'),
 ]

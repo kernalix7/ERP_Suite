@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from apps.core import excel_views
 
 app_name = 'inventory'
 
@@ -37,4 +38,8 @@ urlpatterns = [
     path('products/<int:pk>/barcode/', views.ProductBarcodeView.as_view(), name='product_barcode'),
     path('products/<int:pk>/barcode/print/', views.ProductBarcodePrintView.as_view(), name='product_barcode_print'),
     path('scan/', views.BarcodeScanView.as_view(), name='barcode_scan'),
+    # Excel 내보내기
+    path('movements/excel/', excel_views.StockMovementExcelView.as_view(), name='movement_excel'),
+    path('stock/excel/', excel_views.StockStatusExcelView.as_view(), name='stock_excel'),
+    path('transfers/excel/', excel_views.StockTransferExcelView.as_view(), name='transfer_excel'),
 ]

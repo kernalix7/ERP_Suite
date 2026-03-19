@@ -16,6 +16,7 @@
         </select>
         <button type="submit" class="btn btn-secondary">{% trans "검색" %}</button>
     </form>
+    <a href="{% url 'sales:quote_excel' %}" class="btn btn-secondary">Excel</a>
     <a href="{% url 'sales:quote_create' %}" class="btn btn-primary">+ {% trans "견적서 작성" %}</a>
 </div>
 

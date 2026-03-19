@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from apps.core import excel_views
 
 app_name = 'attendance'
 
@@ -14,4 +15,8 @@ urlpatterns = [
     path('leaves/create/', views.LeaveRequestCreateView.as_view(), name='leave_create'),
     path('leaves/<int:pk>/approve/', views.LeaveApproveView.as_view(), name='leave_approve'),
     path('balance/', views.LeaveBalanceView.as_view(), name='leave_balance'),
+    # Excel 내보내기
+    path('records/excel/', excel_views.AttendanceExcelView.as_view(), name='record_excel'),
+    path('leaves/excel/', excel_views.LeaveRequestExcelView.as_view(), name='leave_excel'),
+    path('balance/excel/', excel_views.LeaveBalanceExcelView.as_view(), name='balance_excel'),
 ]

@@ -6,7 +6,10 @@
 
 {% block content %}
 <div class="space-y-6">
-    <h1 class="text-2xl font-bold text-gray-900">{% trans "광고 성과 분석" %}</h1>
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">{% trans "광고 성과 분석" %}</h1>
+        <a href="{% url 'advertising:performance_excel' %}" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm">Excel</a>
+    </div>
 
     <!-- 필터 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">

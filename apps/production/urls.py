@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from apps.core import excel_views
 
 app_name = 'production'
 
@@ -23,4 +24,9 @@ urlpatterns = [
     # 생산실적
     path('records/', views.ProductionRecordListView.as_view(), name='record_list'),
     path('records/create/', views.ProductionRecordCreateView.as_view(), name='record_create'),
+    # Excel 내보내기
+    path('bom/excel/', excel_views.BOMExcelView.as_view(), name='bom_excel'),
+    path('plans/excel/', excel_views.ProductionPlanExcelView.as_view(), name='plan_excel'),
+    path('work-orders/excel/', excel_views.WorkOrderExcelView.as_view(), name='workorder_excel'),
+    path('records/excel/', excel_views.ProductionRecordExcelView.as_view(), name='record_excel'),
 ]

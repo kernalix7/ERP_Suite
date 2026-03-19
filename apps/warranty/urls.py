@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from apps.core import excel_views
 
 app_name = 'warranty'
 
@@ -10,4 +11,6 @@ urlpatterns = [
     path('<int:pk>/edit/', views.RegistrationUpdateView.as_view(), name='registration_update'),
     path('check/', views.SerialCheckView.as_view(), name='serial_check'),
     path('verify/', views.WarrantyVerifyView.as_view(), name='warranty_verify'),
+    # Excel 내보내기
+    path('excel/', excel_views.WarrantyExcelView.as_view(), name='warranty_excel'),
 ]

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from apps.core import excel_views
 
 app_name = 'sales'
 
@@ -50,4 +51,10 @@ urlpatterns = [
     path('partners/import/sample/', views.PartnerImportSampleView.as_view(), name='partner_import_sample'),
     path('customers/import/', views.CustomerImportView.as_view(), name='customer_import'),
     path('customers/import/sample/', views.CustomerImportSampleView.as_view(), name='customer_import_sample'),
+    # Excel 내보내기
+    path('partners/excel/', excel_views.PartnerExcelView.as_view(), name='partner_excel'),
+    path('customers/excel/', excel_views.CustomerExcelView.as_view(), name='customer_excel'),
+    path('quotes/excel/', excel_views.QuotationExcelView.as_view(), name='quote_excel'),
+    path('shipments/excel/', excel_views.ShipmentExcelView.as_view(), name='shipment_excel'),
+    path('commissions/excel/', excel_views.CommissionExcelView.as_view(), name='commission_excel'),
 ]
