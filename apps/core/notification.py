@@ -76,7 +76,7 @@ def send_realtime_notification(user_id, notification_data):
                 'data': notification_data,
             }
         )
-    except Exception:
+    except (OSError, ConnectionError, RuntimeError):
         logger.warning('실시간 알림 전송 실패 (user_id=%s)', user_id, exc_info=True)
 
 
@@ -94,5 +94,5 @@ def send_broadcast_notification(notification_data):
                 'data': notification_data,
             }
         )
-    except Exception:
+    except (OSError, ConnectionError, RuntimeError):
         logger.warning('브로드캐스트 알림 전송 실패', exc_info=True)

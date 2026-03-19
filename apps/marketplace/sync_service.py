@@ -56,7 +56,7 @@ def sync_orders(config: MarketplaceConfig, user=None,
                 normalized = client.normalize_order(raw_order)
                 _upsert_order(normalized, config, user)
                 success += 1
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 errors += 1
                 order_id = raw_order.get('store_order_id', 'unknown')
                 error_messages.append(f'{order_id}: {str(e)}')
@@ -66,7 +66,7 @@ def sync_orders(config: MarketplaceConfig, user=None,
         sync_log.error_count = errors
         sync_log.error_message = '\n'.join(error_messages[:50])
 
-    except Exception as e:
+    except (ConnectionError, OSError, ValueError) as e:
         sync_log.error_count = 1
         sync_log.error_message = f'동기화 중 오류 발생: {str(e)}'
         logger.exception('마켓플레이스 동기화 실패')

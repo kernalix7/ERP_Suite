@@ -290,12 +290,12 @@ class VoucherExcelView(LoginRequiredMixin, View):
             ('적요', 25), ('계정코드', 10), ('계정명', 15), ('차변', 15), ('대변', 15),
         ]
         rows = [[
-            l.voucher.voucher_number, l.voucher.get_voucher_type_display(),
-            l.voucher.voucher_date.strftime('%Y-%m-%d'),
-            l.voucher.get_approval_status_display(),
-            l.voucher.description, l.account.code, l.account.name,
-            int(l.debit), int(l.credit),
-        ] for l in lines]
+            line.voucher.voucher_number, line.voucher.get_voucher_type_display(),
+            line.voucher.voucher_date.strftime('%Y-%m-%d'),
+            line.voucher.get_approval_status_display(),
+            line.voucher.description, line.account.code, line.account.name,
+            int(line.debit), int(line.credit),
+        ] for line in lines]
         return export_to_excel('전표 상세', headers, rows, money_columns=[7, 8])
 
 

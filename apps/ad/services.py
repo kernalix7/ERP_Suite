@@ -42,7 +42,7 @@ class ADService:
         except ImportError:
             logger.warning('ldap3 라이브러리 미설치 - 시뮬레이션 모드')
             return None
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError) as e:
             logger.error('LDAP 연결 실패: %s', str(e))
             raise
 
@@ -60,7 +60,7 @@ class ADService:
             )
             conn.unbind()
             return True, f'{self.domain.domain} 연결 성공'
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError) as e:
             return False, str(e)
 
     def sync(self, sync_type='FULL', triggered_by=None):
@@ -108,7 +108,7 @@ class ADService:
             self.domain.last_sync_at = timezone.now()
             self.domain.save(update_fields=['last_sync_at', 'updated_at'])
 
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError) as e:
             sync_log.status = 'FAILED'
             sync_log.error_details = str(e)
             sync_log.errors_count += 1
@@ -279,7 +279,7 @@ class ADService:
                     # 그룹 정책 적용
                     self._apply_group_policies(mapping, ad_groups)
 
-            except Exception as e:
+            except (OSError, ConnectionError, ValueError) as e:
                 sync_log.errors_count += 1
                 sync_log.error_details += f'\n{sam}: {str(e)}'
                 logger.warning('사용자 동기화 오류 (%s): %s', sam, str(e))

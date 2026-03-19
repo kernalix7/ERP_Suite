@@ -83,6 +83,40 @@ def export_to_excel(title, headers, rows, filename=None, money_columns=None):
     # 자동필터
     ws.auto_filter.ref = f'A4:{get_column_letter(len(headers))}{4 + len(rows)}'
 
+    # Disclaimer 시트
+    ds = wb.create_sheet(title='개인정보 취급 안내')
+    disclaimer_lines = [
+        '[ 개인정보 취급 안내 (Disclaimer) ]',
+        '',
+        '본 파일에는 개인정보보호법 및 관련 법령에 의해 보호되는',
+        '개인정보가 포함되어 있을 수 있습니다.',
+        '',
+        '1. 본 자료는 업무 목적으로만 사용해야 하며,',
+        '   무단 복제·배포·전송을 금지합니다.',
+        '',
+        '2. 업무 완료 후 파일을 즉시 삭제하거나',
+        '   안전하게 보관해야 합니다.',
+        '',
+        '3. 개인정보를 제3자에게 제공하거나 목적 외로',
+        '   사용할 경우, 개인정보보호법 제71조에 따라',
+        '   5년 이하의 징역 또는 5천만원 이하의',
+        '   벌금에 처해질 수 있습니다.',
+        '',
+        '4. 본 자료에서 개인정보가 유출된 경우,',
+        '   즉시 관리자에게 보고하여 주시기 바랍니다.',
+        '',
+        f'출력일시: {date.today().strftime("%Y-%m-%d")}',
+        '출력시스템: ERP Suite',
+    ]
+    warn_font = Font(name='맑은 고딕', size=11)
+    warn_title_font = Font(
+        name='맑은 고딕', size=14, bold=True, color='CC0000',
+    )
+    ds.column_dimensions['A'].width = 60
+    for idx, line in enumerate(disclaimer_lines, 1):
+        cell = ds.cell(row=idx, column=1, value=line)
+        cell.font = warn_title_font if idx == 1 else warn_font
+
     # 응답
     if not filename:
         filename = f'{title}_{date.today().strftime("%Y%m%d")}.xlsx'
@@ -93,7 +127,12 @@ def export_to_excel(title, headers, rows, filename=None, money_columns=None):
 
     response = HttpResponse(
         output.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        content_type=(
+            'application/vnd.openxmlformats-officedocument'
+            '.spreadsheetml.sheet'
+        ),
     )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = (
+        f'attachment; filename="{filename}"'
+    )
     return response

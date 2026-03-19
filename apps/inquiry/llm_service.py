@@ -51,6 +51,6 @@ def generate_inquiry_reply(inquiry, templates=None):
             messages=[{"role": "user", "content": user_message}],
         )
         return response.content[0].text
-    except Exception as e:
+    except (anthropic.APIError, anthropic.APIConnectionError, TimeoutError, ValueError) as e:
         logger.error("Claude API 호출 중 오류 발생: %s", e)
         return None

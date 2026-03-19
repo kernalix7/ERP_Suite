@@ -89,7 +89,7 @@
     <div class="bg-white shadow-sm rounded-xl p-5">
         <h2 class="text-base font-semibold text-gray-900 mb-4">월별 매출 추이</h2>
         <div class="relative" style="height: 280px;">
-            <canvas id="revenueChart"></canvas>
+            <canvas id="revenueChart" aria-label="월별 매출 추이 차트" role="img"></canvas>
         </div>
     </div>
 
@@ -97,7 +97,7 @@
     <div class="bg-white shadow-sm rounded-xl p-5">
         <h2 class="text-base font-semibold text-gray-900 mb-4">월별 생산량 추이</h2>
         <div class="relative" style="height: 280px;">
-            <canvas id="productionChart"></canvas>
+            <canvas id="productionChart" aria-label="월별 생산량 추이 차트" role="img"></canvas>
         </div>
     </div>
 
@@ -105,7 +105,7 @@
     <div class="bg-white shadow-sm rounded-xl p-5">
         <h2 class="text-base font-semibold text-gray-900 mb-4">제품유형별 재고</h2>
         <div class="relative" style="height: 280px;">
-            <canvas id="stockChart"></canvas>
+            <canvas id="stockChart" aria-label="제품유형별 재고 차트" role="img"></canvas>
         </div>
     </div>
 
@@ -113,7 +113,7 @@
     <div class="bg-white shadow-sm rounded-xl p-5">
         <h2 class="text-base font-semibold text-gray-900 mb-4">주문 상태 분포</h2>
         <div class="relative" style="height: 280px;">
-            <canvas id="orderStatusChart"></canvas>
+            <canvas id="orderStatusChart" aria-label="주문 상태 분포 차트" role="img"></canvas>
         </div>
     </div>
 </div>
@@ -128,12 +128,13 @@
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
+                <caption class="sr-only">최근 주문 목록</caption>
                 <thead>
                     <tr class="bg-gray-50">
-                        <th class="px-5 py-2.5 text-left font-medium text-gray-500">주문번호</th>
-                        <th class="px-5 py-2.5 text-left font-medium text-gray-500">고객</th>
-                        <th class="px-5 py-2.5 text-right font-medium text-gray-500">금액</th>
-                        <th class="px-5 py-2.5 text-center font-medium text-gray-500">상태</th>
+                        <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">주문번호</th>
+                        <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">고객</th>
+                        <th scope="col" class="px-5 py-2.5 text-right font-medium text-gray-500">금액</th>
+                        <th scope="col" class="px-5 py-2.5 text-center font-medium text-gray-500">상태</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -173,12 +174,13 @@
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
+                <caption class="sr-only">최근 AS 접수 목록</caption>
                 <thead>
                     <tr class="bg-gray-50">
-                        <th class="px-5 py-2.5 text-left font-medium text-gray-500">접수번호</th>
-                        <th class="px-5 py-2.5 text-left font-medium text-gray-500">고객</th>
-                        <th class="px-5 py-2.5 text-left font-medium text-gray-500">접수일</th>
-                        <th class="px-5 py-2.5 text-center font-medium text-gray-500">상태</th>
+                        <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">접수번호</th>
+                        <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">고객</th>
+                        <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">접수일</th>
+                        <th scope="col" class="px-5 py-2.5 text-center font-medium text-gray-500">상태</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -219,13 +221,14 @@
     {% if low_stock_products %}
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
+            <caption class="sr-only">재고부족 품목 목록</caption>
             <thead>
                 <tr class="bg-gray-50">
-                    <th class="px-5 py-2.5 text-left font-medium text-gray-500">제품명</th>
-                    <th class="px-5 py-2.5 text-left font-medium text-gray-500">카테고리</th>
-                    <th class="px-5 py-2.5 text-right font-medium text-gray-500">현재 재고</th>
-                    <th class="px-5 py-2.5 text-right font-medium text-gray-500">안전재고</th>
-                    <th class="px-5 py-2.5 text-right font-medium text-gray-500">부족수량</th>
+                    <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">제품명</th>
+                    <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">카테고리</th>
+                    <th scope="col" class="px-5 py-2.5 text-right font-medium text-gray-500">현재 재고</th>
+                    <th scope="col" class="px-5 py-2.5 text-right font-medium text-gray-500">안전재고</th>
+                    <th scope="col" class="px-5 py-2.5 text-right font-medium text-gray-500">부족수량</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">

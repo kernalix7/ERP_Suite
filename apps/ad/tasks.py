@@ -22,7 +22,7 @@ def sync_all_domains(self):
                 f'{domain.name}: {sync_log.get_status_display()} '
                 f'({sync_log.total_processed}건)'
             )
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError) as e:
             results.append(f'{domain.name}: 실패 - {str(e)}')
             logger.error('AD 동기화 실패 (domain=%s): %s',
                          domain.name, str(e), exc_info=True)

@@ -67,7 +67,7 @@ def _register_korean_font():
                 FONT_NAME_BOLD = 'NanumGothicBold'
             else:
                 FONT_NAME_BOLD = 'NanumGothic'
-        except Exception:
+        except (OSError, IOError, ValueError):
             pass  # fall back to Helvetica
 
     _FONT_REGISTERED = True
@@ -103,7 +103,7 @@ def _get_company_name():
     try:
         from django.conf import settings
         return getattr(settings, 'PDF_COMPANY_NAME', 'ERP Suite')
-    except Exception:
+    except (AttributeError, ImportError):
         return 'ERP Suite'
 
 
@@ -111,7 +111,7 @@ def _get_company_info():
     try:
         from django.conf import settings
         return getattr(settings, 'PDF_COMPANY_INFO', '')
-    except Exception:
+    except (AttributeError, ImportError):
         return ''
 
 
@@ -441,7 +441,7 @@ def generate_quotation_pdf(order):
     # Footer
     elements.append(Spacer(1, 10 * mm))
     elements.append(Paragraph(
-        f'상기 금액을 견적합니다.',
+        '상기 금액을 견적합니다.',
         styles['KorNormal'],
     ))
     elements.append(Spacer(1, 5 * mm))
@@ -533,7 +533,7 @@ def generate_purchase_order_pdf(order):
     # Footer
     elements.append(Spacer(1, 10 * mm))
     elements.append(Paragraph(
-        f'상기와 같이 발주합니다.',
+        '상기와 같이 발주합니다.',
         styles['KorNormal'],
     ))
     elements.append(Spacer(1, 5 * mm))

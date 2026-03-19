@@ -238,7 +238,7 @@ class ProductImportView(ManagerRequiredMixin, TemplateView):
             else:
                 messages.error(request, '지원하지 않는 파일 형식입니다. (.xlsx, .xls, .csv)')
                 return self.get(request, *args, **kwargs)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, UnicodeDecodeError) as e:
             messages.error(request, f'파일 읽기 오류: {e}')
             return self.get(request, *args, **kwargs)
 

@@ -11,8 +11,11 @@
 """
 import logging
 
+import smtplib
+
 from django.conf import settings
 from django.core.mail import send_mail
+from django.template.exceptions import TemplateDoesNotExist, TemplateSyntaxError
 from django.template.loader import render_to_string
 
 logger = logging.getLogger(__name__)
@@ -42,7 +45,7 @@ def send_notification_email(user, subject, message, html_template=None,
     if html_template and context:
         try:
             html_message = render_to_string(html_template, context)
-        except Exception as e:
+        except (TemplateDoesNotExist, TemplateSyntaxError) as e:
             logger.error('이메일 템플릿 렌더링 실패: %s', e)
 
     try:
@@ -56,7 +59,7 @@ def send_notification_email(user, subject, message, html_template=None,
         )
         logger.info('이메일 발송 성공: %s → %s', subject, user.email)
         return True
-    except Exception as e:
+    except (smtplib.SMTPException, ConnectionError, OSError) as e:
         logger.error('이메일 발송 실패: %s → %s: %s', subject, user.email, e)
         return False
 

@@ -48,7 +48,7 @@ def backup_database(self):
             os.remove(old_backup)
 
         return f'Backup saved: {filename}'
-    except Exception as exc:
+    except (OSError, IOError) as exc:
         raise self.retry(exc=exc)
 
 
