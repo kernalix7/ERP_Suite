@@ -61,6 +61,7 @@ jobs:
           echo "DEBUG=True" >> local/.env
           echo "DATABASE_URL=postgres://erp:testpass@localhost:5432/erp_test" >> local/.env
           echo "REDIS_URL=redis://localhost:6379/0" >> local/.env
+          echo "FIELD_ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> local/.env
 
       - name: Run migrations
         env:
