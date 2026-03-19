@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -40,9 +41,9 @@ class TaxInvoice(BaseModel):
         null=True, blank=True, on_delete=models.SET_NULL,
     )
     issue_date = models.DateField('발행일')
-    supply_amount = models.DecimalField('공급가액', max_digits=15, decimal_places=0)
-    tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0)
-    total_amount = models.DecimalField('합계', max_digits=15, decimal_places=0)
+    supply_amount = models.DecimalField('공급가액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
+    tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
+    total_amount = models.DecimalField('합계', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     description = models.TextField('적요', blank=True)
     history = HistoricalRecords()
 
@@ -71,7 +72,7 @@ class FixedCost(BaseModel):
 
     category = models.CharField('비용구분', max_length=20, choices=CostCategory.choices)
     name = models.CharField('비용명', max_length=100)
-    amount = models.DecimalField('금액', max_digits=15, decimal_places=0)
+    amount = models.DecimalField('금액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     month = models.DateField('해당월')
     is_recurring = models.BooleanField('반복비용', default=True)
     history = HistoricalRecords()
@@ -97,10 +98,10 @@ class WithholdingTax(BaseModel):
     tax_type = models.CharField('세목', max_length=20, choices=TaxType.choices)
     payee_name = models.CharField('소득자명', max_length=100)
     payment_date = models.DateField('지급일')
-    gross_amount = models.DecimalField('지급액', max_digits=15, decimal_places=0)
-    tax_rate = models.DecimalField('세율(%)', max_digits=5, decimal_places=2)
-    tax_amount = models.DecimalField('원천징수액', max_digits=15, decimal_places=0)
-    net_amount = models.DecimalField('실지급액', max_digits=15, decimal_places=0)
+    gross_amount = models.DecimalField('지급액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
+    tax_rate = models.DecimalField('세율(%)', max_digits=5, decimal_places=2, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    tax_amount = models.DecimalField('원천징수액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
+    net_amount = models.DecimalField('실지급액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     history = HistoricalRecords()
 
     class Meta:
@@ -194,8 +195,8 @@ class Voucher(BaseModel):
 class VoucherLine(BaseModel):
     voucher = models.ForeignKey(Voucher, verbose_name='전표', on_delete=models.CASCADE, related_name='lines')
     account = models.ForeignKey(AccountCode, verbose_name='계정과목', on_delete=models.PROTECT)
-    debit = models.DecimalField('차변', max_digits=15, decimal_places=0, default=0)
-    credit = models.DecimalField('대변', max_digits=15, decimal_places=0, default=0)
+    debit = models.DecimalField('차변', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
+    credit = models.DecimalField('대변', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     description = models.CharField('적요', max_length=200, blank=True)
     history = HistoricalRecords()
 
@@ -228,7 +229,7 @@ class ApprovalRequest(BaseModel):
     category = models.CharField('문서종류', max_length=20, choices=DocCategory.choices)
     title = models.CharField('제목', max_length=200)
     content = models.TextField('내용')
-    amount = models.DecimalField('금액', max_digits=15, decimal_places=0, default=0)
+    amount = models.DecimalField('금액', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     status = models.CharField('상태', max_length=20, choices=Status.choices, default=Status.DRAFT)
     requester = models.ForeignKey(
         'accounts.User', verbose_name='요청자',
@@ -314,8 +315,8 @@ class AccountReceivable(BaseModel):
         null=True, blank=True, on_delete=models.SET_NULL,
         related_name='receivables',
     )
-    amount = models.DecimalField('청구금액', max_digits=15, decimal_places=0)
-    paid_amount = models.DecimalField('입금액', max_digits=15, decimal_places=0, default=0)
+    amount = models.DecimalField('청구금액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
+    paid_amount = models.DecimalField('입금액', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     due_date = models.DateField('납기일')
     status = models.CharField(
         '상태', max_length=20,
@@ -362,8 +363,8 @@ class AccountPayable(BaseModel):
         null=True, blank=True, on_delete=models.SET_NULL,
         related_name='payables',
     )
-    amount = models.DecimalField('금액', max_digits=15, decimal_places=0)
-    paid_amount = models.DecimalField('지급액', max_digits=15, decimal_places=0, default=0)
+    amount = models.DecimalField('금액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
+    paid_amount = models.DecimalField('지급액', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     due_date = models.DateField('납기일')
     status = models.CharField(
         '상태', max_length=20,
@@ -421,7 +422,7 @@ class Payment(BaseModel):
         null=True, blank=True, on_delete=models.SET_NULL,
         related_name='payments',
     )
-    amount = models.DecimalField('금액', max_digits=15, decimal_places=0)
+    amount = models.DecimalField('금액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     payment_date = models.DateField('입출금일')
     payment_method = models.CharField(
         '결제수단', max_length=20,

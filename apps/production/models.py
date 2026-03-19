@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -37,8 +38,8 @@ class BOMItem(BaseModel):
         on_delete=models.PROTECT,
         limit_choices_to={'product_type__in': ['RAW', 'SEMI']},
     )
-    quantity = models.DecimalField('소요량', max_digits=10, decimal_places=3)
-    loss_rate = models.DecimalField('손실률(%)', max_digits=5, decimal_places=2, default=0)
+    quantity = models.DecimalField('소요량', max_digits=10, decimal_places=3, validators=[MinValueValidator(0)])
+    loss_rate = models.DecimalField('손실률(%)', max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
     history = HistoricalRecords()
 
     class Meta:
@@ -79,8 +80,8 @@ class ProductionPlan(BaseModel):
         '상태', max_length=20,
         choices=Status.choices, default=Status.DRAFT,
     )
-    estimated_cost = models.DecimalField('예상원가', max_digits=15, decimal_places=0, default=0)
-    actual_cost = models.DecimalField('실제원가', max_digits=15, decimal_places=0, default=0)
+    estimated_cost = models.DecimalField('예상원가', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
+    actual_cost = models.DecimalField('실제원가', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     history = HistoricalRecords()
 
     class Meta:

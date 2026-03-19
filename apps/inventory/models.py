@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -40,8 +41,8 @@ class Product(BaseModel):
         null=True, blank=True, on_delete=models.SET_NULL,
     )
     unit = models.CharField('단위', max_length=20, default='EA')
-    unit_price = models.DecimalField('판매단가', max_digits=12, decimal_places=0, default=0)
-    cost_price = models.DecimalField('원가', max_digits=12, decimal_places=0, default=0)
+    unit_price = models.DecimalField('판매단가', max_digits=12, decimal_places=0, default=0, validators=[MinValueValidator(0)])
+    cost_price = models.DecimalField('원가', max_digits=12, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     safety_stock = models.PositiveIntegerField('안전재고', default=0)
     current_stock = models.IntegerField('현재고', default=0)
     specification = models.TextField('규격/사양', blank=True)
@@ -123,7 +124,7 @@ class StockMovement(BaseModel):
         on_delete=models.PROTECT, related_name='movements',
     )
     quantity = models.PositiveIntegerField('수량')
-    unit_price = models.DecimalField('단가', max_digits=12, decimal_places=0, default=0)
+    unit_price = models.DecimalField('단가', max_digits=12, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     movement_date = models.DateField('입출고일')
     reference = models.CharField('참조', max_length=100, blank=True)
     history = HistoricalRecords()

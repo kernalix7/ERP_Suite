@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.validators import MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -69,7 +70,7 @@ class PurchaseOrderItem(BaseModel):
         Product, verbose_name='제품', on_delete=models.PROTECT,
     )
     quantity = models.PositiveIntegerField('수량')
-    unit_price = models.DecimalField('단가', max_digits=12, decimal_places=0)
+    unit_price = models.DecimalField('단가', max_digits=12, decimal_places=0, validators=[MinValueValidator(0)])
     amount = models.DecimalField('공급가액', max_digits=15, decimal_places=0, default=0)
     tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0, default=0)
     received_quantity = models.PositiveIntegerField('입고수량', default=0)
