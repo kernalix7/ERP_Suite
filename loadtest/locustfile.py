@@ -7,7 +7,14 @@ ERP Suite 부하 테스트
   locust -f locustfile.py --host http://localhost:8000
 
 웹 UI: http://localhost:8089
+
+헤드리스 실행 (벤치마크):
+  locust -f locustfile.py --host http://localhost:8000 \
+    --headless -u 50 -r 5 --run-time 60s \
+    --csv=results --html=report.html
 """
+import re
+
 from locust import HttpUser, task, between, tag
 
 
@@ -17,23 +24,29 @@ class ERPUser(HttpUser):
 
     def on_start(self):
         """로그인"""
-        # CSRF 토큰 획득
         resp = self.client.get('/accounts/login/')
-        if 'csrfmiddlewaretoken' in resp.text:
-            import re
-            match = re.search(
-                r'name="csrfmiddlewaretoken" value="([^"]+)"',
-                resp.text,
-            )
-            csrf = match.group(1) if match else ''
-        else:
-            csrf = ''
+        match = re.search(
+            r'name="csrfmiddlewaretoken" value="([^"]+)"',
+            resp.text,
+        )
+        csrf = match.group(1) if match else ''
 
         self.client.post('/accounts/login/', {
             'username': 'admin',
             'password': 'admin123!',
             'csrfmiddlewaretoken': csrf,
         }, headers={'Referer': f'{self.host}/accounts/login/'})
+
+    def _get_csrf(self, url):
+        """페이지에서 CSRF 토큰 추출"""
+        resp = self.client.get(url)
+        match = re.search(
+            r'name="csrfmiddlewaretoken" value="([^"]+)"',
+            resp.text,
+        )
+        return match.group(1) if match else ''
+
+    # === 읽기 작업 (높은 빈도) ===
 
     @tag('dashboard')
     @task(10)
@@ -71,6 +84,12 @@ class ERPUser(HttpUser):
         """거래처 목록 조회"""
         self.client.get('/sales/partners/')
 
+    @tag('sales')
+    @task(2)
+    def view_quotation_list(self):
+        """견적 목록 조회"""
+        self.client.get('/sales/quotations/')
+
     @tag('production')
     @task(3)
     def view_plan_list(self):
@@ -83,17 +102,67 @@ class ERPUser(HttpUser):
         """작업지시 목록 조회"""
         self.client.get('/production/workorders/')
 
+    @tag('production')
+    @task(2)
+    def view_bom_list(self):
+        """BOM 목록 조회"""
+        self.client.get('/production/bom/')
+
     @tag('accounting')
     @task(2)
     def view_accounting_dashboard(self):
         """회계 대시보드 조회"""
         self.client.get('/accounting/')
 
+    @tag('accounting')
+    @task(1)
+    def view_voucher_list(self):
+        """전표 목록 조회"""
+        self.client.get('/accounting/vouchers/')
+
+    @tag('accounting')
+    @task(1)
+    def view_taxinvoice_list(self):
+        """세금계산서 목록 조회"""
+        self.client.get('/accounting/tax-invoices/')
+
+    @tag('purchase')
+    @task(2)
+    def view_purchase_order_list(self):
+        """발주서 목록 조회"""
+        self.client.get('/purchase/orders/')
+
     @tag('service')
     @task(1)
     def view_service_list(self):
         """AS 목록 조회"""
         self.client.get('/service/requests/')
+
+    @tag('hr')
+    @task(1)
+    def view_employee_list(self):
+        """직원 목록 조회"""
+        self.client.get('/hr/employees/')
+
+    @tag('hr')
+    @task(1)
+    def view_org_chart(self):
+        """조직도 조회"""
+        self.client.get('/hr/org-chart/')
+
+    @tag('board')
+    @task(2)
+    def view_board_list(self):
+        """게시판 목록 조회"""
+        self.client.get('/board/')
+
+    @tag('attendance')
+    @task(1)
+    def view_attendance_dashboard(self):
+        """근태 현황 조회"""
+        self.client.get('/attendance/')
+
+    # === API 엔드포인트 ===
 
     @tag('api')
     @task(3)
@@ -106,6 +175,26 @@ class ERPUser(HttpUser):
     def api_order_list(self):
         """API 주문 목록 조회"""
         self.client.get('/api/orders/?format=json')
+
+    @tag('api')
+    @task(1)
+    def api_stock_movements(self):
+        """API 재고이동 조회"""
+        self.client.get('/api/stock-movements/?format=json')
+
+    # === Excel 다운로드 ===
+
+    @tag('excel')
+    @task(1)
+    def download_product_excel(self):
+        """제품 목록 Excel 다운로드"""
+        self.client.get('/inventory/products/excel/')
+
+    @tag('excel')
+    @task(1)
+    def download_order_excel(self):
+        """주문 목록 Excel 다운로드"""
+        self.client.get('/sales/orders/excel/')
 
 
 class APIUser(HttpUser):
@@ -145,3 +234,18 @@ class APIUser(HttpUser):
     @task(1)
     def api_partners(self):
         self.client.get('/api/partners/?format=json')
+
+    @task(1)
+    def api_products_search(self):
+        """API 제품 검색"""
+        self.client.get('/api/products/?format=json&search=테스트')
+
+    @task(1)
+    def api_products_filter(self):
+        """API 제품 타입 필터"""
+        self.client.get('/api/products/?format=json&product_type=FINISHED')
+
+    @task(1)
+    def api_orders_pagination(self):
+        """API 주문 페이지네이션"""
+        self.client.get('/api/orders/?format=json&page=1&page_size=10')
