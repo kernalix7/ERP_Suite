@@ -6,7 +6,7 @@ from django.views import View
 from django.views.generic import ListView
 
 from apps.core.mixins import ManagerRequiredMixin
-from .attachment import Attachment, MAX_FILE_SIZE
+from .attachment import Attachment, ALLOWED_MIME_TYPES, MAX_FILE_SIZE
 
 
 class AttachmentListView(ManagerRequiredMixin, ListView):
@@ -47,6 +47,11 @@ class AttachmentUploadView(ManagerRequiredMixin, View):
             return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
         if uploaded_file.size > MAX_FILE_SIZE:
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+
+        # MIME type validation
+        content_type = getattr(uploaded_file, 'content_type', '')
+        if content_type and content_type not in ALLOWED_MIME_TYPES:
             return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
         ct = ContentType.objects.get_for_model(obj)

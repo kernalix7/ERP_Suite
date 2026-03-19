@@ -1,6 +1,7 @@
 from django.db import models
 from simple_history.models import HistoricalRecords
 
+from apps.core.fields import EncryptedCharField
 from apps.core.models import BaseModel
 
 
@@ -20,11 +21,11 @@ class AdPlatform(BaseModel):
         '유형', max_length=20,
         choices=PLATFORM_TYPE_CHOICES, default='SEARCH'
     )
-    api_key = models.CharField(
-        'API 키', max_length=255, blank=True
+    api_key = EncryptedCharField(
+        'API 키', max_length=500, blank=True
     )
-    api_secret = models.CharField(
-        'API 시크릿', max_length=255, blank=True
+    api_secret = EncryptedCharField(
+        'API 시크릿', max_length=500, blank=True
     )
     account_id = models.CharField(
         '계정 ID', max_length=100, blank=True

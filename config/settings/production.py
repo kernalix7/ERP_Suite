@@ -2,10 +2,10 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost'])  # noqa: F405
 
 DATABASES = {
-    'default': env.db('DATABASE_URL'),
+    'default': env.db('DATABASE_URL'),  # noqa: F405
 }
 
 # Security headers
@@ -29,7 +29,7 @@ CONTENT_SECURITY_POLICY = {
         "style-src": ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
         "img-src": ["'self'", "data:", "blob:"],
-        "connect-src": ["'self'", "ws:", "wss:"],
+        "connect-src": ["'self'", "wss:"],
         "frame-src": ["'none'"],
         "object-src": ["'none'"],
         "base-uri": ["'self'"],
@@ -39,4 +39,5 @@ CONTENT_SECURITY_POLICY = {
 
 # Session
 SESSION_COOKIE_AGE = 28800  # 8시간
+SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True

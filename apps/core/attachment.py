@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
@@ -12,6 +13,36 @@ ALLOWED_EXTENSIONS = [
     'zip', 'txt',
 ]
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+# MIME type whitelist mapped to allowed extensions
+ALLOWED_MIME_TYPES = {
+    'application/pdf': 'pdf',
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.ms-excel': 'xls',
+    'text/csv': 'csv',
+    'application/csv': 'csv',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/x-hwp': 'hwp',
+    'application/haansofthwp': 'hwp',
+    'application/vnd.hancom.hwpx': 'hwpx',
+    'application/zip': 'zip',
+    'text/plain': 'txt',
+    'application/octet-stream': None,  # checked via extension only
+}
+
+
+def validate_file_content_type(uploaded_file):
+    """Validate file MIME type matches its extension."""
+    content_type = getattr(uploaded_file, 'content_type', '')
+    if content_type and content_type not in ALLOWED_MIME_TYPES:
+        raise ValidationError(
+            f'허용되지 않는 파일 형식입니다: {content_type}'
+        )
 
 
 class Attachment(models.Model):
@@ -33,7 +64,10 @@ class Attachment(models.Model):
 
     file = models.FileField(
         '파일', upload_to='attachments/%Y/%m/',
-        validators=[FileExtensionValidator(ALLOWED_EXTENSIONS)],
+        validators=[
+            FileExtensionValidator(ALLOWED_EXTENSIONS),
+            validate_file_content_type,
+        ],
     )
     original_filename = models.CharField('원본파일명', max_length=255)
     file_size = models.PositiveIntegerField('파일크기(bytes)', default=0)

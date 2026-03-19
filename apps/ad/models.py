@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 from simple_history.models import HistoricalRecords
 
+from apps.core.fields import EncryptedCharField
 from apps.core.models import BaseModel
 
 
@@ -15,7 +16,7 @@ class ADDomain(BaseModel):
                                    help_text='예: ldap://dc01.corp.example.com:389')
     ldap_bind_dn = models.CharField('바인드 DN', max_length=255,
                                     help_text='예: CN=svc_erp,OU=ServiceAccounts,DC=corp,DC=example,DC=com')
-    ldap_bind_password = models.CharField('바인드 비밀번호', max_length=255)
+    ldap_bind_password = EncryptedCharField('바인드 비밀번호', max_length=500)
     base_dn = models.CharField('Base DN', max_length=255,
                                help_text='예: DC=corp,DC=example,DC=com')
     user_search_base = models.CharField('사용자 검색 Base', max_length=255, blank=True,

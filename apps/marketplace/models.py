@@ -1,13 +1,14 @@
 from django.db import models
 from simple_history.models import HistoricalRecords
 
+from apps.core.fields import EncryptedCharField
 from apps.core.models import BaseModel
 
 
 class MarketplaceConfig(BaseModel):
     shop_name = models.CharField('스토어명', max_length=100)
-    client_id = models.CharField('Client ID', max_length=200)
-    client_secret = models.CharField('Client Secret', max_length=200)
+    client_id = EncryptedCharField('Client ID', max_length=500)
+    client_secret = EncryptedCharField('Client Secret', max_length=500)
     history = HistoricalRecords()
 
     class Meta:

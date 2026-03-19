@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_prometheus',
     'drf_spectacular',
+    'rest_framework_simplejwt.token_blacklist',
     # Local apps
     'apps.core',
     'apps.accounts',
@@ -138,6 +139,9 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Field-level encryption key (Fernet)
+FIELD_ENCRYPTION_KEY = env('FIELD_ENCRYPTION_KEY', default='')
 
 # Claude API
 ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')

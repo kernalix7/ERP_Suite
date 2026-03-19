@@ -11,7 +11,6 @@ class MarketplaceConfigForm(BaseForm):
         widgets = {
             'client_secret': forms.PasswordInput(
                 attrs={'class': 'form-input'},
-                render_value=True,
             ),
         }
 

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 from simple_history.models import HistoricalRecords
 
+from apps.core.fields import EncryptedCharField, EncryptedTextField
 from apps.core.models import BaseModel
 
 
@@ -110,10 +111,14 @@ class EmployeeProfile(BaseModel):
     )
     hire_date = models.DateField('입사일')
     birth_date = models.DateField('생년월일', null=True, blank=True)
-    address = models.TextField('주소', blank=True)
-    emergency_contact = models.CharField('비상연락처', max_length=100, blank=True)
+    address = EncryptedTextField('주소', blank=True)
+    emergency_contact = EncryptedCharField(
+        '비상연락처', max_length=500, blank=True,
+    )
     bank_name = models.CharField('은행명', max_length=50, blank=True)
-    bank_account = models.CharField('계좌번호', max_length=50, blank=True)
+    bank_account = EncryptedCharField(
+        '계좌번호', max_length=500, blank=True,
+    )
     contract_type = models.CharField(
         '계약유형',
         max_length=20,
