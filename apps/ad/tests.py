@@ -122,7 +122,7 @@ class ADUserMappingTest(TestCase):
         self.assertIn('testuser', str(self.mapping))
 
     def test_one_to_one_constraint(self):
-        user2 = User.objects.create_user(username='user2', password='pass123!')
+        User.objects.create_user(username='user2', password='pass123!')
         from django.db import IntegrityError
         with self.assertRaises(IntegrityError):
             ADUserMapping.objects.create(
@@ -164,7 +164,7 @@ class ADSyncLogTest(TestCase):
         self.assertEqual(log.status, 'RUNNING')
 
     def test_sync_log_ordering(self):
-        log1 = ADSyncLog.objects.create(domain=self.domain, sync_type='FULL')
+        ADSyncLog.objects.create(domain=self.domain, sync_type='FULL')
         log2 = ADSyncLog.objects.create(domain=self.domain, sync_type='INCREMENTAL')
         logs = list(ADSyncLog.objects.all())
         self.assertEqual(logs[0], log2)  # 최신순

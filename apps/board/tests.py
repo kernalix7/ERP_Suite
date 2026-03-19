@@ -139,7 +139,7 @@ class PostModelTest(TestCase):
 
     def test_post_ordering(self):
         """게시글은 고정 우선, 최신순 정렬"""
-        p1 = Post.objects.create(
+        Post.objects.create(
             board=self.board, title='일반글', content='내용',
             author=self.user, created_by=self.user,
         )

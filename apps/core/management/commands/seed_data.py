@@ -325,7 +325,6 @@ class Command(BaseCommand):
     def _create_boms(self, admin, products):
         from apps.production.models import BOM, BOMItem
 
-        raw_products = {k: v for k, v in products.items() if v.product_type == 'RAW'}
         boms = {}
 
         bom_defs = {

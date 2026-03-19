@@ -133,7 +133,7 @@ class RepairRecordTests(TestCase):
         self.assertEqual(repair.service_request, self.service_request)
         self.assertEqual(self.service_request.repairs.count(), 1)
         self.assertEqual(
-            str(repair), f'AS-2026-0010 - 2026-03-05'
+            str(repair), 'AS-2026-0010 - 2026-03-05'
         )
 
     def test_multiple_repairs_on_one_request(self):

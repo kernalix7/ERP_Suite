@@ -84,7 +84,7 @@ class ChatRoomModelTest(TestCase):
             created_by=self.user1,
         )
         ChatParticipant.objects.create(room=room, user=self.user1)
-        msg1 = Message.objects.create(
+        Message.objects.create(
             room=room, sender=self.user1, content='첫번째',
         )
         msg2 = Message.objects.create(
