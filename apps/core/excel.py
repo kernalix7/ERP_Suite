@@ -9,6 +9,8 @@ from openpyxl.utils import get_column_letter
 
 HEADER_FILL = PatternFill(start_color='1F4E79', end_color='1F4E79', fill_type='solid')
 HEADER_FONT = Font(name='맑은 고딕', size=11, bold=True, color='FFFFFF')
+REQUIRED_FILL = PatternFill(start_color='C0392B', end_color='C0392B', fill_type='solid')
+REQUIRED_FONT = Font(name='맑은 고딕', size=11, bold=True, color='FFFFFF')
 BODY_FONT = Font(name='맑은 고딕', size=10)
 TITLE_FONT = Font(name='맑은 고딕', size=14, bold=True, color='1F4E79')
 THIN_BORDER = Border(
@@ -20,7 +22,8 @@ THIN_BORDER = Border(
 MONEY_FORMAT = '#,##0'
 
 
-def export_to_excel(title, headers, rows, filename=None, money_columns=None):
+def export_to_excel(title, headers, rows, filename=None,
+                    money_columns=None, required_columns=None):
     """
     스타일링된 Excel 파일 생성.
 
@@ -30,11 +33,13 @@ def export_to_excel(title, headers, rows, filename=None, money_columns=None):
         rows: [[값, 값, ...], ...]
         filename: 다운로드 파일명
         money_columns: 금액 서식 적용할 컬럼 인덱스 리스트 (0-based)
+        required_columns: 필수 컬럼 인덱스 리스트 (0-based) — 헤더에 (*) 표시
     """
     wb = Workbook()
     ws = wb.active
-    ws.title = title[:31]
+    ws.title = title.replace('/', '-').replace('\\', '-').replace('*', '')[:31]
     money_columns = money_columns or []
+    required_columns = required_columns or []
 
     # 제목
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
@@ -49,11 +54,27 @@ def export_to_excel(title, headers, rows, filename=None, money_columns=None):
     date_cell.font = Font(name='맑은 고딕', size=9, color='666666')
     date_cell.alignment = Alignment(horizontal='right')
 
+    # 필수 범례 (required_columns가 있을 때만)
+    if required_columns:
+        ws.merge_cells(
+            start_row=3, start_column=1,
+            end_row=3, end_column=len(headers),
+        )
+        legend = ws.cell(
+            row=3, column=1,
+            value='(*) = 필수항목  |  빨간 헤더 = 반드시 입력',
+        )
+        legend.font = Font(
+            name='맑은 고딕', size=9, bold=True, color='C0392B',
+        )
+
     # 헤더
     for col_idx, (header_name, width) in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=col_idx, value=header_name)
-        cell.font = HEADER_FONT
-        cell.fill = HEADER_FILL
+        is_req = (col_idx - 1) in required_columns
+        label = f'{header_name} (*)' if is_req else header_name
+        cell = ws.cell(row=4, column=col_idx, value=label)
+        cell.font = REQUIRED_FONT if is_req else HEADER_FONT
+        cell.fill = REQUIRED_FILL if is_req else HEADER_FILL
         cell.alignment = Alignment(horizontal='center', vertical='center')
         cell.border = THIN_BORDER
         ws.column_dimensions[get_column_letter(col_idx)].width = width

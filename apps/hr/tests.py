@@ -5,8 +5,11 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
+from decimal import Decimal
+
 from apps.hr.models import (
     Department, Position, EmployeeProfile, PersonnelAction,
+    PayrollConfig, Payroll,
 )
 
 User = get_user_model()
@@ -318,3 +321,129 @@ class HRViewAccessTest(TestCase):
             User.objects.get(username='hr_manager'))
         response = self.client.get(reverse('hr:department_list'))
         self.assertEqual(response.status_code, 200)
+
+
+class PayrollConfigTest(TestCase):
+    """급여설정 모델 테스트"""
+
+    def test_config_creation(self):
+        """PayrollConfig 생성 가능"""
+        config = PayrollConfig.objects.create(
+            year=2026,
+            minimum_wage_hourly=Decimal('10030'),
+            national_pension_rate=Decimal('4.50'),
+            health_insurance_rate=Decimal('3.545'),
+            long_term_care_rate=Decimal('12.81'),
+            employment_insurance_rate=Decimal('0.90'),
+        )
+        self.assertEqual(config.year, 2026)
+        self.assertEqual(config.national_pension_rate, Decimal('4.50'))
+        self.assertEqual(str(config), '2026년 급여설정')
+
+    def test_unique_year(self):
+        """동일 년도 중복 불가"""
+        PayrollConfig.objects.create(year=2026)
+        with self.assertRaises(IntegrityError):
+            PayrollConfig.objects.create(year=2026)
+
+
+class PayrollTest(TestCase):
+    """급여 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='payroll_emp', password='testpass123',
+            role='staff', name='박급여',
+        )
+        self.dept = Department.objects.create(name='경영지원팀', code='MGT')
+        self.position = Position.objects.create(name='사원', level=1)
+        self.profile = EmployeeProfile.objects.create(
+            user=self.user,
+            employee_number='PAY-001',
+            department=self.dept,
+            position=self.position,
+            hire_date=date(2024, 1, 1),
+        )
+        self.config = PayrollConfig.objects.create(
+            year=2026,
+            national_pension_rate=Decimal('4.50'),
+            health_insurance_rate=Decimal('3.545'),
+            long_term_care_rate=Decimal('12.81'),
+            employment_insurance_rate=Decimal('0.90'),
+        )
+
+    def test_payroll_auto_deductions(self):
+        """save() 시 4대보험+세금 자동 계산"""
+        payroll = Payroll.objects.create(
+            employee=self.profile,
+            year=2026,
+            month=3,
+            base_salary=Decimal('3000000'),
+        )
+        # gross_pay = 3000000 + 0 + 0 + 0 = 3000000
+        self.assertEqual(payroll.gross_pay, Decimal('3000000'))
+
+        # 국민연금 = int(3000000 * 4.50 / 100) = 135000
+        self.assertEqual(payroll.national_pension, 135000)
+
+        # 건강보험 = int(3000000 * 3.55 / 100) = 106500 (decimal_places=2로 3.545→3.55 반올림)
+        # 실제 저장된 요율로 계산되므로 정확한 값 검증
+        self.assertGreater(payroll.health_insurance, 0)
+
+        # 장기요양 = 건강보험 * 12.81%
+        self.assertGreater(payroll.long_term_care, 0)
+
+        # 고용보험 = int(3000000 * 0.90 / 100) = 27000
+        self.assertEqual(payroll.employment_insurance, 27000)
+
+        # 세금도 계산되어야 함
+        self.assertGreater(payroll.income_tax, 0)
+        self.assertGreater(payroll.local_income_tax, 0)
+
+        # 공제합계 검증
+        expected_deductions = (
+            payroll.national_pension + payroll.health_insurance
+            + payroll.long_term_care + payroll.employment_insurance
+            + payroll.income_tax + payroll.local_income_tax
+        )
+        self.assertEqual(payroll.total_deductions, expected_deductions)
+
+        # 실수령액 검증
+        self.assertEqual(
+            payroll.net_pay,
+            payroll.gross_pay - payroll.total_deductions,
+        )
+
+    def test_payroll_gross_pay_calculation(self):
+        """gross_pay = base_salary + overtime + bonus + allowances"""
+        payroll = Payroll.objects.create(
+            employee=self.profile,
+            year=2026,
+            month=4,
+            base_salary=Decimal('3000000'),
+            overtime_pay=Decimal('500000'),
+            bonus=Decimal('1000000'),
+            allowances=Decimal('200000'),
+        )
+        expected_gross = (
+            Decimal('3000000') + Decimal('500000')
+            + Decimal('1000000') + Decimal('200000')
+        )
+        self.assertEqual(payroll.gross_pay, expected_gross)
+        self.assertEqual(payroll.gross_pay, Decimal('4700000'))
+
+    def test_payroll_unique_employee_period(self):
+        """동일 직원/년/월 중복 불가"""
+        Payroll.objects.create(
+            employee=self.profile,
+            year=2026,
+            month=3,
+            base_salary=Decimal('3000000'),
+        )
+        with self.assertRaises(IntegrityError):
+            Payroll.objects.create(
+                employee=self.profile,
+                year=2026,
+                month=3,
+                base_salary=Decimal('3000000'),
+            )

@@ -91,12 +91,15 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{{ months_json|json_script:"months-data" }}
+{{ revenue_json|json_script:"revenue-data" }}
+{{ costs_json|json_script:"costs-data" }}
+{{ product_margins_json|json_script:"product-margins-data" }}
 <script>
-    const months = {{ months_json|safe }};
-    const revenueData = {{ revenue_json|safe }};
-    const costsData = {{ costs_json|safe }};
-    const productMargins = {{ product_margins_json|safe }};
+    const months = JSON.parse(document.getElementById('months-data').textContent);
+    const revenueData = JSON.parse(document.getElementById('revenue-data').textContent);
+    const costsData = JSON.parse(document.getElementById('costs-data').textContent);
+    const productMargins = JSON.parse(document.getElementById('product-margins-data').textContent);
 
     // 월별 매출 vs 비용 바 차트
     new Chart(document.getElementById('monthlyChart'), {

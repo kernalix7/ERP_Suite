@@ -16,6 +16,12 @@
     </svg>
     Excel
 </a>
+<a href="{% url 'sales:customer_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
+</a>
 {% endblock %}
 
 {% block content %}
@@ -41,10 +47,7 @@
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
                     <th class="px-4 py-3">고객명</th>
                     <th class="px-4 py-3">연락처</th>
-                    <th class="px-4 py-3">구매제품</th>
-                    <th class="px-4 py-3">시리얼번호</th>
-                    <th class="px-4 py-3">보증만료일</th>
-                    <th class="px-4 py-3 text-center">보증상태</th>
+                    <th class="px-4 py-3">구매내역</th>
                     <th class="px-4 py-3 text-center">관리</th>
                 </tr>
             </thead>
@@ -57,19 +60,24 @@
                         </a>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ customer.phone|default:"-" }}</td>
-                    <td class="px-4 py-3 text-gray-600">{{ customer.product.name|default:"-" }}</td>
-                    <td class="px-4 py-3 font-mono text-gray-500">{{ customer.serial_number|default:"-" }}</td>
-                    <td class="px-4 py-3 text-gray-600">{{ customer.warranty_end|date:"Y-m-d"|default:"-" }}</td>
-                    <td class="px-4 py-3 text-center">
-                        {% if customer.warranty_end %}
-                            {% if customer.is_warranty_valid %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">보증기간내</span>
-                            {% else %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">보증만료</span>
+                    <td class="px-4 py-3">
+                        {% for p in customer.purchases.all %}
+                        <div class="{% if not forloop.first %}mt-1{% endif %} flex items-center gap-2 text-gray-600">
+                            <span>{{ p.product.name }}</span>
+                            {% if p.serial_number %}
+                            <span class="font-mono text-xs text-gray-400">{{ p.serial_number }}</span>
                             {% endif %}
-                        {% else %}
-                            <span class="text-gray-400">-</span>
-                        {% endif %}
+                            {% if p.warranty_end %}
+                                {% if p.is_warranty_valid %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">~{{ p.warranty_end|date:"Y-m-d" }}</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">만료</span>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <span class="text-gray-400">-</span>
+                        {% endfor %}
                     </td>
                     <td class="px-4 py-3 text-center">
                         <a href="{% url 'sales:customer_detail' customer.pk %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
@@ -78,7 +86,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                    <td colspan="4" class="px-4 py-12 text-center text-gray-400">
                         등록된 고객이 없습니다.
                     </td>
                 </tr>

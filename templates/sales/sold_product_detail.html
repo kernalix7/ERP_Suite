@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n humanize %}
 
 {% block title %}{% trans "판매제품 상세" %} - {{ order_item.product.name }} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "판매제품 상세" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'sales:sold_product_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+<a href="{% url 'sales:sold_product_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -73,7 +73,7 @@
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "단가" %}</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ order_item.unit_price|floatformat:0 }}{% trans "원" %}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.unit_price|intcomma }}{% trans "원" %}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "수량" %}</dt>
@@ -81,15 +81,19 @@
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "공급가액" %}</dt>
-                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.amount|floatformat:0 }}{% trans "원" %}</dd>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.amount|intcomma }}{% trans "원" %}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "부가세" %}</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ order_item.tax_amount|floatformat:0 }}{% trans "원" %}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.tax_amount|intcomma }}{% trans "원" %}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "합계(세포함)" %}</dt>
-                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.total_with_tax|floatformat:0 }}{% trans "원" %}</dd>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.total_with_tax|intcomma }}{% trans "원" %}</dd>
+            </div>
+            <div class="md:col-span-2 lg:col-span-4">
+                <dt class="text-sm text-gray-500">비고</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.notes|default:"-" }}</dd>
             </div>
         </div>
     </div>
@@ -241,7 +245,7 @@
                                     <span class="font-medium">{{ repair.repair_date|date:"Y-m-d" }}</span>
                                     - {{ repair.description|truncatechars:30 }}
                                     {% if repair.cost %}
-                                    <span class="text-gray-500">({{ repair.cost|floatformat:0 }}{% trans "원" %})</span>
+                                    <span class="text-gray-500">({{ repair.cost|intcomma }}{% trans "원" %})</span>
                                     {% endif %}
                                 </li>
                                 {% endfor %}

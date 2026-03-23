@@ -10,38 +10,40 @@
         <a href="{% url 'advertising:platform_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">{% trans "플랫폼 추가" %}</a>
     </div>
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">{% trans "플랫폼명" %}</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">{% trans "유형" %}</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">{% trans "계정 ID" %}</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">{% trans "연동 상태" %}</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500">{% trans "관리" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "플랫폼명" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "유형" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "계정 ID" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "연동 상태" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">{% trans "관리" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
                 {% for p in platforms %}
                 <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ p.name }}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">{{ p.get_platform_type_display }}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">{{ p.account_id|default:"-" }}</td>
-                    <td class="px-6 py-4 text-sm">
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ p.name }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ p.get_platform_type_display }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ p.account_id|default:"-" }}</td>
+                    <td class="px-4 py-3 text-sm">
                         {% if p.is_connected %}
                         <span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">{% trans "연동됨" %}</span>
                         {% else %}
                         <span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">{% trans "미연동" %}</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-sm text-right">
+                    <td class="px-4 py-3 text-sm text-right">
                         <a href="{% url 'advertising:platform_update' p.pk %}" class="text-blue-600 hover:underline">{% trans "수정" %}</a>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">{% trans "등록된 플랫폼이 없습니다" %}</td></tr>
+                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "등록된 플랫폼이 없습니다" %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

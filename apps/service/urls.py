@@ -11,6 +11,9 @@ urlpatterns = [
     path('requests/<int:pk>/', views.ServiceRequestDetailView.as_view(), name='request_detail'),
     path('requests/<int:pk>/edit/', views.ServiceRequestUpdateView.as_view(), name='request_update'),
     path('repairs/create/', views.RepairRecordCreateView.as_view(), name='repair_create'),
+    # 일괄 가져오기
+    path('requests/import/', views.ServiceRequestImportView.as_view(), name='request_import'),
+    path('requests/import/sample/', views.ServiceRequestImportSampleView.as_view(), name='request_import_sample'),
     # Excel 내보내기
     path('requests/excel/', excel_views.ServiceRequestExcelView.as_view(), name='request_excel'),
 ]

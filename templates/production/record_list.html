@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}생산실적 - ERP Suite{% endblock %}
 {% block page_title %}생산실적{% endblock %}
@@ -22,41 +23,45 @@
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b border-gray-200">
-                <tr>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">작업지시</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">생산제품</th>
-                    <th class="px-6 py-3 text-right font-semibold text-gray-600">양품수량</th>
-                    <th class="px-6 py-3 text-right font-semibold text-gray-600">불량수량</th>
-                    <th class="px-6 py-3 text-right font-semibold text-gray-600">합계</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">실적일</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">작업자</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">작업지시</th>
+                    <th class="px-4 py-3">생산제품</th>
+                    <th class="px-4 py-3 text-right">양품수량</th>
+                    <th class="px-4 py-3 text-right">불량수량</th>
+                    <th class="px-4 py-3 text-right">합계</th>
+                    <th class="px-4 py-3">실적일</th>
+                    <th class="px-4 py-3">작업자</th>
+                    <th class="px-4 py-3 w-16"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for record in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <a href="{% url 'production:workorder_detail' record.work_order.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">
                             {{ record.work_order.order_number }}
                         </a>
                     </td>
-                    <td class="px-6 py-4 text-gray-900">{{ record.work_order.production_plan.product.name }}</td>
-                    <td class="px-6 py-4 text-right text-green-700 font-medium">{{ record.good_quantity|floatformat:0 }}</td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-4 py-3 text-gray-900">{{ record.work_order.production_plan.product.name }}</td>
+                    <td class="px-4 py-3 text-right text-green-700 font-medium">{{ record.good_quantity|intcomma }}</td>
+                    <td class="px-4 py-3 text-right">
                         {% if record.defect_quantity > 0 %}
-                        <span class="text-red-600 font-medium">{{ record.defect_quantity|floatformat:0 }}</span>
+                        <span class="text-red-600 font-medium">{{ record.defect_quantity|intcomma }}</span>
                         {% else %}
                         <span class="text-gray-400">0</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-right text-gray-900 font-medium">{{ record.total_quantity|floatformat:0 }}</td>
-                    <td class="px-6 py-4 text-gray-700">{{ record.record_date|date:"Y-m-d" }}</td>
-                    <td class="px-6 py-4 text-gray-700">{{ record.worker.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ record.total_quantity|intcomma }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ record.record_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ record.worker.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <a href="{% url 'production:record_update' record.pk %}" class="text-blue-600 hover:text-blue-800 text-xs">수정</a>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="8" class="px-6 py-12 text-center text-gray-400">
                         등록된 생산실적이 없습니다.
                     </td>
                 </tr>

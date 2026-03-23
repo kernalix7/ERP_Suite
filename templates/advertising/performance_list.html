@@ -99,11 +99,20 @@
             </table>
         </div>
     </div>
-    {% if page_obj.has_other_pages %}
-    <div class="flex justify-center space-x-2">
-        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded text-sm">&laquo;</a>{% endif %}
-        <span class="px-3 py-1 text-sm text-gray-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded text-sm">&raquo;</a>{% endif %}
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&date_from={{ request.GET.date_from }}&date_to={{ request.GET.date_to }}&campaign={{ request.GET.campaign }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&date_from={{ request.GET.date_from }}&date_to={{ request.GET.date_to }}&campaign={{ request.GET.campaign }}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&date_from={{ request.GET.date_from }}&date_to={{ request.GET.date_to }}&campaign={{ request.GET.campaign }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            {% endif %}
+        </nav>
     </div>
     {% endif %}
 </div>

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block page_title %}결제 분배 - {{ object.payment_number }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:bankaccount_detail' object.bank_account.pk %}" class="btn btn-secondary">계좌 상세</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">입출금 정보</h3>
+        <dl class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+                <dt class="text-gray-500">입출금번호</dt>
+                <dd class="font-mono font-medium">{{ object.payment_number }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-500">유형</dt>
+                <dd>
+                    {% if object.payment_type == 'RECEIPT' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">입금</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">출금</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-gray-500">거래처</dt>
+                <dd>{{ object.partner.name|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-500">계좌</dt>
+                <dd>{{ object.bank_account.name }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-500">금액</dt>
+                <dd class="font-mono font-semibold text-lg">{{ object.amount|intcomma }}원</dd>
+            </div>
+            <div>
+                <dt class="text-gray-500">일자</dt>
+                <dd>{{ object.payment_date }}</dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 class="text-lg font-semibold mb-4">분배 내역</h3>
+    <form method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+        <table class="w-full text-sm mb-4">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">계좌</th>
+                    <th class="px-4 py-3 text-right">분배금액</th>
+                    <th class="px-4 py-3">적요</th>
+                    <th class="px-4 py-3 text-center">삭제</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for form in formset %}
+                <tr class="hover:bg-gray-50">
+                    {{ form.id }}
+                    <td class="px-4 py-3">{{ form.bank_account }}</td>
+                    <td class="px-4 py-3 text-right">{{ form.amount }}</td>
+                    <td class="px-4 py-3">{{ form.description }}</td>
+                    <td class="px-4 py-3 text-center">{{ form.DELETE }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="flex justify-end">
+            <button type="submit" class="btn btn-primary">저장</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

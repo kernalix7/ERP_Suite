@@ -16,6 +16,12 @@
     </svg>
     Excel
 </a>
+<a href="{% url 'sales:partner_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
+</a>
 {% endblock %}
 
 {% block content %}
@@ -56,11 +62,12 @@
                             {{ partner.name }}
                         </a>
                     </td>
-                    <td class="px-4 py-3 text-gray-600">{{ partner.get_type_display }}</td>
-                    <td class="px-4 py-3 text-gray-600">{{ partner.contact_person|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ partner.get_partner_type_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ partner.contact_name|default:"-" }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ partner.phone|default:"-" }}</td>
                     <td class="px-4 py-3 text-center">
-                        <a href="{% url 'sales:partner_update' partner.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                        <a href="{% url 'sales:partner_update' partner.pk %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">수정</a>
+                        <a href="{% url 'sales:partner_delete' partner.pk %}" class="text-red-500 hover:text-red-700 text-sm">삭제</a>
                     </td>
                 </tr>
                 {% empty %}

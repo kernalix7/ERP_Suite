@@ -24,6 +24,10 @@ TRASH_MODELS = [
     ('accounting.Voucher', '전표', 'accounting:voucher_list'),
     ('investment.Investor', '투자자', 'investment:investor_list'),
     ('warranty.ProductRegistration', '정품등록', 'warranty:registration_list'),
+    ('sales.Quotation', '견적서', 'sales:quote_list'),
+    ('sales.Shipment', '배송', 'sales:shipment_list'),
+    ('purchase.PurchaseOrder', '발주서', 'purchase:po_list'),
+    ('hr.EmployeeProfile', '직원', 'hr:employee_list'),
 ]
 
 
@@ -43,7 +47,8 @@ class TrashListView(ManagerRequiredMixin, TemplateView):
             if count > 0:
                 trash_items.append({
                     'label': label,
-                    'model_path': model_path,
+                    'app_label': app_label,
+                    'model_name': model_name,
                     'count': count,
                     'items': deleted[:10],
                     'list_url': list_url,
@@ -56,7 +61,15 @@ class TrashListView(ManagerRequiredMixin, TemplateView):
 
 class RestoreView(ManagerRequiredMixin, View):
     """삭제된 항목 복원"""
+
+    # 허용 모델 화이트리스트 (TRASH_MODELS에서 추출)
+    _ALLOWED_MODELS = {(path.split('.')[0], path.split('.')[1]) for path, _, _ in TRASH_MODELS}
+
     def post(self, request, app_label, model_name, pk):
+        # 화이트리스트 검증
+        if (app_label, model_name) not in self._ALLOWED_MODELS:
+            raise Http404
+
         try:
             model = apps.get_model(app_label, model_name)
         except LookupError:

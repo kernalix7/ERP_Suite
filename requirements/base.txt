@@ -5,6 +5,7 @@ django-filter>=24.0
 django-import-export>=4.0
 django-simple-history>=3.5
 whitenoise>=6.5
+cryptography>=42.0
 reportlab>=4.0
 anthropic>=0.40
 djangorestframework>=3.15

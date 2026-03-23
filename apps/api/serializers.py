@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.inventory.models import Product, Category, Warehouse, StockMovement
-from apps.sales.models import Partner, Customer, Order, OrderItem
+from apps.sales.models import Partner, Customer, CustomerPurchase, Order, OrderItem, Shipment
 from apps.production.models import BOM, BOMItem, ProductionPlan, WorkOrder
 from apps.accounting.models import TaxInvoice
 
@@ -66,15 +66,25 @@ class PartnerSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
 
+class CustomerPurchaseSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
+    class Meta:
+        model = CustomerPurchase
+        fields = [
+            'id', 'product', 'product_name',
+            'serial_number', 'purchase_date', 'warranty_end',
+        ]
+
+
 class CustomerSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name', read_only=True, default=None)
+    purchases = CustomerPurchaseSerializer(many=True, read_only=True)
 
     class Meta:
         model = Customer
         fields = [
             'id', 'name', 'phone', 'email', 'address',
-            'purchase_date', 'product', 'product_name',
-            'serial_number', 'warranty_end',
+            'purchases',
             'is_active', 'notes', 'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -100,14 +110,30 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'order_number', 'partner', 'partner_name',
-            'customer', 'customer_name',
+            'id', 'order_number', 'order_type', 'partner', 'partner_name',
+            'customer', 'customer_name', 'assigned_to',
             'order_date', 'delivery_date', 'status',
             'total_amount', 'tax_total', 'grand_total',
-            'shipping_address', 'items',
+            'shipping_address', 'shipping_method', 'tracking_number',
+            'items',
             'is_active', 'notes', 'created_at', 'updated_at',
         ]
         read_only_fields = ['total_amount', 'tax_total', 'grand_total', 'created_at', 'updated_at']
+
+
+class ShipmentSerializer(serializers.ModelSerializer):
+    order_number = serializers.CharField(source='order.order_number', read_only=True)
+
+    class Meta:
+        model = Shipment
+        fields = [
+            'id', 'order', 'order_number', 'shipment_number',
+            'shipping_type', 'carrier', 'tracking_number',
+            'status', 'shipped_date', 'delivered_date',
+            'receiver_name', 'receiver_phone', 'receiver_address',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
 
 
 class BOMItemSerializer(serializers.ModelSerializer):

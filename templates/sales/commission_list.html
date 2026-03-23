@@ -51,6 +51,7 @@
                     <th class="px-4 py-3 text-right">수수료금액</th>
                     <th class="px-4 py-3 text-center">상태</th>
                     <th class="px-4 py-3">정산일</th>
+                    <th class="px-4 py-3 text-center">처리</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -58,13 +59,15 @@
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3 text-gray-900 font-medium">{{ commission.partner.name }}</td>
                     <td class="px-4 py-3 text-gray-600">
+                        {% if commission.order %}
                         <a href="{% url 'sales:order_detail' commission.order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ commission.order.order_number }}
                         </a>
+                        {% else %}-{% endif %}
                     </td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ commission.order_amount|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right text-gray-600">{{ commission.rate }}%</td>
-                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ commission.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ commission.commission_rate }}%</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ commission.commission_amount|intcomma }}원</td>
                     <td class="px-4 py-3 text-center">
                         {% if commission.status == 'PENDING' %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">미정산</span>
@@ -73,10 +76,20 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ commission.settled_date|date:"Y-m-d"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if commission.status == 'PENDING' %}
+                        <form method="post" action="{% url 'sales:commission_settle' commission.pk %}" class="inline" onsubmit="return confirm('정산완료 처리하시겠습니까?')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700">정산완료</button>
+                        </form>
+                        {% else %}
+                        <span class="text-xs text-gray-400">완료</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
                         등록된 수수료 내역이 없습니다.
                     </td>
                 </tr>

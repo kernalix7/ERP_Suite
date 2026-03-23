@@ -45,33 +45,33 @@
     <!-- 테이블 -->
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-3 font-semibold">이동번호</th>
-                    <th class="px-6 py-3 font-semibold">제품</th>
-                    <th class="px-6 py-3 font-semibold">출발창고</th>
-                    <th class="px-6 py-3 font-semibold">도착창고</th>
-                    <th class="px-6 py-3 font-semibold text-right">수량</th>
-                    <th class="px-6 py-3 font-semibold">이동일</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">이동번호</th>
+                    <th class="px-4 py-3">제품</th>
+                    <th class="px-4 py-3">출발창고</th>
+                    <th class="px-4 py-3">도착창고</th>
+                    <th class="px-4 py-3 text-right">수량</th>
+                    <th class="px-4 py-3">이동일</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for transfer in transfers %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 font-mono text-blue-600 font-medium">{{ transfer.transfer_number }}</td>
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ transfer.product }}</td>
-                    <td class="px-6 py-4 text-gray-600">
+                    <td class="px-4 py-3 font-mono text-blue-600 font-medium">{{ transfer.transfer_number }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ transfer.product }}</td>
+                    <td class="px-4 py-3 text-gray-600">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                             {{ transfer.from_warehouse }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-gray-600">
+                    <td class="px-4 py-3 text-gray-600">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             {{ transfer.to_warehouse }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-right font-medium text-gray-900">{{ transfer.quantity }}</td>
-                    <td class="px-6 py-4 text-gray-500">{{ transfer.transfer_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-right font-medium text-gray-900">{{ transfer.quantity }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ transfer.transfer_date|date:"Y-m-d" }}</td>
                 </tr>
                 {% empty %}
                 <tr>

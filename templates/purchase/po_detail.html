@@ -1,12 +1,24 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n humanize %}
 
 {% block title %}{% trans "발주 상세" %} - {{ order.po_number }} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "발주 상세" %}{% endblock %}
 
 {% block header_actions %}
-{% if order.status == 'DRAFT' %}
+{% if order.status != 'CANCELLED' and order.status != 'RECEIVED' %}
 <a href="{% url 'purchase:po_update' order.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+{% endif %}
+{% if order.status == 'DRAFT' %}
+<form method="post" action="{% url 'purchase:po_delete' order.pk %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-secondary text-red-600"
+            onclick="return confirm('발주서를 삭제하시겠습니까?')">
+        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        {% trans "삭제" %}
+    </button>
+</form>
 {% endif %}
 {% if order.status == 'CONFIRMED' or order.status == 'PARTIAL_RECEIVED' %}
 <a href="{% url 'purchase:receipt_create' order.pk %}" class="btn btn-primary">
@@ -16,7 +28,7 @@
     {% trans "입고 등록" %}
 </a>
 {% endif %}
-<a href="{% url 'purchase:po_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+<a href="{% url 'purchase:po_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -58,28 +70,69 @@
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "공급가액" %}</dt>
-                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order.total_amount|floatformat:0 }}{% trans "원" %}</dd>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order.total_amount|intcomma }}{% trans "원" %}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "부가세" %}</dt>
-                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order.tax_total|floatformat:0 }}{% trans "원" %}</dd>
+                <dd class="mt-1 text-sm font-medium text-gray-900">{{ order.tax_total|intcomma }}{% trans "원" %}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "총합계" %}</dt>
-                <dd class="mt-1 text-sm font-bold text-gray-900">{{ order.grand_total|floatformat:0 }}{% trans "원" %}</dd>
+                <dd class="mt-1 text-sm font-bold text-gray-900">{{ order.grand_total|intcomma }}{% trans "원" %}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "작성자" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ order.created_by|default:"-" }}</dd>
             </div>
-            {% if order.notes %}
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "품의서" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    {% if order.approval_request %}
+                    <a href="{% url 'approval:approval_detail' order.approval_request.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        {{ order.approval_request.request_number }} - {{ order.approval_request.title }}
+                    </a>
+                    {% else %}-{% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "첨부파일" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    {% if order.attachment %}
+                    <a href="{{ order.attachment.url }}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        <svg class="w-4 h-4 inline -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                        </svg>
+                        {% trans "파일 보기" %}
+                    </a>
+                    {% else %}-{% endif %}
+                </dd>
+            </div>
             <div class="md:col-span-2 lg:col-span-3">
                 <dt class="text-sm text-gray-500">{% trans "비고" %}</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ order.notes }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.notes|default:"-" }}</dd>
             </div>
-            {% endif %}
         </div>
     </div>
+
+    <!-- 발주 처리 -->
+    {% if status_actions %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "발주 처리" %}</h2>
+        <div class="flex flex-wrap gap-3">
+            {% for action in status_actions %}
+            <form method="post" action="{% url 'purchase:po_status_change' order.pk %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="{{ action.value }}">
+                <button type="submit" class="btn {{ action.css }}"
+                    {% if action.confirm %}onclick="return confirm('{{ action.confirm }}')"{% endif %}>
+                    {{ action.icon|safe }}
+                    {{ action.label }}
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- 발주 항목 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -98,6 +151,7 @@
                         <th class="px-4 py-3 text-right">{% trans "부가세" %}</th>
                         <th class="px-4 py-3 text-right">{% trans "입고수량" %}</th>
                         <th class="px-4 py-3 text-right">{% trans "잔량" %}</th>
+                        <th class="px-4 py-3 text-center">{% trans "영수증" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -106,9 +160,9 @@
                         <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
                         <td class="px-4 py-3 text-gray-900 font-medium">{{ item.product }}</td>
                         <td class="px-4 py-3 text-right text-gray-600">{{ item.quantity }}</td>
-                        <td class="px-4 py-3 text-right text-gray-600">{{ item.unit_price|floatformat:0 }}{% trans "원" %}</td>
-                        <td class="px-4 py-3 text-right text-gray-900">{{ item.amount|floatformat:0 }}{% trans "원" %}</td>
-                        <td class="px-4 py-3 text-right text-gray-600">{{ item.tax_amount|floatformat:0 }}{% trans "원" %}</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ item.unit_price|intcomma }}{% trans "원" %}</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ item.amount|intcomma }}{% trans "원" %}</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ item.tax_amount|intcomma }}{% trans "원" %}</td>
                         <td class="px-4 py-3 text-right">
                             {% if item.received_quantity >= item.quantity %}
                             <span class="text-green-600 font-medium">{{ item.received_quantity }}</span>
@@ -125,19 +179,31 @@
                             <span class="text-green-600">0</span>
                             {% endif %}
                         </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if item.receipt_file %}
+                            <a href="{{ item.receipt_file.url }}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">
+                                <svg class="w-4 h-4 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                </svg>
+                                {% trans "보기" %}
+                            </a>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="px-4 py-8 text-center text-gray-400">{% trans "발주 항목이 없습니다." %}</td>
+                        <td colspan="9" class="px-4 py-8 text-center text-gray-400">{% trans "발주 항목이 없습니다." %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>
                     <tr class="bg-gray-50 font-semibold">
                         <td colspan="4" class="px-4 py-3 text-right text-gray-700">{% trans "합계" %}</td>
-                        <td class="px-4 py-3 text-right text-gray-900">{{ order.total_amount|floatformat:0 }}{% trans "원" %}</td>
-                        <td class="px-4 py-3 text-right text-gray-900">{{ order.tax_total|floatformat:0 }}{% trans "원" %}</td>
-                        <td colspan="2" class="px-4 py-3 text-right text-gray-900">{% trans "총합계:" %} {{ order.grand_total|floatformat:0 }}{% trans "원" %}</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ order.total_amount|intcomma }}{% trans "원" %}</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ order.tax_total|intcomma }}{% trans "원" %}</td>
+                        <td colspan="2" class="px-4 py-3 text-right text-gray-900">{% trans "총합계:" %} {{ order.grand_total|intcomma }}{% trans "원" %}</td>
                     </tr>
                 </tfoot>
             </table>

@@ -4,7 +4,10 @@
 {% block page_title %}정품등록 상세{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">목록으로</a>
+<div class="flex flex-wrap items-center gap-2">
+    <a href="{% url 'warranty:registration_update' object.pk %}" class="btn btn-primary">수정</a>
+    <a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">목록</a>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -34,7 +37,7 @@
             </div>
             <div>
                 <dt class="text-sm text-gray-500">연락처</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ object.contact|default:"-" }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.phone|default:"-" }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">이메일</dt>
@@ -55,6 +58,10 @@
             <div>
                 <dt class="text-sm text-gray-500">등록일</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ object.created_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">비고</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.notes|default:"-" }}</dd>
             </div>
         </div>
     </div>

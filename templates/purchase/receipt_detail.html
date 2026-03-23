@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n humanize %}
 
 {% block title %}{% trans "입고 상세" %} - {{ receipt.receipt_number }} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "입고 상세" %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'purchase:po_detail' receipt.purchase_order.pk %}" class="btn btn-secondary">{% trans "발주서 보기" %}</a>
-<a href="{% url 'purchase:receipt_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+<a href="{% url 'purchase:receipt_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -32,6 +32,10 @@
                 <dd class="mt-1 text-sm text-gray-900">{{ receipt.purchase_order.partner.name }}</dd>
             </div>
             <div>
+                <dt class="text-sm text-gray-500">{% trans "입고창고" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ receipt.warehouse.name|default:"-" }}</dd>
+            </div>
+            <div>
                 <dt class="text-sm text-gray-500">{% trans "입고일" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ receipt.receipt_date|date:"Y-m-d" }}</dd>
             </div>
@@ -39,12 +43,10 @@
                 <dt class="text-sm text-gray-500">{% trans "작성자" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ receipt.created_by|default:"-" }}</dd>
             </div>
-            {% if receipt.notes %}
             <div class="md:col-span-2 lg:col-span-3">
                 <dt class="text-sm text-gray-500">{% trans "비고" %}</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ receipt.notes }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ receipt.notes|default:"-" }}</dd>
             </div>
-            {% endif %}
         </div>
     </div>
 

@@ -9,6 +9,14 @@ A document listing all URL endpoints organized by app.
 | `/` | `core:dashboard` | Main dashboard |
 | `/backup/` | `core:backup` | Data backup/restore page |
 | `/backup/download/` | `core:backup_download` | Backup file download |
+| `/trash/` | `core:trash` | Soft-deleted item trash |
+| `/attachments/` | `core:attachment_list` | Attachment management |
+| `/data-report/` | `core:data_report` | Data guide/report |
+| `/audit/` | `core:audit_dashboard` | Audit dashboard |
+| `/audit/access-log/` | `core:audit_access_log` | System access log |
+| `/audit/data-changes/` | `core:audit_data_changes` | Data change history |
+| `/audit/login-history/` | `core:audit_login_history` | Login/security events |
+| `/audit/audit-log/` | `core:audit_audit_log` | Audit access log |
 
 ## Accounts (accounts)
 
@@ -57,11 +65,15 @@ A document listing all URL endpoints organized by app.
 | `/inventory/movements/create/` | `inventory:movement_create` | Create stock movement |
 | `/inventory/movements/<id>/` | `inventory:movement_detail` | Stock movement detail |
 
-### Stock Status
+### Stock Status & Tools
 
 | URL Pattern | Name | Description |
 |-------------|------|-------------|
 | `/inventory/stock/` | `inventory:stock_status` | Stock status overview |
+| `/inventory/barcode/` | `inventory:barcode_scan` | Barcode scan |
+| `/inventory/warehouse-stock/` | `inventory:warehouse_stock` | Warehouse-level stock |
+| `/inventory/stock-count/` | `inventory:stockcount_list` | Stock count list |
+| `/inventory/valuation/` | `inventory:valuation` | Inventory valuation |
 
 ### Warehouse Transfers
 
@@ -106,6 +118,20 @@ A document listing all URL endpoints organized by app.
 | `/production/records/` | `production:record_list` | Production record list |
 | `/production/records/create/` | `production:record_create` | Create production record |
 
+### Quality Inspection
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/production/qc/` | `production:qc_list` | Quality inspection list |
+
+### MRP & Cost
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/production/mrp/` | `production:mrp` | MRP (Material Requirements Planning) |
+| `/production/standard-cost/` | `production:stdcost_list` | Standard cost list |
+| `/production/cost-variance/` | `production:cost_variance` | Cost variance analysis |
+
 ## Sales (sales)
 
 ### Partners
@@ -134,6 +160,26 @@ A document listing all URL endpoints organized by app.
 | `/sales/orders/excel/` | `sales:order_excel` | Order list Excel download |
 | `/sales/orders/<id>/` | `sales:order_detail` | Order detail |
 | `/sales/orders/<id>/edit/` | `sales:order_update` | Edit order |
+
+### Quotations
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/sales/quotes/` | `sales:quote_list` | Quotation list |
+
+### Shipments & Carriers
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/sales/shipments/` | `sales:shipment_list` | Shipment list |
+| `/sales/carriers/` | `sales:carrier_list` | Carrier list |
+| `/sales/sold-products/` | `sales:sold_product_list` | Sold product list |
+
+### Partner Analysis
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/sales/partner-analysis/` | `sales:partner_analysis` | Partner analysis |
 
 ### Commissions
 
@@ -237,29 +283,99 @@ A document listing all URL endpoints organized by app.
 | `/accounting/vouchers/<id>/` | `accounting:voucher_detail` | Voucher detail |
 | `/accounting/vouchers/<id>/edit/` | `accounting:voucher_update` | Edit voucher |
 
-### Approvals
+### Account Ledger & Trial Balance
 
 | URL Pattern | Name | Description |
 |-------------|------|-------------|
-| `/accounting/approvals/` | `accounting:approval_list` | Approval list |
+| `/accounting/ledger/` | `accounting:account_ledger` | Account ledger |
+| `/accounting/trial-balance/` | `accounting:trial_balance` | Trial balance |
+
+### Budget
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/accounting/budgets/` | `accounting:budget_list` | Budget list |
+| `/accounting/budgets/report/` | `accounting:budget_report` | Budget report |
+
+### Closing Period
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/accounting/closing/` | `accounting:closing_list` | Closing period list |
+
+### Bank Reconciliation
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/accounting/bank-reconciliation/` | `accounting:bank_reconciliation` | Bank reconciliation |
+
+### Bank Accounts & Transfers
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/accounting/bank-accounts/` | `accounting:bankaccount_list` | Bank account list |
+| `/accounting/bank-accounts/dashboard/` | `accounting:bankaccount_dashboard` | Bank account dashboard |
+| `/accounting/transfers/` | `accounting:transfer_list` | Account transfer list |
+
+### Settlements
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/accounting/settlements/` | `accounting:settlement_list` | Cost settlement list |
+| `/accounting/sales-settlements/` | `accounting:sales_settlement_list` | Sales settlement list |
+
+### Currency & Exchange Rate
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/accounting/currencies/` | `accounting:currency_list` | Currency list |
+| `/accounting/exchange-rates/` | `accounting:exchangerate_list` | Exchange rate list |
 
 ### Accounts Receivable
 
 | URL Pattern | Name | Description |
 |-------------|------|-------------|
 | `/accounting/ar/` | `accounting:ar_list` | Accounts receivable list |
+| `/accounting/ar/aging/` | `accounting:ar_aging` | AR aging analysis |
 
 ### Accounts Payable
 
 | URL Pattern | Name | Description |
 |-------------|------|-------------|
 | `/accounting/ap/` | `accounting:ap_list` | Accounts payable list |
+| `/accounting/ap/aging/` | `accounting:ap_aging` | AP aging analysis |
 
 ### Payments
 
 | URL Pattern | Name | Description |
 |-------------|------|-------------|
 | `/accounting/payments/` | `accounting:payment_list` | Payment list |
+
+## Approval (approval)
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/approval/` | `approval:approval_list` | Approval request list |
+
+## Fixed Assets (asset)
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/asset/` | `asset:asset_list` | Asset list |
+| `/asset/create/` | `asset:asset_create` | Create asset |
+| `/asset/depreciation/` | `asset:depreciation_run` | Run depreciation |
+| `/asset/summary/` | `asset:summary` | Asset summary |
+| `/asset/categories/` | `asset:category_list` | Asset category list |
+
+## Advertising (advertising)
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/advertising/` | `advertising:dashboard` | Advertising dashboard |
+| `/advertising/campaigns/` | `advertising:campaign_list` | Campaign list |
+| `/advertising/creatives/` | `advertising:creative_list` | Creative list |
+| `/advertising/performance/` | `advertising:performance_list` | Performance list |
+| `/advertising/budgets/` | `advertising:budget_list` | Ad budget list |
 
 ## Investment (investment)
 
@@ -315,6 +431,7 @@ A document listing all URL endpoints organized by app.
 | `/warranty/<id>/` | `warranty:registration_detail` | Product registration detail |
 | `/warranty/<id>/edit/` | `warranty:registration_update` | Edit product registration |
 | `/warranty/check/` | `warranty:serial_check` | Serial number lookup (API) |
+| `/warranty/verify/` | `warranty:warranty_verify` | Warranty QR verification |
 
 ## HR (hr)
 
@@ -322,8 +439,11 @@ A document listing all URL endpoints organized by app.
 |-------------|------|-------------|
 | `/hr/org-chart/` | `hr:org_chart` | Organization chart |
 | `/hr/departments/` | `hr:department_list` | Department list |
+| `/hr/positions/` | `hr:position_list` | Position list |
 | `/hr/employees/` | `hr:employee_list` | Employee list |
 | `/hr/actions/` | `hr:action_list` | Personnel action list |
+| `/hr/payroll/` | `hr:payroll_list` | Payroll list |
+| `/hr/payroll/config/` | `hr:payroll_config` | Payroll configuration |
 
 ## Attendance (attendance)
 
@@ -392,3 +512,4 @@ A document listing all URL endpoints organized by app.
 | `/api/` | — | DRF Router (browsable API root) |
 | `/api/token/` | `token_obtain_pair` | JWT token obtain (POST) |
 | `/api/token/refresh/` | `token_refresh` | JWT token refresh (POST) |
+| `/api/token/verify/` | `token_verify` | JWT token verify (POST) |

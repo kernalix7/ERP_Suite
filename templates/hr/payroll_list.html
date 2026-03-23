@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "급여 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "급여 관리" %}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+    <a href="{% url 'hr:payroll_create' %}" class="btn btn-primary">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        {% trans "등록" %}
+    </a>
+    <a href="{% url 'hr:payroll_bulk_create' %}" class="btn btn-secondary">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14v6m-3-3h6M6 10h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zm10 0h2a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2zM6 20h2a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z"/>
+        </svg>
+        {% trans "일괄 생성" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <!-- 검색 및 필터 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '이름 또는 사번으로 검색...' %}"
+                       class="form-input">
+            </div>
+            <div class="w-full sm:w-32">
+                <select name="year" class="form-input">
+                    <option value="">{% trans "전체 년도" %}</option>
+                    {% for y in year_choices %}
+                    <option value="{{ y }}" {% if request.GET.year == y|stringformat:"d" %}selected{% endif %}>{{ y }}{% trans "년" %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-full sm:w-28">
+                <select name="month" class="form-input">
+                    <option value="">{% trans "전체 월" %}</option>
+                    {% for m in month_choices %}
+                    <option value="{{ m }}" {% if request.GET.month == m|stringformat:"d" %}selected{% endif %}>{{ m }}{% trans "월" %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-full sm:w-32">
+                <select name="status" class="form-input">
+                    <option value="">{% trans "전체 상태" %}</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+
+    <!-- 테이블 -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "직원" %}</th>
+                    <th class="px-4 py-3">{% trans "부서" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "기간" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "총지급액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "공제합계" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "실수령액" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for p in payrolls %}
+                <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onclick="location.href='{% url 'hr:payroll_detail' p.pk %}'">
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-gray-900">{{ p.employee.user.name|default:p.employee.user.username }}</div>
+                        <div class="text-xs text-gray-500 font-mono">{{ p.employee.employee_number }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-700">{{ p.employee.department|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center text-gray-700">{{ p.year }}{% trans "년" %} {{ p.month }}{% trans "월" %}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ p.gross_pay|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">-{{ p.total_deductions|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold text-blue-700">{{ p.net_pay|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if p.status == 'DRAFT' %}bg-gray-100 text-gray-800
+                            {% elif p.status == 'CONFIRMED' %}bg-blue-100 text-blue-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ p.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        {% trans "등록된 급여 내역이 없습니다." %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">{% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}</p>
+        <nav class="flex items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&year={{ request.GET.year }}&month={{ request.GET.month }}&status={{ request.GET.status }}&q={{ request.GET.q }}"
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&year={{ request.GET.year }}&month={{ request.GET.month }}&status={{ request.GET.status }}&q={{ request.GET.q }}"
+               class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&year={{ request.GET.year }}&month={{ request.GET.month }}&status={{ request.GET.status }}&q={{ request.GET.q }}"
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

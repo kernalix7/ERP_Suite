@@ -5,7 +5,7 @@
 {% block page_title %}{{ board.name }} - {% trans "게시글" %} {{ form.instance.pk|yesno:"수정,등록" }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'board:post_list' board.slug %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+<a href="{% url 'board:post_list' board.slug %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}

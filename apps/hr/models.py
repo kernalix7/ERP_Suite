@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
@@ -6,6 +7,7 @@ from simple_history.models import HistoricalRecords
 
 from apps.core.fields import EncryptedCharField, EncryptedTextField
 from apps.core.models import BaseModel
+from apps.core.utils import generate_document_number
 
 
 class Department(BaseModel):
@@ -60,7 +62,7 @@ class Position(BaseModel):
     name = models.CharField('직급명', max_length=50)
     level = models.PositiveIntegerField(
         '레벨',
-        help_text='1=최하위, 숫자가 클수록 높은 직급',
+        help_text='1=최상위, 숫자가 클수록 낮은 직급',
     )
 
     history = HistoricalRecords()
@@ -91,10 +93,10 @@ class EmployeeProfile(BaseModel):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         verbose_name='사용자',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='profile',
     )
-    employee_number = models.CharField('사번', max_length=20, unique=True)
+    employee_number = models.CharField('사번', max_length=20, unique=True, blank=True)
     department = models.ForeignKey(
         Department,
         verbose_name='부서',
@@ -132,6 +134,10 @@ class EmployeeProfile(BaseModel):
         default=Status.ACTIVE,
     )
     resignation_date = models.DateField('퇴사일', null=True, blank=True)
+    base_salary = models.DecimalField(
+        '기본급', max_digits=15, decimal_places=0, default=0,
+        help_text='월 기본급 (원)',
+    )
 
     history = HistoricalRecords()
 
@@ -139,9 +145,18 @@ class EmployeeProfile(BaseModel):
         verbose_name = '직원 프로필'
         verbose_name_plural = '직원 프로필'
         ordering = ['employee_number']
+        indexes = [
+            models.Index(fields=['department'], name='idx_employee_dept'),
+            models.Index(fields=['status'], name='idx_employee_status'),
+        ]
 
     def __str__(self):
         return f'{self.user.name or self.user.username} ({self.employee_number})'
+
+    def save(self, *args, **kwargs):
+        if not self.employee_number:
+            self.employee_number = generate_document_number(EmployeeProfile, 'employee_number', 'EMP')
+        super().save(*args, **kwargs)
 
     @property
     def years_of_service(self):
@@ -214,3 +229,128 @@ class PersonnelAction(BaseModel):
 
     def __str__(self):
         return f'{self.employee} - {self.get_action_type_display()} ({self.effective_date})'
+
+
+class PayrollConfig(BaseModel):
+    """급여 설정"""
+    year = models.PositiveIntegerField('년도')
+    minimum_wage_hourly = models.DecimalField(
+        '최저시급', max_digits=10, decimal_places=0, default=0,
+    )
+    national_pension_rate = models.DecimalField(
+        '국민연금율(%)', max_digits=5, decimal_places=2, default=Decimal('4.50'),
+    )
+    health_insurance_rate = models.DecimalField(
+        '건강보험율(%)', max_digits=5, decimal_places=2, default=Decimal('3.545'),
+    )
+    long_term_care_rate = models.DecimalField(
+        '장기요양보험율(%)', max_digits=5, decimal_places=2, default=Decimal('12.81'),
+        help_text='건강보험의 %',
+    )
+    employment_insurance_rate = models.DecimalField(
+        '고용보험율(%)', max_digits=5, decimal_places=2, default=Decimal('0.90'),
+    )
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '급여설정'
+        verbose_name_plural = '급여설정'
+        ordering = ['-year']
+        constraints = [
+            models.UniqueConstraint(fields=['year'], name='uq_payroll_config_year'),
+        ]
+
+    def __str__(self):
+        return f'{self.year}년 급여설정'
+
+
+class Payroll(BaseModel):
+    """급여 대장"""
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        verbose_name='직원',
+        on_delete=models.PROTECT,
+        related_name='payrolls',
+    )
+    year = models.PositiveIntegerField('년도')
+    month = models.PositiveIntegerField('월')
+
+    # 지급 항목
+    base_salary = models.DecimalField('기본급', max_digits=15, decimal_places=0, default=0)
+    overtime_pay = models.DecimalField('초과근무수당', max_digits=15, decimal_places=0, default=0)
+    bonus = models.DecimalField('상여금', max_digits=15, decimal_places=0, default=0)
+    allowances = models.DecimalField('제수당', max_digits=15, decimal_places=0, default=0)
+    gross_pay = models.DecimalField('총지급액', max_digits=15, decimal_places=0, default=0)
+
+    # 공제 항목
+    national_pension = models.DecimalField('국민연금', max_digits=15, decimal_places=0, default=0)
+    health_insurance = models.DecimalField('건강보험', max_digits=15, decimal_places=0, default=0)
+    long_term_care = models.DecimalField('장기요양', max_digits=15, decimal_places=0, default=0)
+    employment_insurance = models.DecimalField('고용보험', max_digits=15, decimal_places=0, default=0)
+    income_tax = models.DecimalField('소득세', max_digits=15, decimal_places=0, default=0)
+    local_income_tax = models.DecimalField('지방소득세', max_digits=15, decimal_places=0, default=0)
+    total_deductions = models.DecimalField('공제합계', max_digits=15, decimal_places=0, default=0)
+
+    # 실수령액
+    net_pay = models.DecimalField('실수령액', max_digits=15, decimal_places=0, default=0)
+
+    # 상태
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', '작성'
+        CONFIRMED = 'CONFIRMED', '확정'
+        PAID = 'PAID', '지급완료'
+
+    status = models.CharField(
+        '상태', max_length=10, choices=Status.choices, default=Status.DRAFT,
+    )
+    paid_date = models.DateField('지급일', null=True, blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '급여'
+        verbose_name_plural = '급여'
+        ordering = ['-year', '-month']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['employee', 'year', 'month'],
+                name='uq_payroll_employee_period',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.employee} - {self.year}년 {self.month}월 급여'
+
+    def calculate_deductions(self):
+        """4대 보험 + 세금 자동 계산"""
+        try:
+            config = PayrollConfig.objects.get(year=self.year, is_active=True)
+        except PayrollConfig.DoesNotExist:
+            return
+
+        self.national_pension = int(self.gross_pay * config.national_pension_rate / 100)
+        self.health_insurance = int(self.gross_pay * config.health_insurance_rate / 100)
+        self.long_term_care = int(self.health_insurance * config.long_term_care_rate / 100)
+        self.employment_insurance = int(self.gross_pay * config.employment_insurance_rate / 100)
+        # 간이세액표 대신 간단 계산 (과세표준 기반)
+        taxable = (
+            self.gross_pay
+            - self.national_pension
+            - self.health_insurance
+            - self.long_term_care
+            - self.employment_insurance
+        )
+        self.income_tax = max(int(taxable * Decimal('0.06')), 0)  # 간이 6%
+        self.local_income_tax = int(self.income_tax * Decimal('0.10'))  # 소득세의 10%
+
+        self.total_deductions = (
+            self.national_pension + self.health_insurance + self.long_term_care
+            + self.employment_insurance + self.income_tax + self.local_income_tax
+        )
+        self.net_pay = self.gross_pay - self.total_deductions
+
+    def save(self, *args, **kwargs):
+        self.gross_pay = self.base_salary + self.overtime_pay + self.bonus + self.allowances
+        self.calculate_deductions()
+        super().save(*args, **kwargs)

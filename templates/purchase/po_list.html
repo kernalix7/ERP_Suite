@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n humanize %}
 
 {% block title %}{% trans "발주 관리" %} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "발주 관리" %}{% endblock %}
@@ -16,6 +16,12 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
     Excel
+</a>
+<a href="{% url 'purchase:po_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
 </a>
 {% endblock %}
 
@@ -83,7 +89,7 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ order.get_status_display }}</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ order.grand_total|floatformat:0 }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ order.grand_total|intcomma }}{% trans "원" %}</td>
                     <td class="px-4 py-3 text-center">
                         <a href="{% url 'purchase:po_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">{% trans "상세" %}</a>
                         {% if order.status == 'DRAFT' %}

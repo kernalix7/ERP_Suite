@@ -4,7 +4,7 @@
 {% block page_title %}결재/품의{% endblock %}
 {% block header_actions %}
 {% if pending_count > 0 %}<span class="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full mr-2">결재대기 {{ pending_count }}건</span>{% endif %}
-<a href="{% url 'accounting:approval_create' %}" class="btn btn-primary">+ 품의서 작성</a>
+<a href="{% url 'approval:approval_create' %}" class="btn btn-primary">+ 품의서 작성</a>
 {% endblock %}
 {% block content %}
 <div class="mb-4 flex flex-wrap gap-2">
@@ -15,21 +15,21 @@
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="table-responsive">
     <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-            <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">결재번호</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">문서종류</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">제목</th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">금액</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">요청자</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">결재자</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">요청일</th>
+        <thead>
+            <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <th class="px-4 py-3">결재번호</th>
+                <th class="px-4 py-3">문서종류</th>
+                <th class="px-4 py-3">제목</th>
+                <th class="px-4 py-3 text-right">금액</th>
+                <th class="px-4 py-3">요청자</th>
+                <th class="px-4 py-3">결재자</th>
+                <th class="px-4 py-3 text-center">상태</th>
+                <th class="px-4 py-3">요청일</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             {% for a in approvals %}
-            <tr class="hover:bg-gray-50 cursor-pointer" onclick="location.href='{% url 'accounting:approval_detail' a.pk %}'">
+            <tr class="hover:bg-gray-50 cursor-pointer" onclick="location.href='{% url 'approval:approval_detail' a.pk %}'">
                 <td class="px-4 py-3 text-sm font-medium text-blue-600">{{ a.request_number }}</td>
                 <td class="px-4 py-3 text-sm"><span class="px-2 py-1 text-xs rounded-full bg-gray-100">{{ a.get_category_display }}</span></td>
                 <td class="px-4 py-3 text-sm font-medium">{{ a.title }}</td>

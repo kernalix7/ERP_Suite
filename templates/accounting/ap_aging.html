@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "AP Aging 분석" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "AP Aging 분석 (미지급금 연령분석)" %}{% endblock %}
+
+{% block header_actions %}
+<span class="text-sm text-gray-600 mr-4">{% trans "기준일" %}: <strong>{{ today }}</strong></span>
+<span class="text-sm text-gray-600 mr-4">{% trans "미지급 잔액 합계" %}: <strong class="text-red-600">{{ grand_total|intcomma }}{% trans "원" %}</strong></span>
+<a href="{% url 'accounting:ap_list' %}" class="btn btn-secondary">
+    {% trans "미지급금 목록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- 구간별 요약 카드 -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+    {% for key, bucket in buckets.items %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">{{ bucket.label }}</p>
+        <p class="text-lg font-bold {% if key == 'current' %}text-green-600{% elif key == 'over_30' %}text-yellow-600{% elif key == 'over_60' %}text-orange-500{% else %}text-red-600{% endif %}">
+            {{ bucket.total|intcomma }}{% trans "원" %}
+        </p>
+        <p class="text-xs text-gray-400 mt-1">{{ bucket.items|length }}{% trans "건" %}</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 거래처별 Aging 요약 -->
+{% if partner_summary %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+    <div class="p-4 border-b border-gray-200">
+        <h3 class="text-base font-semibold text-gray-800">{% trans "거래처별 Aging 요약" %}</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "미도래" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "30일 이내" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "31~60일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "61~90일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "91~120일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "120일 초과" %}</th>
+                    <th class="px-4 py-3 text-right font-bold">{% trans "합계" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for ps in partner_summary %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ ps.name }}</td>
+                    <td class="px-4 py-3 text-right {% if ps.current %}text-green-600{% else %}text-gray-400{% endif %}">{{ ps.current|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if ps.over_30 %}text-yellow-600{% else %}text-gray-400{% endif %}">{{ ps.over_30|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if ps.over_60 %}text-orange-500{% else %}text-gray-400{% endif %}">{{ ps.over_60|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if ps.over_90 %}text-red-500{% else %}text-gray-400{% endif %}">{{ ps.over_90|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if ps.over_120 %}text-red-600 font-semibold{% else %}text-gray-400{% endif %}">{{ ps.over_120|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if ps.over_120_plus %}text-red-700 font-bold{% else %}text-gray-400{% endif %}">{{ ps.over_120_plus|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-bold text-gray-900">{{ ps.total|intcomma }}{% trans "원" %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 구간별 상세 내역 -->
+{% for key, bucket in buckets.items %}
+{% if bucket.items %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+    <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-gray-800">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mr-2
+                {% if key == 'current' %}bg-green-100 text-green-700
+                {% elif key == 'over_30' %}bg-yellow-100 text-yellow-700
+                {% elif key == 'over_60' %}bg-orange-100 text-orange-700
+                {% else %}bg-red-100 text-red-700{% endif %}">
+                {{ bucket.label }}
+            </span>
+            {{ bucket.total|intcomma }}{% trans "원" %} ({{ bucket.items|length }}{% trans "건" %})
+        </h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "금액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "지급액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "잔액" %}</th>
+                    <th class="px-4 py-3">{% trans "납기일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "경과일" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상세" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for item in bucket.items %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ item.ap.partner.name }}</td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ item.ap.amount|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ item.ap.paid_amount|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right font-medium text-red-600">{{ item.remaining|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ item.ap.due_date }}</td>
+                    <td class="px-4 py-3 text-right {% if item.days_overdue > 0 %}text-red-600 font-semibold{% else %}text-gray-600{% endif %}">
+                        {% if item.days_overdue > 0 %}{{ item.days_overdue }}{% trans "일" %}{% else %}-{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'accounting:ap_detail' item.ap.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">{% trans "상세" %}</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{% if not partner_summary %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-400">
+    {% trans "미지급금 데이터가 없습니다." %}
+</div>
+{% endif %}
+{% endblock %}

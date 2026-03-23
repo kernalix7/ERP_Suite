@@ -426,7 +426,7 @@ class FUNC005_ApprovalWorkflowTest(TestCase):
     """FUNC-005: 결재 워크플로우 - 다단계 결재선"""
 
     def setUp(self):
-        from apps.accounting.models import ApprovalRequest, ApprovalStep
+        from apps.approval.models import ApprovalRequest, ApprovalStep
 
         self.requester = User.objects.create_user(
             username='req_wf', password='ReqWF123!', role='staff',
@@ -538,7 +538,7 @@ class FUNC005_ApprovalWorkflowTest(TestCase):
 
     def test_결재단계_unique_together(self):
         """같은 결재요청에 같은 step_order가 중복 생성 불가"""
-        from apps.accounting.models import ApprovalStep
+        from apps.approval.models import ApprovalStep
         from django.db import IntegrityError
 
         with self.assertRaises(IntegrityError):

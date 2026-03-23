@@ -49,7 +49,7 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 
 ### 1.4 docker-compose.yml
 
-프로젝트에 포함된 `docker-compose.yml` 기본 구성:
+프로젝트에 포함된 `docker-compose.yml` 기본 구성 (7개 서비스):
 
 ```yaml
 services:
@@ -60,37 +60,93 @@ services:
     environment:
       POSTGRES_DB: erp_suite
       POSTGRES_USER: erp
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 필수}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-127.0.0.1:5432}:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-127.0.0.1:6379}:6379"
+    volumes:
+      - redis_data:/data
     restart: unless-stopped
 
   web:
     build: .
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
     volumes:
       - static_files:/app/staticfiles
       - media_files:/app/media
     ports:
-      - "8000:8000"
+      - "${WEB_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=postgres://erp:${DB_PASSWORD:-changeme}@db:5432/erp_suite
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - DATABASE_URL=postgres://erp:${DB_PASSWORD}@db:5432/erp_suite
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY 필수}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
       - DJANGO_SETTINGS_MODULE=config.settings.production
+      - REDIS_URL=redis://redis:6379/0
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     depends_on:
       - db
+      - redis
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    command: celery -A config worker -l info
+    # (web과 동일한 환경변수)
+    depends_on: [db, redis]
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    depends_on: [db, redis]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-127.0.0.1:9090}:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "${GRAFANA_PORT:-127.0.0.1:3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD 필수}
+    depends_on: [prometheus]
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:
   static_files:
   media_files:
+  prometheus_data:
+  grafana_data:
 ```
+
+> web 서비스는 Django Channels WebSocket 실시간 메신저 지원을 위해 **Daphne** (ASGI)를 사용합니다.
 
 ### 1.5 실행
 
 ```bash
+# 프론트엔드 벤더 파일 다운로드 (Tailwind CSS, HTMX, Alpine.js, Chart.js)
+bash scripts/download_vendor.sh
+
 # 컨테이너 빌드 및 백그라운드 실행
 docker-compose up -d --build
 
@@ -168,6 +224,10 @@ docker-compose exec -T db psql -U erp erp_suite < backup_20260316_120000.sql
 | `ALLOWED_HOSTS` | O | `localhost,127.0.0.1` | 허용 호스트 (쉼표 구분) |
 | `DATABASE_URL` | O | - | PostgreSQL 연결 URL |
 | `DB_PASSWORD` | O | `changeme` | PostgreSQL 비밀번호 |
+| `REDIS_URL` | O | `redis://redis:6379/0` | Redis 연결 URL (Celery/Channels) |
+| `SENTRY_DSN` | X | - | Sentry 에러 추적 DSN |
+| `CORS_ALLOWED_ORIGINS` | X | `http://localhost:3000` | CORS 허용 오리진 |
+| `GRAFANA_PASSWORD` | O (Docker) | - | Grafana 관리자 비밀번호 |
 | `NAVER_CLIENT_ID` | X | - | 네이버 API 클라이언트 ID |
 | `NAVER_CLIENT_SECRET` | X | - | 네이버 API 클라이언트 시크릿 |
 | `ANTHROPIC_API_KEY` | X | - | Claude AI API 키 |

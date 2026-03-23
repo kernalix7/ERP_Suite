@@ -7,9 +7,9 @@
 {% block header_actions %}
 {% if post.author == request.user or request.user.role == 'admin' or request.user.role == 'manager' %}
 <a href="{% url 'board:post_update' post.pk %}" class="btn btn-secondary">{% trans "수정" %}</a>
-<a href="{% url 'board:post_delete' post.pk %}" class="btn btn-secondary text-red-600 hover:text-red-800">{% trans "삭제" %}</a>
+<a href="{% url 'board:post_delete' post.pk %}" class="btn btn-danger">{% trans "삭제" %}</a>
 {% endif %}
-<a href="{% url 'board:post_list' post.board.slug %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+<a href="{% url 'board:post_list' post.board.slug %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -32,6 +32,10 @@
         </div>
         <div class="p-6">
             <div class="prose max-w-none text-sm text-gray-700 whitespace-pre-wrap">{{ post.content }}</div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-200">
+            <dt class="text-sm text-gray-500">비고</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ post.notes|default:"-" }}</dd>
         </div>
     </div>
 

@@ -63,7 +63,7 @@ class DR001_BackupRestoreTest(TestCase):
         self.assertEqual(original['code'], 'DR001-P1')
         self.assertEqual(original['name'], '백업테스트제품')
         self.assertEqual(str(original['unit_price']), '25000')
-        self.assertEqual(original['current_stock'], 100)
+        self.assertEqual(str(original['current_stock']), '100.000')
 
     def test_dumpdata_loaddata_사이클(self):
         """dumpdata -> 삭제 -> loaddata 후 데이터 복원 확인"""

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block page_title %}{{ object.name }} 상세{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:bankaccount_update' object.pk %}" class="btn btn-primary">수정</a>
+<a href="{% url 'accounting:transfer_create' %}" class="btn btn-secondary">이체</a>
+<a href="{% url 'accounting:bankaccount_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- 계좌 정보 -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">계좌 정보</h3>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                {% if object.account_type == 'BUSINESS' %}bg-blue-100 text-blue-700
+                {% elif object.account_type == 'PLATFORM' %}bg-purple-100 text-purple-700
+                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                {{ object.get_account_type_display }}
+            </span>
+        </div>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <dt class="text-sm text-gray-500">계좌별칭</dt>
+                <dd class="font-medium text-gray-900">{{ object.name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">소유자</dt>
+                <dd class="font-medium text-gray-900">{{ object.owner }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">은행/플랫폼</dt>
+                <dd class="text-gray-700">{{ object.bank|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">계좌번호</dt>
+                <dd class="font-mono text-sm text-gray-700">{{ object.account_number|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">계정과목</dt>
+                <dd class="text-gray-700">{{ object.account_code|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">기본계좌</dt>
+                <dd>
+                    {% if object.is_default %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">기본</span>
+                    {% else %}
+                    <span class="text-gray-400">-</span>
+                    {% endif %}
+                </dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- 잔액 카드 -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h4 class="text-sm font-semibold text-gray-500 mb-3">잔액 현황</h4>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500">기초잔액</span>
+                    <span class="font-mono text-right text-gray-700">{{ object.opening_balance|intcomma }}원</span>
+                </div>
+                <div class="border-t pt-3">
+                    <span class="text-sm text-gray-500">현재잔액</span>
+                    <p class="text-2xl font-bold mt-1 {% if object.balance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        {{ object.balance|intcomma }}원
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h4 class="font-semibold mb-3">추가 정보</h4>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">등록일</span>
+                    <span>{{ object.created_at|date:"Y-m-d" }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">등록자</span>
+                    <span>{{ object.created_by|default:"-" }}</span>
+                </div>
+            </div>
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">비고</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.notes|default:"-" }}</dd>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 입출금 내역 -->
+<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-800">입출금 내역</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">입출금번호</th>
+                    <th class="px-4 py-3">일자</th>
+                    <th class="px-4 py-3 text-center">유형</th>
+                    <th class="px-4 py-3">거래처</th>
+                    <th class="px-4 py-3 text-right">금액</th>
+                    <th class="px-4 py-3">결제수단</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for payment in payments %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ payment.payment_number }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ payment.payment_date }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if payment.payment_type == 'RECEIPT' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">입금</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">출금</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-700">{{ payment.partner.name }}</td>
+                    <td class="px-4 py-3 text-right font-mono
+                        {% if payment.payment_type == 'RECEIPT' %}text-green-600{% else %}text-red-600{% endif %}">
+                        {{ payment.amount|intcomma }}원
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ payment.get_payment_method_display }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-400">입출금 내역이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 계좌이체 내역 -->
+<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-800">계좌이체 내역</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">이체번호</th>
+                    <th class="px-4 py-3">이체일</th>
+                    <th class="px-4 py-3">출금계좌 → 입금계좌</th>
+                    <th class="px-4 py-3 text-right">금액</th>
+                    <th class="px-4 py-3">적요</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for transfer in transfers %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ transfer.transfer_number }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ transfer.transfer_date }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ transfer.from_account.name }} → {{ transfer.to_account.name }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ transfer.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-gray-600">{{ transfer.description|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">이체 내역이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 분배 내역 -->
+<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-800">분배 내역</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">입출금번호</th>
+                    <th class="px-4 py-3 text-right">분배금액</th>
+                    <th class="px-4 py-3">적요</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for dist in distributions %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ dist.payment.payment_number }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ dist.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-gray-600">{{ dist.description|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="px-4 py-8 text-center text-gray-400">분배 내역이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

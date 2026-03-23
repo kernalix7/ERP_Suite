@@ -21,6 +21,8 @@ class BaseModelViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         if hasattr(qs.model, 'is_active'):
             qs = qs.filter(is_active=True)
+        if not qs.query.order_by:
+            qs = qs.order_by('-pk')
         return qs
 
     def perform_create(self, serializer):
@@ -66,7 +68,7 @@ class PartnerViewSet(BaseModelViewSet):
 
 
 class CustomerViewSet(BaseModelViewSet):
-    queryset = Customer.objects.select_related('product').all()
+    queryset = Customer.objects.prefetch_related('purchases__product').all()
     serializer_class = CustomerSerializer
     permission_classes = [IsManagerOrReadOnly]
     search_fields = ['name', 'phone', 'email']

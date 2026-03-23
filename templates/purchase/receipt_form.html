@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n humanize %}
 
 {% block title %}{% trans "입고 등록" %} - {{ purchase_order.po_number }} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "입고 등록" %}{% endblock %}
@@ -66,6 +66,7 @@
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
                         <th class="px-4 py-3 w-8">#</th>
                         <th class="px-4 py-3">{% trans "제품" %}</th>
+                        <th class="px-4 py-3 text-right">{% trans "단가" %}</th>
                         <th class="px-4 py-3 text-right">{% trans "발주수량" %}</th>
                         <th class="px-4 py-3 text-right">{% trans "기입고수량" %}</th>
                         <th class="px-4 py-3 text-right">{% trans "잔량" %}</th>
@@ -78,6 +79,7 @@
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
                         <td class="px-4 py-3 text-gray-900 font-medium">{{ item.product }}</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ item.unit_price|intcomma }}{% trans "원" %}</td>
                         <td class="px-4 py-3 text-right text-gray-600">{{ item.quantity }}</td>
                         <td class="px-4 py-3 text-right text-gray-600">{{ item.received_quantity }}</td>
                         <td class="px-4 py-3 text-right font-medium">

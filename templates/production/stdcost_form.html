@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}표준원가 등록 - ERP Suite{% endblock %}
+{% block page_title %}표준원가 등록{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'production:stdcost_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-800 border border-red-200 text-sm">
+        {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 기본 정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">기본 정보</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.product.label }}</label>
+                {{ form.product }}
+                {% if form.product.errors %}
+                <div class="mt-1 text-xs text-red-600">{% for e in form.product.errors %}<p>{{ e }}</p>{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.version.label }}</label>
+                {{ form.version }}
+                {% if form.version.errors %}
+                <div class="mt-1 text-xs text-red-600">{% for e in form.version.errors %}<p>{{ e }}</p>{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.effective_date.label }}</label>
+                {{ form.effective_date }}
+                {% if form.effective_date.errors %}
+                <div class="mt-1 text-xs text-red-600">{% for e in form.effective_date.errors %}<p>{{ e }}</p>{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div class="flex items-center pt-6">
+                {{ form.is_current }}
+                <label class="ml-2 text-sm font-medium text-gray-700">{{ form.is_current.label }}</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- 자재원가 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">
+            <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            자재원가
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.material_cost.label }}</label>
+                <div class="relative">
+                    {{ form.material_cost }}
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">기본 BOM 기반으로 자동 계산됩니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 노무비 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">
+            <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            노무비
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.direct_labor_hours.label }}</label>
+                <div class="relative">
+                    {{ form.direct_labor_hours }}
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">시간</span>
+                </div>
+                {% if form.direct_labor_hours.errors %}
+                <div class="mt-1 text-xs text-red-600">{% for e in form.direct_labor_hours.errors %}<p>{{ e }}</p>{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.labor_rate_per_hour.label }}</label>
+                <div class="relative">
+                    {{ form.labor_rate_per_hour }}
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원/시간</span>
+                </div>
+                {% if form.labor_rate_per_hour.errors %}
+                <div class="mt-1 text-xs text-red-600">{% for e in form.labor_rate_per_hour.errors %}<p>{{ e }}</p>{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.labor_cost.label }}</label>
+                <div class="relative">
+                    {{ form.labor_cost }}
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">자동 계산: 직접노무시간 x 시간당 노무비</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 제조간접비 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">
+            <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            제조간접비
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.overhead_rate.label }}</label>
+                <div class="relative">
+                    {{ form.overhead_rate }}
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">직접노무비 대비 간접비 비율</p>
+                {% if form.overhead_rate.errors %}
+                <div class="mt-1 text-xs text-red-600">{% for e in form.overhead_rate.errors %}<p>{{ e }}</p>{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.overhead_cost.label }}</label>
+                <div class="relative">
+                    {{ form.overhead_cost }}
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">자동 계산: 표준노무비 x 배부율</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 합계 -->
+    <div class="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">표준원가 합계</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.total_standard_cost.label }}</label>
+                <div class="relative">
+                    {{ form.total_standard_cost }}
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">자재원가 + 노무비 + 간접비</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 비고 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.notes.label }}</label>
+        {{ form.notes }}
+    </div>
+
+    <div class="flex justify-end space-x-3">
+        <a href="{% url 'production:stdcost_list' %}" class="btn btn-secondary">취소</a>
+        <button type="submit" class="btn btn-primary">등록</button>
+    </div>
+</form>
+
+{{ bom_material_costs_json|json_script:"bom-material-costs-data" }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var bomCosts = JSON.parse(
+        document.getElementById('bom-material-costs-data').textContent
+    );
+    var productSelect = document.getElementById('id_product');
+    var materialCostInput = document.getElementById('id_material_cost');
+    var laborHoursInput = document.getElementById('id_direct_labor_hours');
+    var laborRateInput = document.getElementById('id_labor_rate_per_hour');
+    var laborCostInput = document.getElementById('id_labor_cost');
+    var overheadRateInput = document.getElementById('id_overhead_rate');
+    var overheadCostInput = document.getElementById('id_overhead_cost');
+    var totalInput = document.getElementById('id_total_standard_cost');
+
+    function fmt(n) {
+        return n > 0 ? Math.round(n).toLocaleString('ko-KR') : '0';
+    }
+
+    function parseNum(val) {
+        return parseFloat(String(val).replace(/,/g, '')) || 0;
+    }
+
+    function updateMaterialCost() {
+        if (!productSelect || !materialCostInput) return;
+        var productId = productSelect.value;
+        var cost = bomCosts[productId] || 0;
+        materialCostInput.value = fmt(cost);
+        recalcTotal();
+    }
+
+    function recalcLabor() {
+        var hours = parseNum(laborHoursInput.value);
+        var rate = parseNum(laborRateInput.value);
+        var laborCost = Math.round(hours * rate);
+        laborCostInput.value = fmt(laborCost);
+        recalcOverhead();
+    }
+
+    function recalcOverhead() {
+        var laborCost = parseNum(laborCostInput.value);
+        var overheadRate = parseNum(overheadRateInput.value);
+        var overheadCost = Math.round(laborCost * overheadRate / 100);
+        overheadCostInput.value = fmt(overheadCost);
+        recalcTotal();
+    }
+
+    function recalcTotal() {
+        var material = parseNum(materialCostInput.value);
+        var labor = parseNum(laborCostInput.value);
+        var overhead = parseNum(overheadCostInput.value);
+        totalInput.value = fmt(material + labor + overhead);
+    }
+
+    // 초기 계산
+    updateMaterialCost();
+
+    // 이벤트 바인딩
+    if (productSelect) productSelect.addEventListener('change', updateMaterialCost);
+    if (laborHoursInput) laborHoursInput.addEventListener('input', recalcLabor);
+    if (laborRateInput) laborRateInput.addEventListener('input', recalcLabor);
+    if (overheadRateInput) overheadRateInput.addEventListener('input', recalcOverhead);
+
+    // submit 시 콤마 제거
+    var form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function() {
+            document.querySelectorAll('.money-input').forEach(function(el) {
+                el.value = String(el.value).replace(/[^\d]/g, '');
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

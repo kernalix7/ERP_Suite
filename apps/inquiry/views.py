@@ -38,7 +38,7 @@ class InquiryListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(is_active=True)
+        qs = super().get_queryset().filter(is_active=True).select_related('channel')
         status = self.request.GET.get('status')
         channel = self.request.GET.get('channel')
         if status:
@@ -111,6 +111,9 @@ class ReplyTemplateListView(LoginRequiredMixin, ListView):
     template_name = 'inquiry/template_list.html'
     context_object_name = 'templates'
     paginate_by = 20
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
 
 
 class ReplyTemplateCreateView(LoginRequiredMixin, CreateView):

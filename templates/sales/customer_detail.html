@@ -1,11 +1,15 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}고객 상세 - {{ customer.name }} - ERP Suite{% endblock %}
 {% block page_title %}고객 상세{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'sales:customer_update' customer.pk %}" class="btn btn-primary">수정</a>
-<a href="{% url 'sales:customer_list' %}" class="btn btn-secondary">목록으로</a>
+<div class="flex flex-wrap items-center gap-2">
+    <a href="{% url 'sales:customer_update' customer.pk %}" class="btn btn-primary">수정</a>
+    <a href="{% url 'sales:customer_delete' customer.pk %}" class="btn btn-danger">삭제</a>
+    <a href="{% url 'sales:customer_list' %}" class="btn btn-secondary">목록</a>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -26,37 +30,105 @@
                 <dt class="text-sm text-gray-500">이메일</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ customer.email|default:"-" }}</dd>
             </div>
-            <div>
-                <dt class="text-sm text-gray-500">구매제품</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ customer.product.name|default:"-" }}</dd>
-            </div>
-            <div>
-                <dt class="text-sm text-gray-500">시리얼번호</dt>
-                <dd class="mt-1 text-sm font-mono text-gray-900">{{ customer.serial_number|default:"-" }}</dd>
-            </div>
-            <div>
-                <dt class="text-sm text-gray-500">보증만료일</dt>
-                <dd class="mt-1 text-sm text-gray-900">
-                    {{ customer.warranty_end|date:"Y-m-d"|default:"-" }}
-                    {% if customer.warranty_end %}
-                        {% if customer.is_warranty_valid %}
-                        <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">보증기간내</span>
-                        {% else %}
-                        <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">보증만료</span>
-                        {% endif %}
-                    {% endif %}
-                </dd>
-            </div>
             <div class="md:col-span-2 lg:col-span-3">
                 <dt class="text-sm text-gray-500">주소</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ customer.address|default:"-" }}</dd>
             </div>
-            {% if customer.notes %}
             <div class="md:col-span-2 lg:col-span-3">
                 <dt class="text-sm text-gray-500">비고</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ customer.notes }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ customer.notes|default:"-" }}</dd>
             </div>
-            {% endif %}
+        </div>
+    </div>
+
+    <!-- 구매내역 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-800">구매내역</h2>
+            <a href="{% url 'sales:customer_update' customer.pk %}" class="text-sm text-blue-600 hover:text-blue-800">수정</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">제품</th>
+                        <th class="px-4 py-3">시리얼번호</th>
+                        <th class="px-4 py-3">구매일</th>
+                        <th class="px-4 py-3">보증만료일</th>
+                        <th class="px-4 py-3 text-center">보증상태</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for p in purchases %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-gray-900 font-medium">{{ p.product.name }}</td>
+                        <td class="px-4 py-3 font-mono text-gray-500">{{ p.serial_number|default:"-" }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ p.purchase_date|date:"Y-m-d"|default:"-" }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ p.warranty_end|date:"Y-m-d"|default:"-" }}</td>
+                        <td class="px-4 py-3 text-center">
+                            {% if p.warranty_end %}
+                                {% if p.is_warranty_valid %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">보증기간내</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">보증만료</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-400">구매내역이 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 정품등록 내역 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">정품등록 내역</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">시리얼번호</th>
+                        <th class="px-4 py-3">제품</th>
+                        <th class="px-4 py-3">구매일</th>
+                        <th class="px-4 py-3">보증만료일</th>
+                        <th class="px-4 py-3 text-center">보증상태</th>
+                        <th class="px-4 py-3 text-center">관리</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for reg in registrations %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 font-mono text-gray-900">{{ reg.serial_number }}</td>
+                        <td class="px-4 py-3 text-gray-900 font-medium">{{ reg.product.name }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ reg.purchase_date|date:"Y-m-d" }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ reg.warranty_end|date:"Y-m-d" }}</td>
+                        <td class="px-4 py-3 text-center">
+                            {% if reg.is_warranty_valid %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">보증기간내</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">보증만료</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <a href="{% url 'warranty:registration_update' reg.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-400">정품등록 내역이 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -103,7 +175,7 @@
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ order.get_status_display }}</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ order.total_amount|floatformat:0 }}원</td>
+                        <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ order.total_amount|intcomma }}원</td>
                         <td class="px-4 py-3 text-center">
                             <a href="{% url 'sales:order_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">상세</a>
                         </td>

@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}생산계획 상세 - {{ object.plan_number }} - ERP Suite{% endblock %}
 {% block page_title %}생산계획 상세{% endblock %}
 
 {% block header_actions %}
-<div class="flex flex-wrap items-center space-x-2">
+<div class="flex flex-wrap items-center gap-2">
     <a href="{% url 'production:plan_update' object.pk %}" class="btn btn-primary">수정</a>
     <a href="{% url 'production:plan_list' %}" class="btn btn-secondary">목록</a>
 </div>
@@ -31,7 +32,7 @@
         </div>
         <div>
             <dt class="text-sm font-medium text-gray-500">계획수량</dt>
-            <dd class="mt-1 text-sm text-gray-900 font-medium">{{ object.planned_quantity|floatformat:0 }}</dd>
+            <dd class="mt-1 text-sm text-gray-900 font-medium">{{ object.planned_quantity|intcomma }}</dd>
         </div>
         <div>
             <dt class="text-sm font-medium text-gray-500">상태</dt>
@@ -68,8 +69,62 @@
             <dt class="text-sm font-medium text-gray-500">생산실적</dt>
             <dd class="mt-1 text-sm text-gray-900">{{ object.produced_quantity }} / {{ object.planned_quantity }}</dd>
         </div>
+        <div class="md:col-span-2 lg:col-span-3">
+            <dt class="text-sm font-medium text-gray-500">비고</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ object.notes|default:"-" }}</dd>
+        </div>
     </dl>
 </div>
+
+<!-- 원가 비교 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">원가 분석</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <dt class="text-sm font-medium text-gray-500">계획 원가</dt>
+            <dd class="mt-1 text-lg font-bold text-gray-900">{{ estimated_cost|intcomma }}원</dd>
+            <p class="mt-1 text-xs text-gray-400">BOM 기준 × 계획수량</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <dt class="text-sm font-medium text-gray-500">실제 원가</dt>
+            <dd class="mt-1 text-lg font-bold text-gray-900">{{ actual_cost|intcomma }}원</dd>
+            <p class="mt-1 text-xs text-gray-400">실적 단가 × 생산수량(양품+불량)</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <dt class="text-sm font-medium text-gray-500">원가 차이</dt>
+            <dd class="mt-1 text-lg font-bold {% if cost_diff > 0 %}text-red-600{% elif cost_diff < 0 %}text-blue-600{% else %}text-gray-900{% endif %}">
+                {% if cost_diff > 0 %}+{% endif %}{{ cost_diff|intcomma }}원
+                <span class="text-sm font-medium ml-1">({% if cost_diff > 0 %}+{% endif %}{{ cost_diff_rate }}%)</span>
+            </dd>
+            <p class="mt-1 text-xs text-gray-400">{% if cost_diff > 0 %}초과{% elif cost_diff < 0 %}절감{% else %}동일{% endif %}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <dt class="text-sm font-medium text-gray-500">불량률</dt>
+            <dd class="mt-1 text-lg font-bold {% if defect_rate > 5 %}text-red-600{% elif defect_rate > 0 %}text-yellow-600{% else %}text-green-600{% endif %}">
+                {{ defect_rate }}%
+            </dd>
+            <p class="mt-1 text-xs text-gray-400">양품 {{ total_good|intcomma }} / 불량 {{ total_defect|intcomma }}</p>
+        </div>
+    </div>
+</div>
+
+{% if material_shortages %}
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+    <div class="flex items-start">
+        <svg class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+        </svg>
+        <div class="ml-3">
+            <h3 class="text-sm font-semibold text-amber-800">원자재 부족 경고 (잔여 생산량 기준)</h3>
+            <ul class="mt-1 text-sm text-amber-700 space-y-1">
+                {% for s in material_shortages %}
+                <li>[{{ s.material.code }}] {{ s.material.name }} — 필요 {{ s.required|floatformat:0 }}, 현재고 {{ s.available|floatformat:0 }}, <strong>부족 {{ s.shortage|floatformat:0 }}</strong></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- 연관 작업지시 -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -84,26 +139,26 @@
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b border-gray-200">
-                <tr>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">지시번호</th>
-                    <th class="px-6 py-3 text-right font-semibold text-gray-600">지시수량</th>
-                    <th class="px-6 py-3 text-center font-semibold text-gray-600">상태</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">담당자</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">작업시작</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">작업완료</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">지시번호</th>
+                    <th class="px-4 py-3 text-right">지시수량</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3">담당자</th>
+                    <th class="px-4 py-3">작업시작</th>
+                    <th class="px-4 py-3">작업완료</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for wo in object.work_orders.all %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <a href="{% url 'production:workorder_detail' wo.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">
                             {{ wo.order_number }}
                         </a>
                     </td>
-                    <td class="px-6 py-4 text-right text-gray-700">{{ wo.quantity|floatformat:0 }}</td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-right text-gray-700">{{ wo.quantity|intcomma }}</td>
+                    <td class="px-4 py-3 text-center">
                         {% if wo.status == 'PENDING' %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">대기</span>
                         {% elif wo.status == 'IN_PROGRESS' %}
@@ -114,9 +169,9 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">취소</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-gray-700">{{ wo.assigned_to.name|default:"-" }}</td>
-                    <td class="px-6 py-4 text-gray-500">{{ wo.started_at|date:"Y-m-d H:i"|default:"-" }}</td>
-                    <td class="px-6 py-4 text-gray-500">{{ wo.completed_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ wo.assigned_to.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ wo.started_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ wo.completed_at|date:"Y-m-d H:i"|default:"-" }}</td>
                 </tr>
                 {% empty %}
                 <tr>

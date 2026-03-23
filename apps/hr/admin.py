@@ -1,7 +1,7 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import Department, Position, EmployeeProfile, PersonnelAction
+from .models import Department, Position, EmployeeProfile, PersonnelAction, PayrollConfig, Payroll
 
 
 @admin.register(Department)
@@ -28,4 +28,17 @@ class EmployeeProfileAdmin(SimpleHistoryAdmin):
 class PersonnelActionAdmin(SimpleHistoryAdmin):
     list_display = ('employee', 'action_type', 'effective_date', 'to_department', 'to_position')
     list_filter = ('action_type', 'effective_date')
+    search_fields = ('employee__user__name', 'employee__employee_number')
+
+
+@admin.register(PayrollConfig)
+class PayrollConfigAdmin(SimpleHistoryAdmin):
+    list_display = ('year', 'minimum_wage_hourly', 'national_pension_rate', 'health_insurance_rate', 'is_active')
+    list_filter = ('is_active', 'year')
+
+
+@admin.register(Payroll)
+class PayrollAdmin(SimpleHistoryAdmin):
+    list_display = ('employee', 'year', 'month', 'gross_pay', 'total_deductions', 'net_pay', 'status')
+    list_filter = ('status', 'year', 'month')
     search_fields = ('employee__user__name', 'employee__employee_number')

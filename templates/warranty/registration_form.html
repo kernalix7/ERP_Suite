@@ -4,7 +4,7 @@
 {% block page_title %}정품등록 {{ form.instance.pk|yesno:"수정,등록" }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
@@ -38,4 +38,27 @@
         <button type="submit" class="btn btn-primary">저장</button>
     </div>
 </form>
+
+{% if customer_data_json %}
+{{ customer_data_json|json_script:"customer-data" }}
+<script>
+(function() {
+    const customers = JSON.parse(document.getElementById('customer-data').textContent);
+    const customerSel = document.getElementById('id_customer');
+    const nameInput = document.getElementById('id_customer_name');
+    const phoneInput = document.getElementById('id_phone');
+    const emailInput = document.getElementById('id_email');
+
+    if (!customerSel) return;
+
+    customerSel.addEventListener('change', function() {
+        const data = customers[this.value];
+        if (!data) return;
+        if (nameInput) nameInput.value = data.name;
+        if (phoneInput && !phoneInput.value) phoneInput.value = data.phone;
+        if (emailInput && !emailInput.value) emailInput.value = data.email;
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

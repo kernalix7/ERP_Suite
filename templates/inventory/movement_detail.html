@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}{{ movement.movement_number }} - 입출고 상세 - ERP Suite{% endblock %}
 {% block page_title %}입출고 상세{% endblock %}
@@ -16,7 +17,7 @@
         <div class="flex items-start justify-between mb-6 pb-6 border-b border-gray-200">
             <div>
                 <h2 class="text-xl font-bold text-gray-900 font-mono">{{ movement.movement_number }}</h2>
-                <p class="text-sm text-gray-500 mt-1">{{ movement.date|date:"Y년 m월 d일" }}</p>
+                <p class="text-sm text-gray-500 mt-1">{{ movement.movement_date|date:"Y년 m월 d일" }}</p>
             </div>
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
                 {% if movement.movement_type == 'IN' %}bg-green-100 text-green-800
@@ -51,17 +52,27 @@
                 </p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">단가</p>
+                <p class="text-sm font-medium text-gray-900">{{ movement.unit_price|intcomma }} 원</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">금액</p>
+                <p class="text-sm font-medium text-gray-900">{{ movement.total_amount|intcomma }} 원</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">참조</p>
+                <p class="text-sm font-medium text-gray-900">{{ movement.reference|default:"-" }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">처리자</p>
                 <p class="text-sm font-medium text-gray-900">{{ movement.created_by|default:"-" }}</p>
             </div>
         </div>
 
-        {% if movement.note %}
-        <div class="mt-6 pt-6 border-t border-gray-200">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">비고</p>
-            <p class="text-sm text-gray-700">{{ movement.note }}</p>
+        <div class="md:col-span-2 lg:col-span-3">
+            <dt class="text-sm text-gray-500">비고</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ movement.notes|default:"-" }}</dd>
         </div>
-        {% endif %}
 
         <div class="mt-6 pt-6 border-t border-gray-200 text-xs text-gray-400">
             <p>등록일시: {{ movement.created_at|date:"Y-m-d H:i" }}</p>

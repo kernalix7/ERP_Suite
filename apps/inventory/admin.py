@@ -1,7 +1,7 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import Category, Product, Warehouse, StockMovement, StockTransfer
+from .models import Category, Product, Warehouse, StockMovement, StockTransfer, StockLot
 
 
 @admin.register(Category)
@@ -33,3 +33,15 @@ class StockMovementAdmin(SimpleHistoryAdmin):
 class StockTransferAdmin(SimpleHistoryAdmin):
     list_display = ('transfer_number', 'product', 'from_warehouse', 'to_warehouse', 'quantity', 'transfer_date')
     list_filter = ('from_warehouse', 'to_warehouse')
+
+
+@admin.register(StockLot)
+class StockLotAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'lot_number', 'product', 'warehouse',
+        'initial_quantity', 'remaining_quantity',
+        'unit_cost', 'received_date', 'expiry_date',
+    )
+    list_filter = ('warehouse', 'received_date', 'is_active')
+    search_fields = ('lot_number', 'product__name', 'product__code')
+    raw_id_fields = ('product', 'warehouse', 'stock_movement')

@@ -96,6 +96,11 @@
         <p class="text-sm font-medium text-red-800">{{ employee.resignation_date|date:"Y-m-d" }}</p>
     </div>
     {% endif %}
+
+    <div class="mt-4 bg-gray-50 rounded-lg p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "비고" %}</p>
+        <p class="text-sm font-medium text-gray-900">{{ employee.notes|default:"-" }}</p>
+    </div>
 </div>
 
 <!-- 인사발령 이력 -->

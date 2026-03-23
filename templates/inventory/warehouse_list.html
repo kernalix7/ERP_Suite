@@ -10,37 +10,43 @@
     </svg>
     등록
 </a>
+<a href="{% url 'inventory:warehouse_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
+</a>
 {% endblock %}
 
 {% block content %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-3 font-semibold">창고코드</th>
-                    <th class="px-6 py-3 font-semibold">창고명</th>
-                    <th class="px-6 py-3 font-semibold">위치</th>
-                    <th class="px-6 py-3 font-semibold">담당자</th>
-                    <th class="px-6 py-3 font-semibold text-center">상태</th>
-                    <th class="px-6 py-3 font-semibold text-center">관리</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">창고코드</th>
+                    <th class="px-4 py-3">창고명</th>
+                    <th class="px-4 py-3">위치</th>
+                    <th class="px-4 py-3">담당자</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3 text-center">관리</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for warehouse in warehouses %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 font-mono text-blue-600 font-medium">{{ warehouse.code }}</td>
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ warehouse.name }}</td>
-                    <td class="px-6 py-4 text-gray-600">{{ warehouse.location|default:"-" }}</td>
-                    <td class="px-6 py-4 text-gray-600">{{ warehouse.manager|default:"-" }}</td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 font-mono text-blue-600 font-medium">{{ warehouse.code }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ warehouse.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ warehouse.location|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ warehouse.manager|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
                         {% if warehouse.is_active %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">사용중</span>
                         {% else %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">미사용</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
                             <a href="{% url 'inventory:warehouse_update' warehouse.pk %}"
                                class="text-blue-600 hover:text-blue-800 text-xs font-medium">수정</a>

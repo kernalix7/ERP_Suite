@@ -1,8 +1,8 @@
-import json
-
+from apps.core.import_views import BaseImportView
 from apps.core.mixins import ManagerRequiredMixin
-from django.db.models import Sum
+from django.db.models import Sum, Prefetch
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
 
 from .models import Investor, InvestmentRound, Investment, EquityChange, Distribution
@@ -32,7 +32,16 @@ class InvestmentDashboardView(ManagerRequiredMixin, TemplateView):
         ctx['latest_round'] = latest_round
 
         # 지분 현황 (파이차트용)
-        investors = Investor.objects.filter(is_active=True)
+        investors = Investor.objects.filter(is_active=True).prefetch_related(
+            Prefetch(
+                'equity_changes',
+                queryset=EquityChange.objects.order_by('-change_date', '-pk'),
+            ),
+            Prefetch(
+                'investments',
+                queryset=Investment.objects.order_by('-investment_date'),
+            ),
+        )
         equity_data = []
         total_share = 0
         for inv in investors:
@@ -43,7 +52,7 @@ class InvestmentDashboardView(ManagerRequiredMixin, TemplateView):
         # 잔여 지분 (대표/창업자)
         if total_share < 100:
             equity_data.insert(0, {'name': '대표/창업자', 'share': round(100 - total_share, 3)})
-        ctx['equity_json'] = json.dumps(equity_data, ensure_ascii=False)
+        ctx['equity_json'] = equity_data
 
         # 예정된 배당
         ctx['upcoming_distributions'] = Distribution.objects.filter(
@@ -161,7 +170,17 @@ class EquityOverviewView(ManagerRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        investors = Investor.objects.filter(is_active=True)
+        investors = Investor.objects.filter(is_active=True).prefetch_related(
+            Prefetch(
+                'equity_changes',
+                queryset=EquityChange.objects.order_by('-change_date', '-pk'),
+            ),
+            Prefetch(
+                'investments',
+                queryset=Investment.objects.order_by('-investment_date'),
+            ),
+            'distributions',
+        )
         equity_data = []
         total_share = 0
         for inv in investors:
@@ -181,7 +200,7 @@ class EquityOverviewView(ManagerRequiredMixin, TemplateView):
 
         chart_data = [{'name': '대표/창업자', 'share': founder_share}] if founder_share > 0 else []
         chart_data += [{'name': d['name'], 'share': d['share']} for d in equity_data if d['share'] > 0]
-        ctx['chart_json'] = json.dumps(chart_data, ensure_ascii=False)
+        ctx['chart_json'] = chart_data
 
         ctx['equity_changes'] = EquityChange.objects.select_related('investor', 'related_round')[:20]
         return ctx
@@ -195,7 +214,9 @@ class DistributionListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(is_active=True)
+        qs = super().get_queryset().filter(
+            is_active=True,
+        ).select_related('investor')
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
@@ -228,3 +249,38 @@ class DistributionUpdateView(ManagerRequiredMixin, UpdateView):
     form_class = DistributionForm
     template_name = 'investment/distribution_form.html'
     success_url = reverse_lazy('investment:distribution_list')
+
+
+# === 일괄 가져오기 ===
+
+class InvestorImportView(BaseImportView):
+    resource_class = None
+    page_title = '투자자 일괄 가져오기'
+    cancel_url = reverse_lazy('investment:investor_list')
+    sample_url = reverse_lazy('investment:investor_import_sample')
+    field_hints = [
+        '투자자명(name)이 동일하면 기존 투자자가 수정됩니다.',
+    ]
+
+    def get_resource(self):
+        from .resources import InvestorResource
+        return InvestorResource()
+
+
+class InvestorImportSampleView(ManagerRequiredMixin, View):
+    def get(self, request):
+        from apps.core.excel import export_to_excel
+        headers = [
+            ('name', 20), ('company', 25), ('contact_person', 15),
+            ('phone', 15), ('email', 25), ('address', 30),
+            ('registration_date', 12),
+        ]
+        rows = [
+            ['홍길동', '투자사A', '김담당', '010-1234-5678',
+             'hong@invest.com', '서울시 강남구', '2026-01-01'],
+        ]
+        return export_to_excel(
+            '투자자_가져오기_양식', headers, rows,
+            filename='투자자_가져오기_양식.xlsx',
+            required_columns=[0, 6],  # name, registration_date
+        )

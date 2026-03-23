@@ -16,41 +16,47 @@
     </svg>
     Excel
 </a>
+<a href="{% url 'production:bom_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
+</a>
 {% endblock %}
 
 {% block content %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b border-gray-200">
-                <tr>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">완제품</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">버전</th>
-                    <th class="px-6 py-3 text-center font-semibold text-gray-600">기본BOM</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">등록일</th>
-                    <th class="px-6 py-3 text-center font-semibold text-gray-600">항목수</th>
-                    <th class="px-6 py-3 text-right font-semibold text-gray-600">관리</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">완제품</th>
+                    <th class="px-4 py-3">버전</th>
+                    <th class="px-4 py-3 text-center">기본BOM</th>
+                    <th class="px-4 py-3">등록일</th>
+                    <th class="px-4 py-3 text-center">항목수</th>
+                    <th class="px-4 py-3 text-right">관리</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for bom in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <a href="{% url 'production:bom_detail' bom.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">
                             {{ bom.product.name }}
                         </a>
                     </td>
-                    <td class="px-6 py-4 text-gray-700">{{ bom.version }}</td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-gray-700">{{ bom.version }}</td>
+                    <td class="px-4 py-3 text-center">
                         {% if bom.is_default %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">기본</span>
                         {% else %}
                         <span class="text-gray-400">-</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-gray-500">{{ bom.created_at|date:"Y-m-d" }}</td>
-                    <td class="px-6 py-4 text-center text-gray-700">{{ bom.items.count }}개</td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-4 py-3 text-gray-500">{{ bom.created_at|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-center text-gray-700">{{ bom.items.count }}개</td>
+                    <td class="px-4 py-3 text-right">
                         <a href="{% url 'production:bom_update' bom.pk %}" class="text-gray-500 hover:text-blue-600">
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>

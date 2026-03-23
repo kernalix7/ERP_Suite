@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -103,6 +104,22 @@ class Investment(BaseModel):
 
     def __str__(self):
         return f'{self.investor.name} - {self.round.name} ({self.amount:,}원)'
+
+    def clean(self):
+        super().clean()
+        # 기존 투자자 지분합 + 현재 share_percentage가 100%를 초과하면 에러
+        existing_qs = Investment.objects.filter(is_active=True)
+        if self.pk:
+            existing_qs = existing_qs.exclude(pk=self.pk)
+        total_existing = existing_qs.aggregate(
+            total=models.Sum('share_percentage')
+        )['total'] or 0
+        if total_existing + (self.share_percentage or 0) > 100:
+            raise ValidationError(
+                f'투자 지분율 합계가 100%를 초과합니다. '
+                f'현재 기존 지분합: {total_existing}%, '
+                f'입력 지분율: {self.share_percentage}%'
+            )
 
 
 class EquityChange(BaseModel):

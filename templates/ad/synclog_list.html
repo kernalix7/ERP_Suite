@@ -12,25 +12,25 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "도메인" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "유형" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "생성" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "수정" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "비활성" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "OU" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "그룹" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "오류" %}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "시작" %}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "실행자" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "도메인" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "유형" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "생성" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "수정" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "비활성" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "OU" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "그룹" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "오류" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "시작" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "실행자" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     {% for log in logs %}
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-3 text-sm font-medium">{{ log.domain.name }}</td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.get_sync_type_display }}</td>
-                        <td class="px-6 py-3 text-center">
+                        <td class="px-4 py-3 text-sm font-medium">{{ log.domain.name }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.get_sync_type_display }}</td>
+                        <td class="px-4 py-3 text-center">
                             {% if log.status == 'SUCCESS' %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ log.get_status_display }}</span>
                             {% elif log.status == 'FAILED' %}
@@ -41,14 +41,14 @@
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ log.get_status_display }}</span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.users_created }}</td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.users_updated }}</td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.users_disabled }}</td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.ous_synced }}</td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.groups_synced }}</td>
-                        <td class="px-6 py-3 text-center text-sm {% if log.errors_count > 0 %}text-red-600 font-bold{% endif %}">{{ log.errors_count }}</td>
-                        <td class="px-6 py-3 text-sm text-gray-400">{{ log.started_at|date:"Y-m-d H:i" }}</td>
-                        <td class="px-6 py-3 text-sm text-gray-500">{{ log.triggered_by|default:"-" }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.users_created }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.users_updated }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.users_disabled }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.ous_synced }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.groups_synced }}</td>
+                        <td class="px-4 py-3 text-center text-sm {% if log.errors_count > 0 %}text-red-600 font-bold{% endif %}">{{ log.errors_count }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-400">{{ log.started_at|date:"Y-m-d H:i" }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">{{ log.triggered_by|default:"-" }}</td>
                     </tr>
                     {% empty %}
                     <tr><td colspan="11" class="px-6 py-8 text-center text-gray-400">{% trans "동기화 이력이 없습니다." %}</td></tr>
@@ -59,7 +59,7 @@
     </div>
 
     {% if is_paginated %}
-    <div class="flex justify-center space-x-2">
+    <div class="flex justify-center gap-2">
         {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary">&laquo;</a>{% endif %}
         <span class="btn btn-primary">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
         {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary">&raquo;</a>{% endif %}

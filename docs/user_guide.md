@@ -63,6 +63,25 @@ This is the first screen you see after logging in.
 - Check the current stock and safety stock status for all products under **Inventory Management > Stock Status**.
 - Products below safety stock levels are highlighted in red.
 
+### Barcode Scan
+- Scan product barcodes for quick lookup under **Inventory Management > Barcode Scan**.
+
+### Warehouse Stock
+- View stock quantities broken down by warehouse under **Inventory Management > Warehouse Stock**.
+
+### Stock Count (Physical Inventory)
+- Conduct periodic physical inventory checks under **Inventory Management > Stock Count**.
+- Compare system stock vs. actual stock and record differences.
+- Apply adjustments to reconcile discrepancies.
+
+### Inventory Valuation
+- View inventory valuation using FIFO, LIFO, or weighted average methods under **Inventory Management > Inventory Valuation**.
+- Products can be configured with different valuation methods (AVG / FIFO / LIFO).
+
+### Stock Reservation
+- Products have a reserved stock field. Available stock = Current Stock - Reserved Stock.
+- Safety stock and lead time tracking are built in.
+
 ## 4. Production Management
 
 ### BOM (Bill of Materials) Registration
@@ -84,6 +103,21 @@ This is the first screen you see after logging in.
    - The finished product is automatically registered as stock in.
    - Raw materials are automatically registered as stock out according to the BOM.
 
+### Quality Inspection
+- Record inspection results for production and incoming goods under **Production Management > Quality Inspection**.
+- Track pass/fail quantities and corrective actions.
+
+### MRP (Material Requirements Planning)
+- Analyze material availability based on BOM under **Production Management > MRP**.
+- Identify material shortages before starting production.
+
+### Standard Cost
+- Define standard costs (material + labor + overhead) per product under **Production Management > Standard Cost**.
+- Automatically calculates labor cost and overhead based on rates.
+
+### Cost Variance Analysis
+- Compare standard cost vs. actual cost under **Production Management > Cost Variance Analysis**.
+
 ## 5. Sales Management
 
 ### Partner Registration
@@ -99,10 +133,24 @@ This is the first screen you see after logging in.
 3. VAT (10%) is automatically calculated.
 4. Upon order confirmation, stock out is automatically linked.
 
+### Quotation
+- Create quotations and convert them to orders with one click under **Sales Management > Quotations**.
+- Quotation items are automatically copied to the order upon conversion.
+
 ### Commission Management
-- Set commission rates per partner under **Sales Management > Commission Rates**.
-- View generated commissions under **Sales Management > Commission Details**.
-- Review settlement status by partner under **Sales Management > Settlement Summary**.
+- Set commission rates per partner under **Sales Management > Commission Management**.
+- Supports percentage-based and fixed-amount commission types.
+
+### Partner Analysis
+- View partner-level analytics under **Sales Management > Partner Analysis**.
+
+### Shipping Carrier Management
+- Register shipping carriers and tracking URL templates under **Sales Management > Carrier Management**.
+
+### Shipment Tracking
+- Create and track shipments under **Device Management > Shipment Tracking**.
+- Supports partial shipments with per-item tracking.
+- Automatic tracking URL generation per carrier (CJ, Hanjin, Lotte, Logen, Korea Post).
 
 ## 6. After-Sales Service (AS) Management
 
@@ -142,6 +190,45 @@ This is the first screen you see after logging in.
 ### Withholding Tax
 - Manage withholding tax records under **Accounting Management > Withholding Tax**.
 
+### Account Ledger & Trial Balance
+- View account-level ledgers under **Accounting Management > Account Ledger**.
+- View the trial balance under **Accounting Management > Trial Balance**.
+
+### Budget Management
+- Set monthly budgets per account code under **Accounting Management > Budget Management**.
+- Compare budgets vs. actuals under **Accounting Management > Budget Report**.
+
+### Closing Period
+- Manage monthly accounting closings under **Accounting Management > Closing Period**.
+
+### Bank Reconciliation
+- Reconcile bank transactions under **Accounting Management > Bank Reconciliation**.
+
+### Bank Accounts & Transfers
+- Manage payment accounts under **Accounting Management > Bank Accounts**.
+- View account balance dashboard under **Accounting Management > Account Status**.
+- Record inter-account transfers under **Accounting Management > Account Transfer**.
+
+### Accounts Receivable / Payable
+- Track receivables under **Accounting Management > Accounts Receivable**.
+- Track payables under **Accounting Management > Accounts Payable**.
+- View aging analysis under **Accounting Management > AR Aging** and **AP Aging**.
+
+### Cost Settlement & Sales Settlement
+- Run periodic cost settlements under **Accounting Management > Cost Settlement**.
+- Manage order-level sales settlements under **Accounting Management > Sales Settlement**.
+
+### Multi-Currency
+- Manage currencies under **Accounting Management > Currency Management**.
+- Track exchange rates under **Accounting Management > Exchange Rate Management**.
+- Orders and purchase orders can specify currency and exchange rate.
+
+### Tax Rate Management
+- Manage tax rates under **Accounting Management > Tax Rates**.
+
+### Account Codes
+- Manage chart of accounts (asset/liability/equity/revenue/expense) under **Accounting Management > Account Codes**.
+
 ## 8. Investment Management
 
 ### Investor Registration
@@ -156,7 +243,66 @@ This is the first screen you see after logging in.
 ### Dividends / Distributions
 - Record dividends and profit distributions under **Investment Management > Dividends / Distributions**.
 
-## 9. Smart Store Integration
+## 9. Fixed Asset Management
+
+### Asset Registration
+- Register fixed assets under **Fixed Assets > Asset List**.
+- Track acquisition cost, residual value, useful life, and depreciation method (straight-line or declining balance).
+
+### Depreciation
+- Run monthly depreciation under **Fixed Assets > Run Depreciation**.
+- View accumulated depreciation and book value per asset.
+
+### Asset Summary
+- View asset summary statistics under **Fixed Assets > Asset Summary**.
+
+### Asset Categories
+- Manage asset classifications under **Fixed Assets > Asset Categories**.
+
+## 10. Advertising Management
+
+### Campaigns
+- Manage ad campaigns across platforms under **Advertising > Campaigns**.
+- Track budget, spending, and status per campaign.
+
+### Ad Creatives
+- Manage ad creatives (image, video, text, carousel) under **Advertising > Creatives**.
+
+### Performance Analysis
+- View impressions, clicks, conversions, CTR, CPC, and ROAS under **Advertising > Performance Analysis**.
+
+### Ad Budget
+- Plan and track monthly advertising budgets per platform under **Advertising > Ad Budget**.
+
+## 11. Approval / Request Workflow
+
+### Approval Requests
+- Create approval requests under **Approval** in the sidebar.
+- Supports multiple document categories: Purchase, Expense, Budget, Contract, General, Leave, Overtime, Travel, IT Request.
+- Multi-step approval chain with per-step approver and comments.
+- Attach files to approval requests.
+
+## 12. HR / Payroll
+
+### Organization
+- View the org chart under **HR/Attendance > Org Chart**.
+- Manage departments and positions.
+
+### Employee Management
+- Manage employee profiles (hire date, contract type, status, salary) under **HR/Attendance > Employees**.
+- Track personnel actions (hire, promotion, transfer, resignation) under **HR/Attendance > Personnel Actions**.
+
+### Payroll
+- Generate monthly payroll under **HR/Attendance > Payroll Management**.
+- Automatic calculation of 4 major insurance deductions and taxes.
+- Configure yearly payroll parameters under **HR/Attendance > Payroll Config**.
+
+### Attendance
+- Clock in/out under **HR/Attendance > Attendance Records**.
+- Submit and approve leave requests under **HR/Attendance > Leave**.
+- View attendance dashboard under **HR/Attendance > Attendance Status**.
+
+## 13. Smart Store Integration
 
 ### Configuration
 1. Enter Naver API authentication credentials under **Smart Store > Store Settings**.
@@ -166,7 +312,7 @@ This is the first screen you see after logging in.
 - View synchronized order lists under **Smart Store > Store Orders**.
 - Check synchronization execution history under **Smart Store > Sync History**.
 
-## 10. Inquiry Management
+## 14. Inquiry Management
 
 ### Inquiry Registration / Management
 1. Register inquiries by channel (Smart Store / Instagram / KakaoTalk) under **Inquiry Management > Inquiry List**.
@@ -176,13 +322,51 @@ This is the first screen you see after logging in.
 ### Reply Templates
 - Register frequently used reply templates under **Inquiry Management > Reply Templates**.
 
-## 11. Product Authentication
+## 15. Product Authentication
 
 - Manage serial number-based product authentication under the **Product Authentication** menu.
 - Warranty start and expiration dates are automatically calculated.
 - You can look up product authenticity by serial number.
 
-## 12. Excel Download
+## 16. Groupware
+
+### Board
+- Post notices and general messages under the **Board** menu.
+- Supports threaded comments and pinned posts.
+
+### Calendar
+- Manage personal, team, company, and meeting events under the **Calendar** menu.
+- Integrated with FullCalendar.js.
+
+### Messenger
+- Real-time 1:1 and group chat under the **Messenger** menu.
+- Supports text, file, and image messages via WebSocket.
+
+### Audit Trail (Auditor Only)
+- View the audit dashboard, access logs, data change history, login/security events, and audit access records under the **Audit Trail** menu.
+- Requires auditor permission (`is_auditor`).
+
+## 17. System Administration (Admin Only)
+
+### User Management
+- Manage user accounts and roles under **System Administration > User Management**.
+
+### Data Guide
+- View system data overview under **System Administration > Data Guide**.
+
+### Backup / Restore
+- Create and restore database backups under **System Administration > Backup / Restore**.
+
+### Trash
+- View and restore soft-deleted items under **System Administration > Trash**.
+
+### Attachments
+- Manage evidence/document attachments under **System Administration > Attachments**.
+
+### AD Integration
+- Configure Active Directory domains, groups, user mappings, and sync policies under **System Administration > AD Integration**.
+
+## 18. Excel Download
 
 Excel download functionality is available on each list page.
 
@@ -190,17 +374,6 @@ Excel download functionality is available on each list page.
 2. Click the **Excel Download** button.
 3. A styled `.xlsx` file will be downloaded.
 
-## 13. Backup / Restore
+## 19. Backup / Restore
 
-> Administrator (admin) privileges are required.
-
-### Backup
-1. Click **System Management > Backup / Restore** in the sidebar.
-2. Click the **Create Backup** button.
-3. Download the generated backup file.
-
-### Restore
-1. Upload a backup file on the **Backup / Restore** page.
-2. Click the **Restore** button.
-
-> **Warning:** During restoration, current data will be replaced with data from the backup point in time. Be sure to back up your current data before restoring.
+> Administrator (admin) privileges are required. See also "System Administration" above.

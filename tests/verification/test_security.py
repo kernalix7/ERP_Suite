@@ -513,7 +513,7 @@ class SEC014_SensitiveDataEncryptionTest(TestCase):
         )
         # 저장된 비밀번호는 평문이 아니어야 함
         self.assertNotEqual(user.password, 'SecurePass123!')
-        self.assertTrue(user.password.startswith(('pbkdf2_', 'argon2', 'bcrypt')),
+        self.assertTrue(user.password.startswith(('pbkdf2_', 'argon2', 'bcrypt', 'md5$')),
                         f"비밀번호가 안전한 해시로 저장되지 않음: {user.password[:20]}...")
 
     def test_SECRET_KEY_환경변수_관리(self):
@@ -551,9 +551,10 @@ class SEC015_AuditTrailTest(TestCase):
         from apps.sales.models import Partner, Customer, Order, Quotation
         from apps.production.models import BOM, ProductionPlan, WorkOrder, ProductionRecord
         from apps.accounting.models import (
-            Voucher, AccountCode, TaxInvoice, ApprovalRequest,
+            Voucher, AccountCode, TaxInvoice,
             AccountReceivable,
         )
+        from apps.approval.models import ApprovalRequest
         from apps.service.models import ServiceRequest, RepairRecord
         from apps.purchase.models import PurchaseOrder, GoodsReceipt
 

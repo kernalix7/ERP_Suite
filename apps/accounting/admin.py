@@ -2,9 +2,22 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
 from .models import (
+    Currency, ExchangeRate,
     TaxRate, TaxInvoice, FixedCost, WithholdingTax, AccountCode, Voucher, VoucherLine,
-    ApprovalRequest, ApprovalStep, AccountReceivable, AccountPayable, Payment,
+    AccountReceivable, AccountPayable, Payment, BankAccount,
+    AccountTransfer, PaymentDistribution,
 )
+
+
+@admin.register(Currency)
+class CurrencyAdmin(SimpleHistoryAdmin):
+    list_display = ('code', 'name', 'symbol', 'decimal_places', 'is_base')
+
+
+@admin.register(ExchangeRate)
+class ExchangeRateAdmin(SimpleHistoryAdmin):
+    list_display = ('currency', 'rate_date', 'rate')
+    list_filter = ('currency',)
 
 
 @admin.register(TaxRate)
@@ -48,29 +61,6 @@ class VoucherAdmin(SimpleHistoryAdmin):
     inlines = [VoucherLineInline]
 
 
-class ApprovalStepInline(admin.TabularInline):
-    model = ApprovalStep
-    extra = 1
-
-
-@admin.register(ApprovalRequest)
-class ApprovalRequestAdmin(SimpleHistoryAdmin):
-    list_display = (
-        'request_number', 'category', 'title',
-        'requester', 'approver', 'status', 'current_step',
-    )
-    list_filter = ('status', 'category')
-    inlines = [ApprovalStepInline]
-
-
-@admin.register(ApprovalStep)
-class ApprovalStepAdmin(SimpleHistoryAdmin):
-    list_display = (
-        'request', 'step_order', 'approver', 'status', 'acted_at',
-    )
-    list_filter = ('status',)
-
-
 @admin.register(AccountReceivable)
 class AccountReceivableAdmin(SimpleHistoryAdmin):
     list_display = (
@@ -89,10 +79,32 @@ class AccountPayableAdmin(SimpleHistoryAdmin):
     list_filter = ('status',)
 
 
+@admin.register(BankAccount)
+class BankAccountAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'name', 'account_type', 'owner', 'bank',
+        'account_number', 'balance', 'is_default',
+    )
+    list_filter = ('account_type',)
+
+
 @admin.register(Payment)
 class PaymentAdmin(SimpleHistoryAdmin):
     list_display = (
         'payment_number', 'payment_type', 'partner',
-        'amount', 'payment_date', 'payment_method',
+        'bank_account', 'amount', 'payment_date', 'payment_method',
     )
-    list_filter = ('payment_type', 'payment_method')
+    list_filter = ('payment_type', 'payment_method', 'bank_account')
+
+
+@admin.register(AccountTransfer)
+class AccountTransferAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'transfer_number', 'from_account', 'to_account',
+        'amount', 'transfer_date',
+    )
+
+
+@admin.register(PaymentDistribution)
+class PaymentDistributionAdmin(SimpleHistoryAdmin):
+    list_display = ('payment', 'bank_account', 'amount')

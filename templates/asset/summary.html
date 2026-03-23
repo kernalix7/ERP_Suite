@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}자산 현황 - ERP Suite{% endblock %}
+{% block page_title %}자산 현황 요약{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:asset_list' %}" class="btn btn-secondary">자산 목록</a>
+<a href="{% url 'asset:depreciation_run' %}" class="btn btn-primary">감가상각 실행</a>
+{% endblock %}
+
+{% block content %}
+<!-- 상태별 카드 -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">사용중</p>
+                <p class="mt-1 text-2xl font-bold text-green-600">{{ active_count }}건</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">처분</p>
+                <p class="mt-1 text-2xl font-bold text-yellow-600">{{ disposed_count }}건</p>
+            </div>
+            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">폐기</p>
+                <p class="mt-1 text-2xl font-bold text-red-600">{{ scrapped_count }}건</p>
+            </div>
+            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 금액 합계 카드 -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <p class="text-sm font-medium text-gray-500">총 취득원가</p>
+        <p class="mt-1 text-2xl font-bold text-gray-900">{{ total_acquisition|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <p class="text-sm font-medium text-gray-500">총 감가상각 누계액</p>
+        <p class="mt-1 text-2xl font-bold text-red-600">{{ total_accumulated|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <p class="text-sm font-medium text-gray-500">총 장부가액</p>
+        <p class="mt-1 text-2xl font-bold text-blue-600">{{ total_book_value|intcomma }}원</p>
+    </div>
+</div>
+
+<!-- 분류별 현황 테이블 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">분류별 현황 (사용중 자산 기준)</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">분류</th>
+                    <th class="px-4 py-3 text-center">자산수</th>
+                    <th class="px-4 py-3 text-right">취득원가</th>
+                    <th class="px-4 py-3 text-right">감가상각 누계액</th>
+                    <th class="px-4 py-3 text-right">장부가액</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for item in summary_data %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ item.category.name }}</td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ item.count }}건</td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ item.acquisition_cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-red-600">{{ item.accumulated_depreciation|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-medium text-blue-600">{{ item.book_value|intcomma }}원</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-12 text-center text-gray-400">자산 현황이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if summary_data %}
+            <tfoot>
+                <tr class="bg-gray-50 font-semibold">
+                    <td class="px-4 py-3 text-gray-900" colspan="2">합계</td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ total_acquisition|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-red-600">{{ total_accumulated|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-blue-600">{{ total_book_value|intcomma }}원</td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

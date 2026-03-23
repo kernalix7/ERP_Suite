@@ -24,13 +24,13 @@
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-4 py-4 font-semibold sticky left-0 bg-gray-50 z-10">구분</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3 sticky left-0 bg-gray-50 z-10">구분</th>
                     {% for m in monthly_data %}
-                    <th class="px-4 py-4 font-semibold text-right whitespace-nowrap">{{ m.month }}월</th>
+                    <th class="px-4 py-3 text-right whitespace-nowrap">{{ m.month }}월</th>
                     {% endfor %}
-                    <th class="px-4 py-4 font-semibold text-right bg-blue-50 text-blue-800">연간합계</th>
+                    <th class="px-4 py-3 text-right bg-blue-50 text-blue-800">연간합계</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -93,9 +93,9 @@
     <canvas id="plChart" height="350"></canvas>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{{ monthly_json|json_script:"monthly-data" }}
 <script>
-    const monthlyJson = {{ monthly_json|safe }};
+    const monthlyJson = JSON.parse(document.getElementById('monthly-data').textContent);
 
     const labels = monthlyJson.map(item => item.month + '월');
     const revenueData = monthlyJson.map(item => item.revenue);

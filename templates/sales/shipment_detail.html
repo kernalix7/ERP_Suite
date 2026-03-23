@@ -4,7 +4,11 @@
 {% block page_title %}{% trans "배송" %} {{ shipment.shipment_number }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'sales:shipment_update' shipment.pk %}" class="btn btn-secondary text-xs">수정</a>
+<div class="flex flex-wrap items-center gap-2">
+    <a href="{% url 'sales:shipment_update' shipment.pk %}" class="btn btn-primary">수정</a>
+    <a href="{% url 'sales:shipment_delete' shipment.pk %}" class="btn btn-danger">삭제</a>
+    <a href="{% url 'sales:shipment_list' %}" class="btn btn-secondary">목록</a>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -13,7 +17,8 @@
         <h3 class="text-sm font-semibold text-gray-500 mb-3">배송 정보</h3>
         <dl class="space-y-2 text-sm">
             <div class="flex"><dt class="w-28 text-gray-500">배송번호</dt><dd class="font-medium">{{ shipment.shipment_number }}</dd></div>
-            <div class="flex"><dt class="w-28 text-gray-500">택배사</dt><dd>{{ shipment.get_carrier_display }}</dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">배송유형</dt><dd>{{ shipment.get_shipping_type_display }}</dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">택배사</dt><dd>{{ shipment.get_carrier_display|default:"-" }}</dd></div>
             <div class="flex"><dt class="w-28 text-gray-500">운송장번호</dt>
                 <dd>{% if shipment.tracking_url %}<a href="{{ shipment.tracking_url }}" target="_blank" class="text-blue-600 hover:underline">{{ shipment.tracking_number }} ↗</a>{% else %}{{ shipment.tracking_number|default:"-" }}{% endif %}</dd>
             </div>
@@ -24,6 +29,7 @@
             </div>
             <div class="flex"><dt class="w-28 text-gray-500">발송일</dt><dd>{{ shipment.shipped_date|default:"-" }}</dd></div>
             <div class="flex"><dt class="w-28 text-gray-500">도착일</dt><dd>{{ shipment.delivered_date|default:"-" }}</dd></div>
+            <div class="flex"><dt class="w-28 text-gray-500">비고</dt><dd>{{ shipment.notes|default:"-" }}</dd></div>
         </dl>
     </div>
     <div class="bg-white shadow-sm rounded-xl p-5">
@@ -35,5 +41,31 @@
             <div class="flex"><dt class="w-28 text-gray-500">배송주소</dt><dd>{{ shipment.receiver_address|default:"-" }}</dd></div>
         </dl>
     </div>
+</div>
+
+<!-- 배송 추적 이력 -->
+<div class="mt-6 bg-white shadow-sm rounded-xl p-5">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-500">배송 추적 이력</h3>
+        <a href="{% url 'sales:shipment_tracking' shipment.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">상세 조회</a>
+    </div>
+    {% if shipment.tracking_history.all %}
+    <div class="space-y-3">
+        {% for tracking in shipment.tracking_history.all|slice:":5" %}
+        <div class="flex items-start gap-3 text-sm border-l-2 border-blue-200 pl-3">
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <span class="font-medium text-gray-900">{{ tracking.status }}</span>
+                    {% if tracking.location %}<span class="text-gray-500">- {{ tracking.location }}</span>{% endif %}
+                </div>
+                {% if tracking.description %}<p class="text-gray-500 text-xs mt-0.5">{{ tracking.description }}</p>{% endif %}
+            </div>
+            <span class="text-xs text-gray-400 whitespace-nowrap">{{ tracking.tracked_at|date:"m/d H:i" }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-gray-400 text-sm">추적 이력이 없습니다.</p>
+    {% endif %}
 </div>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}생산계획 - ERP Suite{% endblock %}
 {% block page_title %}생산계획{% endblock %}
@@ -56,28 +57,28 @@
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b border-gray-200">
-                <tr>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">계획번호</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">생산제품</th>
-                    <th class="px-6 py-3 text-right font-semibold text-gray-600">계획수량</th>
-                    <th class="px-6 py-3 text-center font-semibold text-gray-600">상태</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">기간</th>
-                    <th class="px-6 py-3 text-center font-semibold text-gray-600">진행률</th>
-                    <th class="px-6 py-3 text-right font-semibold text-gray-600">관리</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">계획번호</th>
+                    <th class="px-4 py-3">생산제품</th>
+                    <th class="px-4 py-3 text-right">계획수량</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3">기간</th>
+                    <th class="px-4 py-3 text-center">진행률</th>
+                    <th class="px-4 py-3 text-right">관리</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for plan in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <a href="{% url 'production:plan_detail' plan.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">
                             {{ plan.plan_number }}
                         </a>
                     </td>
-                    <td class="px-6 py-4 text-gray-900">{{ plan.product.name }}</td>
-                    <td class="px-6 py-4 text-right text-gray-700">{{ plan.planned_quantity|floatformat:0 }}</td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-gray-900">{{ plan.product.name }}</td>
+                    <td class="px-4 py-3 text-right text-gray-700">{{ plan.planned_quantity|intcomma }}</td>
+                    <td class="px-4 py-3 text-center">
                         {% if plan.status == 'DRAFT' %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">작성중</span>
                         {% elif plan.status == 'CONFIRMED' %}
@@ -90,10 +91,10 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">취소</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-gray-500 text-sm">
+                    <td class="px-4 py-3 text-gray-500 text-sm">
                         {{ plan.planned_start|date:"Y-m-d" }} ~ {{ plan.planned_end|date:"Y-m-d" }}
                     </td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center">
                             <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                 <div class="bg-blue-600 h-2 rounded-full" style="width: {{ plan.progress_rate }}%"></div>
@@ -101,7 +102,7 @@
                             <span class="text-xs text-gray-600">{{ plan.progress_rate }}%</span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-4 py-3 text-right">
                         <a href="{% url 'production:plan_update' plan.pk %}" class="text-gray-500 hover:text-blue-600">
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>

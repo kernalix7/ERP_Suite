@@ -7,7 +7,7 @@
 {% if service_request %}
 <a href="{% url 'service:request_detail' service_request.pk %}" class="btn btn-secondary">AS 상세로</a>
 {% endif %}
-<a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}

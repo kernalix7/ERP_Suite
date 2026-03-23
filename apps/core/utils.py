@@ -1,38 +1,36 @@
-from datetime import date
+"""공통 유틸리티 함수"""
+from django.utils import timezone
 
 
-def generate_number(model_class, prefix, date_field='created_at'):
-    """자동 채번: prefix-YYYY-NNNN 형태"""
-    today = date.today()
-    year = today.strftime('%Y')
-    prefix_str = f'{prefix}-{year}-'
+def generate_document_number(model_class, field_name, prefix):
+    """날짜 기반 문서번호 자동 생성.
+
+    형식: {PREFIX}-{YYYYMMDD}-{NNN}
+    예: QT-20260322-001, ORD-20260322-042
+
+    Args:
+        model_class: 대상 모델 클래스
+        field_name: 번호 필드명 (예: 'quote_number')
+        prefix: 접두사 (예: 'QT')
+
+    Returns:
+        생성된 문서번호 문자열
+    """
+    today = timezone.localdate()
+    date_str = today.strftime('%Y%m%d')
+    pattern = f'{prefix}-{date_str}-'
 
     last = (
         model_class.all_objects
-        .filter(**{f'{date_field}__year': today.year})
-        .order_by('-pk')
+        .filter(**{f'{field_name}__startswith': pattern})
+        .order_by(f'-{field_name}')
+        .values_list(field_name, flat=True)
         .first()
     )
 
-    if last and hasattr(last, get_number_field(model_class)):
-        field_name = get_number_field(model_class)
-        last_number = getattr(last, field_name, '')
-        if last_number.startswith(prefix_str):
-            try:
-                seq = int(last_number.split('-')[-1]) + 1
-            except ValueError:
-                seq = 1
-        else:
-            seq = 1
+    if last:
+        seq = int(last.split('-')[-1]) + 1
     else:
         seq = 1
 
-    return f'{prefix_str}{seq:04d}'
-
-
-def get_number_field(model_class):
-    """모델에서 번호 필드명을 찾는다."""
-    for field in model_class._meta.fields:
-        if field.name.endswith('_number') or field.name.endswith('number'):
-            return field.name
-    return None
+    return f'{pattern}{seq:03d}'

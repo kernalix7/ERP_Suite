@@ -1,7 +1,10 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import BOM, BOMItem, ProductionPlan, WorkOrder, ProductionRecord
+from .models import (
+    BOM, BOMItem, ProductionPlan, WorkOrder,
+    ProductionRecord, StandardCost,
+)
 
 
 class BOMItemInline(admin.TabularInline):
@@ -29,4 +32,18 @@ class WorkOrderAdmin(SimpleHistoryAdmin):
 
 @admin.register(ProductionRecord)
 class ProductionRecordAdmin(SimpleHistoryAdmin):
-    list_display = ('work_order', 'good_quantity', 'defect_quantity', 'record_date', 'worker')
+    list_display = (
+        'work_order', 'good_quantity', 'defect_quantity',
+        'record_date', 'worker',
+    )
+
+
+@admin.register(StandardCost)
+class StandardCostAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'product', 'version', 'effective_date',
+        'material_cost', 'labor_cost', 'overhead_cost',
+        'total_standard_cost', 'is_current',
+    )
+    list_filter = ('is_current', 'effective_date')
+    search_fields = ('product__name', 'version')

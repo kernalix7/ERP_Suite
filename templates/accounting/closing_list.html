@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "결산 마감" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "결산 마감" %} ({{ year }}{% trans "년" %}){% endblock %}
+
+{% block content %}
+<!-- 연도 선택 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <form method="get" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "연도" %}</label>
+            <select name="year" class="form-input rounded-lg border-gray-300">
+                {% for y in years %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}{% trans "년" %}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">{% trans "조회" %}</button>
+        </div>
+    </form>
+</div>
+
+<!-- 마감 현황 테이블 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3 text-center">{% trans "월" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "전표 수" %}</th>
+                    <th class="px-4 py-3">{% trans "마감일시" %}</th>
+                    <th class="px-4 py-3">{% trans "마감자" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for p in periods %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-center font-medium text-gray-900">{{ p.month }}{% trans "월" %}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if p.is_closed %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            {% trans "마감" %}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {% trans "미마감" %}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ p.voucher_count }}{% trans "건" %}</td>
+                    <td class="px-4 py-3 text-gray-500">
+                        {% if p.closed_at %}
+                            {{ p.closed_at|date:"Y-m-d H:i" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-700">
+                        {% if p.closed_by %}
+                            {{ p.closed_by.get_full_name|default:p.closed_by.username }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <form method="post" action="{% url 'accounting:closing_close' year=year month=p.month %}"
+                              class="inline"
+                              onsubmit="return confirm('{{ year }}{% trans "년" %} {{ p.month }}{% trans "월" %} {% if p.is_closed %}{% trans "마감을 해제하시겠습니까?" %}{% else %}{% trans "결산을 마감하시겠습니까? 마감 후 해당 월의 전표 생성/수정이 차단됩니다." %}{% endif %}');">
+                            {% csrf_token %}
+                            {% if p.is_closed %}
+                            <button type="submit" class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition-colors">
+                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+                                </svg>
+                                {% trans "마감 해제" %}
+                            </button>
+                            {% else %}
+                            <button type="submit" class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors">
+                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                {% trans "마감 실행" %}
+                            </button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 안내 문구 -->
+<div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div class="flex items-start">
+        <svg class="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div class="text-sm text-blue-800">
+            <p class="font-medium mb-1">{% trans "결산 마감 안내" %}</p>
+            <ul class="list-disc list-inside space-y-1 text-blue-700">
+                <li>{% trans "마감된 월에는 새 전표를 생성하거나 기존 전표를 수정할 수 없습니다." %}</li>
+                <li>{% trans "마감 해제 시 해당 월의 전표 생성/수정이 다시 가능합니다." %}</li>
+                <li>{% trans "마감 전 해당 월의 모든 전표가 정확한지 확인해주세요." %}</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

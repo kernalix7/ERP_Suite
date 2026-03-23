@@ -33,7 +33,26 @@
                         {{ field.label }}
                         {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
                     </label>
+                    {% if field.name == 'quantity' %}
+                    <div class="flex items-center gap-2">
+                        {{ field }}
+                        <span id="product-unit" class="text-sm font-medium text-gray-500 whitespace-nowrap min-w-[3rem]"></span>
+                    </div>
+                    {% elif field.name == 'unit_price' %}
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">총액</label>
+                            <input type="number" id="id_total_amount" class="form-input w-full" min="0" placeholder="총 구매금액">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">단가 (자동계산)</label>
+                            {{ field }}
+                        </div>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">총액 입력 시 단가 자동 계산, 단가 입력 시 총액 자동 계산</p>
+                    {% else %}
                     {{ field }}
+                    {% endif %}
                     {% if field.help_text %}
                     <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
                     {% endif %}
@@ -57,4 +76,67 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ form.product_units_json|json_script:"product-units-data" }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
+    const productSelect = document.getElementById('id_product');
+    const unitLabel = document.getElementById('product-unit');
+    if (productSelect && unitLabel) {
+        function updateUnit() {
+            unitLabel.textContent = productUnits[productSelect.value] || '';
+        }
+        productSelect.addEventListener('change', updateUnit);
+        updateUnit();
+    }
+
+    // 총액 ↔ 단가 양방향 계산
+    const totalInput = document.getElementById('id_total_amount');
+    const unitPriceInput = document.getElementById('id_unit_price');
+    const quantityInput = document.getElementById('id_quantity');
+    if (totalInput && unitPriceInput && quantityInput) {
+        let lastEdited = 'unit_price';  // 마지막 수정 필드 추적
+
+        totalInput.addEventListener('input', function() {
+            lastEdited = 'total';
+            const total = parseFloat(totalInput.value) || 0;
+            const qty = parseFloat(quantityInput.value) || 0;
+            if (qty > 0) {
+                unitPriceInput.value = Math.round(total / qty);
+            }
+        });
+
+        unitPriceInput.addEventListener('input', function() {
+            lastEdited = 'unit_price';
+            const price = parseFloat(unitPriceInput.value) || 0;
+            const qty = parseFloat(quantityInput.value) || 0;
+            totalInput.value = Math.round(price * qty) || '';
+        });
+
+        quantityInput.addEventListener('input', function() {
+            if (lastEdited === 'total') {
+                const total = parseFloat(totalInput.value) || 0;
+                const qty = parseFloat(quantityInput.value) || 0;
+                if (qty > 0) {
+                    unitPriceInput.value = Math.round(total / qty);
+                }
+            } else {
+                const price = parseFloat(unitPriceInput.value) || 0;
+                const qty = parseFloat(quantityInput.value) || 0;
+                totalInput.value = Math.round(price * qty) || '';
+            }
+        });
+
+        // 수정 모드: 기존 단가가 있으면 총액 계산
+        if (unitPriceInput.value && quantityInput.value) {
+            const price = parseFloat(unitPriceInput.value) || 0;
+            const qty = parseFloat(quantityInput.value) || 0;
+            if (price > 0) totalInput.value = Math.round(price * qty);
+        }
+    }
+});
+</script>
 {% endblock %}

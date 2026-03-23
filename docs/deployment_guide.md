@@ -49,7 +49,7 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 
 ### 1.4 docker-compose.yml
 
-Default configuration included in the project's `docker-compose.yml`:
+Default configuration included in the project's `docker-compose.yml` (7 services):
 
 ```yaml
 services:
@@ -60,37 +60,93 @@ services:
     environment:
       POSTGRES_DB: erp_suite
       POSTGRES_USER: erp
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-127.0.0.1:5432}:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-127.0.0.1:6379}:6379"
+    volumes:
+      - redis_data:/data
     restart: unless-stopped
 
   web:
     build: .
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
     volumes:
       - static_files:/app/staticfiles
       - media_files:/app/media
     ports:
-      - "8000:8000"
+      - "${WEB_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=postgres://erp:${DB_PASSWORD:-changeme}@db:5432/erp_suite
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - DATABASE_URL=postgres://erp:${DB_PASSWORD}@db:5432/erp_suite
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY required}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
       - DJANGO_SETTINGS_MODULE=config.settings.production
+      - REDIS_URL=redis://redis:6379/0
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     depends_on:
       - db
+      - redis
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    command: celery -A config worker -l info
+    # (same environment as web)
+    depends_on: [db, redis]
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    depends_on: [db, redis]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-127.0.0.1:9090}:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "${GRAFANA_PORT:-127.0.0.1:3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD required}
+    depends_on: [prometheus]
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:
   static_files:
   media_files:
+  prometheus_data:
+  grafana_data:
 ```
+
+> The web service uses **Daphne** (ASGI) to support Django Channels WebSocket for real-time messaging.
 
 ### 1.5 Running
 
 ```bash
+# Download frontend vendor files (Tailwind CSS, HTMX, Alpine.js, Chart.js)
+bash scripts/download_vendor.sh
+
 # Build containers and run in background
 docker-compose up -d --build
 
@@ -168,6 +224,10 @@ docker-compose exec -T db psql -U erp erp_suite < backup_20260316_120000.sql
 | `ALLOWED_HOSTS` | Yes | `localhost,127.0.0.1` | Allowed hosts (comma-separated) |
 | `DATABASE_URL` | Yes | - | PostgreSQL connection URL |
 | `DB_PASSWORD` | Yes | `changeme` | PostgreSQL password |
+| `REDIS_URL` | Yes | `redis://redis:6379/0` | Redis connection URL (Celery/Channels) |
+| `SENTRY_DSN` | No | - | Sentry error tracking DSN |
+| `CORS_ALLOWED_ORIGINS` | No | `http://localhost:3000` | CORS allowed origins |
+| `GRAFANA_PASSWORD` | Yes (Docker) | - | Grafana admin password |
 | `NAVER_CLIENT_ID` | No | - | Naver API client ID |
 | `NAVER_CLIENT_SECRET` | No | - | Naver API client secret |
 | `ANTHROPIC_API_KEY` | No | - | Claude AI API key |

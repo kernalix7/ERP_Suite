@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}거래처 분석 - ERP Suite{% endblock %}
+{% block page_title %}거래처별 매출/수익 분석{% endblock %}
+
+{% block content %}
+<!-- 기간 필터 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+    <form method="get" class="flex flex-col sm:flex-row gap-3 items-end">
+        <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-input">
+        </div>
+        <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-input">
+        </div>
+        <input type="hidden" name="sort" value="{{ sort_by }}">
+        <button type="submit" class="btn btn-primary">조회</button>
+    </form>
+</div>
+
+<!-- 요약 카드 -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white shadow-sm rounded-xl p-4">
+        <p class="text-sm font-medium text-gray-500">거래처 수</p>
+        <p class="mt-1 text-xl font-bold text-gray-900">{{ partner_stats|length }}개</p>
+    </div>
+    <div class="bg-white shadow-sm rounded-xl p-4">
+        <p class="text-sm font-medium text-gray-500">총 주문</p>
+        <p class="mt-1 text-xl font-bold text-gray-900">{{ total_orders|intcomma }}건</p>
+    </div>
+    <div class="bg-white shadow-sm rounded-xl p-4">
+        <p class="text-sm font-medium text-gray-500">총 매출</p>
+        <p class="mt-1 text-xl font-bold text-blue-600">{{ total_revenue|intcomma }}원</p>
+    </div>
+    <div class="bg-white shadow-sm rounded-xl p-4">
+        <p class="text-sm font-medium text-gray-500">총 이익</p>
+        <p class="mt-1 text-xl font-bold {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ total_profit|intcomma }}원</p>
+    </div>
+    <div class="bg-white shadow-sm rounded-xl p-4">
+        <p class="text-sm font-medium text-gray-500">평균 이익률</p>
+        <p class="mt-1 text-xl font-bold {% if total_profit_rate >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ total_profit_rate }}%</p>
+    </div>
+</div>
+
+<!-- 거래처별 테이블 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <caption class="sr-only">거래처별 매출/수익 분석</caption>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">
+                        {% if sort_by == 'name' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-name" class="hover:text-blue-600">거래처명 &#9650;</a>
+                        {% elif sort_by == '-name' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=name" class="hover:text-blue-600">거래처명 &#9660;</a>
+                        {% else %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=name" class="hover:text-blue-600">거래처명</a>
+                        {% endif %}
+                    </th>
+                    <th class="px-4 py-3 text-right">
+                        {% if sort_by == '-orders' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=orders" class="hover:text-blue-600">주문건수 &#9660;</a>
+                        {% elif sort_by == 'orders' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-orders" class="hover:text-blue-600">주문건수 &#9650;</a>
+                        {% else %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-orders" class="hover:text-blue-600">주문건수</a>
+                        {% endif %}
+                    </th>
+                    <th class="px-4 py-3 text-right">
+                        {% if sort_by == '-revenue' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=revenue" class="hover:text-blue-600">매출 &#9660;</a>
+                        {% elif sort_by == 'revenue' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-revenue" class="hover:text-blue-600">매출 &#9650;</a>
+                        {% else %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-revenue" class="hover:text-blue-600">매출</a>
+                        {% endif %}
+                    </th>
+                    <th class="px-4 py-3 text-right">
+                        {% if sort_by == '-cost' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=cost" class="hover:text-blue-600">원가 &#9660;</a>
+                        {% elif sort_by == 'cost' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-cost" class="hover:text-blue-600">원가 &#9650;</a>
+                        {% else %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-cost" class="hover:text-blue-600">원가</a>
+                        {% endif %}
+                    </th>
+                    <th class="px-4 py-3 text-right">
+                        {% if sort_by == '-profit' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=profit" class="hover:text-blue-600">이익 &#9660;</a>
+                        {% elif sort_by == 'profit' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-profit" class="hover:text-blue-600">이익 &#9650;</a>
+                        {% else %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-profit" class="hover:text-blue-600">이익</a>
+                        {% endif %}
+                    </th>
+                    <th class="px-4 py-3 text-right">
+                        {% if sort_by == '-profit_rate' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=profit_rate" class="hover:text-blue-600">이익률 &#9660;</a>
+                        {% elif sort_by == 'profit_rate' %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-profit_rate" class="hover:text-blue-600">이익률 &#9650;</a>
+                        {% else %}
+                        <a href="?date_from={{ date_from }}&date_to={{ date_to }}&sort=-profit_rate" class="hover:text-blue-600">이익률</a>
+                        {% endif %}
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for row in partner_stats %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">
+                        <span class="font-medium text-gray-900">{{ row.partner_name }}</span>
+                        <span class="ml-1 text-xs text-gray-400 font-mono">{{ row.partner_code }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-700">{{ row.order_count|intcomma }}</td>
+                    <td class="px-4 py-3 text-right text-blue-600 font-medium">{{ row.revenue|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ row.cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-medium {% if row.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ row.profit|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if row.profit_rate >= 30 %}bg-green-100 text-green-700
+                            {% elif row.profit_rate >= 10 %}bg-blue-100 text-blue-700
+                            {% elif row.profit_rate >= 0 %}bg-yellow-100 text-yellow-700
+                            {% else %}bg-red-100 text-red-700{% endif %}">
+                            {{ row.profit_rate }}%
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+                        해당 기간의 거래처별 실적이 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if partner_stats %}
+            <tfoot>
+                <tr class="bg-gray-50 font-semibold text-gray-900">
+                    <td class="px-4 py-3">합계</td>
+                    <td class="px-4 py-3 text-right">{{ total_orders|intcomma }}</td>
+                    <td class="px-4 py-3 text-right text-blue-600">{{ total_revenue|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right">{{ total_cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ total_profit|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if total_profit_rate >= 30 %}bg-green-100 text-green-700
+                            {% elif total_profit_rate >= 10 %}bg-blue-100 text-blue-700
+                            {% elif total_profit_rate >= 0 %}bg-yellow-100 text-yellow-700
+                            {% else %}bg-red-100 text-red-700{% endif %}">
+                            {{ total_profit_rate }}%
+                        </span>
+                    </td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

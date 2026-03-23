@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}창고별 재고 - ERP Suite{% endblock %}
+{% block page_title %}창고별 재고 현황{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <form method="get" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">창고</label>
+            <select name="warehouse" class="form-input rounded-lg border-gray-300">
+                <option value="">전체</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.pk }}" {% if selected_warehouse == wh.pk|stringformat:"d" %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">검색</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="제품명/코드"
+                   class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">조회</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">창고</th>
+                    <th class="px-4 py-3">제품코드</th>
+                    <th class="px-4 py-3">제품명</th>
+                    <th class="px-4 py-3">카테고리</th>
+                    <th class="px-4 py-3 text-right">재고수량</th>
+                    <th class="px-4 py-3 text-right">안전재고</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for ws in stocks %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-700">{{ ws.warehouse.name }}</td>
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ ws.product.code }}</td>
+                    <td class="px-4 py-3 text-gray-900 font-medium">{{ ws.product.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ ws.product.category.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ ws.quantity|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-500">{{ ws.product.safety_stock }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if ws.quantity < ws.product.safety_stock %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">부족</span>
+                        {% else %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">정상</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                        창고별 재고 데이터가 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

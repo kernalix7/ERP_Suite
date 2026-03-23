@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}부분 출고 - {{ order.order_number }}{% endblock %}
+{% block page_title %}부분 출고{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">{{ order.order_number }}</h3>
+                <p class="text-sm text-gray-500">{{ order.partner.name|default:"-" }} | {{ order.order_date }}</p>
+            </div>
+            <span class="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-700">
+                {{ order.get_status_display }}
+            </span>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                            <th class="px-4 py-3">제품</th>
+                            <th class="px-4 py-3 text-right">주문수량</th>
+                            <th class="px-4 py-3 text-right">출고완료</th>
+                            <th class="px-4 py-3 text-right">미출고</th>
+                            <th class="px-4 py-3 text-right">이번 출고</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for item in items %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3">
+                                <span class="font-mono text-gray-500 text-xs">{{ item.product.code }}</span>
+                                <span class="text-gray-900 font-medium ml-1">{{ item.product.name }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right font-mono">{{ item.quantity }}</td>
+                            <td class="px-4 py-3 text-right font-mono text-blue-600">{{ item.shipped_quantity }}</td>
+                            <td class="px-4 py-3 text-right font-mono font-semibold text-orange-600">{{ item.remaining_quantity }}</td>
+                            <td class="px-4 py-3 text-right">
+                                <input type="number" name="qty_{{ item.pk }}"
+                                       value="0" min="0" max="{{ item.remaining_quantity }}"
+                                       class="form-input w-24 text-right rounded-lg border-gray-300">
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-gray-400">
+                                모든 항목이 출고 완료되었습니다.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">수취인</label>
+                    <input type="text" name="receiver_name" value="{{ order.shipping_address|truncatechars:20 }}"
+                           class="form-input w-full rounded-lg border-gray-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">운송장번호</label>
+                    <input type="text" name="tracking_number"
+                           class="form-input w-full rounded-lg border-gray-300" placeholder="선택사항">
+                </div>
+            </div>
+        </div>
+
+        {% if items %}
+        <div class="flex gap-3">
+            <button type="submit" class="btn btn-primary">부분 출고 실행</button>
+            <a href="{% url 'sales:order_detail' pk=order.pk %}" class="btn btn-secondary">취소</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

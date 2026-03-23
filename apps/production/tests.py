@@ -536,3 +536,247 @@ class WorkOrderModelTest(TestCase):
             created_by=self.user,
         )
         self.assertEqual(rec.total_quantity, 85)
+
+
+class StandardCostTest(TestCase):
+    """표준원가 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='stdcost_user', password='testpass123', role='staff',
+        )
+        self.product = Product.objects.create(
+            code='SC-FP-001', name='표준원가제품',
+            product_type='FINISHED', unit_price=50000,
+            cost_price=30000, created_by=self.user,
+        )
+        self.raw = Product.objects.create(
+            code='SC-RM-001', name='표준원가원자재',
+            product_type='RAW', cost_price=5000,
+            created_by=self.user,
+        )
+        self.bom = BOM.objects.create(
+            product=self.product, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.raw,
+            quantity=Decimal('3.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+
+    def test_standard_cost_auto_calculate(self):
+        """save() 시 노무비/간접비/합계 자동 계산"""
+        from apps.production.models import StandardCost
+        sc = StandardCost.objects.create(
+            product=self.product,
+            version='1.0',
+            effective_date=date.today(),
+            material_cost=15000,
+            direct_labor_hours=Decimal('2.00'),
+            labor_rate_per_hour=10000,
+            overhead_rate=Decimal('50.00'),
+            is_current=True,
+            created_by=self.user,
+        )
+        # 노무비 = 2.00 * 10000 = 20000
+        self.assertEqual(sc.labor_cost, 20000)
+        # 간접비 = 20000 * 50 / 100 = 10000
+        self.assertEqual(sc.overhead_cost, 10000)
+        # 합계 = 15000 + 20000 + 10000 = 45000
+        self.assertEqual(sc.total_standard_cost, 45000)
+
+    def test_is_current_auto_toggle(self):
+        """동일 제품에 새 현행 표준원가 등록 시 기존 것이 자동 해제"""
+        from apps.production.models import StandardCost
+        sc1 = StandardCost.objects.create(
+            product=self.product,
+            version='1.0',
+            effective_date=date.today(),
+            material_cost=10000,
+            is_current=True,
+            created_by=self.user,
+        )
+        self.assertTrue(sc1.is_current)
+
+        sc2 = StandardCost.objects.create(
+            product=self.product,
+            version='2.0',
+            effective_date=date.today(),
+            material_cost=12000,
+            is_current=True,
+            created_by=self.user,
+        )
+        # 새 것이 현행
+        self.assertTrue(sc2.is_current)
+        # 기존 것은 자동 해제
+        sc1.refresh_from_db()
+        self.assertFalse(sc1.is_current)
+
+
+class ProductionCancelCascadeTest(TestCase):
+    """생산계획/작업지시 취소 시 재고 복원 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='cancel_user', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-CANCEL', name='취소테스트창고', created_by=self.user,
+        )
+        self.finished_product = Product.objects.create(
+            code='CANCEL-FP', name='취소완제품',
+            product_type='FINISHED', unit_price=50000,
+            cost_price=30000, current_stock=0,
+            created_by=self.user,
+        )
+        self.raw_material = Product.objects.create(
+            code='CANCEL-RM', name='취소원자재',
+            product_type='RAW', cost_price=5000,
+            current_stock=1000, created_by=self.user,
+        )
+        self.bom = BOM.objects.create(
+            product=self.finished_product, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.raw_material,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        self.plan = ProductionPlan.objects.create(
+            plan_number='PP-CANCEL-001',
+            product=self.finished_product, bom=self.bom,
+            planned_quantity=100,
+            planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=7),
+            status='IN_PROGRESS',
+            created_by=self.user,
+        )
+        self.work_order = WorkOrder.objects.create(
+            order_number='WO-CANCEL-001',
+            production_plan=self.plan,
+            quantity=100,
+            status='IN_PROGRESS',
+            created_by=self.user,
+        )
+
+    def test_plan_cancel_restores_stock(self):
+        """ProductionPlan CANCELLED 시 재고이동 soft delete + 재고 복원"""
+        # 생산실적 등록 → 완제품 +10, 원자재 -20
+        ProductionRecord.objects.create(
+            work_order=self.work_order,
+            good_quantity=10,
+            record_date=date.today(),
+            worker=self.user,
+            created_by=self.user,
+        )
+        self.finished_product.refresh_from_db()
+        self.assertEqual(self.finished_product.current_stock, 10)
+        self.raw_material.refresh_from_db()
+        self.assertEqual(self.raw_material.current_stock, 980)
+
+        # 생산계획 취소
+        self.plan.status = 'CANCELLED'
+        self.plan.save()
+
+        # 재고이동이 soft delete되어 재고가 복원되어야 함
+        self.finished_product.refresh_from_db()
+        self.assertEqual(self.finished_product.current_stock, 0)
+        self.raw_material.refresh_from_db()
+        self.assertEqual(self.raw_material.current_stock, 1000)
+
+        # soft delete된 재고이동 확인
+        active_movements = StockMovement.objects.filter(
+            movement_type__in=['PROD_IN', 'PROD_OUT'], is_active=True,
+        )
+        self.assertEqual(active_movements.count(), 0)
+
+    def test_workorder_cancel_restores_stock(self):
+        """WorkOrder CANCELLED 시 동일하게 재고 복원"""
+        # 생산실적 등록 → 완제품 +10, 원자재 -20
+        ProductionRecord.objects.create(
+            work_order=self.work_order,
+            good_quantity=10,
+            record_date=date.today(),
+            worker=self.user,
+            created_by=self.user,
+        )
+        self.finished_product.refresh_from_db()
+        self.assertEqual(self.finished_product.current_stock, 10)
+        self.raw_material.refresh_from_db()
+        self.assertEqual(self.raw_material.current_stock, 980)
+
+        # 작업지시 취소
+        self.work_order.status = 'CANCELLED'
+        self.work_order.save()
+
+        # 재고 복원 확인
+        self.finished_product.refresh_from_db()
+        self.assertEqual(self.finished_product.current_stock, 0)
+        self.raw_material.refresh_from_db()
+        self.assertEqual(self.raw_material.current_stock, 1000)
+
+
+class MRPViewTest(TestCase):
+    """MRP 뷰 테스트"""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username='mrp_manager', password='testpass123', role='manager',
+        )
+        self.staff = User.objects.create_user(
+            username='mrp_staff', password='testpass123', role='staff',
+        )
+        self.finished = Product.objects.create(
+            code='MRP-FP', name='MRP완제품',
+            product_type='FINISHED', unit_price=50000,
+            cost_price=30000, created_by=self.manager,
+        )
+        self.raw = Product.objects.create(
+            code='MRP-RM', name='MRP원자재',
+            product_type='RAW', cost_price=5000,
+            current_stock=10, created_by=self.manager,
+        )
+        self.bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=True, created_by=self.manager,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.raw,
+            quantity=Decimal('5.000'), loss_rate=Decimal('0'),
+            created_by=self.manager,
+        )
+
+    def test_mrp_page_loads(self):
+        """/production/mrp/ 페이지 접근 가능 (manager 권한)"""
+        self.client.force_login(self.manager)
+        response = self.client.get('/production/mrp/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_mrp_calculates_shortage(self):
+        """BOM 전개 후 부족 자재 수량 계산 확인"""
+        self.client.force_login(self.manager)
+        # 생산계획 생성: 100개 생산 → 원자재 5 * 100 = 500개 필요, 재고 10개 → 부족 490
+        plan = ProductionPlan.objects.create(
+            plan_number='PP-MRP-001',
+            product=self.finished, bom=self.bom,
+            planned_quantity=100,
+            planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=7),
+            status='CONFIRMED',
+            created_by=self.manager,
+        )
+        response = self.client.get(
+            '/production/mrp/', {'plan': str(plan.pk)},
+        )
+        self.assertEqual(response.status_code, 200)
+        # context에서 mrp_items 확인
+        mrp_items = response.context.get('mrp_items', [])
+        self.assertTrue(len(mrp_items) > 0)
+        # 첫 번째 결과의 부족 자재 확인
+        shortage_item = mrp_items[0]
+        self.assertEqual(shortage_item['material'].pk, self.raw.pk)
+        # 필요: 500, 가용: 10, 부족: 490
+        self.assertEqual(shortage_item['total_required'], Decimal('500.000'))
+        self.assertEqual(shortage_item['shortage'], Decimal('490'))

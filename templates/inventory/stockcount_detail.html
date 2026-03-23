@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}재고실사 {{ stock_count.count_number }} - ERP Suite{% endblock %}
+{% block page_title %}재고실사 {{ stock_count.count_number }}{% endblock %}
+
+{% block header_actions %}
+{% if stock_count.status != 'ADJUSTED' %}
+<form method="post" action="{% url 'inventory:stockcount_adjust' stock_count.pk %}" class="inline"
+      onsubmit="return confirm('차이가 있는 항목에 대해 재고조정을 실행합니다. 계속하시겠습니까?')">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">
+        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        재고 조정
+    </button>
+</form>
+{% endif %}
+<a href="{% url 'inventory:stockcount_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<!-- 요약 정보 -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">창고</p>
+        <p class="text-lg font-semibold text-gray-900">{{ stock_count.warehouse.name }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">실사일</p>
+        <p class="text-lg font-semibold text-gray-900">{{ stock_count.count_date|date:"Y-m-d" }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">상태</p>
+        <p class="text-lg font-semibold
+            {% if stock_count.status == 'ADJUSTED' %}text-green-600
+            {% elif stock_count.status == 'IN_PROGRESS' %}text-yellow-600
+            {% else %}text-gray-900{% endif %}">
+            {{ stock_count.get_status_display }}
+        </p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">차이 항목</p>
+        <p class="text-lg font-semibold {% if diff_count > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+            {{ diff_count }}건
+        </p>
+    </div>
+</div>
+
+<!-- 실사 항목 테이블 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <form method="post" action="{% url 'inventory:stockcount_update' stock_count.pk %}">
+        {% csrf_token %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">제품코드</th>
+                        <th class="px-4 py-3">제품명</th>
+                        <th class="px-4 py-3 text-right">시스템재고</th>
+                        <th class="px-4 py-3 text-right">실사재고</th>
+                        <th class="px-4 py-3 text-right">차이</th>
+                        <th class="px-4 py-3 text-center">조정</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in items %}
+                    <tr class="hover:bg-gray-50 transition-colors {% if item.difference != 0 %}bg-red-50{% endif %}">
+                        <td class="px-4 py-2 font-mono text-gray-900">{{ item.product.code }}</td>
+                        <td class="px-4 py-2 text-gray-900">{{ item.product.name }}</td>
+                        <td class="px-4 py-2 text-right font-mono text-gray-600">{{ item.system_quantity|floatformat:0 }}</td>
+                        <td class="px-4 py-2 text-right">
+                            {% if stock_count.status in 'DRAFT,IN_PROGRESS' %}
+                            <input type="number" name="actual_{{ item.pk }}" value="{{ item.actual_quantity|floatformat:0 }}"
+                                   step="1" min="0"
+                                   class="w-24 text-right font-mono rounded border-gray-300 text-sm px-2 py-1">
+                            {% else %}
+                            <span class="font-mono">{{ item.actual_quantity|floatformat:0 }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2 text-right font-mono font-semibold
+                            {% if item.difference > 0 %}text-blue-600{% elif item.difference < 0 %}text-red-600{% else %}text-gray-400{% endif %}">
+                            {% if item.difference > 0 %}+{% endif %}{{ item.difference|floatformat:0 }}
+                        </td>
+                        <td class="px-4 py-2 text-center">
+                            {% if item.adjusted %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">완료</span>
+                            {% elif item.difference != 0 %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">대기</span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+                            실사 항목이 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if stock_count.status in 'DRAFT,IN_PROGRESS' %}
+        <div class="px-6 py-4 border-t border-gray-200">
+            <button type="submit" class="btn btn-primary">수량 저장</button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

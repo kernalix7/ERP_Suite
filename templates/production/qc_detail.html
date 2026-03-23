@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}품질검수 상세 - {{ inspection.inspection_number }} - ERP Suite{% endblock %}
+{% block page_title %}품질검수 상세{% endblock %}
+
+{% block header_actions %}
+<div class="flex gap-2">
+    <a href="{% url 'production:qc_update' inspection.pk %}" class="btn btn-primary">수정</a>
+    <a href="{% url 'production:qc_list' %}" class="btn btn-secondary">목록</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">기본 정보</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+            <dt class="text-sm font-medium text-gray-500">검수번호</dt>
+            <dd class="mt-1 text-sm text-gray-900 font-medium">{{ inspection.inspection_number }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">유형</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ inspection.get_inspection_type_display }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">결과</dt>
+            <dd class="mt-1">
+                {% if inspection.result == 'PASS' %}
+                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">합격</span>
+                {% elif inspection.result == 'FAIL' %}
+                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">불합격</span>
+                {% elif inspection.result == 'CONDITIONAL' %}
+                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">조건부합격</span>
+                {% else %}
+                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">대기</span>
+                {% endif %}
+            </dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">제품</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ inspection.product.name }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">검수일</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ inspection.inspection_date|date:"Y-m-d" }}</dd>
+        </div>
+        <div>
+            <dt class="text-sm font-medium text-gray-500">검수자</dt>
+            <dd class="mt-1 text-sm text-gray-900">{{ inspection.inspector.name|default:"-" }}</dd>
+        </div>
+        {% if inspection.production_record %}
+        <div>
+            <dt class="text-sm font-medium text-gray-500">생산실적</dt>
+            <dd class="mt-1 text-sm text-blue-600">
+                {{ inspection.production_record.work_order.order_number }} ({{ inspection.production_record.record_date|date:"Y-m-d" }})
+            </dd>
+        </div>
+        {% endif %}
+    </dl>
+</div>
+
+<!-- 수량 정보 -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">검수수량</p>
+        <p class="text-2xl font-bold text-gray-900">{{ inspection.inspected_quantity|intcomma }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">합격</p>
+        <p class="text-2xl font-bold text-green-600">{{ inspection.pass_quantity|intcomma }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">불합격</p>
+        <p class="text-2xl font-bold text-red-600">{{ inspection.fail_quantity|intcomma }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">합격률</p>
+        <p class="text-2xl font-bold {% if inspection.pass_rate >= 95 %}text-green-600{% elif inspection.pass_rate >= 80 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ inspection.pass_rate }}%</p>
+    </div>
+</div>
+
+{% if inspection.defect_description %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h3 class="text-sm font-semibold text-gray-800 mb-2">불량 내용</h3>
+    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ inspection.defect_description }}</p>
+</div>
+{% endif %}
+
+{% if inspection.corrective_action %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h3 class="text-sm font-semibold text-gray-800 mb-2">시정 조치</h3>
+    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ inspection.corrective_action }}</p>
+</div>
+{% endif %}
+
+{% if inspection.notes %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 class="text-sm font-semibold text-gray-800 mb-2">비고</h3>
+    <p class="text-sm text-gray-700">{{ inspection.notes }}</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}표준원가 상세 - {{ stdcost }} - ERP Suite{% endblock %}
+{% block page_title %}표준원가 상세{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'production:stdcost_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- 기본 정보 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">기본 정보</h2>
+        <dl class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm font-medium text-gray-500">제품</dt>
+                <dd class="mt-1 text-sm text-gray-900 font-medium">{{ stdcost.product.name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">버전</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ stdcost.version }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">적용일</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ stdcost.effective_date|date:"Y-m-d" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">현행 여부</dt>
+                <dd class="mt-1">
+                    {% if stdcost.is_current %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">현행</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">이전 버전</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">등록일</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ stdcost.created_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">수정일</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ stdcost.updated_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+            {% if stdcost.notes %}
+            <div class="md:col-span-3">
+                <dt class="text-sm font-medium text-gray-500">비고</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ stdcost.notes }}</dd>
+            </div>
+            {% endif %}
+        </dl>
+    </div>
+
+    <!-- 원가 구조 시각화 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 원가 요약 카드 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">원가 구조</h2>
+            <div class="space-y-4">
+                <!-- 자재원가 -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-blue-700">자재원가</span>
+                        <span class="text-sm font-semibold text-gray-900">{{ stdcost.material_cost|intcomma }}원 ({{ material_pct }}%)</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-blue-500 h-3 rounded-full transition-all" style="width: {{ material_pct }}%"></div>
+                    </div>
+                </div>
+                <!-- 노무비 -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-green-700">노무비</span>
+                        <span class="text-sm font-semibold text-gray-900">{{ stdcost.labor_cost|intcomma }}원 ({{ labor_pct }}%)</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-green-500 h-3 rounded-full transition-all" style="width: {{ labor_pct }}%"></div>
+                    </div>
+                </div>
+                <!-- 간접비 -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-purple-700">제조간접비</span>
+                        <span class="text-sm font-semibold text-gray-900">{{ stdcost.overhead_cost|intcomma }}원 ({{ overhead_pct }}%)</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-purple-500 h-3 rounded-full transition-all" style="width: {{ overhead_pct }}%"></div>
+                    </div>
+                </div>
+                <!-- 합계 -->
+                <div class="pt-3 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <span class="text-base font-semibold text-gray-800">표준원가 합계</span>
+                        <span class="text-lg font-bold text-gray-900">{{ stdcost.total_standard_cost|intcomma }}원</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 원가 구성 차트 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">원가 구성비</h2>
+            <div class="flex items-center justify-center" style="height: 280px;">
+                <canvas id="costChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- 노무비 상세 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">
+            <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            노무비 상세
+        </h2>
+        <dl class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm font-medium text-gray-500">직접노무시간</dt>
+                <dd class="mt-1 text-lg font-semibold text-gray-900">{{ stdcost.direct_labor_hours }}시간</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">시간당 노무비</dt>
+                <dd class="mt-1 text-lg font-semibold text-gray-900">{{ stdcost.labor_rate_per_hour|intcomma }}원</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">표준노무비</dt>
+                <dd class="mt-1 text-lg font-bold text-green-700">{{ stdcost.labor_cost|intcomma }}원</dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- 간접비 상세 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">
+            <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            제조간접비 상세
+        </h2>
+        <dl class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <dt class="text-sm font-medium text-gray-500">간접비 배부율</dt>
+                <dd class="mt-1 text-lg font-semibold text-gray-900">{{ stdcost.overhead_rate }}%</dd>
+                <p class="mt-1 text-xs text-gray-500">직접노무비 대비</p>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">배부 기준액 (노무비)</dt>
+                <dd class="mt-1 text-lg font-semibold text-gray-900">{{ stdcost.labor_cost|intcomma }}원</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">표준간접비</dt>
+                <dd class="mt-1 text-lg font-bold text-purple-700">{{ stdcost.overhead_cost|intcomma }}원</dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- BOM 자재 항목 -->
+    {% if bom %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">
+                <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                BOM 자재 내역 ({{ bom }} - 기본BOM)
+            </h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">#</th>
+                        <th class="px-4 py-3">자재</th>
+                        <th class="px-4 py-3 text-right">소요량</th>
+                        <th class="px-4 py-3 text-right">손실률</th>
+                        <th class="px-4 py-3 text-right">실소요량</th>
+                        <th class="px-4 py-3 text-right">단가</th>
+                        <th class="px-4 py-3 text-right">자재원가</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in bom_items %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-gray-500">{{ forloop.counter }}</td>
+                        <td class="px-4 py-3 font-medium text-gray-900">{{ item.material.name }}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{{ item.quantity }}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{{ item.loss_rate }}%</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ item.effective_quantity|floatformat:3 }}</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ item.material.cost_price|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right font-medium text-gray-900">{{ item.material_cost|intcomma }}원</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="bg-gray-50 font-semibold">
+                        <td colspan="6" class="px-4 py-3 text-right text-gray-700">총 자재원가</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ stdcost.material_cost|intcomma }}원</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var ctx = document.getElementById('costChart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['자재원가', '노무비', '제조간접비'],
+                datasets: [{
+                    data: [
+                        {{ stdcost.material_cost }},
+                        {{ stdcost.labor_cost }},
+                        {{ stdcost.overhead_cost }}
+                    ],
+                    backgroundColor: [
+                        'rgb(59, 130, 246)',
+                        'rgb(34, 197, 94)',
+                        'rgb(168, 85, 247)'
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { padding: 20, usePointStyle: true }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                var val = context.raw;
+                                var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                var pct = total > 0 ? Math.round(val / total * 100) : 0;
+                                return context.label + ': ' + val.toLocaleString('ko-KR') + '원 (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

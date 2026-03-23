@@ -7,8 +7,8 @@ from django.test import TestCase
 from apps.accounts.models import User
 from apps.inventory.models import Product, Warehouse, StockMovement
 from apps.sales.models import (
-    Partner, Customer, Order, OrderItem,
-    Quotation, QuotationItem, Shipment,
+    Partner, Customer, CustomerPurchase, Order, OrderItem,
+    Quotation, QuotationItem, Shipment, ShippingCarrier,
 )
 from apps.sales.commission import CommissionRate, CommissionRecord
 
@@ -196,52 +196,56 @@ class OrderShipSignalTest(TestCase):
         self.assertEqual(out_movements.first().quantity, 2)
 
 
-class CustomerWarrantyTest(TestCase):
-    """고객 보증기간 테스트 — Customer.is_warranty_valid 프로퍼티 검증"""
+class CustomerPurchaseWarrantyTest(TestCase):
+    """고객 구매내역 보증기간 테스트 — CustomerPurchase.is_warranty_valid 프로퍼티 검증"""
 
     def setUp(self):
         self.user = User.objects.create_user(
             username='warranty_user', password='testpass123',
         )
+        self.customer = Customer.objects.create(
+            name='테스트고객', phone='010-1234-5678',
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='TEST-001', name='테스트제품',
+            unit_price=10000, created_by=self.user,
+        )
 
-    def test_customer_warranty_valid(self):
+    def test_purchase_warranty_valid(self):
         """보증만료일이 오늘 이후이면 is_warranty_valid가 True인지 확인"""
-        customer = Customer.objects.create(
-            name='유효고객',
-            phone='010-1234-5678',
+        purchase = CustomerPurchase.objects.create(
+            customer=self.customer, product=self.product,
             warranty_end=date.today() + timedelta(days=30),
             created_by=self.user,
         )
-        self.assertTrue(customer.is_warranty_valid)
+        self.assertTrue(purchase.is_warranty_valid)
 
-    def test_customer_warranty_expired(self):
+    def test_purchase_warranty_expired(self):
         """보증만료일이 오늘 이전이면 is_warranty_valid가 False인지 확인"""
-        customer = Customer.objects.create(
-            name='만료고객',
-            phone='010-9876-5432',
+        purchase = CustomerPurchase.objects.create(
+            customer=self.customer, product=self.product,
             warranty_end=date.today() - timedelta(days=1),
             created_by=self.user,
         )
-        self.assertFalse(customer.is_warranty_valid)
+        self.assertFalse(purchase.is_warranty_valid)
 
-    def test_customer_warranty_today(self):
+    def test_purchase_warranty_today(self):
         """보증만료일이 오늘이면 is_warranty_valid가 True인지 확인 (경계값)"""
-        customer = Customer.objects.create(
-            name='오늘만료고객',
-            phone='010-0000-0000',
+        purchase = CustomerPurchase.objects.create(
+            customer=self.customer, product=self.product,
             warranty_end=date.today(),
             created_by=self.user,
         )
-        self.assertTrue(customer.is_warranty_valid)
+        self.assertTrue(purchase.is_warranty_valid)
 
-    def test_customer_warranty_null(self):
+    def test_purchase_warranty_null(self):
         """보증만료일이 없으면 is_warranty_valid가 False인지 확인"""
-        customer = Customer.objects.create(
-            name='보증없는고객',
-            phone='010-1111-1111',
+        purchase = CustomerPurchase.objects.create(
+            customer=self.customer, product=self.product,
             created_by=self.user,
         )
-        self.assertFalse(customer.is_warranty_valid)
+        self.assertFalse(purchase.is_warranty_valid)
 
 
 class PartnerModelTest(TestCase):
@@ -575,13 +579,13 @@ class CommissionModelTest(TestCase):
         rate = CommissionRate.objects.create(
             partner=self.partner,
             product=self.product,
-            rate=Decimal('3.50'),
+            rate=Decimal('3.500'),
             created_by=self.user,
         )
         result = str(rate)
         self.assertIn('수수료거래처', result)
-        self.assertIn('수수료제품', result)
-        self.assertIn('3.50', result)
+        self.assertIn('기본 수수료', result)
+        self.assertIn('3.500', result)
 
     def test_commission_rate_str_without_product(self):
         """제품 미지정 수수료율 문자열"""
@@ -594,21 +598,25 @@ class CommissionModelTest(TestCase):
         self.assertIn('수수료거래처', result)
         self.assertIn('2.00', result)
 
-    def test_commission_rate_unique_together(self):
-        """거래처+제품 수수료율 중복 불가"""
+    def test_commission_rate_multiple_per_partner(self):
+        """거래처별 수수료 항목 여러개 가능"""
         CommissionRate.objects.create(
             partner=self.partner,
             product=self.product,
-            rate=Decimal('5.00'),
+            name='판매수수료',
+            rate=Decimal('5.000'),
             created_by=self.user,
         )
-        with self.assertRaises(IntegrityError):
-            CommissionRate.objects.create(
-                partner=self.partner,
-                product=self.product,
-                rate=Decimal('3.00'),
-                created_by=self.user,
-            )
+        rate2 = CommissionRate.objects.create(
+            partner=self.partner,
+            product=self.product,
+            name='결제수수료',
+            rate=Decimal('3.000'),
+            created_by=self.user,
+        )
+        self.assertEqual(
+            CommissionRate.objects.filter(partner=self.partner).count(), 2,
+        )
 
     def test_commission_record_creation(self):
         """수수료 내역 생성"""
@@ -652,3 +660,37 @@ class CommissionModelTest(TestCase):
         record.refresh_from_db()
         self.assertEqual(record.status, 'SETTLED')
         self.assertEqual(record.settled_date, date.today())
+
+
+class ShippingCarrierTest(TestCase):
+    """택배사 모델 테스트"""
+
+    def test_carrier_creation(self):
+        """ShippingCarrier 생성 가능"""
+        carrier = ShippingCarrier.objects.create(
+            code='CJ',
+            name='CJ대한통운',
+            tracking_url_template='https://trace.cjlogistics.com/next/tracking.html?wblNo={tracking_number}',
+            is_default=False,
+        )
+        self.assertEqual(carrier.code, 'CJ')
+        self.assertEqual(carrier.name, 'CJ대한통운')
+        self.assertFalse(carrier.is_default)
+        self.assertEqual(str(carrier), 'CJ대한통운')
+
+    def test_default_carrier_unique(self):
+        """is_default=True인 택배사가 하나만 존재하도록"""
+        cj = ShippingCarrier.objects.create(
+            code='CJ', name='CJ대한통운', is_default=True,
+        )
+        # 두 번째 기본택배사 생성 시 기존 기본택배사가 해제됨
+        hanjin = ShippingCarrier.objects.create(
+            code='HANJIN', name='한진택배', is_default=True,
+        )
+        cj.refresh_from_db()
+        self.assertFalse(cj.is_default)
+        self.assertTrue(hanjin.is_default)
+        # 기본택배사는 하나만 존재
+        self.assertEqual(
+            ShippingCarrier.objects.filter(is_default=True).count(), 1,
+        )

@@ -20,6 +20,7 @@ class ChatRoom(BaseModel):
     participants = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         through='ChatParticipant',
+        through_fields=('room', 'user'),
         related_name='chat_rooms',
         verbose_name='참여자',
     )
@@ -60,15 +61,15 @@ class ChatRoom(BaseModel):
         return self.messages.filter(sent_at__gt=participant.last_read_at).count()
 
 
-class ChatParticipant(models.Model):
+class ChatParticipant(BaseModel):
     room = models.ForeignKey(
         ChatRoom,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         verbose_name='대화방',
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         verbose_name='사용자',
     )
     joined_at = models.DateTimeField('참여일', auto_now_add=True)
@@ -79,13 +80,16 @@ class ChatParticipant(models.Model):
     class Meta:
         verbose_name = '대화 참여자'
         verbose_name_plural = '대화 참여자'
-        unique_together = ['room', 'user']
+        ordering = ['-joined_at']
+        constraints = [
+            models.UniqueConstraint(fields=['room', 'user'], name='uq_chatparticipant_room_user'),
+        ]
 
     def __str__(self):
         return f'{self.user} @ {self.room}'
 
 
-class Message(models.Model):
+class Message(BaseModel):
     class MessageType(models.TextChoices):
         TEXT = 'text', '텍스트'
         FILE = 'file', '파일'
@@ -93,7 +97,7 @@ class Message(models.Model):
 
     room = models.ForeignKey(
         ChatRoom,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='messages',
         verbose_name='대화방',
     )
@@ -124,6 +128,9 @@ class Message(models.Model):
         verbose_name = '메시지'
         verbose_name_plural = '메시지'
         ordering = ['sent_at']
+        indexes = [
+            models.Index(fields=['room', 'sent_at'], name='idx_message_room_sent'),
+        ]
 
     def __str__(self):
         return f'{self.sender}: {self.content[:30]}'

@@ -182,25 +182,28 @@ venv\Scripts\activate             # Windows
 # 3. Install packages
 pip install -r requirements/dev.txt
 
-# 4. Configure environment variables
+# 4. Download frontend vendor files (Tailwind CSS, HTMX, Alpine.js, Chart.js)
+bash scripts/download_vendor.sh
+
+# 5. Configure environment variables
 mkdir -p local
 cp .env.example local/.env
 # Open local/.env and change the SECRET_KEY value (required!)
 # SECRET_KEY=django-insecure-your-random-50-char-key-here
 
-# 5. How to generate a SECRET_KEY:
+# 6. How to generate a SECRET_KEY:
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 
-# 6. Create DB and run migrations
+# 7. Create DB and run migrations
 python manage.py migrate
 
-# 7. Create admin account
+# 8. Create admin account
 python manage.py createsuperuser
 # username: admin
 # email: admin@yourdomain.com
 # password: (8+ characters, alphanumeric)
 
-# 8. Set account role
+# 9. Set account role
 python manage.py shell
 >>> from apps.accounts.models import User
 >>> u = User.objects.get(username='admin')
@@ -209,7 +212,7 @@ python manage.py shell
 >>> u.save()
 >>> exit()
 
-# 9. Start development server
+# 10. Start development server
 python manage.py runserver 0.0.0.0:8000
 # Browser: http://localhost:8000
 ```
@@ -271,28 +274,48 @@ ERP_Suite/
 ├── apps/
 │   ├── core/                 # BaseModel, notifications, backup, trash, attachments, audit
 │   ├── accounts/             # Users, roles (admin/manager/staff)
-│   ├── inventory/            # Products, categories, warehouses, stock movements, inventory
-│   ├── production/           # BOM, production plans, work orders, production records
-│   ├── sales/                # Partners, customers, orders, commissions
+│   ├── inventory/            # Products, categories, warehouses, stock movements, LOT, valuation
+│   ├── production/           # BOM, production plans, work orders, records, MRP, standard cost, QC
+│   ├── sales/                # Partners, customers, orders, quotations, commissions, shipments
 │   ├── service/              # Service requests, repair history
-│   ├── accounting/           # Tax invoices, VAT, break-even point, vouchers
+│   ├── accounting/           # Tax invoices, VAT, vouchers, AR/AP, payments, budgets, settlements, multi-currency
 │   ├── investment/           # Investors, rounds, equity, dividends
 │   ├── warranty/             # Product registration, serial number verification
 │   ├── marketplace/          # External store integration (Naver/Coupang, etc.)
-│   └── inquiry/              # Inquiry management, LLM auto-reply
+│   ├── inquiry/              # Inquiry management, LLM auto-reply
+│   ├── hr/                   # Departments, positions, employees, personnel actions, payroll
+│   ├── attendance/           # Check-in/out, leave requests, annual leave
+│   ├── board/                # Notice/general boards, posts, comments
+│   ├── calendar_app/         # Calendar events (FullCalendar.js)
+│   ├── messenger/            # Real-time chat (WebSocket)
+│   ├── ad/                   # Active Directory integration
+│   ├── advertising/          # Ad campaigns, creatives, performance, budgets
+│   ├── approval/             # Multi-step approval workflow
+│   ├── asset/                # Fixed asset management, depreciation
+│   └── api/                  # REST API (13 ViewSets, JWT auth)
 ├── templates/
 │   ├── base.html             # Common layout (sidebar, header)
-│   ├── accounts/             # Login, user management (3)
-│   ├── core/                 # Dashboard, backup, trash, attachments, audit, notifications (9)
-│   ├── inventory/            # Products, warehouses, stock movements, etc. (12)
-│   ├── production/           # BOM, production plans, etc. (11)
-│   ├── sales/                # Partners, customers, orders, commissions (13)
-│   ├── service/              # Service, repairs (4)
-│   ├── accounting/           # Tax invoices, vouchers, etc. (13)
-│   ├── investment/           # Investors, equity, etc. (11)
-│   ├── warranty/             # Product registration (3)
-│   ├── marketplace/          # External stores (5)
-│   └── inquiry/              # Inquiry management (6)
+│   ├── accounts/             # Login, user management
+│   ├── core/                 # Dashboard, backup, trash, attachments, audit, notifications
+│   ├── inventory/            # Products, warehouses, stock movements, valuation, stock count
+│   ├── production/           # BOM, production plans, MRP, standard cost, QC
+│   ├── sales/                # Partners, customers, orders, quotations, commissions, shipments
+│   ├── service/              # Service, repairs
+│   ├── accounting/           # Tax invoices, vouchers, AR/AP, settlements, budgets, multi-currency
+│   ├── investment/           # Investors, equity
+│   ├── warranty/             # Product registration
+│   ├── marketplace/          # External stores
+│   ├── inquiry/              # Inquiry management
+│   ├── hr/                   # Departments, employees, payroll
+│   ├── attendance/           # Attendance, leave
+│   ├── board/                # Notice/general boards
+│   ├── calendar_app/         # Calendar
+│   ├── messenger/            # Chat
+│   ├── ad/                   # AD management
+│   ├── advertising/          # Campaigns, performance
+│   ├── approval/             # Approval workflow
+│   ├── asset/                # Fixed assets, depreciation
+│   └── audit/                # Audit trail
 ├── docs/
 │   ├── 사용자_가이드.md
 │   ├── 개발자_가이드.md
@@ -357,7 +380,7 @@ ERP_Suite/
 | Stock concurrency | F() expressions (race condition prevention) |
 | File upload | Extension whitelist + 10MB limit |
 | Soft delete | is_active=False (no physical deletion) |
-| Change history | simple_history (all 82+ models) |
+| Change history | simple_history (all 106 models) |
 | Production security | HSTS, SSL Redirect, HttpOnly cookies |
 | Audit trail | /audit/ — unified change history across all models |
 | Request logging | Automatic logging of sensitive path access |

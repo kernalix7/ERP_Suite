@@ -7,7 +7,7 @@
 {% block header_actions %}
 <a href="{% url 'investment:investment_create' %}" class="btn btn-primary">투자내역 추가</a>
 <a href="{% url 'investment:round_update' round.pk %}" class="btn btn-secondary">수정</a>
-<a href="{% url 'investment:round_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'investment:round_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
@@ -59,6 +59,10 @@
         <div>
             <p class="text-sm text-gray-500">포스트밸류</p>
             <p class="mt-1 font-medium text-gray-900">{{ round.post_valuation|intcomma }}원</p>
+        </div>
+        <div class="md:col-span-2 lg:col-span-3">
+            <p class="text-sm text-gray-500">비고</p>
+            <p class="mt-1 font-medium text-gray-900">{{ round.notes|default:"-" }}</p>
         </div>
     </div>
 </div>

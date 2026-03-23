@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}재고실사 - ERP Suite{% endblock %}
+{% block page_title %}재고실사{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'inventory:stockcount_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    새 실사
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">실사번호</th>
+                    <th class="px-4 py-3">창고</th>
+                    <th class="px-4 py-3">실사일</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3 text-center">항목수</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for sc in stock_counts %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">
+                        <a href="{% url 'inventory:stockcount_detail' sc.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">
+                            {{ sc.count_number }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">{{ sc.warehouse.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ sc.count_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if sc.status == 'DRAFT' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">작성중</span>
+                        {% elif sc.status == 'IN_PROGRESS' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">실사중</span>
+                        {% elif sc.status == 'COMPLETED' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">완료</span>
+                        {% elif sc.status == 'ADJUSTED' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">조정완료</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ sc.items.count }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-12 text-center text-gray-400">
+                        등록된 재고실사가 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}"
+               class="px-3 py-1 text-sm rounded border {% if page_obj.number == num %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 hover:bg-gray-50{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

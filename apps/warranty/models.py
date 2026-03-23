@@ -10,6 +10,12 @@ class ProductRegistration(BaseModel):
     product = models.ForeignKey(
         Product, verbose_name='제품', on_delete=models.PROTECT,
     )
+    customer = models.ForeignKey(
+        'sales.Customer', verbose_name='고객',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='product_registrations',
+    )
     customer_name = models.CharField('고객명', max_length=100)
     phone = models.CharField('연락처', max_length=20)
     email = models.EmailField('이메일', blank=True)
@@ -27,7 +33,7 @@ class ProductRegistration(BaseModel):
     class Meta:
         verbose_name = '정품등록'
         verbose_name_plural = '정품등록'
-        ordering = ['-purchase_date']
+        ordering = ['-pk']
 
     def __str__(self):
         return f'{self.serial_number} - {self.customer_name}'

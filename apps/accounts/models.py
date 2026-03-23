@@ -18,10 +18,18 @@ class User(AbstractUser):
         choices=Role.choices,
         default=Role.STAFF,
     )
+    is_auditor = models.BooleanField(
+        '감사권한',
+        default=False,
+        help_text='감사 증적 열람 권한 (ISMS/회계 증빙 접근)',
+    )
 
     class Meta:
         verbose_name = '사용자'
         verbose_name_plural = '사용자'
+        indexes = [
+            models.Index(fields=['role'], name='idx_user_role'),
+        ]
 
     def __str__(self):
         return self.name or self.username

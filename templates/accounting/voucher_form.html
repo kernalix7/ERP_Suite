@@ -5,7 +5,7 @@
 {% block page_title %}전표 {{ form.instance.pk|yesno:"수정,작성" }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'accounting:voucher_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'accounting:voucher_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
@@ -83,14 +83,14 @@
                             {% endfor %}
                         </td>
                         <td class="px-4 py-3">
-                            {{ item_form.debit_amount }}
-                            {% for error in item_form.debit_amount.errors %}
+                            {{ item_form.debit }}
+                            {% for error in item_form.debit.errors %}
                             <p class="mt-1 text-xs text-red-600">{{ error }}</p>
                             {% endfor %}
                         </td>
                         <td class="px-4 py-3">
-                            {{ item_form.credit_amount }}
-                            {% for error in item_form.credit_amount.errors %}
+                            {{ item_form.credit }}
+                            {% for error in item_form.credit.errors %}
                             <p class="mt-1 text-xs text-red-600">{{ error }}</p>
                             {% endfor %}
                         </td>
@@ -191,8 +191,8 @@ function voucherForm() {
             let totalCredit = 0;
             document.querySelectorAll('.formset-row').forEach((row, idx) => {
                 if (!this.deletedItems.has(idx)) {
-                    const debit = parseFloat(row.querySelector('[name$="-debit_amount"]')?.value) || 0;
-                    const credit = parseFloat(row.querySelector('[name$="-credit_amount"]')?.value) || 0;
+                    const debit = parseFloat(row.querySelector('[name$="-debit"]')?.value) || 0;
+                    const credit = parseFloat(row.querySelector('[name$="-credit"]')?.value) || 0;
                     totalDebit += debit;
                     totalCredit += credit;
                 }
@@ -205,7 +205,7 @@ function voucherForm() {
         init() {
             this.updateTotals();
             this.$el.addEventListener('input', (e) => {
-                if (e.target.name && (e.target.name.includes('-debit_amount') || e.target.name.includes('-credit_amount'))) {
+                if (e.target.name && (e.target.name.includes('-debit') || e.target.name.includes('-credit'))) {
                     this.updateTotals();
                 }
             });

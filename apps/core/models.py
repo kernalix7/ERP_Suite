@@ -31,6 +31,7 @@ class BaseModel(models.Model):
         self.save(update_fields=['is_active', 'updated_at'])
 
 
-# Notification은 별도 파일에 정의하지만 여기서 import하여 migration에 포함
+# 별도 파일에 정의된 모델 import (migration에 포함)
 from apps.core.notification import Notification  # noqa: E402, F401
 from apps.core.attachment import Attachment  # noqa: E402, F401
+from apps.core.audit import AuditAccessLog  # noqa: E402, F401

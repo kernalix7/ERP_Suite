@@ -27,8 +27,17 @@ node_modules/
 # Logs
 *.log
 
+# Tailwind standalone CLI binary (temporary, downloaded by scripts/download_vendor.sh)
+tailwindcss-*
+
+# Vendor libraries (빌드 결과물 — scripts/download_vendor.sh로 재생성)
+static/vendor/
+
 # Local (sensitive data, test DB, backups)
 local/
+
+# Temporary scripts
+backfill_purchases.py
 
 # AI config (actual files in .priv-storage/, root has symlinks)
 .priv-storage/

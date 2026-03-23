@@ -9,7 +9,7 @@ ISMS/ISO 27001 및 OWASP Top 10 표준에 따라 작성되었습니다.
 
 ### 1.2 범위
 - **대상 시스템**: ERP Suite (Django 5.x 기반 제조/판매 통합 ERP + 그룹웨어)
-- **대상 앱**: core, accounts, inventory, production, sales, service, accounting, investment, warranty, marketplace, inquiry, purchase, attendance, board, calendar_app, hr, messenger, ad
+- **대상 앱** (22개): accounting, accounts, ad, advertising, api, approval, asset, attendance, board, calendar_app, core, hr, inquiry, inventory, investment, marketplace, messenger, production, purchase, sales, service, warranty
 - **대상 환경**: 개발 (SQLite), 스테이징 (PostgreSQL), 운영 (PostgreSQL + Docker)
 
 ### 1.3 검증 일정

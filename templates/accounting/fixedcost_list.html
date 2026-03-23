@@ -17,6 +17,12 @@
     </svg>
     Excel
 </a>
+<a href="{% url 'accounting:fixedcost_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
+</a>
 {% endblock %}
 
 {% block content %}
@@ -57,21 +63,22 @@
 <div class="bg-white shadow-sm rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-4 font-semibold">비용명</th>
-                    <th class="px-6 py-4 font-semibold text-center">비용구분</th>
-                    <th class="px-6 py-4 font-semibold text-right">금액</th>
-                    <th class="px-6 py-4 font-semibold">해당월</th>
-                    <th class="px-6 py-4 font-semibold text-center">반복여부</th>
-                    <th class="px-6 py-4 font-semibold text-center">관리</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">비용명</th>
+                    <th class="px-4 py-3 text-center">비용구분</th>
+                    <th class="px-4 py-3 text-right">금액</th>
+                    <th class="px-4 py-3">해당월</th>
+                    <th class="px-4 py-3 text-center">반복</th>
+                    <th class="px-4 py-3 text-center">반복단위</th>
+                    <th class="px-4 py-3 text-center">관리</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for cost in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ cost.name }}</td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ cost.name }}</td>
+                    <td class="px-4 py-3 text-center">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             {% if cost.category == 'rent' %}bg-blue-100 text-blue-800
                             {% elif cost.category == 'salary' %}bg-green-100 text-green-800
@@ -82,22 +89,29 @@
                             {{ cost.get_category_display }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-right text-gray-900 font-medium">{{ cost.amount|intcomma }}원</td>
-                    <td class="px-6 py-4 text-gray-600">{{ cost.month }}</td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ cost.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-gray-600">{{ cost.month }}</td>
+                    <td class="px-4 py-3 text-center">
                         {% if cost.is_recurring %}
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">반복</span>
                         {% else %}
                             <span class="text-gray-400">-</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-center text-gray-600">
+                        {% if cost.is_recurring and cost.recurring_unit %}
+                            {{ cost.get_recurring_unit_display }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
                         <a href="{% url 'accounting:fixedcost_update' cost.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">수정</a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">등록된 고정비가 없습니다.</td>
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">등록된 고정비가 없습니다.</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -74,6 +74,41 @@
     </div>
 </div>
 
+<!-- KPI Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+    <!-- 재고 회전율 -->
+    <div class="bg-white shadow-sm rounded-xl p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">재고 회전율 (12개월)</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ inventory_turnover|default:"0" }}회</p>
+                <p class="mt-1 text-sm text-gray-500">매출원가 / 평균재고금액</p>
+            </div>
+            <div class="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- 납기 준수율 -->
+    <div class="bg-white shadow-sm rounded-xl p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">납기 준수율</p>
+                <p class="mt-1 text-2xl font-bold {% if delivery_compliance_rate >= 90 %}text-green-600{% elif delivery_compliance_rate >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ delivery_compliance_rate|default:"0" }}%</p>
+                <p class="mt-1 text-sm text-gray-500">전체 {{ delivery_total_shipments|default:"0" }}건 기준</p>
+            </div>
+            <div class="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Charts Section -->
 {{ chart_revenue_labels|json_script:"chart-revenue-labels" }}
 {{ chart_revenue_data|json_script:"chart-revenue-data" }}

@@ -20,6 +20,9 @@ urlpatterns = [
     path('distributions/', views.DistributionListView.as_view(), name='distribution_list'),
     path('distributions/create/', views.DistributionCreateView.as_view(), name='distribution_create'),
     path('distributions/<int:pk>/edit/', views.DistributionUpdateView.as_view(), name='distribution_update'),
+    # 일괄 가져오기
+    path('investors/import/', views.InvestorImportView.as_view(), name='investor_import'),
+    path('investors/import/sample/', views.InvestorImportSampleView.as_view(), name='investor_import_sample'),
     # Excel 내보내기
     path('investors/excel/', excel_views.InvestorExcelView.as_view(), name='investor_excel'),
     path('rounds/excel/', excel_views.InvestmentRoundExcelView.as_view(), name='round_excel'),

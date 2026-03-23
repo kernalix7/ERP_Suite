@@ -38,61 +38,56 @@
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit" class="btn btn-secondary">
-                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                {% trans "조회" %}
-            </button>
+            <button type="submit" class="btn btn-primary">검색</button>
         </form>
     </div>
 
     <!-- 테이블 -->
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-3 font-semibold">{% trans "날짜" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "출근" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "퇴근" %}</th>
-                    <th class="px-6 py-3 font-semibold text-right">{% trans "근무시간" %}</th>
-                    <th class="px-6 py-3 font-semibold text-right">{% trans "초과근무" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "상태" %}</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "날짜" %}</th>
+                    <th class="px-4 py-3">{% trans "출근" %}</th>
+                    <th class="px-4 py-3">{% trans "퇴근" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "근무시간" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "초과근무" %}</th>
+                    <th class="px-4 py-3">{% trans "상태" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for record in records %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ record.date|date:"Y-m-d (D)" }}</td>
-                    <td class="px-6 py-4 text-gray-700">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ record.date|date:"Y-m-d (D)" }}</td>
+                    <td class="px-4 py-3 text-gray-700">
                         {% if record.check_in %}
                             {{ record.check_in|time:"H:i" }}
                         {% else %}
                             <span class="text-gray-400">-</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-gray-700">
+                    <td class="px-4 py-3 text-gray-700">
                         {% if record.check_out %}
                             {{ record.check_out|time:"H:i" }}
                         {% else %}
                             <span class="text-gray-400">-</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-right text-gray-700">
+                    <td class="px-4 py-3 text-right text-gray-700">
                         {% if record.work_hours %}
                             {{ record.work_hours }}{% trans "h" %}
                         {% else %}
                             <span class="text-gray-400">-</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-right text-gray-700">
+                    <td class="px-4 py-3 text-right text-gray-700">
                         {% if record.overtime_hours > 0 %}
                             <span class="text-orange-600 font-medium">+{{ record.overtime_hours }}{% trans "h" %}</span>
                         {% else %}
                             <span class="text-gray-400">-</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             {% if record.status == 'NORMAL' %}bg-green-100 text-green-800
                             {% elif record.status == 'LATE' %}bg-yellow-100 text-yellow-800

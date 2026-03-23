@@ -15,39 +15,39 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "도메인명" %}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "도메인 주소" %}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "LDAP 서버" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "SSL" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "자동동기화" %}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "마지막 동기화" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "관리" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "도메인명" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "도메인 주소" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "LDAP 서버" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "SSL" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "자동동기화" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "마지막 동기화" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "관리" %}</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for domain in domains %}
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-3">
                             <a href="{% url 'ad:domain_detail' domain.pk %}" class="font-medium text-blue-600 hover:underline">{{ domain.name }}</a>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">{{ domain.domain }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-500">{{ domain.ldap_server }}</td>
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-4 py-3 text-sm text-gray-500">{{ domain.domain }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">{{ domain.ldap_server }}</td>
+                        <td class="px-4 py-3 text-center">
                             {% if domain.use_ssl %}<span class="text-green-500">&#10003;</span>{% else %}<span class="text-gray-300">-</span>{% endif %}
                         </td>
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-4 py-3 text-center">
                             {% if domain.sync_enabled %}<span class="text-green-500">&#10003;</span> <span class="text-xs text-gray-400">{{ domain.sync_interval_minutes }}{% trans "분" %}</span>{% else %}<span class="text-gray-300">-</span>{% endif %}
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
+                        <td class="px-4 py-3 text-sm text-gray-500">
                             {% if domain.last_sync_at %}{{ domain.last_sync_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
                         </td>
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-4 py-3 text-center">
                             <a href="{% url 'ad:domain_update' domain.pk %}" class="text-blue-600 hover:underline text-sm">{% trans "수정" %}</a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="px-6 py-8 text-center text-gray-400">{% trans "등록된 도메인이 없습니다." %}</td>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-400">{% trans "등록된 도메인이 없습니다." %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

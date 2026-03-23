@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: erp_suite
       POSTGRES_USER: erp
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 환경변수를 설정하세요}
     ports:
       - "${DB_PORT:-127.0.0.1:5432}:5432"
     restart: unless-stopped
@@ -28,8 +28,8 @@ services:
     ports:
       - "${WEB_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=postgres://erp:${DB_PASSWORD:-changeme}@db:5432/erp_suite
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - DATABASE_URL=postgres://erp:${DB_PASSWORD}@db:5432/erp_suite
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY 환경변수를 설정하세요}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - REDIS_URL=redis://redis:6379/0
@@ -45,8 +45,8 @@ services:
     build: .
     command: celery -A config worker -l info
     environment:
-      - DATABASE_URL=postgres://erp:${DB_PASSWORD:-changeme}@db:5432/erp_suite
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - DATABASE_URL=postgres://erp:${DB_PASSWORD}@db:5432/erp_suite
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY 환경변수를 설정하세요}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - REDIS_URL=redis://redis:6379/0
@@ -62,8 +62,8 @@ services:
     build: .
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     environment:
-      - DATABASE_URL=postgres://erp:${DB_PASSWORD:-changeme}@db:5432/erp_suite
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - DATABASE_URL=postgres://erp:${DB_PASSWORD}@db:5432/erp_suite
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY 환경변수를 설정하세요}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - REDIS_URL=redis://redis:6379/0
@@ -94,7 +94,7 @@ services:
       - "${GRAFANA_PORT:-127.0.0.1:3000}:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD 환경변수를 설정하세요}
     depends_on:
       - prometheus
     restart: unless-stopped

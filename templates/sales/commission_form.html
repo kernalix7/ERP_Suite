@@ -4,7 +4,7 @@
 {% block page_title %}수수료 등록{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'sales:commission_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'sales:commission_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
@@ -38,4 +38,57 @@
         <button type="submit" class="btn btn-primary">저장</button>
     </div>
 </form>
+
+{{ order_amounts_json|json_script:"order-amounts-data" }}
+{{ commission_rates_json|json_script:"commission-rates-data" }}
+<script>
+(function() {
+    const orderAmounts = JSON.parse(document.getElementById('order-amounts-data').textContent);
+    const commissionRates = JSON.parse(document.getElementById('commission-rates-data').textContent);
+
+    const orderSel = document.getElementById('id_order');
+    const partnerSel = document.getElementById('id_partner');
+    const amountInput = document.getElementById('id_order_amount');
+    const rateInput = document.getElementById('id_commission_rate');
+    const commInput = document.getElementById('id_commission_amount');
+
+    function autoFillFromOrder() {
+        if (!orderSel || !orderSel.value) return;
+        const data = orderAmounts[orderSel.value];
+        if (!data) return;
+
+        // 주문금액 자동 입력
+        if (amountInput && (!amountInput.value || amountInput.value === '0')) {
+            amountInput.value = data.amount;
+        }
+        // 거래처 자동 선택
+        if (partnerSel && data.partner) {
+            partnerSel.value = data.partner;
+            autoFillRate();
+        }
+    }
+
+    function autoFillRate() {
+        if (!partnerSel || !partnerSel.value) return;
+        const rate = commissionRates[partnerSel.value];
+        if (rate !== undefined && rateInput && (!rateInput.value || rateInput.value === '0')) {
+            rateInput.value = rate;
+        }
+        calcCommission();
+    }
+
+    function calcCommission() {
+        const amount = parseFloat(amountInput?.value) || 0;
+        const rate = parseFloat(rateInput?.value) || 0;
+        if (amount > 0 && rate > 0 && commInput) {
+            commInput.value = Math.round(amount * rate / 100);
+        }
+    }
+
+    if (orderSel) orderSel.addEventListener('change', autoFillFromOrder);
+    if (partnerSel) partnerSel.addEventListener('change', autoFillRate);
+    if (amountInput) amountInput.addEventListener('input', calcCommission);
+    if (rateInput) rateInput.addEventListener('input', calcCommission);
+})();
+</script>
 {% endblock %}

@@ -74,7 +74,7 @@ class Comment(BaseModel):
     post = models.ForeignKey(
         Post,
         verbose_name='게시글',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='comments',
     )
     content = models.TextField('내용')
@@ -89,7 +89,7 @@ class Comment(BaseModel):
         verbose_name='상위 댓글',
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name='replies',
     )
     history = HistoricalRecords()

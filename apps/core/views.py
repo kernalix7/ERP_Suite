@@ -1,9 +1,10 @@
 import json
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
-from django.db.models import Sum, Count, Q
+from django.db.models import F, Sum, Count, Q, ExpressionWrapper, DecimalField
 from django.db.models.functions import TruncMonth
 from django.views.generic import TemplateView
 
@@ -20,12 +21,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # 재고 부족 품목
         from apps.inventory.models import Product
         products = Product.objects.filter(product_type='FINISHED')
-        low_stock = [p for p in products if p.is_below_safety_stock]
+        low_stock = products.filter(
+            current_stock__lt=F('safety_stock'),
+        ).select_related('category')
         context['low_stock_products'] = low_stock
         context['total_products'] = products.count()
 
         # 금일 주문
-        from apps.sales.models import Order
+        from apps.sales.models import Order, OrderItem, Shipment
         today_orders = Order.objects.filter(order_date=today)
         context['today_order_count'] = today_orders.count()
         context['today_order_amount'] = today_orders.aggregate(
@@ -73,6 +76,61 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             total=Sum('amount')
         )['total'] or 0
         context['investor_count'] = Investor.objects.count()
+
+        # ── 재고 회전율 KPI ───────────────────────────
+        twelve_months_ago = today - timedelta(days=365)
+        # COGS: 최근 12개월 출고된 OrderItem의 (quantity * cost_price) 합계
+        cogs = OrderItem.objects.filter(
+            order__status__in=['SHIPPED', 'DELIVERED'],
+            order__order_date__gte=twelve_months_ago,
+            is_active=True,
+        ).aggregate(
+            total=Sum(
+                ExpressionWrapper(
+                    F('quantity') * F('cost_price'),
+                    output_field=DecimalField(max_digits=20, decimal_places=0),
+                )
+            )
+        )['total'] or Decimal('0')
+
+        # 평균재고금액: 활성 제품의 (current_stock * cost_price) 합계
+        avg_inventory = Product.objects.filter(
+            is_active=True,
+        ).aggregate(
+            total=Sum(
+                ExpressionWrapper(
+                    F('current_stock') * F('cost_price'),
+                    output_field=DecimalField(max_digits=20, decimal_places=0),
+                )
+            )
+        )['total'] or Decimal('0')
+
+        if avg_inventory > 0:
+            context['inventory_turnover'] = round(
+                float(cogs) / float(avg_inventory), 2
+            )
+        else:
+            context['inventory_turnover'] = 0
+
+        # ── 납기 준수율 KPI ───────────────────────────
+        # 배송 약속일(Order.delivery_date) vs 실제 출고일(Shipment.shipped_date)
+        shipped_orders = Shipment.objects.filter(
+            is_active=True,
+            shipped_date__isnull=False,
+            order__delivery_date__isnull=False,
+        ).select_related('order')
+
+        total_shipments = shipped_orders.count()
+        if total_shipments > 0:
+            on_time = shipped_orders.filter(
+                shipped_date__lte=F('order__delivery_date')
+            ).count()
+            context['delivery_compliance_rate'] = round(
+                on_time / total_shipments * 100, 1
+            )
+        else:
+            context['delivery_compliance_rate'] = 0
+        context['delivery_total_shipments'] = total_shipments
 
         # ── Chart data (캐시 적용) ───────────────────────────
         chart_data = cache.get('dashboard_chart_data')

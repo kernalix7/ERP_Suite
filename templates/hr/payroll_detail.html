@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ payroll.employee.user.name|default:payroll.employee.user.username }} {{ payroll.year }}{% trans "년" %} {{ payroll.month }}{% trans "월" %} {% trans "급여명세서" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "급여명세서" %}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+    <button onclick="window.print()" class="btn btn-primary">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+        </svg>
+        {% trans "인쇄" %}
+    </button>
+    <a href="{% url 'hr:payroll_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto print:max-w-none">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 print:shadow-none print:border-none">
+        <!-- 제목 헤더 -->
+        <div class="text-center mb-8 print:mb-6">
+            <h1 class="text-2xl font-bold text-gray-900">{% trans "급여명세서" %}</h1>
+            <p class="text-gray-500 mt-1">{{ payroll.year }}{% trans "년" %} {{ payroll.month }}{% trans "월" %}</p>
+        </div>
+
+        <!-- 직원 정보 -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 p-4 bg-gray-50 rounded-lg print:bg-white print:border print:border-gray-300">
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wider">{% trans "성명" %}</p>
+                <p class="text-sm font-semibold text-gray-900 mt-1">{{ payroll.employee.user.name|default:payroll.employee.user.username }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wider">{% trans "사번" %}</p>
+                <p class="text-sm font-mono text-gray-900 mt-1">{{ payroll.employee.employee_number }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wider">{% trans "부서" %}</p>
+                <p class="text-sm text-gray-900 mt-1">{{ payroll.employee.department|default:"-" }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wider">{% trans "직급" %}</p>
+                <p class="text-sm text-gray-900 mt-1">{{ payroll.employee.position|default:"-" }}</p>
+            </div>
+        </div>
+
+        <!-- 지급 / 공제 테이블 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+            <!-- 지급 항목 -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 pb-2 border-b-2 border-blue-500">{% trans "지급 항목" %}</h3>
+                <table class="w-full text-sm">
+                    <tbody class="divide-y divide-gray-100">
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "기본급" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.base_salary|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "초과근무수당" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.overtime_pay|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "상여금" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.bonus|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "제수당" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.allowances|floatformat:0 }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="border-t-2 border-gray-300">
+                            <td class="py-2 font-semibold text-gray-900">{% trans "총지급액" %}</td>
+                            <td class="py-2 text-right font-mono font-bold text-gray-900">{{ payroll.gross_pay|floatformat:0 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- 공제 항목 -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 pb-2 border-b-2 border-red-500">{% trans "공제 항목" %}</h3>
+                <table class="w-full text-sm">
+                    <tbody class="divide-y divide-gray-100">
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "국민연금" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.national_pension|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "건강보험" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.health_insurance|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "장기요양" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.long_term_care|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "고용보험" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.employment_insurance|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "소득세" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.income_tax|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-600">{% trans "지방소득세" %}</td>
+                            <td class="py-2 text-right font-mono text-gray-900">{{ payroll.local_income_tax|floatformat:0 }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="border-t-2 border-gray-300">
+                            <td class="py-2 font-semibold text-gray-900">{% trans "공제합계" %}</td>
+                            <td class="py-2 text-right font-mono font-bold text-red-700">{{ payroll.total_deductions|floatformat:0 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 실수령액 -->
+        <div class="bg-blue-50 rounded-lg p-6 text-center print:bg-white print:border-2 print:border-blue-500">
+            <p class="text-sm text-blue-600 uppercase tracking-wider mb-1">{% trans "실수령액" %}</p>
+            <p class="text-3xl font-bold text-blue-800 font-mono">{{ payroll.net_pay|floatformat:0 }} {% trans "원" %}</p>
+        </div>
+
+        <!-- 상태 / 지급일 -->
+        <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-gray-200 text-sm text-gray-600">
+            <div class="flex items-center gap-4">
+                <span>{% trans "상태" %}:
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        {% if payroll.status == 'DRAFT' %}bg-gray-100 text-gray-800
+                        {% elif payroll.status == 'CONFIRMED' %}bg-blue-100 text-blue-800
+                        {% else %}bg-green-100 text-green-800{% endif %}">
+                        {{ payroll.get_status_display }}
+                    </span>
+                </span>
+                {% if payroll.paid_date %}
+                <span>{% trans "지급일" %}: {{ payroll.paid_date|date:"Y-m-d" }}</span>
+                {% endif %}
+            </div>
+            {% if payroll.notes %}
+            <p class="text-gray-500 italic">{{ payroll.notes }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

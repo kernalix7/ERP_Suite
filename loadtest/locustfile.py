@@ -72,6 +72,18 @@ class ERPUser(HttpUser):
         """입출고 내역 조회"""
         self.client.get('/inventory/movements/')
 
+    @tag('inventory')
+    @task(2)
+    def view_warehouse_stock(self):
+        """창고별 재고 현황 조회"""
+        self.client.get('/inventory/warehouse-stock/')
+
+    @tag('inventory')
+    @task(1)
+    def view_stock_count_list(self):
+        """재고실사 목록 조회"""
+        self.client.get('/inventory/stock-count/')
+
     @tag('sales')
     @task(5)
     def view_order_list(self):
@@ -108,6 +120,12 @@ class ERPUser(HttpUser):
         """BOM 목록 조회"""
         self.client.get('/production/bom/')
 
+    @tag('production')
+    @task(1)
+    def view_qc_list(self):
+        """품질검수 목록 조회"""
+        self.client.get('/production/qc/')
+
     @tag('accounting')
     @task(2)
     def view_accounting_dashboard(self):
@@ -125,6 +143,30 @@ class ERPUser(HttpUser):
     def view_taxinvoice_list(self):
         """세금계산서 목록 조회"""
         self.client.get('/accounting/tax-invoices/')
+
+    @tag('accounting')
+    @task(1)
+    def view_bank_reconciliation(self):
+        """은행 대사 조회"""
+        self.client.get('/accounting/bank-reconciliation/')
+
+    @tag('accounting')
+    @task(1)
+    def view_account_ledger(self):
+        """계정별 원장 조회"""
+        self.client.get('/accounting/ledger/')
+
+    @tag('accounting')
+    @task(1)
+    def view_trial_balance(self):
+        """시산표 조회"""
+        self.client.get('/accounting/trial-balance/')
+
+    @tag('accounting')
+    @task(1)
+    def view_budget_list(self):
+        """예산관리 조회"""
+        self.client.get('/accounting/budget/')
 
     @tag('purchase')
     @task(2)

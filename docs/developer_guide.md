@@ -32,6 +32,8 @@ ERP_Suite/
 │   ├── messenger/           # Internal messenger
 │   ├── ad/                  # Active Directory integration
 │   ├── advertising/         # Ad management
+│   ├── approval/            # Approval/request workflow
+│   ├── asset/               # Fixed asset management
 │   └── api/                 # REST API
 ├── config/
 │   ├── settings/
@@ -47,8 +49,10 @@ ERP_Suite/
 ├── static/                  # Static files
 ├── locale/                  # i18n translation files
 ├── requirements/            # Dependencies
+│   ├── base.txt             # Core dependencies
 │   ├── dev.txt              # Development dependencies
-│   └── prod.txt             # Production dependencies
+│   ├── prod.txt             # Production dependencies
+│   └── test.txt             # Test dependencies
 ├── local/                   # Local settings (.env, etc., not tracked by Git)
 ├── docker-compose.yml
 ├── Dockerfile

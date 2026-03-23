@@ -5,7 +5,7 @@
 {% block page_title %}스토어 주문상세{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
@@ -52,6 +52,10 @@
             <div>
                 <dt class="text-sm text-gray-500">주문일</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ object.order_date|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">비고</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.notes|default:"-" }}</dd>
             </div>
         </div>
     </div>

@@ -5,11 +5,11 @@
 {% block page_title %}{% trans "발주" %} {{ form.instance.pk|yesno:"수정,등록" }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'purchase:po_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+<a href="{% url 'purchase:po_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
-<form method="post" x-data="poForm()">
+<form method="post" enctype="multipart/form-data" x-data="poForm()">
     {% csrf_token %}
 
     <!-- 발주 기본정보 -->
@@ -65,8 +65,9 @@
                         <th class="px-4 py-3 w-8">#</th>
                         <th class="px-4 py-3">{% trans "제품" %}</th>
                         <th class="px-4 py-3 w-32">{% trans "수량" %}</th>
-                        <th class="px-4 py-3 w-40">{% trans "단가" %}</th>
-                        <th class="px-4 py-3 w-40 text-right">{% trans "소계" %}</th>
+                        <th class="px-4 py-3 w-36">{% trans "금액" %}</th>
+                        <th class="px-4 py-3 w-36">{% trans "단가" %}<span class="text-xs text-gray-400 font-normal ml-1">(참고)</span></th>
+                        <th class="px-4 py-3 w-40">{% trans "영수증" %}</th>
                         <th class="px-4 py-3 w-16 text-center">{% trans "삭제" %}</th>
                     </tr>
                 </thead>
@@ -83,10 +84,16 @@
                             {% endfor %}
                         </td>
                         <td class="px-4 py-3">
-                            {{ item_form.quantity }}
+                            <div class="flex items-center gap-1">
+                                {{ item_form.quantity }}
+                                <span class="item-unit text-sm text-gray-500 whitespace-nowrap"></span>
+                            </div>
                             {% for error in item_form.quantity.errors %}
                             <p class="mt-1 text-xs text-red-600">{{ error }}</p>
                             {% endfor %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {{ item_form.amount }}
                         </td>
                         <td class="px-4 py-3">
                             {{ item_form.unit_price }}
@@ -94,7 +101,12 @@
                             <p class="mt-1 text-xs text-red-600">{{ error }}</p>
                             {% endfor %}
                         </td>
-                        <td class="px-4 py-3 text-right font-medium text-gray-900 subtotal">-</td>
+                        <td class="px-4 py-3">
+                            {{ item_form.receipt_file }}
+                            {% if item_form.instance.receipt_file %}
+                            <a href="{{ item_form.instance.receipt_file.url }}" target="_blank" class="text-xs text-blue-600 hover:underline mt-1 block">{% trans "현재 파일" %}</a>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-center">
                             <div class="hidden">{{ item_form.DELETE }}</div>
                             <button type="button" @click="deleteItem({{ forloop.counter0 }})"
@@ -112,9 +124,19 @@
 
         <!-- 합계 -->
         <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
-            <div class="text-right">
-                <span class="text-sm text-gray-500 mr-4">{% trans "합계금액" %}</span>
-                <span class="text-lg font-bold text-gray-900" id="total-amount">0{% trans "원" %}</span>
+            <div class="text-right space-y-1">
+                <div>
+                    <span class="text-sm text-gray-500 mr-4">{% trans "공급가액" %}</span>
+                    <span class="text-sm font-medium text-gray-700" id="supply-amount">0{% trans "원" %}</span>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500 mr-4">{% trans "부가세" %}</span>
+                    <span class="text-sm font-medium text-gray-700" id="vat-amount">0{% trans "원" %}</span>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500 mr-4">{% trans "합계금액" %}</span>
+                    <span class="text-lg font-bold text-gray-900" id="total-amount">0{% trans "원" %}</span>
+                </div>
             </div>
         </div>
     </div>
@@ -126,7 +148,40 @@
     </div>
 </form>
 
+{{ product_units_json|json_script:"product-units-data" }}
+{{ product_prices_json|json_script:"product-prices-data" }}
 <script>
+const _productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
+const _productPrices = JSON.parse(document.getElementById('product-prices-data').textContent);
+
+// 콤마 포맷 유틸
+function _fmt(n) { return n ? Math.round(n).toLocaleString('ko-KR') : ''; }
+function _unfmt(s) { return parseFloat((s || '').toString().replace(/,/g, '')) || 0; }
+function _fmtEl(el) { if (el && el.value) el.value = _fmt(_unfmt(el.value)); }
+
+function _updateRowUnits(row) {
+    const sel = row.querySelector('select[name$="-product"]');
+    const span = row.querySelector('.item-unit');
+    if (sel && span) span.textContent = _productUnits[sel.value] || '';
+}
+function _calcRowPrice(row, source) {
+    const qtyEl = row.querySelector('[name$="-quantity"]');
+    const priceEl = row.querySelector('[name$="-unit_price"]');
+    const amountEl = row.querySelector('[name$="-amount"]');
+    if (!qtyEl || !priceEl || !amountEl) return;
+    const qty = parseFloat(qtyEl.value) || 0;
+    if (source === 'amount') {
+        const amount = _unfmt(amountEl.value);
+        priceEl.value = qty > 0 ? _fmt(Math.floor(amount / qty)) : '';
+    } else {
+        const price = _unfmt(priceEl.value);
+        amountEl.value = qty > 0 ? _fmt(Math.round(price * qty)) : '';
+    }
+}
+function _fmtMoneyFields(row) {
+    _fmtEl(row.querySelector('[name$="-amount"]'));
+    _fmtEl(row.querySelector('[name$="-unit_price"]'));
+}
 function poForm() {
     return {
         deletedItems: new Set(),
@@ -134,8 +189,8 @@ function poForm() {
             this.deletedItems.add(index);
             const rows = document.querySelectorAll('.formset-row');
             if (rows[index]) {
-                const deleteCheckbox = rows[index].querySelector('input[type="checkbox"][name$="-DELETE"]');
-                if (deleteCheckbox) deleteCheckbox.checked = true;
+                const cb = rows[index].querySelector('input[type="checkbox"][name$="-DELETE"]');
+                if (cb) cb.checked = true;
             }
             this.updateTotal();
         },
@@ -168,6 +223,7 @@ function poForm() {
             newRow.querySelector('td:first-child').textContent = currentCount + 1;
             newRow.style.display = '';
             newRow.classList.remove('hidden');
+            _updateRowUnits(newRow);
             tbody.appendChild(newRow);
             totalForms.value = currentCount + 1;
         },
@@ -175,21 +231,91 @@ function poForm() {
             let total = 0;
             document.querySelectorAll('.formset-row').forEach((row, idx) => {
                 if (!this.deletedItems.has(idx)) {
-                    const qty = parseFloat(row.querySelector('[name$="-quantity"]')?.value) || 0;
-                    const price = parseFloat(row.querySelector('[name$="-unit_price"]')?.value) || 0;
-                    const subtotal = qty * price;
-                    row.querySelector('.subtotal').textContent = subtotal.toLocaleString() + '원';
-                    total += subtotal;
+                    total += _unfmt(row.querySelector('[name$="-amount"]')?.value);
                 }
             });
-            document.querySelector('#total-amount').textContent = total.toLocaleString() + '원';
+            const vatIncluded = document.querySelector('#id_vat_included')?.checked;
+            let supply, vat, grand;
+            if (vatIncluded) {
+                supply = Math.round(total / 1.1);
+                vat = total - supply;
+                grand = total;
+            } else {
+                supply = total;
+                vat = Math.round(total * 0.1);
+                grand = supply + vat;
+            }
+            document.querySelector('#supply-amount').textContent = _fmt(supply) + '원';
+            document.querySelector('#vat-amount').textContent = _fmt(vat) + '원';
+            document.querySelector('#total-amount').textContent = _fmt(grand) + '원';
         },
         init() {
+            // 초기 콤마 포맷 적용
+            document.querySelectorAll('.formset-row').forEach(row => {
+                _updateRowUnits(row);
+                _fmtMoneyFields(row);
+            });
             this.updateTotal();
+
+            // 입력 중에는 콤마 없이, blur 시 콤마 포맷
+            this.$el.addEventListener('focus', (e) => {
+                if (e.target.classList.contains('money-input')) {
+                    const raw = _unfmt(e.target.value);
+                    e.target.value = raw || '';
+                }
+            }, true);
+            this.$el.addEventListener('blur', (e) => {
+                if (e.target.classList.contains('money-input')) {
+                    _fmtEl(e.target);
+                }
+            }, true);
+
             this.$el.addEventListener('input', (e) => {
-                if (e.target.name && (e.target.name.includes('-quantity') || e.target.name.includes('-unit_price'))) {
+                const row = e.target.closest('.formset-row');
+                if (!row) return;
+                if (e.target.name && e.target.name.includes('-amount')) {
+                    _calcRowPrice(row, 'amount');
+                    this.updateTotal();
+                } else if (e.target.name && e.target.name.includes('-unit_price')) {
+                    _calcRowPrice(row, 'unit_price');
+                    this.updateTotal();
+                } else if (e.target.name && e.target.name.includes('-quantity')) {
+                    const amountEl = row.querySelector('[name$="-amount"]');
+                    if (amountEl && _unfmt(amountEl.value) > 0) {
+                        _calcRowPrice(row, 'amount');
+                    } else {
+                        _calcRowPrice(row, 'unit_price');
+                    }
                     this.updateTotal();
                 }
+            });
+            this.$el.addEventListener('change', (e) => {
+                if (e.target.name && e.target.name.includes('-product')) {
+                    const row = e.target.closest('.formset-row');
+                    _updateRowUnits(row);
+                    const price = _productPrices[e.target.value];
+                    if (price) {
+                        const priceEl = row.querySelector('[name$="-unit_price"]');
+                        const qtyEl = row.querySelector('[name$="-quantity"]');
+                        const amountEl = row.querySelector('[name$="-amount"]');
+                        if (priceEl) priceEl.value = _fmt(price);
+                        const qty = parseFloat(qtyEl?.value) || 0;
+                        if (amountEl && qty > 0) {
+                            amountEl.value = _fmt(Math.round(price * qty));
+                        }
+                        this.updateTotal();
+                    }
+                }
+                if (e.target.id === 'id_vat_included') {
+                    this.updateTotal();
+                }
+            });
+
+            // 제출 시 콤마 제거 (서버에 숫자만 전송)
+            this.$el.closest('form').addEventListener('submit', () => {
+                document.querySelectorAll('.money-input').forEach(el => {
+                    el.value = _unfmt(el.value) || '';
+                });
             });
         }
     }

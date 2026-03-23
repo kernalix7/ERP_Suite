@@ -1,8 +1,8 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import F, Q
+from django.db.models import F, Prefetch, Q
 from django.shortcuts import get_object_or_404
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.views.generic import (
     ListView, CreateView, UpdateView, DeleteView, DetailView,
 )
@@ -15,6 +15,7 @@ class BoardListView(LoginRequiredMixin, ListView):
     model = Board
     template_name = 'board/board_list.html'
     context_object_name = 'boards'
+    paginate_by = 20
 
     def get_queryset(self):
         return Board.objects.filter(is_active=True)
@@ -58,9 +59,14 @@ class PostDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['comments'] = (
-            self.object.comments.filter(parent__isnull=True)
+            self.object.comments.filter(parent__isnull=True, is_active=True)
             .select_related('author')
-            .prefetch_related('replies__author')
+            .prefetch_related(
+                Prefetch(
+                    'replies',
+                    queryset=Comment.objects.filter(is_active=True).select_related('author'),
+                )
+            )
         )
         context['comment_form'] = CommentForm()
         return context
@@ -142,8 +148,8 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'board/post_confirm_delete.html'
 
     def dispatch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if obj.author != request.user and request.user.role not in ('admin', 'manager'):
+        self.object = self.get_object()
+        if self.object.author != request.user and request.user.role not in ('admin', 'manager'):
             raise PermissionDenied('본인 글만 삭제할 수 있습니다.')
         return super().dispatch(request, *args, **kwargs)
 
@@ -151,17 +157,9 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
         return reverse('board:post_list', kwargs={'slug': self.object.board.slug})
 
     def form_valid(self, form):
-        self.object = self.get_object()
-        self.object.soft_delete()
-        return self.render_to_response(self.get_context_data())
-
-    def delete(self, request, *args, **kwargs):
-        """Soft delete instead of hard delete."""
-        self.object = self.get_object()
-        success_url = self.get_success_url()
         self.object.soft_delete()
         from django.http import HttpResponseRedirect
-        return HttpResponseRedirect(success_url)
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class CommentCreateView(LoginRequiredMixin, CreateView):

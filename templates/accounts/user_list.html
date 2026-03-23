@@ -1,70 +1,118 @@
 {% extends "base.html" %}
+{% load i18n %}
 
 {% block title %}사용자 관리 - ERP Suite{% endblock %}
-
 {% block page_title %}사용자 관리{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">
-    <span class="flex items-center gap-1.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        사용자 등록
-    </span>
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    사용자 등록
 </a>
 {% endblock %}
 
 {% block content %}
-<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <!-- 검색/필터 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px] relative">
+                <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input type="text" name="q" value="{{ q }}" placeholder="이름, 아이디, 이메일, 연락처"
+                       class="form-input pl-10">
+            </div>
+            <select name="role" class="form-input w-auto">
+                <option value="">전체 역할</option>
+                {% for value, label in role_choices %}
+                <option value="{{ value }}" {% if filter_role == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">검색</button>
+            {% if q or filter_role %}
+            <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">초기화</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- 테이블 -->
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">아이디</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">이름</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">역할</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-600">연락처</th>
-                    <th class="px-6 py-3 text-center font-semibold text-gray-600">상태</th>
-                    <th class="px-6 py-3 text-center font-semibold text-gray-600">관리</th>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">아이디</th>
+                    <th class="px-4 py-3">이름</th>
+                    <th class="px-4 py-3">이메일</th>
+                    <th class="px-4 py-3">역할</th>
+                    <th class="px-4 py-3">연락처</th>
+                    <th class="px-4 py-3">최근 로그인</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3 text-center">관리</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for u in users %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="font-medium text-gray-900">{{ u.username }}</span>
                     </td>
-                    <td class="px-6 py-4 text-gray-700">{{ u.name|default:"-" }}</td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3 text-gray-700">{{ u.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ u.email|default:"-" }}</td>
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             {% if u.role == 'admin' %}bg-purple-100 text-purple-700
                             {% elif u.role == 'manager' %}bg-blue-100 text-blue-700
                             {% else %}bg-gray-100 text-gray-700{% endif %}">
                             {{ u.get_role_display }}
                         </span>
+                        {% if u.is_auditor %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ml-1">감사</span>
+                        {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-gray-700">{{ u.phone|default:"-" }}</td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-gray-700">{{ u.phone|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ u.last_login|date:"m/d H:i"|default:"없음" }}</td>
+                    <td class="px-4 py-3 text-center">
                         {% if u.is_active %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">활성</span>
                         {% else %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">비활성</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-center">
-                        <a href="{% url 'accounts:user_update' u.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">수정</a>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'accounts:user_update' u.pk %}" class="text-blue-600 hover:text-blue-800 text-xs font-medium mr-2">수정</a>
+                        <a href="{% url 'accounts:admin_password_reset' u.pk %}" class="text-amber-600 hover:text-amber-800 text-xs font-medium">비밀번호</a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">
-                        등록된 사용자가 없습니다.
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                        {% if q or filter_role %}검색 결과가 없습니다.{% else %}등록된 사용자가 없습니다.{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&role={{ filter_role }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&q={{ q }}&role={{ filter_role }}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&role={{ filter_role }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

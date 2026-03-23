@@ -3,6 +3,7 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
+from apps.core.utils import generate_document_number
 from apps.inventory.models import Product
 from apps.sales.models import Customer
 
@@ -22,7 +23,7 @@ class ServiceRequest(BaseModel):
         EXCHANGE = 'EXCHANGE', '교환'
         REFUND = 'REFUND', '환불'
 
-    request_number = models.CharField('AS번호', max_length=30, unique=True)
+    request_number = models.CharField('AS번호', max_length=30, unique=True, blank=True)
     customer = models.ForeignKey(
         Customer, verbose_name='고객',
         on_delete=models.PROTECT, related_name='service_requests',
@@ -49,7 +50,7 @@ class ServiceRequest(BaseModel):
     class Meta:
         verbose_name = 'AS 요청'
         verbose_name_plural = 'AS 요청'
-        ordering = ['-received_date', '-pk']
+        ordering = ['-request_number']
         indexes = [
             models.Index(fields=['status'], name='idx_service_status'),
             models.Index(
@@ -59,6 +60,11 @@ class ServiceRequest(BaseModel):
 
     def __str__(self):
         return f'{self.request_number} - {self.customer.name}'
+
+    def save(self, *args, **kwargs):
+        if not self.request_number:
+            self.request_number = generate_document_number(ServiceRequest, 'request_number', 'AS')
+        super().save(*args, **kwargs)
 
 
 class RepairRecord(BaseModel):

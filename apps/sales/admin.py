@@ -2,8 +2,9 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
 from .models import (
-    Partner, Customer, Order, OrderItem,
+    Partner, Customer, CustomerPurchase, Order, OrderItem,
     Quotation, QuotationItem, Shipment,
+    ShippingCarrier, ShipmentTracking,
 )
 from .commission import CommissionRate, CommissionRecord
 
@@ -17,13 +18,26 @@ class PartnerAdmin(SimpleHistoryAdmin):
     search_fields = ('name', 'code')
 
 
+class CustomerPurchaseInline(admin.TabularInline):
+    model = CustomerPurchase
+    extra = 1
+
+
 @admin.register(Customer)
 class CustomerAdmin(SimpleHistoryAdmin):
+    list_display = ('name', 'phone', 'email')
+    search_fields = ('name', 'phone')
+    inlines = [CustomerPurchaseInline]
+
+
+@admin.register(CustomerPurchase)
+class CustomerPurchaseAdmin(SimpleHistoryAdmin):
     list_display = (
-        'name', 'phone', 'product',
-        'serial_number', 'warranty_end',
+        'customer', 'product', 'serial_number',
+        'purchase_date', 'warranty_end',
     )
-    search_fields = ('name', 'phone', 'serial_number')
+    search_fields = ('customer__name', 'serial_number')
+    list_filter = ('product',)
 
 
 class OrderItemInline(admin.TabularInline):
@@ -34,10 +48,11 @@ class OrderItemInline(admin.TabularInline):
 @admin.register(Order)
 class OrderAdmin(SimpleHistoryAdmin):
     list_display = (
-        'order_number', 'partner', 'customer',
-        'order_date', 'status', 'total_amount',
+        'order_number', 'order_type', 'partner', 'customer',
+        'assigned_to', 'order_date', 'status', 'total_amount',
     )
-    list_filter = ('status',)
+    list_filter = ('status', 'order_type')
+    search_fields = ('order_number', 'partner__name', 'customer__name')
     inlines = [OrderItemInline]
 
 
@@ -80,10 +95,10 @@ class QuotationItemAdmin(SimpleHistoryAdmin):
 @admin.register(Shipment)
 class ShipmentAdmin(SimpleHistoryAdmin):
     list_display = (
-        'shipment_number', 'order', 'carrier',
+        'shipment_number', 'order', 'shipping_type', 'carrier',
         'tracking_number', 'status', 'shipped_date',
     )
-    list_filter = ('status', 'carrier')
+    list_filter = ('status', 'shipping_type', 'carrier')
     search_fields = (
         'shipment_number', 'tracking_number',
         'order__order_number',
@@ -102,3 +117,20 @@ class CommissionRecordAdmin(SimpleHistoryAdmin):
         'status', 'settled_date',
     )
     list_filter = ('status',)
+
+
+@admin.register(ShippingCarrier)
+class ShippingCarrierAdmin(SimpleHistoryAdmin):
+    list_display = ('code', 'name', 'is_default')
+    search_fields = ('code', 'name')
+
+
+@admin.register(ShipmentTracking)
+class ShipmentTrackingAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'shipment', 'status', 'location', 'tracked_at',
+    )
+    list_filter = ('status',)
+    search_fields = (
+        'shipment__shipment_number',
+    )

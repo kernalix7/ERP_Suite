@@ -24,6 +24,39 @@ urlpatterns = [
     # 생산실적
     path('records/', views.ProductionRecordListView.as_view(), name='record_list'),
     path('records/create/', views.ProductionRecordCreateView.as_view(), name='record_create'),
+    path('records/<int:pk>/edit/', views.ProductionRecordUpdateView.as_view(), name='record_update'),
+    # 일괄 가져오기
+    path('bom/import/', views.BOMItemImportView.as_view(), name='bom_import'),
+    path('bom/import/sample/', views.BOMItemImportSampleView.as_view(), name='bom_import_sample'),
+    # MRP (자재 소요량 계획)
+    path('mrp/', views.MRPView.as_view(), name='mrp'),
+    # 품질검수
+    path('qc/', views.QualityInspectionListView.as_view(), name='qc_list'),
+    path('qc/create/', views.QualityInspectionCreateView.as_view(), name='qc_create'),
+    path('qc/<int:pk>/', views.QualityInspectionDetailView.as_view(), name='qc_detail'),
+    path('qc/<int:pk>/edit/', views.QualityInspectionUpdateView.as_view(), name='qc_update'),
+    # 표준원가
+    path(
+        'standard-cost/',
+        views.StandardCostListView.as_view(),
+        name='stdcost_list',
+    ),
+    path(
+        'standard-cost/create/',
+        views.StandardCostCreateView.as_view(),
+        name='stdcost_create',
+    ),
+    path(
+        'standard-cost/<int:pk>/',
+        views.StandardCostDetailView.as_view(),
+        name='stdcost_detail',
+    ),
+    # 원가차이 분석
+    path(
+        'cost-variance/',
+        views.CostVarianceView.as_view(),
+        name='cost_variance',
+    ),
     # Excel 내보내기
     path('bom/excel/', excel_views.BOMExcelView.as_view(), name='bom_excel'),
     path('plans/excel/', excel_views.ProductionPlanExcelView.as_view(), name='plan_excel'),

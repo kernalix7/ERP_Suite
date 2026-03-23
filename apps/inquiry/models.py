@@ -58,7 +58,7 @@ class Inquiry(BaseModel):
     class Meta:
         verbose_name = '문의'
         verbose_name_plural = '문의'
-        ordering = ['-received_date']
+        ordering = ['-pk']
         indexes = [
             models.Index(fields=['status'], name='idx_inquiry_status'),
             models.Index(

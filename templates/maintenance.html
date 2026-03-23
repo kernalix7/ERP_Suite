@@ -1,0 +1,46 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시스템 점검중 - ERP Suite</title>
+    <link rel="stylesheet" href="{% static 'vendor/css/tailwind.min.css' %}">
+    <meta http-equiv="refresh" content="30">
+</head>
+<body class="h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div class="max-w-lg w-full mx-4">
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <!-- 아이콘 -->
+            <div class="mx-auto w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+
+            <h1 class="text-2xl font-bold text-gray-900 mb-3">시스템 점검중입니다</h1>
+            <p class="text-gray-600 mb-6">
+                더 나은 서비스를 위해 시스템을 업데이트하고 있습니다.<br>
+                잠시 후 다시 접속해 주세요.
+            </p>
+
+            <!-- 진행 애니메이션 -->
+            <div class="flex justify-center space-x-2 mb-6">
+                <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.15s;"></div>
+                <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.3s;"></div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-500">
+                <p>이 페이지는 30초마다 자동으로 새로고침됩니다.</p>
+                <p class="mt-1">점검이 완료되면 자동으로 서비스가 복구됩니다.</p>
+            </div>
+        </div>
+
+        <p class="text-center text-gray-400 text-xs mt-6">ERP Suite &copy; 2026</p>
+    </div>
+</body>
+</html>

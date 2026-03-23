@@ -5,8 +5,8 @@
 {% block page_title %}투자자 상세{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'investment:investor_update' investor.pk %}" class="btn btn-secondary">수정</a>
-<a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'investment:investor_update' investor.pk %}" class="btn btn-primary">수정</a>
+<a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
@@ -37,6 +37,10 @@
         <div>
             <p class="text-sm text-gray-500">등록일</p>
             <p class="mt-1 font-medium text-gray-900">{{ investor.registration_date }}</p>
+        </div>
+        <div class="md:col-span-2 lg:col-span-3">
+            <p class="text-sm text-gray-500">비고</p>
+            <p class="mt-1 font-medium text-gray-900">{{ investor.notes|default:"-" }}</p>
         </div>
     </div>
 </div>

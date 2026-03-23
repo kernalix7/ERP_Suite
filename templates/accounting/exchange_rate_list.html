@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{% trans "환율 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "환율 관리" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:exchangerate_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <!-- 필터 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-3">
+            <select name="currency" class="form-input w-auto">
+                <option value="">{% trans "전체 통화" %}</option>
+                {% for c in currencies %}
+                <option value="{{ c.pk }}" {% if request.GET.currency == c.pk|stringformat:"d" %}selected{% endif %}>{{ c.code }} - {{ c.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "조회" %}</button>
+        </form>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "통화" %}</th>
+                    <th class="px-4 py-3">{% trans "적용일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "환율 (1외화=KRW)" %}</th>
+                    <th class="px-4 py-3">{% trans "비고" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for rate in rates %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">
+                        <code class="bg-gray-100 px-2 py-0.5 rounded text-xs">{{ rate.currency.code }}</code>
+                        {{ rate.currency.name }}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ rate.rate_date }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ rate.rate|floatformat:4 }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ rate.notes|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-6 py-12 text-center text-gray-400">{% trans "등록된 환율이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex justify-center">
+        <nav class="flex gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.currency %}&currency={{ request.GET.currency }}{% endif %}" class="px-3 py-1 text-sm rounded border hover:bg-gray-50">&laquo;</a>
+            {% endif %}
+            <span class="px-3 py-1 text-sm text-gray-600">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.currency %}&currency={{ request.GET.currency }}{% endif %}" class="px-3 py-1 text-sm rounded border hover:bg-gray-50">&raquo;</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

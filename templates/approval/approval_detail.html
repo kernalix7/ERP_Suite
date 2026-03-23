@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+{% block title %}{{ object.request_number }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "결재문서" %}{% endblock %}
+
+{% block header_actions %}
+{% if object.status == 'DRAFT' and object.requester == request.user %}
+<a href="{% url 'approval:approval_update' object.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+{% endif %}
+<a href="{% url 'approval:approval_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- 결재문서 본문 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+
+        <!-- 문서 헤더: 제목 + 결재란 -->
+        <div class="border-b-2 border-gray-300 p-6">
+            <div class="flex flex-col md:flex-row items-start justify-between gap-6">
+                <!-- 문서 제목 영역 -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-3 mb-2 flex-wrap">
+                        <span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-semibold
+                            {% if object.category == 'PURCHASE' %}bg-indigo-100 text-indigo-800
+                            {% elif object.category == 'EXPENSE' %}bg-orange-100 text-orange-800
+                            {% elif object.category == 'BUDGET' %}bg-teal-100 text-teal-800
+                            {% elif object.category == 'CONTRACT' %}bg-purple-100 text-purple-800
+                            {% elif object.category == 'LEAVE' %}bg-cyan-100 text-cyan-800
+                            {% elif object.category == 'OVERTIME' %}bg-amber-100 text-amber-800
+                            {% elif object.category == 'TRAVEL' %}bg-emerald-100 text-emerald-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ object.get_category_display }}
+                        </span>
+                        {% if object.urgency != 'NORMAL' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                            {% if object.urgency == 'CRITICAL' %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            {{ object.get_urgency_display }}
+                        </span>
+                        {% endif %}
+                        <span class="text-sm text-gray-500 font-mono">{{ object.request_number }}</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">{{ object.title }}</h2>
+                </div>
+
+                <!-- 결재란 -->
+                <div class="flex-shrink-0 overflow-x-auto">
+                    <table class="border-collapse border-2 border-gray-400 text-center text-sm">
+                        {% if steps %}
+                        <thead>
+                            <tr>
+                                <th class="border border-gray-400 px-4 py-1.5 bg-gray-100 text-gray-600 font-medium min-w-[70px]">{% trans "기안" %}</th>
+                                {% for step in steps %}
+                                <th class="border border-gray-400 px-4 py-1.5 bg-gray-100 text-gray-600 font-medium min-w-[70px]">
+                                    {% if forloop.last %}{% trans "승인" %}{% else %}{% trans "검토" %}{{ step.step_order }}{% endif %}
+                                </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="border border-gray-400 px-3 py-3 h-16 align-middle">
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-blue-500 text-blue-600 font-bold text-xs">
+                                        {{ object.requester.get_short_name|default:object.requester.username }}
+                                    </div>
+                                </td>
+                                {% for step in steps %}
+                                <td class="border border-gray-400 px-3 py-3 h-16 align-middle">
+                                    {% if step.status == 'APPROVED' %}
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-green-500 text-green-600 font-bold text-xs">
+                                        {{ step.approver.get_short_name|default:step.approver.username }}
+                                    </div>
+                                    {% elif step.status == 'REJECTED' %}
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-red-500 text-red-600 font-bold text-xs">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    </div>
+                                    {% elif step.step_order == object.current_step and object.status == 'SUBMITTED' %}
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-dashed border-blue-400 text-blue-400 text-xs">
+                                        {% trans "대기" %}
+                                    </div>
+                                    {% else %}
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-dashed border-gray-300 text-gray-300 text-xs">
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ object.requester.get_short_name|default:object.requester.username }}</td>
+                                {% for step in steps %}
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ step.approver.get_short_name|default:step.approver.username }}</td>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-400">{{ object.created_at|date:"m/d" }}</td>
+                                {% for step in steps %}
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-400">{{ step.acted_at|date:"m/d"|default:"" }}</td>
+                                {% endfor %}
+                            </tr>
+                        </tbody>
+                        {% else %}
+                        <!-- 단일 결재자 모드 -->
+                        <thead>
+                            <tr>
+                                <th class="border border-gray-400 px-4 py-1.5 bg-gray-100 text-gray-600 font-medium min-w-[70px]">{% trans "기안" %}</th>
+                                <th class="border border-gray-400 px-4 py-1.5 bg-gray-100 text-gray-600 font-medium min-w-[70px]">{% trans "승인" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="border border-gray-400 px-3 py-3 h-16 align-middle">
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-blue-500 text-blue-600 font-bold text-xs">
+                                        {{ object.requester.get_short_name|default:object.requester.username }}
+                                    </div>
+                                </td>
+                                <td class="border border-gray-400 px-3 py-3 h-16 align-middle">
+                                    {% if object.status == 'APPROVED' %}
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-green-500 text-green-600 font-bold text-xs">
+                                        {{ object.approver.get_short_name|default:object.approver.username }}
+                                    </div>
+                                    {% elif object.status == 'REJECTED' %}
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-red-500 text-red-600 font-bold text-xs">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    </div>
+                                    {% elif object.status == 'SUBMITTED' %}
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-dashed border-blue-400 text-blue-400 text-xs">
+                                        {% trans "대기" %}
+                                    </div>
+                                    {% else %}
+                                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-dashed border-gray-300 text-gray-300 text-xs">
+                                    </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ object.requester.get_short_name|default:object.requester.username }}</td>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ object.approver.get_short_name|default:object.approver.username|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-400">{{ object.created_at|date:"m/d" }}</td>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-400">{{ object.approved_at|date:"m/d"|default:"" }}</td>
+                            </tr>
+                        </tbody>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 문서 정보 테이블 -->
+        <div class="border-b border-gray-200">
+            <table class="w-full text-sm">
+                <tbody>
+                    <tr class="border-b border-gray-200">
+                        <th class="px-4 py-3 bg-gray-50 text-left text-gray-600 font-medium w-32 border-r border-gray-200">{% trans "문서번호" %}</th>
+                        <td class="px-4 py-3 font-mono text-gray-900">{{ object.request_number }}</td>
+                        <th class="px-4 py-3 bg-gray-50 text-left text-gray-600 font-medium w-32 border-l border-r border-gray-200">{% trans "상태" %}</th>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                                {% if object.status == 'DRAFT' %}bg-gray-100 text-gray-700
+                                {% elif object.status == 'SUBMITTED' %}bg-blue-100 text-blue-700
+                                {% elif object.status == 'APPROVED' %}bg-green-100 text-green-700
+                                {% elif object.status == 'REJECTED' %}bg-red-100 text-red-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ object.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <th class="px-4 py-3 bg-gray-50 text-left text-gray-600 font-medium border-r border-gray-200">{% trans "기안자" %}</th>
+                        <td class="px-4 py-3 text-gray-900">{{ object.requester }}</td>
+                        <th class="px-4 py-3 bg-gray-50 text-left text-gray-600 font-medium border-l border-r border-gray-200">{% trans "기안일" %}</th>
+                        <td class="px-4 py-3 text-gray-900">{{ object.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <th class="px-4 py-3 bg-gray-50 text-left text-gray-600 font-medium border-r border-gray-200">{% trans "기안부서" %}</th>
+                        <td class="px-4 py-3 text-gray-900">{{ object.department|default:"-" }}</td>
+                        <th class="px-4 py-3 bg-gray-50 text-left text-gray-600 font-medium border-l border-r border-gray-200">{% trans "협조자" %}</th>
+                        <td class="px-4 py-3 text-gray-900">{{ object.cooperator|default:"-" }}</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <th class="px-4 py-3 bg-gray-50 text-left text-gray-600 font-medium border-r border-gray-200">{% trans "금액" %}</th>
+                        <td class="px-4 py-3 text-gray-900 font-semibold text-lg">
+                            {% if object.amount %}&#8361; {{ object.amount|intcomma }}{% else %}-{% endif %}
+                        </td>
+                        <th class="px-4 py-3 bg-gray-50 text-left text-gray-600 font-medium border-l border-r border-gray-200">{% trans "희망일자" %}</th>
+                        <td class="px-4 py-3 text-gray-900">{{ object.expected_date|date:"Y-m-d"|default:"-" }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 품의목적/사유 -->
+        {% if object.purpose %}
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 pb-2 border-b border-gray-200">{% trans "품의목적/사유" %}</h3>
+            <div class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{{ object.purpose }}</div>
+        </div>
+        {% endif %}
+
+        <!-- 세부내용 -->
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 pb-2 border-b border-gray-200">{% trans "세부내용" %}</h3>
+            <div class="prose prose-sm max-w-none text-gray-800 whitespace-pre-wrap leading-relaxed min-h-[150px]">{{ object.content }}</div>
+        </div>
+
+        <!-- 비고 -->
+        {% if object.notes %}
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 pb-2 border-b border-gray-200">{% trans "비고" %}</h3>
+            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ object.notes }}</p>
+        </div>
+        {% endif %}
+
+        <!-- 첨부파일 -->
+        {% if attachments %}
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 pb-2 border-b border-gray-200">
+                {% trans "첨부파일" %} ({{ attachments|length }})
+            </h3>
+            <div class="space-y-2">
+                {% for att in attachments %}
+                <a href="{{ att.file.url }}" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
+                    <svg class="w-4 h-4 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="text-sm text-blue-600 group-hover:underline">{{ att.original_name }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 반려사유 -->
+        {% if object.reject_reason %}
+        <div class="mx-6 my-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+                <h4 class="text-sm font-semibold text-red-800">{% trans "반려사유" %}</h4>
+            </div>
+            <p class="text-sm text-red-700">{{ object.reject_reason }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 결재 처리 카드 (하단) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- 결재 이력 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                {% trans "결재 이력" %}
+            </h3>
+            <div class="relative">
+                <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                <div class="space-y-4">
+                    <!-- 기안 -->
+                    <div class="relative flex items-start gap-4 pl-10">
+                        <div class="absolute left-2 w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{% trans "기안" %} — {{ object.requester }}</p>
+                            <p class="text-xs text-gray-500">{{ object.created_at|date:"Y-m-d H:i" }}</p>
+                        </div>
+                    </div>
+                    {% if object.submitted_at %}
+                    <div class="relative flex items-start gap-4 pl-10">
+                        <div class="absolute left-2 w-4 h-4 rounded-full bg-blue-400 border-2 border-white shadow"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{% trans "결재요청" %}</p>
+                            <p class="text-xs text-gray-500">{{ object.submitted_at|date:"Y-m-d H:i" }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if steps %}
+                    {% for step in steps %}
+                    {% if step.acted_at %}
+                    <div class="relative flex items-start gap-4 pl-10">
+                        <div class="absolute left-2 w-4 h-4 rounded-full border-2 border-white shadow
+                            {% if step.status == 'APPROVED' %}bg-green-500{% elif step.status == 'REJECTED' %}bg-red-500{% else %}bg-gray-400{% endif %}"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">
+                                {{ step.step_order }}{% trans "단계" %} {{ step.get_status_display }} — {{ step.approver }}
+                            </p>
+                            <p class="text-xs text-gray-500">{{ step.acted_at|date:"Y-m-d H:i" }}</p>
+                            {% if step.comment %}<p class="text-xs text-gray-600 mt-1 italic">"{{ step.comment }}"</p>{% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                    {% if object.approved_at and not steps %}
+                    <div class="relative flex items-start gap-4 pl-10">
+                        <div class="absolute left-2 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{% trans "승인" %} — {{ object.approver }}</p>
+                            <p class="text-xs text-gray-500">{{ object.approved_at|date:"Y-m-d H:i" }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 결재 액션 -->
+        <div class="space-y-4">
+            {% if can_submit %}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-3">{% trans "결재 요청" %}</h3>
+                <p class="text-sm text-gray-600 mb-4">{% trans "작성이 완료되면 결재를 요청하세요." %}</p>
+                <form method="post" action="{% url 'approval:approval_submit' object.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary w-full" onclick="return confirm('결재를 요청하시겠습니까?')">
+                        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                        {% trans "결재 요청" %}
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if can_approve %}
+            <div class="bg-white rounded-xl shadow-sm border border-blue-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                    {% trans "결재 처리" %}
+                </h3>
+                <form method="post" action="{% url 'approval:approval_action' object.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "의견 (반려 시 필수)" %}</label>
+                        <textarea name="reject_reason" class="form-input w-full h-24" rows="3" placeholder="{% trans '결재 의견을 입력하세요...' %}"></textarea>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="submit" name="action" value="approve" class="btn btn-success flex-1" onclick="return confirm('승인하시겠습니까?')">
+                            <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {% trans "승인" %}
+                        </button>
+                        <button type="submit" name="action" value="reject" class="btn btn-danger flex-1" onclick="return confirm('반려하시겠습니까?')">
+                            <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            {% trans "반려" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if can_approve_step %}
+            <div class="bg-white rounded-xl shadow-sm border border-blue-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                    {% trans "결재 처리" %} ({{ current_step_obj.step_order }}{% trans "단계" %})
+                </h3>
+                <form method="post" action="{% url 'approval:approval_step_action' object.pk current_step_obj.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "의견" %}</label>
+                        <textarea name="comment" class="form-input w-full h-24" rows="3" placeholder="{% trans '결재 의견을 입력하세요...' %}"></textarea>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="submit" name="action" value="approve" class="btn btn-success flex-1" onclick="return confirm('승인하시겠습니까?')">
+                            <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {% trans "승인" %}
+                        </button>
+                        <button type="submit" name="action" value="reject" class="btn btn-danger flex-1" onclick="return confirm('반려하시겠습니까?')">
+                            <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            {% trans "반려" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -29,25 +29,25 @@
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-4 font-semibold">제품명</th>
-                    <th class="px-6 py-4 font-semibold text-right">판매가</th>
-                    <th class="px-6 py-4 font-semibold text-right">변동비</th>
-                    <th class="px-6 py-4 font-semibold text-right">공헌이익</th>
-                    <th class="px-6 py-4 font-semibold text-right">BEP 수량</th>
-                    <th class="px-6 py-4 font-semibold text-right">BEP 매출</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">제품명</th>
+                    <th class="px-4 py-3 text-right">판매가</th>
+                    <th class="px-4 py-3 text-right">변동비</th>
+                    <th class="px-4 py-3 text-right">공헌이익</th>
+                    <th class="px-4 py-3 text-right">BEP 수량</th>
+                    <th class="px-4 py-3 text-right">BEP 매출</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for item in breakeven_data %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.product_name }}</td>
-                    <td class="px-6 py-4 text-right text-gray-900">{{ item.price|intcomma }}원</td>
-                    <td class="px-6 py-4 text-right text-gray-900">{{ item.variable_cost|intcomma }}원</td>
-                    <td class="px-6 py-4 text-right text-gray-900">{{ item.contribution_margin|intcomma }}원</td>
-                    <td class="px-6 py-4 text-right font-semibold text-blue-600">{{ item.bep_quantity|intcomma }}개</td>
-                    <td class="px-6 py-4 text-right font-semibold text-blue-600">{{ item.bep_revenue|intcomma }}원</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ item.product_name }}</td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ item.price|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ item.variable_cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ item.contribution_margin|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-semibold text-blue-600">{{ item.bep_quantity|intcomma }}개</td>
+                    <td class="px-4 py-3 text-right font-semibold text-blue-600">{{ item.bep_revenue|intcomma }}원</td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -93,13 +93,14 @@
 </div>
 
 {% if breakeven_data %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{{ breakeven_json|json_script:"breakeven-data" }}
 <script>
-    const bepData = {{ breakeven_json|safe }};
-    const fixedCost = bepData.fixed_cost;
-    const price = bepData.price;
-    const variableCost = bepData.variable_cost;
-    const bepQty = bepData.bep_quantity;
+    const bepList = JSON.parse(document.getElementById('breakeven-data').textContent);
+    const bepData = bepList[0] || {};
+    const fixedCost = {{ monthly_fixed_cost }};
+    const price = bepData.unit_price || 0;
+    const variableCost = bepData.variable_cost || 0;
+    const bepQty = bepData.bep_quantity || 0;
     const maxQty = Math.ceil(bepQty * 2);
 
     const quantities = [];

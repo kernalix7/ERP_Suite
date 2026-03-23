@@ -106,11 +106,11 @@
         {% if preview.headers and preview.rows %}
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-                <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                    <tr>
-                        <th class="px-4 py-3 font-semibold">상태</th>
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">상태</th>
                         {% for header in preview.headers %}
-                        <th class="px-4 py-3 font-semibold">{{ header }}</th>
+                        <th class="px-4 py-3">{{ header }}</th>
                         {% endfor %}
                     </tr>
                 </thead>

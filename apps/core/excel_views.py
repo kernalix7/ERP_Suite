@@ -27,19 +27,22 @@ class PartnerExcelView(LoginRequiredMixin, View):
 
 class CustomerExcelView(LoginRequiredMixin, View):
     def get(self, request):
-        from apps.sales.models import Customer
-        qs = Customer.objects.filter(is_active=True).select_related('product')
+        from apps.sales.models import CustomerPurchase
+        qs = CustomerPurchase.objects.filter(
+            is_active=True, customer__is_active=True,
+        ).select_related('customer', 'product')
         headers = [
-            ('고객명', 15), ('연락처', 16), ('이메일', 22), ('주소', 30),
-            ('구매일', 12), ('구매제품', 20), ('시리얼번호', 18), ('보증만료', 12),
+            ('고객명', 15), ('연락처', 16), ('이메일', 22),
+            ('구매제품', 20), ('시리얼번호', 18), ('구매일', 12), ('보증만료', 12),
         ]
         rows = [[
-            c.name, c.phone, c.email, c.address,
-            c.purchase_date.strftime('%Y-%m-%d') if c.purchase_date else '',
-            c.product.name if c.product else '',
-            c.serial_number, c.warranty_end.strftime('%Y-%m-%d') if c.warranty_end else '',
-        ] for c in qs]
-        return export_to_excel('고객 목록', headers, rows)
+            p.customer.name, p.customer.phone, p.customer.email,
+            p.product.name if p.product else '',
+            p.serial_number,
+            p.purchase_date.strftime('%Y-%m-%d') if p.purchase_date else '',
+            p.warranty_end.strftime('%Y-%m-%d') if p.warranty_end else '',
+        ] for p in qs]
+        return export_to_excel('고객구매내역', headers, rows)
 
 
 class QuotationExcelView(LoginRequiredMixin, View):
@@ -63,11 +66,13 @@ class ShipmentExcelView(LoginRequiredMixin, View):
         from apps.sales.models import Shipment
         qs = Shipment.objects.filter(is_active=True).select_related('order')
         headers = [
-            ('배송번호', 18), ('주문번호', 18), ('택배사', 10), ('송장번호', 18),
-            ('상태', 10), ('발송일', 12), ('수령인', 12), ('수령인 연락처', 16),
+            ('배송번호', 18), ('주문번호', 18), ('배송유형', 10), ('택배사', 10),
+            ('송장번호', 18), ('상태', 10), ('발송일', 12), ('수령인', 12),
+            ('수령인 연락처', 16),
         ]
         rows = [[
-            s.shipment_number, s.order.order_number, s.get_carrier_display(),
+            s.shipment_number, s.order.order_number,
+            s.get_shipping_type_display(), s.get_carrier_display(),
             s.tracking_number, s.get_status_display(),
             s.shipped_date.strftime('%Y-%m-%d') if s.shipped_date else '',
             s.receiver_name, s.receiver_phone,
@@ -361,7 +366,7 @@ class APExcelView(LoginRequiredMixin, View):
 
 class ApprovalExcelView(LoginRequiredMixin, View):
     def get(self, request):
-        from apps.accounting.models import ApprovalRequest
+        from apps.approval.models import ApprovalRequest
         qs = ApprovalRequest.objects.filter(is_active=True).select_related('requester', 'approver')
         headers = [
             ('결재번호', 18), ('구분', 10), ('제목', 30), ('금액', 15),

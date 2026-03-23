@@ -84,15 +84,34 @@ class EventDeleteView(LoginRequiredMixin, DeleteView):
 class EventAPIView(LoginRequiredMixin, View):
     """JSON endpoint for FullCalendar AJAX requests."""
 
+    @staticmethod
+    def _parse_aware(value, use_end_of_day=False):
+        """날짜/시간 문자열을 timezone-aware datetime으로 변환"""
+        from datetime import datetime as dt_cls, time
+        from django.utils.dateparse import parse_datetime, parse_date
+        result = parse_datetime(value)
+        if result and timezone.is_naive(result):
+            result = timezone.make_aware(result)
+        if not result:
+            d = parse_date(value)
+            if d:
+                t = time(23, 59, 59) if use_end_of_day else time(0, 0, 0)
+                result = timezone.make_aware(dt_cls.combine(d, t))
+        return result
+
     def get(self, request):
         start = request.GET.get('start')
         end = request.GET.get('end')
 
         qs = Event.objects.filter(is_active=True).select_related('creator')
         if start:
-            qs = qs.filter(end_datetime__gte=start)
+            start_dt = self._parse_aware(start)
+            if start_dt:
+                qs = qs.filter(end_datetime__gte=start_dt)
         if end:
-            qs = qs.filter(start_datetime__lte=end)
+            end_dt = self._parse_aware(end, use_end_of_day=True)
+            if end_dt:
+                qs = qs.filter(start_datetime__lte=end_dt)
 
         events = []
         for event in qs:

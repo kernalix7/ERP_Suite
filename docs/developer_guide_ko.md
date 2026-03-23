@@ -32,6 +32,8 @@ ERP_Suite/
 │   ├── messenger/           # 사내 메신저
 │   ├── ad/                  # Active Directory 연동
 │   ├── advertising/         # 광고관리
+│   ├── approval/            # 결재/품의
+│   ├── asset/               # 고정자산관리
 │   └── api/                 # REST API
 ├── config/
 │   ├── settings/
@@ -47,8 +49,10 @@ ERP_Suite/
 ├── static/                  # 정적 파일
 ├── locale/                  # i18n 번역 파일
 ├── requirements/            # 의존성
+│   ├── base.txt             # 핵심 의존성
 │   ├── dev.txt              # 개발 의존성
-│   └── prod.txt             # 운영 의존성
+│   ├── prod.txt             # 운영 의존성
+│   └── test.txt             # 테스트 의존성
 ├── local/                   # 로컬 설정 (.env 등, Git 미추적)
 ├── docker-compose.yml
 ├── Dockerfile

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'apps.sales',
     'apps.service',
     'apps.accounting',
+    'apps.approval',
     'apps.investment',
     'apps.warranty',
     'apps.marketplace',
@@ -54,11 +55,14 @@ INSTALLED_APPS = [
     'apps.messenger',
     'apps.ad',
     'apps.advertising',
+    'apps.asset',
+    'apps.api',
 ]
 
 MIDDLEWARE = [
     'django_prometheus.middleware.PrometheusBeforeMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'apps.core.middleware.MaintenanceMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -129,6 +133,9 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
@@ -156,6 +163,7 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 1  # 1시간 잠금
 AXES_LOCKOUT_TEMPLATE = 'accounts/lockout.html'
 AXES_RESET_ON_SUCCESS = True
+AXES_ENABLE_ACCESS_LOG = True  # 로그인 성공 기록
 
 # Logging
 LOGGING = {
@@ -169,9 +177,11 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level': 'WARNING',
-            'class': 'logging.FileHandler',
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': BASE_DIR / 'local' / 'erp.log',
+            'maxBytes': 10 * 1024 * 1024,  # 10MB
+            'backupCount': 5,
             'formatter': 'verbose',
         },
         'console': {
@@ -182,7 +192,7 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['file', 'console'],
-            'level': 'WARNING',
+            'level': 'INFO',
         },
         'django.security': {
             'handlers': ['file'],
@@ -195,6 +205,11 @@ LOGGING = {
             'propagate': False,
         },
         'access': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'audit': {
             'handlers': ['file'],
             'level': 'INFO',
             'propagate': False,
@@ -308,6 +323,9 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Asia/Seoul'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30분 hard limit
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25분 soft limit
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000  # 메모리 릭 방지
 
 # JWT
 SIMPLE_JWT = {

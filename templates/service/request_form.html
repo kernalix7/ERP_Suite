@@ -4,7 +4,7 @@
 {% block page_title %}AS {{ form.instance.pk|yesno:"수정,접수" }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}

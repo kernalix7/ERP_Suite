@@ -1,10 +1,57 @@
 from datetime import date
 
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
+from apps.core.utils import generate_document_number
+
+
+class Currency(BaseModel):
+    """통화"""
+    code = models.CharField('통화코드', max_length=3, unique=True)  # USD, EUR, JPY, CNY
+    name = models.CharField('통화명', max_length=50)
+    symbol = models.CharField('기호', max_length=5)  # $, €, ¥, ¥
+    decimal_places = models.PositiveSmallIntegerField('소수자리', default=2)
+    is_base = models.BooleanField('기준통화', default=False)  # KRW
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '통화'
+        verbose_name_plural = '통화'
+        ordering = ['code']
+
+    def __str__(self):
+        return f'{self.code} ({self.name})'
+
+    def save(self, *args, **kwargs):
+        if self.is_base:
+            # 다른 기준통화 해제
+            Currency.objects.filter(
+                is_base=True,
+            ).exclude(pk=self.pk).update(is_base=False)
+        super().save(*args, **kwargs)
+
+
+class ExchangeRate(BaseModel):
+    """환율"""
+    currency = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name='rates', verbose_name='통화')
+    rate_date = models.DateField('적용일')
+    rate = models.DecimalField('환율', max_digits=15, decimal_places=4)  # 1 외화 = X KRW
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '환율'
+        verbose_name_plural = '환율'
+        ordering = ['-rate_date']
+        constraints = [
+            models.UniqueConstraint(fields=['currency', 'rate_date'], name='uq_exchange_rate_date'),
+        ]
+
+    def __str__(self):
+        return f'{self.currency.code} {self.rate_date} = {self.rate}'
 
 
 class TaxRate(BaseModel):
@@ -30,7 +77,7 @@ class TaxInvoice(BaseModel):
         SALES = 'SALES', '매출'
         PURCHASE = 'PURCHASE', '매입'
 
-    invoice_number = models.CharField('세금계산서번호', max_length=50, unique=True)
+    invoice_number = models.CharField('세금계산서번호', max_length=50, unique=True, blank=True)
     invoice_type = models.CharField('유형', max_length=10, choices=InvoiceType.choices)
     partner = models.ForeignKey(
         'sales.Partner', verbose_name='거래처',
@@ -50,7 +97,7 @@ class TaxInvoice(BaseModel):
     class Meta:
         verbose_name = '세금계산서'
         verbose_name_plural = '세금계산서'
-        ordering = ['-issue_date', '-pk']
+        ordering = ['-invoice_number']
         indexes = [
             models.Index(fields=['issue_date'], name='idx_invoice_date'),
             models.Index(fields=['invoice_type'], name='idx_invoice_type'),
@@ -58,6 +105,24 @@ class TaxInvoice(BaseModel):
 
     def __str__(self):
         return f'{self.invoice_number} ({self.get_invoice_type_display()})'
+
+    def clean(self):
+        super().clean()
+        if (self.supply_amount is not None
+                and self.tax_amount is not None
+                and self.total_amount is not None):
+            expected = self.supply_amount + self.tax_amount
+            if self.total_amount != expected:
+                from django.core.exceptions import ValidationError
+                raise ValidationError(
+                    f'합계({self.total_amount})가 공급가액({self.supply_amount}) + '
+                    f'부가세({self.tax_amount}) = {expected}과 일치하지 않습니다.'
+                )
+
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            self.invoice_number = generate_document_number(TaxInvoice, 'invoice_number', 'TI')
+        super().save(*args, **kwargs)
 
 
 class FixedCost(BaseModel):
@@ -70,11 +135,22 @@ class FixedCost(BaseModel):
         SUBSCRIPTION = 'SUBSCRIPTION', '구독/라이선스'
         OTHER = 'OTHER', '기타 고정비'
 
+    class RecurringUnit(models.TextChoices):
+        WEEKLY = 'WEEKLY', '주'
+        MONTHLY = 'MONTHLY', '월'
+        QUARTERLY = 'QUARTERLY', '분기'
+        YEARLY = 'YEARLY', '년'
+
     category = models.CharField('비용구분', max_length=20, choices=CostCategory.choices)
     name = models.CharField('비용명', max_length=100)
     amount = models.DecimalField('금액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     month = models.DateField('해당월')
     is_recurring = models.BooleanField('반복비용', default=True)
+    recurring_unit = models.CharField(
+        '반복단위', max_length=10,
+        choices=RecurringUnit.choices, default=RecurringUnit.MONTHLY,
+        blank=True,
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -148,7 +224,7 @@ class Voucher(BaseModel):
         APPROVED = 'APPROVED', '승인'
         REJECTED = 'REJECTED', '반려'
 
-    voucher_number = models.CharField('전표번호', max_length=30, unique=True)
+    voucher_number = models.CharField('전표번호', max_length=30, unique=True, blank=True)
     voucher_type = models.CharField('전표유형', max_length=10, choices=VoucherType.choices)
     voucher_date = models.DateField('전표일')
     description = models.CharField('적요', max_length=200)
@@ -179,13 +255,28 @@ class Voucher(BaseModel):
     def __str__(self):
         return f'{self.voucher_number} ({self.get_voucher_type_display()})'
 
+    def clean(self):
+        super().clean()
+        if self.pk and self.lines.exists() and not self.is_balanced:
+            from django.core.exceptions import ValidationError
+            raise ValidationError('차변 합계와 대변 합계가 일치하지 않습니다.')
+
+    def save(self, *args, **kwargs):
+        if not self.voucher_number:
+            self.voucher_number = generate_document_number(Voucher, 'voucher_number', 'VC')
+        super().save(*args, **kwargs)
+
     @property
     def total_debit(self):
-        return sum(line.debit for line in self.lines.all())
+        from django.db.models import Sum
+        result = self.lines.aggregate(total=Sum('debit'))
+        return result['total'] or 0
 
     @property
     def total_credit(self):
-        return sum(line.credit for line in self.lines.all())
+        from django.db.models import Sum
+        result = self.lines.aggregate(total=Sum('credit'))
+        return result['total'] or 0
 
     @property
     def is_balanced(self):
@@ -203,93 +294,16 @@ class VoucherLine(BaseModel):
     class Meta:
         verbose_name = '전표항목'
         verbose_name_plural = '전표항목'
+        ordering = ['pk']
 
     def __str__(self):
         return f'{self.account.name} 차:{self.debit} 대:{self.credit}'
 
-
-class ApprovalRequest(BaseModel):
-    """결재/품의 요청"""
-
-    class DocCategory(models.TextChoices):
-        PURCHASE = 'PURCHASE', '구매품의'
-        EXPENSE = 'EXPENSE', '지출품의'
-        BUDGET = 'BUDGET', '예산신청'
-        CONTRACT = 'CONTRACT', '계약체결'
-        GENERAL = 'GENERAL', '일반결재'
-
-    class Status(models.TextChoices):
-        DRAFT = 'DRAFT', '작성중'
-        SUBMITTED = 'SUBMITTED', '결재요청'
-        APPROVED = 'APPROVED', '승인'
-        REJECTED = 'REJECTED', '반려'
-        CANCELLED = 'CANCELLED', '취소'
-
-    request_number = models.CharField('결재번호', max_length=30, unique=True)
-    category = models.CharField('문서종류', max_length=20, choices=DocCategory.choices)
-    title = models.CharField('제목', max_length=200)
-    content = models.TextField('내용')
-    amount = models.DecimalField('금액', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
-    status = models.CharField('상태', max_length=20, choices=Status.choices, default=Status.DRAFT)
-    requester = models.ForeignKey(
-        'accounts.User', verbose_name='요청자',
-        on_delete=models.PROTECT, related_name='approval_requests',
-    )
-    approver = models.ForeignKey(
-        'accounts.User', verbose_name='결재자',
-        null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='approval_assigned',
-    )
-    submitted_at = models.DateTimeField('제출일', null=True, blank=True)
-    approved_at = models.DateTimeField('결재일', null=True, blank=True)
-    reject_reason = models.TextField('반려사유', blank=True)
-    current_step = models.PositiveIntegerField('현재 결재단계', default=1)
-    history = HistoricalRecords()
-
-    class Meta:
-        verbose_name = '결재/품의'
-        verbose_name_plural = '결재/품의'
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(
-                fields=['status'], name='idx_approval_status',
-            ),
-        ]
-
-    def __str__(self):
-        return f'{self.request_number} - {self.title}'
-
-
-class ApprovalStep(BaseModel):
-    """결재 단계"""
-
-    class Status(models.TextChoices):
-        PENDING = 'PENDING', '대기'
-        APPROVED = 'APPROVED', '승인'
-        REJECTED = 'REJECTED', '반려'
-
-    request = models.ForeignKey(
-        ApprovalRequest, verbose_name='결재요청',
-        on_delete=models.CASCADE, related_name='steps',
-    )
-    step_order = models.PositiveIntegerField('단계순서')
-    approver = models.ForeignKey(
-        'accounts.User', verbose_name='결재자',
-        on_delete=models.PROTECT, related_name='approval_steps',
-    )
-    status = models.CharField('상태', max_length=20, choices=Status.choices, default=Status.PENDING)
-    comment = models.TextField('의견', blank=True)
-    acted_at = models.DateTimeField('처리일시', null=True, blank=True)
-    history = HistoricalRecords()
-
-    class Meta:
-        verbose_name = '결재단계'
-        verbose_name_plural = '결재단계'
-        ordering = ['step_order']
-        unique_together = [['request', 'step_order']]
-
-    def __str__(self):
-        return f'{self.request.request_number} - {self.step_order}단계 ({self.approver})'
+    def clean(self):
+        super().clean()
+        if self.debit and self.credit and self.debit > 0 and self.credit > 0:
+            from django.core.exceptions import ValidationError
+            raise ValidationError('차변과 대변을 동시에 입력할 수 없습니다.')
 
 
 class AccountReceivable(BaseModel):
@@ -393,6 +407,50 @@ class AccountPayable(BaseModel):
         return self.status != self.Status.PAID and self.due_date < date.today()
 
 
+class BankAccount(BaseModel):
+    """결제계좌"""
+
+    class AccountType(models.TextChoices):
+        PERSONAL = 'PERSONAL', '개인통장'
+        BUSINESS = 'BUSINESS', '사업자통장'
+        PLATFORM = 'PLATFORM', '플랫폼'
+
+    name = models.CharField('계좌별칭', max_length=100)
+    account_type = models.CharField('계좌유형', max_length=20, choices=AccountType.choices)
+    owner = models.CharField('소유자', max_length=50)
+    bank = models.CharField('은행/플랫폼', max_length=50, blank=True)
+    account_number = models.CharField('계좌번호', max_length=50, blank=True)
+    is_default = models.BooleanField('기본계좌', default=False)
+    account_code = models.ForeignKey(
+        AccountCode, verbose_name='계정과목',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='bank_accounts',
+    )
+    opening_balance = models.DecimalField(
+        '기초잔액', max_digits=15, decimal_places=0, default=0,
+    )
+    balance = models.DecimalField(
+        '현재잔액', max_digits=15, decimal_places=0, default=0,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '결제계좌'
+        verbose_name_plural = '결제계좌'
+        ordering = ['name']
+
+    def __str__(self):
+        return f'{self.name} ({self.owner})'
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            # 다른 기본계좌 해제
+            BankAccount.objects.filter(
+                is_default=True,
+            ).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+
 class Payment(BaseModel):
     """입출금 기록"""
 
@@ -406,11 +464,21 @@ class Payment(BaseModel):
         CHECK = 'CHECK', '수표'
         CARD = 'CARD', '카드'
 
-    payment_number = models.CharField('입출금번호', max_length=30, unique=True)
+    payment_number = models.CharField('입출금번호', max_length=30, unique=True, blank=True)
     payment_type = models.CharField('유형', max_length=20, choices=PaymentType.choices)
     partner = models.ForeignKey(
         'sales.Partner', verbose_name='거래처',
         on_delete=models.PROTECT, related_name='payments',
+    )
+    bank_account = models.ForeignKey(
+        BankAccount, verbose_name='결제계좌',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='payments',
+    )
+    voucher = models.ForeignKey(
+        Voucher, verbose_name='자동전표',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='payments',
     )
     receivable = models.ForeignKey(
         AccountReceivable, verbose_name='미수금',
@@ -442,3 +510,384 @@ class Payment(BaseModel):
 
     def __str__(self):
         return f'{self.payment_number} ({self.get_payment_type_display()})'
+
+    def save(self, *args, **kwargs):
+        if not self.payment_number:
+            self.payment_number = generate_document_number(Payment, 'payment_number', 'PM')
+        super().save(*args, **kwargs)
+
+
+class AccountTransfer(BaseModel):
+    """계좌간 이체"""
+
+    transfer_number = models.CharField('이체번호', max_length=30, unique=True, blank=True)
+    from_account = models.ForeignKey(
+        BankAccount, verbose_name='출금계좌',
+        on_delete=models.PROTECT, related_name='transfers_out',
+    )
+    to_account = models.ForeignKey(
+        BankAccount, verbose_name='입금계좌',
+        on_delete=models.PROTECT, related_name='transfers_in',
+    )
+    amount = models.DecimalField('이체금액', max_digits=15, decimal_places=0, validators=[MinValueValidator(1)])
+    transfer_date = models.DateField('이체일')
+    description = models.CharField('적요', max_length=200, blank=True)
+    voucher = models.ForeignKey(
+        Voucher, verbose_name='자동전표',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='account_transfers',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '계좌이체'
+        verbose_name_plural = '계좌이체'
+        ordering = ['-transfer_date', '-pk']
+        indexes = [
+            models.Index(fields=['transfer_date'], name='idx_acct_transfer_date'),
+        ]
+
+    def __str__(self):
+        return f'{self.transfer_number} ({self.from_account.name} → {self.to_account.name})'
+
+    def save(self, *args, **kwargs):
+        if not self.transfer_number:
+            self.transfer_number = generate_document_number(AccountTransfer, 'transfer_number', 'BT')
+        super().save(*args, **kwargs)
+
+
+class CostSettlement(BaseModel):
+    """원가 정산(월마감) — 제품별 원가/재고 스냅샷"""
+
+    class Period(models.TextChoices):
+        MONTHLY = 'MONTHLY', '월'
+        QUARTERLY = 'QUARTERLY', '분기'
+        YEARLY = 'YEARLY', '년'
+
+    settlement_number = models.CharField(
+        '정산번호', max_length=30, unique=True, blank=True,
+    )
+    period_type = models.CharField(
+        '정산단위', max_length=10,
+        choices=Period.choices, default=Period.MONTHLY,
+    )
+    period_start = models.DateField('정산 시작일')
+    period_end = models.DateField('정산 종료일')
+    settled_at = models.DateTimeField('정산일시', auto_now_add=True)
+    total_inventory_value = models.DecimalField(
+        '총 재고자산', max_digits=15, decimal_places=0, default=0,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '원가정산'
+        verbose_name_plural = '원가정산'
+        ordering = ['-settlement_number']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['period_type', 'period_start', 'period_end'],
+                name='uq_settlement_period',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.settlement_number} ({self.period_start}~{self.period_end})'
+
+    def save(self, *args, **kwargs):
+        if not self.settlement_number:
+            self.settlement_number = generate_document_number(
+                CostSettlement, 'settlement_number', 'CS',
+            )
+        super().save(*args, **kwargs)
+
+
+class CostSettlementItem(BaseModel):
+    """정산 시점 제품별 스냅샷"""
+
+    settlement = models.ForeignKey(
+        CostSettlement, verbose_name='정산',
+        on_delete=models.CASCADE, related_name='items',
+    )
+    product = models.ForeignKey(
+        'inventory.Product', verbose_name='제품',
+        on_delete=models.PROTECT,
+    )
+    stock_quantity = models.IntegerField('재고수량')
+    cost_price = models.DecimalField(
+        '확정원가', max_digits=12, decimal_places=0,
+    )
+    inventory_value = models.DecimalField(
+        '재고자산가액', max_digits=15, decimal_places=0,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '정산항목'
+        verbose_name_plural = '정산항목'
+        ordering = ['pk']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['settlement', 'product'],
+                name='uq_settlement_product',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.product.name}: {self.cost_price}원 x {self.stock_quantity}'
+
+
+class PaymentDistribution(BaseModel):
+    """결제 분배 (하나의 입금을 여러 계좌로 분배)"""
+
+    payment = models.ForeignKey(
+        Payment, verbose_name='입출금',
+        on_delete=models.CASCADE, related_name='distributions',
+    )
+    bank_account = models.ForeignKey(
+        BankAccount, verbose_name='대상계좌',
+        on_delete=models.PROTECT, related_name='distributions',
+    )
+    amount = models.DecimalField('분배금액', max_digits=15, decimal_places=0, validators=[MinValueValidator(1)])
+    description = models.CharField('적요', max_length=200, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '결제분배'
+        verbose_name_plural = '결제분배'
+        ordering = ['pk']
+
+    def __str__(self):
+        return f'{self.payment.payment_number} → {self.bank_account.name} ({self.amount:,}원)'
+
+
+class SalesSettlement(BaseModel):
+    """매출 정산 — 주문 건별 선택 정산"""
+
+    settlement_number = models.CharField(
+        '정산번호', max_length=30, unique=True, blank=True,
+    )
+    settlement_date = models.DateField('정산일')
+    description = models.CharField('적요', max_length=200, blank=True)
+    orders = models.ManyToManyField(
+        'sales.Order', verbose_name='정산 주문',
+        through='SalesSettlementOrder',
+        related_name='sales_settlements',
+    )
+    total_revenue = models.DecimalField(
+        '총매출', max_digits=15, decimal_places=0, default=0,
+    )
+    total_cost = models.DecimalField(
+        '총원가', max_digits=15, decimal_places=0, default=0,
+    )
+    total_tax = models.DecimalField(
+        '총부가세', max_digits=15, decimal_places=0, default=0,
+    )
+    total_shipping = models.DecimalField(
+        '총배송비', max_digits=15, decimal_places=0, default=0,
+    )
+    total_commission = models.DecimalField(
+        '총수수료', max_digits=15, decimal_places=0, default=0,
+    )
+    total_profit = models.DecimalField(
+        '총이익', max_digits=15, decimal_places=0, default=0,
+    )
+    # 수수료 지급 관리
+    commission_bank_account = models.ForeignKey(
+        'accounting.BankAccount', verbose_name='수수료 지급계좌',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='commission_settlements',
+    )
+    commission_paid = models.BooleanField('수수료 지급완료', default=False)
+    commission_paid_date = models.DateField(
+        '수수료 지급일', null=True, blank=True,
+    )
+    commission_paid_amount = models.DecimalField(
+        '수수료 지급액', max_digits=15, decimal_places=0, default=0,
+    )
+    commission_voucher = models.ForeignKey(
+        'accounting.Voucher', verbose_name='수수료 전표',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='commission_settlements',
+    )
+    commission_memo = models.CharField(
+        '수수료 지급 메모', max_length=200, blank=True,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '매출정산'
+        verbose_name_plural = '매출정산'
+        ordering = ['-settlement_date', '-pk']
+
+    def __str__(self):
+        return f'{self.settlement_number} ({self.settlement_date})'
+
+    def save(self, *args, **kwargs):
+        if not self.settlement_number:
+            self.settlement_number = generate_document_number(
+                SalesSettlement, 'settlement_number', 'SS',
+            )
+        super().save(*args, **kwargs)
+
+    @property
+    def profit_rate(self):
+        if self.total_revenue and int(self.total_revenue) > 0:
+            return round(
+                int(self.total_profit) / int(self.total_revenue) * 100, 1,
+            )
+        return 0
+
+    @property
+    def order_count(self):
+        return self.settlement_orders.count()
+
+
+class SalesSettlementOrder(BaseModel):
+    """매출 정산 — 주문 항목"""
+
+    settlement = models.ForeignKey(
+        SalesSettlement, verbose_name='정산',
+        on_delete=models.CASCADE, related_name='settlement_orders',
+    )
+    order = models.ForeignKey(
+        'sales.Order', verbose_name='주문',
+        on_delete=models.PROTECT, related_name='settlement_items',
+    )
+    revenue = models.DecimalField(
+        '매출(공급가)', max_digits=15, decimal_places=0, default=0,
+    )
+    cost = models.DecimalField(
+        '원가', max_digits=15, decimal_places=0, default=0,
+    )
+    tax = models.DecimalField(
+        '부가세', max_digits=15, decimal_places=0, default=0,
+    )
+    shipping = models.DecimalField(
+        '배송비', max_digits=15, decimal_places=0, default=0,
+    )
+    commission_rate = models.DecimalField(
+        '수수료율(%)', max_digits=5, decimal_places=2, default=0,
+    )
+    commission = models.DecimalField(
+        '수수료', max_digits=15, decimal_places=0, default=0,
+    )
+    profit = models.DecimalField(
+        '이익', max_digits=15, decimal_places=0, default=0,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '매출정산항목'
+        verbose_name_plural = '매출정산항목'
+        ordering = ['pk']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['settlement', 'order'],
+                name='uq_settlement_order',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.settlement.settlement_number} - {self.order.order_number}'
+
+
+class Budget(BaseModel):
+    """예산 관리 — 계정과목별 월 예산 설정 및 실적 대비"""
+    account = models.ForeignKey(
+        AccountCode, verbose_name='계정과목',
+        on_delete=models.PROTECT, related_name='budgets',
+    )
+    year = models.PositiveIntegerField('연도')
+    month = models.PositiveSmallIntegerField('월')
+    budget_amount = models.DecimalField(
+        '예산액', max_digits=15, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+    )
+    description = models.CharField('비고', max_length=200, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '예산'
+        verbose_name_plural = '예산'
+        ordering = ['-year', '-month', 'account__code']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['account', 'year', 'month'],
+                name='uq_budget_account_period',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.year}-{self.month:02d} [{self.account.code}] {self.account.name}'
+
+    @property
+    def actual_amount(self):
+        """실적액 — 해당 기간 전표 합산"""
+        from django.db.models import Sum
+        from datetime import date
+        start = date(self.year, self.month, 1)
+        if self.month == 12:
+            end = date(self.year + 1, 1, 1)
+        else:
+            end = date(self.year, self.month + 1, 1)
+
+        totals = VoucherLine.objects.filter(
+            account=self.account,
+            is_active=True,
+            voucher__is_active=True,
+            voucher__voucher_date__gte=start,
+            voucher__voucher_date__lt=end,
+        ).aggregate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit'),
+        )
+        debit = int(totals['total_debit'] or 0)
+        credit = int(totals['total_credit'] or 0)
+        # 비용 계정: 차변이 실적, 수익 계정: 대변이 실적
+        if self.account.account_type == 'EXPENSE':
+            return debit
+        elif self.account.account_type == 'REVENUE':
+            return credit
+        return debit - credit
+
+    @property
+    def variance(self):
+        """차이 (예산 - 실적)"""
+        return int(self.budget_amount) - self.actual_amount
+
+    @property
+    def execution_rate(self):
+        """집행율(%)"""
+        budget = int(self.budget_amount)
+        if budget <= 0:
+            return 0
+        return round(self.actual_amount / budget * 100, 1)
+
+
+class ClosingPeriod(BaseModel):
+    """결산 마감 — 월별 회계 마감 관리"""
+
+    year = models.PositiveIntegerField('년도')
+    month = models.PositiveIntegerField('월')
+    closed_at = models.DateTimeField('마감일시', null=True, blank=True)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='마감자',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='closed_periods',
+    )
+    is_closed = models.BooleanField('마감여부', default=False)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '결산마감'
+        verbose_name_plural = '결산마감'
+        ordering = ['-year', '-month']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['year', 'month'],
+                name='uq_closing_year_month',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.year}년 {self.month:02d}월 {"마감" if self.is_closed else "미마감"}'

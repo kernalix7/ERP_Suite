@@ -85,6 +85,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             sender=self.user,
             content=text,
             message_type='text',
+            created_by=self.user,
         )
         # 대화방 updated_at 갱신 (목록 정렬용)
         room.save(update_fields=['updated_at'])

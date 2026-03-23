@@ -52,38 +52,33 @@
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit" class="btn btn-secondary">
-                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                {% trans "검색" %}
-            </button>
+            <button type="submit" class="btn btn-primary">검색</button>
         </form>
     </div>
 
     <!-- 테이블 -->
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-3 font-semibold">{% trans "사번" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "이름" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "부서" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "직급" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "계약유형" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "상태" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "입사일" %}</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "사번" %}</th>
+                    <th class="px-4 py-3">{% trans "이름" %}</th>
+                    <th class="px-4 py-3">{% trans "부서" %}</th>
+                    <th class="px-4 py-3">{% trans "직급" %}</th>
+                    <th class="px-4 py-3">{% trans "계약유형" %}</th>
+                    <th class="px-4 py-3">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "입사일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for emp in employees %}
                 <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
                     onclick="location.href='{% url 'hr:employee_detail' emp.pk %}'">
-                    <td class="px-6 py-4 font-mono text-blue-600 font-medium">{{ emp.employee_number }}</td>
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ emp.user.name|default:emp.user.username }}</td>
-                    <td class="px-6 py-4 text-gray-700">{{ emp.department|default:"-" }}</td>
-                    <td class="px-6 py-4 text-gray-700">{{ emp.position|default:"-" }}</td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3 font-mono text-blue-600 font-medium">{{ emp.employee_number }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ emp.user.name|default:emp.user.username }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ emp.department|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ emp.position|default:"-" }}</td>
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             {% if emp.contract_type == 'FULL_TIME' %}bg-green-100 text-green-800
                             {% elif emp.contract_type == 'PART_TIME' %}bg-yellow-100 text-yellow-800
@@ -92,7 +87,7 @@
                             {{ emp.get_contract_type_display }}
                         </span>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             {% if emp.status == 'ACTIVE' %}bg-green-100 text-green-800
                             {% elif emp.status == 'ON_LEAVE' %}bg-amber-100 text-amber-800
@@ -100,7 +95,7 @@
                             {{ emp.get_status_display }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-gray-500">{{ emp.hire_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ emp.hire_date|date:"Y-m-d" }}</td>
                 </tr>
                 {% empty %}
                 <tr>

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}품질검수 - ERP Suite{% endblock %}
+{% block page_title %}품질검수{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'production:qc_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    검수 등록
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+    <form method="get" class="flex gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">결과</label>
+            <select name="result" class="form-input rounded-lg border-gray-300">
+                <option value="">전체</option>
+                <option value="PENDING" {% if request.GET.result == 'PENDING' %}selected{% endif %}>대기</option>
+                <option value="PASS" {% if request.GET.result == 'PASS' %}selected{% endif %}>합격</option>
+                <option value="FAIL" {% if request.GET.result == 'FAIL' %}selected{% endif %}>불합격</option>
+                <option value="CONDITIONAL" {% if request.GET.result == 'CONDITIONAL' %}selected{% endif %}>조건부합격</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">조회</button>
+    </form>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">검수번호</th>
+                    <th class="px-4 py-3">유형</th>
+                    <th class="px-4 py-3">제품</th>
+                    <th class="px-4 py-3">검수일</th>
+                    <th class="px-4 py-3 text-right">검수수량</th>
+                    <th class="px-4 py-3 text-right">합격</th>
+                    <th class="px-4 py-3 text-right">불합격</th>
+                    <th class="px-4 py-3 text-right">합격률</th>
+                    <th class="px-4 py-3 text-center">결과</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for qc in inspections %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">
+                        <a href="{% url 'production:qc_detail' qc.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ qc.inspection_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ qc.get_inspection_type_display }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ qc.product.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ qc.inspection_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ qc.inspected_quantity|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-green-700">{{ qc.pass_quantity|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ qc.fail_quantity|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ qc.pass_rate }}%</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if qc.result == 'PASS' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">합격</span>
+                        {% elif qc.result == 'FAIL' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">불합격</span>
+                        {% elif qc.result == 'CONDITIONAL' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">조건부</span>
+                        {% else %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">대기</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">
+                        등록된 품질검수가 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_paginated %}
+<div class="mt-4 flex justify-center">
+    <nav class="flex gap-1">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary text-sm">이전</a>
+        {% endif %}
+        <span class="px-3 py-2 text-sm text-gray-600">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary text-sm">다음</a>
+        {% endif %}
+    </nav>
+</div>
+{% endif %}
+{% endblock %}

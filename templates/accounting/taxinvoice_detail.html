@@ -6,7 +6,7 @@
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
-    <a href="{% url 'accounting:taxinvoice_update' object.pk %}" class="btn btn-secondary">수정</a>
+    <a href="{% url 'accounting:taxinvoice_update' object.pk %}" class="btn btn-primary">수정</a>
     <a href="{% url 'accounting:taxinvoice_list' %}" class="btn btn-secondary">목록</a>
 </div>
 {% endblock %}
@@ -70,12 +70,10 @@
                 </div>
             </div>
 
-            {% if object.description %}
-            <div>
-                <p class="text-sm font-medium text-gray-500">비고</p>
-                <p class="mt-1 text-gray-900">{{ object.description }}</p>
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">비고</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.notes|default:"-" }}</dd>
             </div>
-            {% endif %}
 
             {% if object.items.all %}
             <hr class="border-gray-100">
@@ -83,12 +81,12 @@
                 <h3 class="text-sm font-semibold text-gray-700 mb-3">품목 내역</h3>
                 <div class="table-responsive">
                 <table class="w-full text-sm">
-                    <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
-                        <tr>
-                            <th class="px-4 py-2 text-left font-semibold">품목명</th>
-                            <th class="px-4 py-2 text-right font-semibold">수량</th>
-                            <th class="px-4 py-2 text-right font-semibold">단가</th>
-                            <th class="px-4 py-2 text-right font-semibold">금액</th>
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                            <th class="px-4 py-2">품목명</th>
+                            <th class="px-4 py-2 text-right">수량</th>
+                            <th class="px-4 py-2 text-right">단가</th>
+                            <th class="px-4 py-2 text-right">금액</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">

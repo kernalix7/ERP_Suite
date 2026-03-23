@@ -17,7 +17,8 @@ class ProductForm(BaseForm):
         model = Product
         fields = [
             'code', 'name', 'product_type', 'category', 'unit',
-            'unit_price', 'cost_price', 'safety_stock', 'specification', 'image', 'notes',
+            'unit_price', 'cost_price', 'valuation_method',
+            'safety_stock', 'specification', 'image', 'notes',
         ]
 
     def clean_image(self):
@@ -51,6 +52,22 @@ class StockMovementForm(BaseForm):
             'movement_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 제품 select에 data-unit 속성 추가
+        choices = [('', '---------')]
+        for p in Product.objects.filter(is_active=True).order_by('name'):
+            choices.append((p.pk, p.name))
+        self.fields['product'].widget = forms.Select(
+            attrs={'class': 'form-input', 'id': 'id_product'},
+        )
+        self.fields['product'].widget.choices = choices
+        # 단위 매핑 (template에서 json_script로 출력)
+        self.product_units_json = {
+            str(p.pk): p.unit or ''
+            for p in Product.objects.filter(is_active=True)
+        }
+
 
 class StockTransferForm(BaseForm):
     class Meta:
@@ -58,6 +75,13 @@ class StockTransferForm(BaseForm):
         fields = ['transfer_number', 'from_warehouse', 'to_warehouse', 'product', 'quantity', 'transfer_date', 'notes']
         widgets = {
             'transfer_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.product_units_json = {
+            str(p.pk): p.unit or ''
+            for p in Product.objects.filter(is_active=True)
         }
 
     def clean(self):

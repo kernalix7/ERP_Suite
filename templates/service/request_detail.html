@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}AS 상세 - {{ service_request.request_number }} - ERP Suite{% endblock %}
 {% block page_title %}AS 상세{% endblock %}
@@ -7,7 +8,7 @@
 {% if service_request.status != 'COMPLETED' and service_request.status != 'CANCELLED' %}
 <a href="{% url 'service:request_update' service_request.pk %}" class="btn btn-primary">수정</a>
 {% endif %}
-<a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
@@ -89,12 +90,10 @@
                 <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">{{ service_request.description }}</dd>
             </div>
             {% endif %}
-            {% if service_request.notes %}
             <div class="md:col-span-2 lg:col-span-3">
                 <dt class="text-sm text-gray-500">비고</dt>
-                <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">{{ service_request.notes }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ service_request.notes|default:"-" }}</dd>
             </div>
-            {% endif %}
         </div>
     </div>
 
@@ -130,7 +129,7 @@
                         <td class="px-4 py-3 text-gray-600">{{ repair.repair_date|date:"Y-m-d" }}</td>
                         <td class="px-4 py-3 text-gray-900">{{ repair.description|truncatechars:60 }}</td>
                         <td class="px-4 py-3 text-gray-600">{{ repair.technician|default:"-" }}</td>
-                        <td class="px-4 py-3 text-right text-gray-900">{{ repair.cost|floatformat:0|default:"0" }}원</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ repair.cost|intcomma|default:"0" }}원</td>
                         <td class="px-4 py-3 text-center">
                             <span class="text-gray-400 text-sm">-</span>
                         </td>
@@ -145,7 +144,7 @@
                 <tfoot>
                     <tr class="bg-gray-50 font-semibold">
                         <td colspan="4" class="px-4 py-3 text-right text-gray-700">수리비용 합계</td>
-                        <td class="px-4 py-3 text-right text-gray-900">{{ total_repair_cost|floatformat:0|default:"0" }}원</td>
+                        <td class="px-4 py-3 text-right text-gray-900">{{ total_repair_cost|intcomma|default:"0" }}원</td>
                         <td></td>
                     </tr>
                 </tfoot>

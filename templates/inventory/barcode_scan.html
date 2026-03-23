@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}바코드/QR 스캔{% endblock %}
 {% block page_title %}바코드/QR 스캔{% endblock %}
@@ -79,7 +80,7 @@
     </div>
 </div>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="{% static 'vendor/js/html5-qrcode.min.js' %}"></script>
 <script>
 function scannerApp() {
     return {

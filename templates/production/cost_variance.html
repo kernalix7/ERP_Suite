@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}원가차이 분석 - ERP Suite{% endblock %}
+{% block page_title %}원가차이 분석{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- 필터 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <form method="get" class="flex flex-wrap items-end gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">시작일</label>
+                <input type="date" name="date_from" value="{{ date_from }}" class="form-input text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">종료일</label>
+                <input type="date" name="date_to" value="{{ date_to }}" class="form-input text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">제품</label>
+                <select name="product" class="form-input text-sm">
+                    <option value="">전체</option>
+                    {% for p in products %}
+                    <option value="{{ p.pk }}" {% if selected_product == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary text-sm">조회</button>
+            <a href="{% url 'production:cost_variance' %}" class="btn btn-secondary text-sm">초기화</a>
+        </form>
+    </div>
+
+    <!-- 요약 카드 -->
+    {% if variance_list %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500 mb-1">표준원가 합계</p>
+            <p class="text-2xl font-bold text-gray-900">{{ grand_std_total|intcomma }}원</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500 mb-1">실제원가 합계</p>
+            <p class="text-2xl font-bold text-gray-900">{{ grand_act_total|intcomma }}원</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border {% if grand_var_total > 0 %}border-red-200 bg-red-50{% elif grand_var_total < 0 %}border-green-200 bg-green-50{% else %}border-gray-200{% endif %} p-5">
+            <p class="text-sm text-gray-500 mb-1">총 원가차이</p>
+            <p class="text-2xl font-bold {% if grand_var_total > 0 %}text-red-600{% elif grand_var_total < 0 %}text-green-600{% else %}text-gray-900{% endif %}">
+                {% if grand_var_total > 0 %}+{% endif %}{{ grand_var_total|intcomma }}원
+            </p>
+            <p class="text-xs mt-1 {% if grand_var_total > 0 %}text-red-500{% elif grand_var_total < 0 %}text-green-500{% else %}text-gray-500{% endif %}">
+                {% if grand_var_total > 0 %}불리한 차이 (실제 > 표준){% elif grand_var_total < 0 %}유리한 차이 (실제 < 표준){% else %}차이 없음{% endif %}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 제품별 원가차이 테이블 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h3 class="text-base font-semibold text-gray-900">
+                <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                제품별 원가차이 분석
+            </h3>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3" rowspan="2">제품</th>
+                        <th class="px-4 py-3 text-right" rowspan="2">생산수량</th>
+                        <th class="px-3 py-2 text-center border-b border-gray-300" colspan="3">자재원가</th>
+                        <th class="px-3 py-2 text-center border-b border-gray-300" colspan="3">노무비</th>
+                        <th class="px-3 py-2 text-center border-b border-gray-300" colspan="3">간접비</th>
+                        <th class="px-3 py-2 text-center border-b border-gray-300" colspan="3">합계</th>
+                    </tr>
+                    <tr class="bg-gray-50 text-gray-500 text-xs font-medium">
+                        <th class="px-3 py-2 text-right">표준</th>
+                        <th class="px-3 py-2 text-right">실제</th>
+                        <th class="px-3 py-2 text-right">차이</th>
+                        <th class="px-3 py-2 text-right">표준</th>
+                        <th class="px-3 py-2 text-right">실제</th>
+                        <th class="px-3 py-2 text-right">차이</th>
+                        <th class="px-3 py-2 text-right">표준</th>
+                        <th class="px-3 py-2 text-right">실제</th>
+                        <th class="px-3 py-2 text-right">차이</th>
+                        <th class="px-3 py-2 text-right">표준</th>
+                        <th class="px-3 py-2 text-right">실제</th>
+                        <th class="px-3 py-2 text-right">차이</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for v in variance_list %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 font-medium text-gray-900">{{ v.product.name }}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{{ v.total_quantity|intcomma }}</td>
+
+                        <!-- 자재원가 -->
+                        <td class="px-3 py-3 text-right text-gray-600">{{ v.std_material|intcomma }}</td>
+                        <td class="px-3 py-3 text-right text-gray-600">{{ v.act_material|intcomma }}</td>
+                        <td class="px-3 py-3 text-right font-semibold {% if v.var_material > 0 %}text-red-600{% elif v.var_material < 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                            {% if v.var_material > 0 %}+{% endif %}{{ v.var_material|intcomma }}
+                            {% if v.var_material_rate %}<span class="text-xs">({{ v.var_material_rate }}%)</span>{% endif %}
+                        </td>
+
+                        <!-- 노무비 -->
+                        <td class="px-3 py-3 text-right text-gray-600">{{ v.std_labor|intcomma }}</td>
+                        <td class="px-3 py-3 text-right text-gray-600">{{ v.act_labor|intcomma }}</td>
+                        <td class="px-3 py-3 text-right font-semibold {% if v.var_labor > 0 %}text-red-600{% elif v.var_labor < 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                            {% if v.var_labor > 0 %}+{% endif %}{{ v.var_labor|intcomma }}
+                            {% if v.var_labor_rate %}<span class="text-xs">({{ v.var_labor_rate }}%)</span>{% endif %}
+                        </td>
+
+                        <!-- 간접비 -->
+                        <td class="px-3 py-3 text-right text-gray-600">{{ v.std_overhead|intcomma }}</td>
+                        <td class="px-3 py-3 text-right text-gray-600">{{ v.act_overhead|intcomma }}</td>
+                        <td class="px-3 py-3 text-right font-semibold {% if v.var_overhead > 0 %}text-red-600{% elif v.var_overhead < 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                            {% if v.var_overhead > 0 %}+{% endif %}{{ v.var_overhead|intcomma }}
+                            {% if v.var_overhead_rate %}<span class="text-xs">({{ v.var_overhead_rate }}%)</span>{% endif %}
+                        </td>
+
+                        <!-- 합계 -->
+                        <td class="px-3 py-3 text-right text-gray-800 font-medium">{{ v.std_total|intcomma }}</td>
+                        <td class="px-3 py-3 text-right text-gray-800 font-medium">{{ v.act_total|intcomma }}</td>
+                        <td class="px-3 py-3 text-right font-bold {% if v.var_total > 0 %}text-red-600{% elif v.var_total < 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                            {% if v.var_total > 0 %}+{% endif %}{{ v.var_total|intcomma }}
+                            {% if v.var_total_rate %}<span class="text-xs">({{ v.var_total_rate }}%)</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="14" class="px-6 py-12 text-center text-gray-400">
+                            분석 대상 생산실적이 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 차이 해석 가이드 -->
+    <div class="bg-blue-50 rounded-xl border border-blue-200 p-6">
+        <h3 class="text-sm font-semibold text-blue-800 mb-3">
+            <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            원가차이 해석 가이드
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+            <div>
+                <p class="font-medium mb-1">양(+)의 차이 = 불리한 차이</p>
+                <p class="text-blue-600">실제원가가 표준원가보다 높아 원가 초과 발생. 원인 분석 필요.</p>
+            </div>
+            <div>
+                <p class="font-medium mb-1">음(-)의 차이 = 유리한 차이</p>
+                <p class="text-blue-600">실제원가가 표준원가보다 낮아 원가 절감 달성.</p>
+            </div>
+            <div>
+                <p class="font-medium mb-1">자재차이 원인</p>
+                <p class="text-blue-600">가격차이(단가변동), 수량차이(투입량변동), 배합차이(자재구성변동)</p>
+            </div>
+            <div>
+                <p class="font-medium mb-1">노무비/간접비 차이 원인</p>
+                <p class="text-blue-600">임률차이(시간당 단가변동), 능률차이(작업시간변동), 조업도차이(가동률변동)</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

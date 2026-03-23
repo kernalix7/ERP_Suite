@@ -33,7 +33,14 @@
                         {{ field.label }}
                         {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
                     </label>
+                    {% if field.name == 'quantity' %}
+                    <div class="flex items-center gap-2">
+                        {{ field }}
+                        <span id="product-unit" class="text-sm font-medium text-gray-500 whitespace-nowrap min-w-[3rem]"></span>
+                    </div>
+                    {% else %}
                     {{ field }}
+                    {% endif %}
                     {% if field.help_text %}
                     <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
                     {% endif %}
@@ -57,4 +64,22 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ form.product_units_json|json_script:"product-units-data" }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
+    const productSelect = document.getElementById('id_product');
+    const unitLabel = document.getElementById('product-unit');
+    if (productSelect && unitLabel) {
+        function updateUnit() {
+            unitLabel.textContent = productUnits[productSelect.value] || '';
+        }
+        productSelect.addEventListener('change', updateUnit);
+        updateUnit();
+    }
+});
+</script>
 {% endblock %}

@@ -11,33 +11,43 @@
     </svg>
     {% trans "등록" %}
 </a>
+<a href="{% url 'hr:position_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
+</a>
 {% endblock %}
 
 {% block content %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-3 font-semibold">{% trans "레벨" %}</th>
-                    <th class="px-6 py-3 font-semibold">{% trans "직급명" %}</th>
-                    <th class="px-6 py-3 font-semibold text-right">{% trans "인원" %}</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "레벨" %}</th>
+                    <th class="px-4 py-3">{% trans "직급명" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "인원" %}</th>
+                    <th class="px-4 py-3 w-16"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for pos in positions %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 text-sm font-bold">
                             {{ pos.level }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ pos.name }}</td>
-                    <td class="px-6 py-4 text-right text-gray-700">{{ pos.employees.count }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ pos.name }}</td>
+                    <td class="px-4 py-3 text-right text-gray-700">{{ pos.employees.count }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <a href="{% url 'hr:position_update' pos.pk %}" class="text-blue-600 hover:text-blue-800 text-xs">수정</a>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="4" class="px-6 py-12 text-center text-gray-400">
                         {% trans "등록된 직급이 없습니다." %}
                     </td>
                 </tr>

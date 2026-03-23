@@ -45,8 +45,13 @@ class AttendanceRecord(BaseModel):
     class Meta:
         verbose_name = '출퇴근 기록'
         verbose_name_plural = '출퇴근 기록'
-        unique_together = ['user', 'date']
         ordering = ['-date']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'date'], name='uq_attendance_user_date'),
+        ]
+        indexes = [
+            models.Index(fields=['status'], name='idx_attendance_status'),
+        ]
 
     def __str__(self):
         return f'{self.user} - {self.date}'
@@ -126,6 +131,10 @@ class LeaveRequest(BaseModel):
         verbose_name = '휴가 신청'
         verbose_name_plural = '휴가 신청'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status'], name='idx_leave_status'),
+            models.Index(fields=['user', 'start_date'], name='idx_leave_user_date'),
+        ]
 
     def __str__(self):
         return f'{self.user} - {self.get_leave_type_display()} ({self.start_date}~{self.end_date})'
@@ -160,6 +169,7 @@ class AnnualLeaveBalance(BaseModel):
         verbose_name = '연차 잔여'
         verbose_name_plural = '연차 잔여'
         unique_together = ['user', 'year']
+        ordering = ['-year']
 
     def __str__(self):
         return f'{self.user} - {self.year}년 연차'

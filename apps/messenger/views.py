@@ -1,6 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Max
-from django.http import JsonResponse
+from django.db.models import Max, Prefetch
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -15,6 +14,7 @@ from .models import ChatRoom, ChatParticipant, Message
 class ChatListView(LoginRequiredMixin, ListView):
     template_name = 'messenger/chat_list.html'
     context_object_name = 'rooms'
+    paginate_by = 20
 
     def get_queryset(self):
         return (
@@ -25,6 +25,18 @@ class ChatListView(LoginRequiredMixin, ListView):
             .annotate(
                 last_message_time=Max('messages__sent_at'),
             )
+            .prefetch_related(
+                Prefetch(
+                    'messages',
+                    queryset=Message.objects.order_by('-sent_at'),
+                    to_attr='_prefetched_messages',
+                ),
+                Prefetch(
+                    'chatparticipant_set',
+                    queryset=ChatParticipant.objects.select_related('user'),
+                ),
+                'participants',
+            )
             .order_by('-last_message_time', '-updated_at')
             .distinct()
         )
@@ -34,12 +46,27 @@ class ChatListView(LoginRequiredMixin, ListView):
         user = self.request.user
         rooms_data = []
         for room in ctx['rooms']:
-            last_msg = room.get_last_message()
+            # Use prefetched messages to avoid N+1 for last_message
+            prefetched = getattr(room, '_prefetched_messages', None)
+            last_msg = prefetched[0] if prefetched else None
+            # Use prefetched chatparticipant_set for unread_count
+            participant = next(
+                (p for p in room.chatparticipant_set.all() if p.user_id == user.pk),
+                None,
+            )
+            if participant and participant.last_read_at and prefetched is not None:
+                unread_count = sum(
+                    1 for m in prefetched if m.sent_at > participant.last_read_at
+                )
+            elif prefetched is not None:
+                unread_count = len(prefetched)
+            else:
+                unread_count = room.get_unread_count(user)
             rooms_data.append({
                 'room': room,
                 'display_name': room.get_display_name(user),
                 'last_message': last_msg,
-                'unread_count': room.get_unread_count(user),
+                'unread_count': unread_count,
             })
         ctx['rooms_data'] = rooms_data
         ctx['users'] = User.objects.filter(is_active=True).exclude(pk=user.pk)
@@ -77,15 +104,39 @@ class ChatRoomView(LoginRequiredMixin, DetailView):
             is_active=True,
         ).annotate(
             last_message_time=Max('messages__sent_at'),
+        ).prefetch_related(
+            Prefetch(
+                'messages',
+                queryset=Message.objects.order_by('-sent_at'),
+                to_attr='_prefetched_messages',
+            ),
+            Prefetch(
+                'chatparticipant_set',
+                queryset=ChatParticipant.objects.select_related('user'),
+            ),
+            'participants',
         ).order_by('-last_message_time', '-updated_at').distinct()
         ctx['rooms_data'] = []
         for r in ctx['rooms']:
-            last_msg = r.get_last_message()
+            prefetched = getattr(r, '_prefetched_messages', None)
+            last_msg = prefetched[0] if prefetched else None
+            participant = next(
+                (p for p in r.chatparticipant_set.all() if p.user_id == user.pk),
+                None,
+            )
+            if participant and participant.last_read_at and prefetched is not None:
+                unread_count = sum(
+                    1 for m in prefetched if m.sent_at > participant.last_read_at
+                )
+            elif prefetched is not None:
+                unread_count = len(prefetched)
+            else:
+                unread_count = r.get_unread_count(user)
             ctx['rooms_data'].append({
                 'room': r,
                 'display_name': r.get_display_name(user),
                 'last_message': last_msg,
-                'unread_count': r.get_unread_count(user),
+                'unread_count': unread_count,
             })
         ctx['users'] = User.objects.filter(is_active=True).exclude(pk=user.pk)
 
@@ -117,8 +168,8 @@ class CreateDirectChatView(LoginRequiredMixin, View):
             room_type=ChatRoom.RoomType.DIRECT,
             created_by=request.user,
         )
-        ChatParticipant.objects.create(room=room, user=request.user)
-        ChatParticipant.objects.create(room=room, user=other_user)
+        ChatParticipant.objects.create(room=room, user=request.user, created_by=request.user)
+        ChatParticipant.objects.create(room=room, user=other_user, created_by=request.user)
 
         return redirect('messenger:chat_room', pk=room.pk)
 
@@ -134,10 +185,10 @@ class CreateGroupChatView(LoginRequiredMixin, FormView):
             created_by=self.request.user,
         )
         # 자기 자신 추가
-        ChatParticipant.objects.create(room=room, user=self.request.user)
+        ChatParticipant.objects.create(room=room, user=self.request.user, created_by=self.request.user)
         # 선택된 참여자 추가
         for user in form.cleaned_data['participants']:
             if user != self.request.user:
-                ChatParticipant.objects.create(room=room, user=user)
+                ChatParticipant.objects.create(room=room, user=user, created_by=self.request.user)
 
         return redirect('messenger:chat_room', pk=room.pk)

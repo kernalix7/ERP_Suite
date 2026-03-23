@@ -17,39 +17,45 @@
     </svg>
     Excel
 </a>
+<a href="{% url 'accounting:withholding_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
+</a>
 {% endblock %}
 
 {% block content %}
 <div class="bg-white shadow-sm rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-4 font-semibold">소득자명</th>
-                    <th class="px-6 py-4 font-semibold">세목</th>
-                    <th class="px-6 py-4 font-semibold text-right">지급액</th>
-                    <th class="px-6 py-4 font-semibold text-right">세율</th>
-                    <th class="px-6 py-4 font-semibold text-right">원천징수액</th>
-                    <th class="px-6 py-4 font-semibold text-right">실지급액</th>
-                    <th class="px-6 py-4 font-semibold">지급일</th>
-                    <th class="px-6 py-4 font-semibold text-center">관리</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">소득자명</th>
+                    <th class="px-4 py-3">세목</th>
+                    <th class="px-4 py-3 text-right">지급액</th>
+                    <th class="px-4 py-3 text-right">세율</th>
+                    <th class="px-4 py-3 text-right">원천징수액</th>
+                    <th class="px-4 py-3 text-right">실지급액</th>
+                    <th class="px-4 py-3">지급일</th>
+                    <th class="px-4 py-3 text-center">관리</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for wh in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ wh.recipient_name }}</td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ wh.recipient_name }}</td>
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
                             {{ wh.get_tax_type_display }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-right text-gray-900">{{ wh.gross_amount|intcomma }}원</td>
-                    <td class="px-6 py-4 text-right text-gray-600">{{ wh.tax_rate }}%</td>
-                    <td class="px-6 py-4 text-right text-red-600 font-medium">{{ wh.withholding_amount|intcomma }}원</td>
-                    <td class="px-6 py-4 text-right font-semibold text-gray-900">{{ wh.net_amount|intcomma }}원</td>
-                    <td class="px-6 py-4 text-gray-600">{{ wh.payment_date }}</td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-right text-gray-900">{{ wh.gross_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ wh.tax_rate }}%</td>
+                    <td class="px-4 py-3 text-right text-red-600 font-medium">{{ wh.withholding_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ wh.net_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-gray-600">{{ wh.payment_date }}</td>
+                    <td class="px-4 py-3 text-center">
                         <a href="{% url 'accounting:withholding_update' wh.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">수정</a>
                     </td>
                 </tr>

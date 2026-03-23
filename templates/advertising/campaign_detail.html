@@ -8,7 +8,7 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-gray-900">{{ campaign.name }}</h1>
-        <div class="flex space-x-2">
+        <div class="flex gap-2">
             <a href="{% url 'advertising:campaign_update' campaign.pk %}" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">{% trans "수정" %}</a>
             <a href="{% url 'advertising:campaign_list' %}" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">{% trans "목록" %}</a>
         </div>
@@ -24,6 +24,10 @@
             <div><p class="text-xs text-gray-500">{% trans "예산" %}</p><p class="font-medium">{{ campaign.budget|intcomma }}원</p></div>
             <div><p class="text-xs text-gray-500">{% trans "집행액" %}</p><p class="font-medium">{{ campaign.spent|intcomma }}원</p></div>
             <div><p class="text-xs text-gray-500">{% trans "집행률" %}</p><p class="font-medium">{{ campaign.budget_utilization }}%</p></div>
+            <div class="col-span-2 md:col-span-4">
+                <p class="text-xs text-gray-500">비고</p>
+                <p class="font-medium">{{ campaign.notes|default:"-" }}</p>
+            </div>
         </div>
     </div>
 

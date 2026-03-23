@@ -243,30 +243,34 @@ class CommentModelTest(TestCase):
         self.assertEqual(comments[0], c1)
         self.assertEqual(comments[1], c2)
 
-    def test_comment_cascade_delete_with_post(self):
-        """게시글 삭제 시 댓글도 삭제 (CASCADE)"""
+    def test_comment_protect_on_post_delete(self):
+        """게시글 삭제 시 댓글이 있으면 PROTECT (삭제 불가)"""
         Comment.objects.create(
-            post=self.post, content='삭제될 댓글',
+            post=self.post, content='보호될 댓글',
             author=self.user, created_by=self.user,
         )
         self.assertEqual(Comment.objects.count(), 1)
-        self.post.delete()
-        self.assertEqual(Comment.objects.count(), 0)
+        from django.db.models.deletion import ProtectedError
+        with self.assertRaises(ProtectedError):
+            self.post.delete()
+        self.assertEqual(Comment.objects.count(), 1)
 
-    def test_nested_comment_cascade(self):
-        """부모 댓글 삭제 시 자식 댓글도 삭제"""
+    def test_nested_comment_set_null_on_parent_delete(self):
+        """부모 댓글 삭제 시 자식 댓글의 parent가 NULL로 설정"""
         parent = Comment.objects.create(
             post=self.post, content='부모',
             author=self.user, created_by=self.user,
         )
-        Comment.objects.create(
+        child = Comment.objects.create(
             post=self.post, content='자식',
             author=self.user, parent=parent,
             created_by=self.user,
         )
         self.assertEqual(Comment.objects.count(), 2)
         parent.delete()
-        self.assertEqual(Comment.objects.count(), 0)
+        self.assertEqual(Comment.objects.count(), 1)
+        child.refresh_from_db()
+        self.assertIsNone(child.parent)
 
 
 class BoardViewTest(TestCase):

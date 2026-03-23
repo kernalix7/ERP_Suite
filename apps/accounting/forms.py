@@ -1,9 +1,26 @@
 from django import forms
 from apps.core.forms import BaseForm
 from .models import (
+    Currency, ExchangeRate,
     TaxRate, TaxInvoice, FixedCost, WithholdingTax, AccountCode, Voucher, VoucherLine,
-    ApprovalRequest, ApprovalStep, AccountReceivable, AccountPayable, Payment,
+    AccountReceivable, AccountPayable, Payment, BankAccount,
+    AccountTransfer, PaymentDistribution,
 )
+
+
+class CurrencyForm(BaseForm):
+    class Meta:
+        model = Currency
+        fields = ['code', 'name', 'symbol', 'decimal_places', 'is_base', 'notes']
+
+
+class ExchangeRateForm(BaseForm):
+    class Meta:
+        model = ExchangeRate
+        fields = ['currency', 'rate_date', 'rate', 'notes']
+        widgets = {
+            'rate_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+        }
 
 
 class TaxRateForm(BaseForm):
@@ -31,7 +48,7 @@ class TaxInvoiceForm(BaseForm):
 class FixedCostForm(BaseForm):
     class Meta:
         model = FixedCost
-        fields = ['category', 'name', 'amount', 'month', 'is_recurring', 'notes']
+        fields = ['category', 'name', 'amount', 'month', 'is_recurring', 'recurring_unit', 'notes']
         widgets = {
             'month': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
@@ -78,27 +95,6 @@ VoucherLineFormSet = forms.inlineformset_factory(
 )
 
 
-class ApprovalRequestForm(BaseForm):
-    class Meta:
-        model = ApprovalRequest
-        fields = ['request_number', 'category', 'title', 'content', 'amount', 'approver', 'notes']
-
-
-class ApprovalActionForm(forms.Form):
-    """결재 승인/반려 폼"""
-    action = forms.ChoiceField(choices=[('approve', '승인'), ('reject', '반려')])
-    reject_reason = forms.CharField(
-        label='반려사유', required=False,
-        widget=forms.Textarea(attrs={'class': 'form-input h-24', 'rows': 3}),
-    )
-
-
-class ApprovalStepForm(BaseForm):
-    class Meta:
-        model = ApprovalStep
-        fields = ['step_order', 'approver']
-
-
 class AccountReceivableForm(BaseForm):
     class Meta:
         model = AccountReceivable
@@ -117,10 +113,50 @@ class AccountPayableForm(BaseForm):
         }
 
 
+class BankAccountForm(BaseForm):
+    class Meta:
+        model = BankAccount
+        fields = [
+            'name', 'account_type', 'owner', 'bank', 'account_number',
+            'account_code', 'opening_balance', 'is_default', 'notes',
+        ]
+
+
 class PaymentForm(BaseForm):
     class Meta:
         model = Payment
-        fields = ['payment_number', 'payment_type', 'partner', 'amount', 'payment_date', 'payment_method', 'reference', 'notes']
+        fields = ['payment_number', 'payment_type', 'partner', 'bank_account', 'amount', 'payment_date', 'payment_method', 'reference', 'notes']
         widgets = {
             'payment_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
+
+
+class AccountTransferForm(BaseForm):
+    class Meta:
+        model = AccountTransfer
+        fields = ['transfer_number', 'from_account', 'to_account', 'amount', 'transfer_date', 'description', 'notes']
+        widgets = {
+            'transfer_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        from_acc = cleaned.get('from_account')
+        to_acc = cleaned.get('to_account')
+        if from_acc and to_acc and from_acc == to_acc:
+            raise forms.ValidationError('출금계좌와 입금계좌가 같을 수 없습니다.')
+        return cleaned
+
+
+class PaymentDistributionForm(BaseForm):
+    class Meta:
+        model = PaymentDistribution
+        fields = ['bank_account', 'amount', 'description']
+
+
+PaymentDistributionFormSet = forms.inlineformset_factory(
+    Payment, PaymentDistribution,
+    form=PaymentDistributionForm,
+    extra=2,
+    can_delete=True,
+)

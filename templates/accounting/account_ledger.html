@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}계정별 원장 - ERP Suite{% endblock %}
+{% block page_title %}계정별 원장{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <form method="get" class="flex flex-wrap gap-4 items-end">
+        <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-700 mb-1">계정과목</label>
+            <select name="account" class="form-input w-full rounded-lg border-gray-300">
+                <option value="">-- 선택 --</option>
+                {% for acct in accounts %}
+                <option value="{{ acct.pk }}" {% if selected_account == acct.pk|stringformat:"d" %}selected{% endif %}>
+                    [{{ acct.code }}] {{ acct.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">조회</button>
+        </div>
+    </form>
+</div>
+
+{% if account %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">
+            [{{ account.code }}] {{ account.name }}
+            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                {% if account.account_type == 'ASSET' %}bg-blue-100 text-blue-800
+                {% elif account.account_type == 'LIABILITY' %}bg-red-100 text-red-800
+                {% elif account.account_type == 'EQUITY' %}bg-green-100 text-green-800
+                {% elif account.account_type == 'REVENUE' %}bg-indigo-100 text-indigo-800
+                {% elif account.account_type == 'EXPENSE' %}bg-yellow-100 text-yellow-800
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ account.get_account_type_display }}
+            </span>
+        </h3>
+        <div class="text-sm text-gray-500">{{ lines|length }}건</div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">일자</th>
+                    <th class="px-4 py-3">전표번호</th>
+                    <th class="px-4 py-3">유형</th>
+                    <th class="px-4 py-3">적요</th>
+                    <th class="px-4 py-3 text-right">차변</th>
+                    <th class="px-4 py-3 text-right">대변</th>
+                    <th class="px-4 py-3 text-right">잔액</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for line in lines %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ line.date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3">
+                        <a href="{% url 'accounting:voucher_detail' line.voucher_pk %}" class="text-blue-600 hover:text-blue-800">
+                            {{ line.voucher_number }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ line.voucher_type }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ line.description }}</td>
+                    <td class="px-4 py-3 text-right font-mono {% if line.debit > 0 %}text-blue-700{% else %}text-gray-400{% endif %}">
+                        {{ line.debit|floatformat:0 }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono {% if line.credit > 0 %}text-red-600{% else %}text-gray-400{% endif %}">
+                        {{ line.credit|floatformat:0 }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold {% if line.balance >= 0 %}text-gray-900{% else %}text-red-600{% endif %}">
+                        {{ line.balance|floatformat:0 }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                        해당 기간에 거래 내역이 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if lines %}
+            <tfoot class="bg-gray-50 font-semibold">
+                <tr>
+                    <td colspan="4" class="px-4 py-3 text-right text-gray-700">합계</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ total_debit|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ total_credit|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono {% if closing_balance >= 0 %}text-gray-900{% else %}text-red-600{% endif %}">
+                        {{ closing_balance|floatformat:0 }}
+                    </td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% elif not selected_account %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-400">
+    계정과목을 선택하면 원장 내역이 표시됩니다.
+</div>
+{% endif %}
+{% endblock %}

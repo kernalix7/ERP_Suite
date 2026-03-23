@@ -4,10 +4,21 @@
 {% block page_title %}주문 {{ form.instance.pk|yesno:"수정,등록" }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'sales:order_list' %}" class="btn btn-secondary">목록으로</a>
+<a href="{% url 'sales:order_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
+{% if is_settled %}
+<div class="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-6 flex items-center gap-3">
+    <svg class="w-6 h-6 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+    </svg>
+    <div>
+        <p class="text-sm font-semibold text-amber-800">정산 완료된 주문입니다</p>
+        <p class="text-xs text-amber-700">이 주문은 이미 매출정산이 완료되었습니다. 수정하더라도 정산 내역에는 반영되지 않습니다.</p>
+    </div>
+</div>
+{% endif %}
 <form method="post" x-data="orderForm()">
     {% csrf_token %}
 
@@ -63,9 +74,11 @@
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
                         <th class="px-4 py-3 w-8">#</th>
                         <th class="px-4 py-3">제품</th>
-                        <th class="px-4 py-3 w-32">수량</th>
-                        <th class="px-4 py-3 w-40">단가</th>
-                        <th class="px-4 py-3 w-40 text-right">소계</th>
+                        <th class="px-4 py-3 w-24">수량</th>
+                        <th class="px-4 py-3 w-32">원가</th>
+                        <th class="px-4 py-3 w-32">공급단가</th>
+                        <th class="px-4 py-3 w-32 text-right">소계</th>
+                        <th class="px-4 py-3 w-24 text-right">이익률</th>
                         <th class="px-4 py-3 w-16 text-center">삭제</th>
                     </tr>
                 </thead>
@@ -82,8 +95,17 @@
                             {% endfor %}
                         </td>
                         <td class="px-4 py-3">
-                            {{ item_form.quantity }}
+                            <div class="flex items-center gap-1">
+                                {{ item_form.quantity }}
+                                <span class="item-unit text-sm text-gray-500 whitespace-nowrap"></span>
+                            </div>
                             {% for error in item_form.quantity.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                            {% endfor %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {{ item_form.cost_price }}
+                            {% for error in item_form.cost_price.errors %}
                             <p class="mt-1 text-xs text-red-600">{{ error }}</p>
                             {% endfor %}
                         </td>
@@ -94,6 +116,7 @@
                             {% endfor %}
                         </td>
                         <td class="px-4 py-3 text-right font-medium text-gray-900 subtotal">-</td>
+                        <td class="px-4 py-3 text-right margin-cell">-</td>
                         <td class="px-4 py-3 text-center">
                             <div class="hidden">{{ item_form.DELETE }}</div>
                             <button type="button" @click="deleteItem({{ forloop.counter0 }})"
@@ -110,10 +133,21 @@
         </div>
 
         <!-- 합계 -->
-        <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
-            <div class="text-right">
-                <span class="text-sm text-gray-500 mr-4">합계금액</span>
-                <span class="text-lg font-bold text-gray-900" id="total-amount">0원</span>
+        <div class="px-6 py-4 border-t border-gray-200">
+            <div class="flex justify-end gap-8 text-sm">
+                <div>
+                    <span class="text-gray-500 mr-2">총원가</span>
+                    <span class="font-medium text-gray-700" id="total-cost">0원</span>
+                </div>
+                <div>
+                    <span class="text-gray-500 mr-2">공급가액</span>
+                    <span class="text-lg font-bold text-gray-900" id="total-amount">0원</span>
+                </div>
+                <div>
+                    <span class="text-gray-500 mr-2">이익</span>
+                    <span class="font-bold" id="total-profit">0원</span>
+                    <span class="text-sm ml-1" id="total-profit-rate"></span>
+                </div>
             </div>
         </div>
     </div>
@@ -125,7 +159,27 @@
     </div>
 </form>
 
+{{ product_units_json|json_script:"product-units-data" }}
+{{ product_costs_json|json_script:"product-costs-data" }}
 <script>
+const _productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
+const _productCosts = JSON.parse(document.getElementById('product-costs-data').textContent);
+
+function _updateRowUnits(row) {
+    const sel = row.querySelector('select[name$="-product"]');
+    const span = row.querySelector('.item-unit');
+    if (sel && span) span.textContent = _productUnits[sel.value] || '';
+}
+function _autoFillCost(row) {
+    const sel = row.querySelector('select[name$="-product"]');
+    const costInput = row.querySelector('[name$="-cost_price"]');
+    if (sel && costInput && sel.value) {
+        const cost = _productCosts[sel.value] || 0;
+        if (!costInput.value || costInput.value === '0') {
+            costInput.value = cost;
+        }
+    }
+}
 function orderForm() {
     return {
         deletedItems: new Set(),
@@ -133,8 +187,8 @@ function orderForm() {
             this.deletedItems.add(index);
             const rows = document.querySelectorAll('.formset-row');
             if (rows[index]) {
-                const deleteCheckbox = rows[index].querySelector('input[type="checkbox"][name$="-DELETE"]');
-                if (deleteCheckbox) deleteCheckbox.checked = true;
+                const cb = rows[index].querySelector('input[type="checkbox"][name$="-DELETE"]');
+                if (cb) cb.checked = true;
             }
             this.updateTotal();
         },
@@ -165,28 +219,83 @@ function orderForm() {
                 }
             });
             newRow.querySelector('td:first-child').textContent = currentCount + 1;
+            newRow.querySelector('.subtotal').textContent = '-';
+            newRow.querySelector('.margin-cell').textContent = '-';
             newRow.style.display = '';
             newRow.classList.remove('hidden');
+            _updateRowUnits(newRow);
             tbody.appendChild(newRow);
             totalForms.value = currentCount + 1;
         },
         updateTotal() {
-            let total = 0;
+            let totalAmount = 0;
+            let totalCost = 0;
             document.querySelectorAll('.formset-row').forEach((row, idx) => {
                 if (!this.deletedItems.has(idx)) {
                     const qty = parseFloat(row.querySelector('[name$="-quantity"]')?.value) || 0;
+                    const cost = parseFloat(row.querySelector('[name$="-cost_price"]')?.value) || 0;
                     const price = parseFloat(row.querySelector('[name$="-unit_price"]')?.value) || 0;
                     const subtotal = qty * price;
+                    const itemCost = qty * cost;
+                    const profit = subtotal - itemCost;
+                    const marginRate = subtotal > 0 ? (profit / subtotal * 100).toFixed(1) : 0;
+
                     row.querySelector('.subtotal').textContent = subtotal.toLocaleString() + '원';
-                    total += subtotal;
+
+                    const marginCell = row.querySelector('.margin-cell');
+                    if (subtotal > 0) {
+                        const color = profit >= 0 ? 'text-blue-600' : 'text-red-600';
+                        marginCell.className = `px-4 py-3 text-right margin-cell font-medium ${color}`;
+                        marginCell.textContent = `${marginRate}%`;
+                    } else {
+                        marginCell.className = 'px-4 py-3 text-right margin-cell';
+                        marginCell.textContent = '-';
+                    }
+
+                    totalAmount += subtotal;
+                    totalCost += itemCost;
                 }
             });
-            document.querySelector('#total-amount').textContent = total.toLocaleString() + '원';
+            const shippingCost = parseFloat(document.getElementById('id_shipping_cost')?.value) || 0;
+            const totalProfit = totalAmount - totalCost - shippingCost;
+            const totalProfitRate = totalAmount > 0 ? (totalProfit / totalAmount * 100).toFixed(1) : 0;
+
+            document.querySelector('#total-amount').textContent = totalAmount.toLocaleString() + '원';
+            document.querySelector('#total-cost').textContent = totalCost.toLocaleString() + '원';
+
+            const profitEl = document.querySelector('#total-profit');
+            const rateEl = document.querySelector('#total-profit-rate');
+            profitEl.textContent = totalProfit.toLocaleString() + '원';
+            rateEl.textContent = `(${totalProfitRate}%)`;
+            if (totalProfit >= 0) {
+                profitEl.className = 'font-bold text-blue-600';
+                rateEl.className = 'text-sm ml-1 text-blue-600';
+            } else {
+                profitEl.className = 'font-bold text-red-600';
+                rateEl.className = 'text-sm ml-1 text-red-600';
+            }
         },
         init() {
             this.updateTotal();
+            document.querySelectorAll('.formset-row').forEach(row => {
+                _updateRowUnits(row);
+                _autoFillCost(row);
+            });
             this.$el.addEventListener('input', (e) => {
-                if (e.target.name && (e.target.name.includes('-quantity') || e.target.name.includes('-unit_price'))) {
+                if (e.target.name && (
+                    e.target.name.includes('-quantity') ||
+                    e.target.name.includes('-unit_price') ||
+                    e.target.name.includes('-cost_price') ||
+                    e.target.name === 'shipping_cost'
+                )) {
+                    this.updateTotal();
+                }
+            });
+            this.$el.addEventListener('change', (e) => {
+                if (e.target.name && e.target.name.includes('-product')) {
+                    const row = e.target.closest('.formset-row');
+                    _updateRowUnits(row);
+                    _autoFillCost(row);
                     this.updateTotal();
                 }
             });

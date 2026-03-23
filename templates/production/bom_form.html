@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load i18n humanize %}
 
 {% block title %}BOM {% if object %}수정{% else %}등록{% endif %} - ERP Suite{% endblock %}
 {% block page_title %}BOM {% if object %}수정{% else %}등록{% endif %}{% endblock %}
@@ -17,29 +18,17 @@
 
         {% if form.non_field_errors %}
         <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-800 border border-red-200 text-sm">
-            {% for error in form.non_field_errors %}
-            <p>{{ error }}</p>
-            {% endfor %}
+            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
         </div>
         {% endif %}
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             {% for field in form %}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                    {{ field.label_tag }}
-                </label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label_tag }}</label>
                 {{ field }}
-                {% if field.errors %}
-                <div class="mt-1 text-xs text-red-600">
-                    {% for error in field.errors %}
-                    <p>{{ error }}</p>
-                    {% endfor %}
-                </div>
-                {% endif %}
-                {% if field.help_text %}
-                <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
-                {% endif %}
+                {% if field.errors %}<div class="mt-1 text-xs text-red-600">{% for error in field.errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+                {% if field.help_text %}<p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>{% endif %}
             </div>
             {% endfor %}
         </div>
@@ -61,20 +50,22 @@
 
         {% if formset.non_form_errors %}
         <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-800 border border-red-200 text-sm">
-            {% for error in formset.non_form_errors %}
-            <p>{{ error }}</p>
-            {% endfor %}
+            {% for error in formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}
         </div>
         {% endif %}
 
         <div class="overflow-x-auto">
             <table class="w-full text-sm" id="formset-table">
-                <thead class="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                        <th class="px-4 py-3 text-left font-semibold text-gray-600">자재</th>
-                        <th class="px-4 py-3 text-left font-semibold text-gray-600">소요량</th>
-                        <th class="px-4 py-3 text-left font-semibold text-gray-600">손실률(%)</th>
-                        <th class="px-4 py-3 text-center font-semibold text-gray-600">삭제</th>
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">자재</th>
+                        <th class="px-4 py-3 w-28">구매수량</th>
+                        <th class="px-4 py-3 w-28">생산가능수량</th>
+                        <th class="px-4 py-3 w-28">소요량<span class="text-xs text-gray-400 font-normal ml-1">(자동)</span></th>
+                        <th class="px-4 py-3 w-24">손실률(%)</th>
+                        <th class="px-4 py-3 w-28 text-right">단가</th>
+                        <th class="px-4 py-3 w-28 text-right">개당원가</th>
+                        <th class="px-4 py-3 w-16 text-center">삭제</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" id="formset-body">
@@ -83,21 +74,33 @@
                         <td class="px-4 py-3">
                             {{ item_form.material }}
                             {{ item_form.id }}
-                            {% if item_form.material.errors %}
-                            <div class="mt-1 text-xs text-red-600">{{ item_form.material.errors }}</div>
-                            {% endif %}
+                            {% if item_form.material.errors %}<div class="mt-1 text-xs text-red-600">{{ item_form.material.errors }}</div>{% endif %}
                         </td>
                         <td class="px-4 py-3">
-                            {{ item_form.quantity }}
-                            {% if item_form.quantity.errors %}
-                            <div class="mt-1 text-xs text-red-600">{{ item_form.quantity.errors }}</div>
-                            {% endif %}
+                            <div class="flex items-center gap-1">
+                                {{ item_form.purchase_qty }}
+                                <span class="item-unit text-sm text-gray-500 whitespace-nowrap"></span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            {{ item_form.production_qty }}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-1">
+                                {{ item_form.quantity }}
+                                <span class="item-unit-qty text-sm text-gray-500 whitespace-nowrap"></span>
+                            </div>
+                            {% if item_form.quantity.errors %}<div class="mt-1 text-xs text-red-600">{{ item_form.quantity.errors }}</div>{% endif %}
                         </td>
                         <td class="px-4 py-3">
                             {{ item_form.loss_rate }}
-                            {% if item_form.loss_rate.errors %}
-                            <div class="mt-1 text-xs text-red-600">{{ item_form.loss_rate.errors }}</div>
-                            {% endif %}
+                            {% if item_form.loss_rate.errors %}<div class="mt-1 text-xs text-red-600">{{ item_form.loss_rate.errors }}</div>{% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="bom-unit-price text-gray-600">-</span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="bom-cost-per-unit font-medium text-gray-900">-</span>
                         </td>
                         <td class="px-4 py-3 text-center">
                             {% if item_form.DELETE %}
@@ -112,6 +115,13 @@
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot>
+                    <tr class="bg-gray-50 font-semibold">
+                        <td colspan="6" class="px-4 py-3 text-right text-gray-700">완제품 1개당 총 자재원가</td>
+                        <td class="px-4 py-3 text-right text-gray-900" id="bom-total-cost">-</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
@@ -119,45 +129,137 @@
     <!-- 버튼 -->
     <div class="flex justify-end space-x-3">
         <a href="{% url 'production:bom_list' %}" class="btn btn-secondary">취소</a>
-        <button type="submit" class="btn btn-primary">
-            {% if object %}수정{% else %}등록{% endif %}
-        </button>
+        <button type="submit" class="btn btn-primary">{% if object %}수정{% else %}등록{% endif %}</button>
     </div>
 </form>
 
+{{ product_units_json|json_script:"product-units-data" }}
+{{ material_prices_json|json_script:"material-prices-data" }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
+    const materialPrices = JSON.parse(document.getElementById('material-prices-data').textContent);
+
+    function fmt(n) { return n ? Math.round(n).toLocaleString('ko-KR') + '원' : '-'; }
+
+    function updateRowUnit(row) {
+        const sel = row.querySelector('select[name$="-material"]');
+        const unit = productUnits[sel?.value] || '';
+        const span = row.querySelector('.item-unit');
+        const spanQty = row.querySelector('.item-unit-qty');
+        if (span) span.textContent = unit;
+        if (spanQty) spanQty.textContent = unit ? unit + '/개' : '';
+    }
+
+    // 구매수량 / 생산가능수량 → 소요량 자동 계산
+    function calcBomQty(row) {
+        const buyQty = parseFloat(row.querySelector('[name$="-purchase_qty"]')?.value) || 0;
+        const prodQty = parseFloat(row.querySelector('[name$="-production_qty"]')?.value) || 0;
+        const qtyInput = row.querySelector('[name$="-quantity"]');
+        if (qtyInput && buyQty > 0 && prodQty > 0) {
+            qtyInput.value = parseFloat((buyQty / prodQty).toFixed(3));
+        }
+    }
+
+    // 단가, 개당원가 표시
+    function updateRowCost(row) {
+        const sel = row.querySelector('select[name$="-material"]');
+        const unitPriceEl = row.querySelector('.bom-unit-price');
+        const costEl = row.querySelector('.bom-cost-per-unit');
+        const price = materialPrices[sel?.value] || 0;
+        const qty = parseFloat(row.querySelector('[name$="-quantity"]')?.value) || 0;
+        const lossRate = parseFloat(row.querySelector('[name$="-loss_rate"]')?.value) || 0;
+
+        if (unitPriceEl) unitPriceEl.textContent = price > 0 ? fmt(price) : '-';
+        if (costEl) {
+            if (price > 0 && qty > 0) {
+                const effectiveQty = qty * (1 + lossRate / 100);
+                costEl.textContent = fmt(effectiveQty * price);
+            } else {
+                costEl.textContent = '-';
+            }
+        }
+    }
+
+    function updateTotalCost() {
+        let total = 0;
+        document.querySelectorAll('.formset-row').forEach(function(row) {
+            const delCheck = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (delCheck && delCheck.checked) return;
+            if (row.classList.contains('hidden')) return;
+
+            const sel = row.querySelector('select[name$="-material"]');
+            const price = materialPrices[sel?.value] || 0;
+            const qty = parseFloat(row.querySelector('[name$="-quantity"]')?.value) || 0;
+            const lossRate = parseFloat(row.querySelector('[name$="-loss_rate"]')?.value) || 0;
+            if (price > 0 && qty > 0) {
+                total += qty * (1 + lossRate / 100) * price;
+            }
+        });
+        document.getElementById('bom-total-cost').textContent = total > 0 ? fmt(total) : '-';
+    }
+
+    // 초기화: 기존 항목의 단위/원가 표시
+    document.querySelectorAll('.formset-row').forEach(function(row) {
+        updateRowUnit(row);
+        updateRowCost(row);
+    });
+    updateTotalCost();
+
+    const formsetBody = document.getElementById('formset-body');
+
+    formsetBody.addEventListener('change', function(e) {
+        const row = e.target.closest('.formset-row');
+        if (!row) return;
+        if (e.target.name && e.target.name.includes('-material')) {
+            updateRowUnit(row);
+            updateRowCost(row);
+            updateTotalCost();
+        }
+    });
+
+    formsetBody.addEventListener('input', function(e) {
+        const row = e.target.closest('.formset-row');
+        if (!row) return;
+        const name = e.target.name || '';
+        if (name.includes('-purchase_qty') || name.includes('-production_qty')) {
+            calcBomQty(row);
+            updateRowCost(row);
+            updateTotalCost();
+        }
+        if (name.includes('-quantity') || name.includes('-loss_rate')) {
+            updateRowCost(row);
+            updateTotalCost();
+        }
+    });
+
     const addBtn = document.getElementById('add-item');
-    const tbody = document.getElementById('formset-body');
     const totalForms = document.getElementById('id_items-TOTAL_FORMS');
 
-    if (addBtn && tbody && totalForms) {
+    if (addBtn && formsetBody && totalForms) {
         addBtn.addEventListener('click', function() {
             const formCount = parseInt(totalForms.value);
-            const lastRow = tbody.querySelector('.formset-row:last-child');
+            const lastRow = formsetBody.querySelector('.formset-row:last-child');
             if (lastRow) {
                 const newRow = lastRow.cloneNode(true);
                 newRow.classList.remove('hidden');
                 newRow.innerHTML = newRow.innerHTML.replace(
-                    new RegExp('items-(\\d+)-', 'g'),
-                    'items-' + formCount + '-'
+                    new RegExp('items-(\\d+)-', 'g'), 'items-' + formCount + '-'
                 );
                 newRow.innerHTML = newRow.innerHTML.replace(
-                    new RegExp('id_items-(\\d+)-', 'g'),
-                    'id_items-' + formCount + '-'
+                    new RegExp('id_items-(\\d+)-', 'g'), 'id_items-' + formCount + '-'
                 );
-                // Clear input values
                 newRow.querySelectorAll('input:not([type=hidden])').forEach(function(input) {
-                    if (input.type === 'checkbox') { input.checked = false; }
-                    else { input.value = ''; }
+                    if (input.type === 'checkbox') input.checked = false;
+                    else input.value = '';
                 });
-                newRow.querySelectorAll('select').forEach(function(select) {
-                    select.selectedIndex = 0;
-                });
-                // Clear hidden id field
+                newRow.querySelectorAll('select').forEach(function(select) { select.selectedIndex = 0; });
                 const idInput = newRow.querySelector('input[name$="-id"]');
                 if (idInput) idInput.value = '';
-                tbody.appendChild(newRow);
+                newRow.querySelector('.bom-unit-price').textContent = '-';
+                newRow.querySelector('.bom-cost-per-unit').textContent = '-';
+                updateRowUnit(newRow);
+                formsetBody.appendChild(newRow);
             }
             totalForms.value = formCount + 1;
         });

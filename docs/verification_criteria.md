@@ -9,7 +9,7 @@ Written in accordance with ISMS/ISO 27001, OWASP Top 10, and KISA Web Security G
 
 ### 1.2 Scope
 - **Target System**: ERP Suite (Django 5.x-based Manufacturing/Sales Integrated ERP + Groupware)
-- **Target Apps**: core, accounts, inventory, production, sales, service, accounting, investment, warranty, marketplace, inquiry, purchase, attendance, board, calendar_app, hr, messenger, api
+- **Target Apps** (22): accounting, accounts, ad, advertising, api, approval, asset, attendance, board, calendar_app, core, hr, inquiry, inventory, investment, marketplace, messenger, production, purchase, sales, service, warranty
 - **Target Environments**: Development (SQLite), Staging (PostgreSQL), Production (PostgreSQL + Docker)
 - **Total Verification Items**: 152
 
@@ -375,7 +375,7 @@ Written in accordance with ISMS/ISO 27001, OWASP Top 10, and KISA Web Security G
 |------|---------|
 | **ID** | SEC-024 |
 | **Name** | CSP Header Configuration Verification |
-| **Criteria** | Content-Security-Policy header must restrict resource loading. `script-src` must not include `'unsafe-inline'` (or use nonce/hash). `style-src` permits Tailwind CDN. `img-src` allows `'self'` and data URIs. `connect-src` allows WebSocket and API endpoints. |
+| **Criteria** | Content-Security-Policy header must restrict resource loading. `script-src` must not include `'unsafe-inline'` (or use nonce/hash). `style-src` permits local Tailwind CSS. `img-src` allows `'self'` and data URIs. `connect-src` allows WebSocket and API endpoints. |
 | **Pass Conditions** | (1) CSP header present in responses. (2) `script-src` does not allow `'unsafe-eval'`. (3) `default-src` set to `'self'` as baseline. (4) Inline scripts blocked or require nonce. (5) CSP violation reporting endpoint configured (`report-uri` or `report-to`). |
 | **Fail Conditions** | (1) No CSP header in responses. (2) `script-src 'unsafe-inline' 'unsafe-eval'` allows arbitrary script execution. (3) CSP so permissive it provides no security benefit. |
 | **Method** | Automated - Response header analysis + CSP evaluator tool |
@@ -2070,8 +2070,8 @@ Written in accordance with ISMS/ISO 27001, OWASP Top 10, and KISA Web Security G
 |------|---------|
 | **ID** | UX-004 |
 | **Name** | Navigation Menu Completeness & Structure Verification |
-| **Criteria** | Sidebar navigation includes links to all 18 app modules. Menu items grouped logically. Active page highlighted in navigation. Sub-menus expandable/collapsible. Navigation accessible on all pages. |
-| **Pass Conditions** | (1) All 18 apps represented in sidebar navigation. (2) Menu items grouped: ERP (inventory, production, sales, purchase, accounting), Groupware (HR, attendance, board, calendar, messenger), etc. (3) Current page's menu item highlighted. (4) Sub-menu expands on click/hover. (5) Navigation consistent across all pages. |
+| **Criteria** | Sidebar navigation includes links to all 22 app modules. Menu items grouped logically. Active page highlighted in navigation. Sub-menus expandable/collapsible. Navigation accessible on all pages. |
+| **Pass Conditions** | (1) All 22 apps represented in sidebar navigation. (2) Menu items grouped: ERP (inventory, production, sales, purchase, accounting, asset), Marketing/Channel (advertising, marketplace, inquiry), Groupware (HR, attendance, approval, board, calendar, messenger), System (AD, audit), etc. (3) Current page's menu item highlighted. (4) Sub-menu expands on click/hover. (5) Navigation consistent across all pages. |
 | **Fail Conditions** | (1) App module missing from navigation. (2) Dead link in navigation. (3) Active page not highlighted. |
 | **Method** | Manual - Navigation walkthrough of all menu items |
 | **Test Code** | Manual test procedure |

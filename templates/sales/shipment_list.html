@@ -3,70 +3,104 @@
 
 {% block page_title %}{% trans "배송 관리" %}{% endblock %}
 
-{% block content %}
-<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-    <form method="get" class="flex flex-col sm:flex-row gap-2 flex-1">
-        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="배송번호, 운송장, 주문번호..." class="form-input max-w-xs">
-        <select name="status" class="form-input max-w-[160px]" onchange="this.form.submit()">
-            <option value="">전체 상태</option>
-            <option value="PREPARING" {% if request.GET.status == 'PREPARING' %}selected{% endif %}>준비중</option>
-            <option value="SHIPPED" {% if request.GET.status == 'SHIPPED' %}selected{% endif %}>발송</option>
-            <option value="IN_TRANSIT" {% if request.GET.status == 'IN_TRANSIT' %}selected{% endif %}>배송중</option>
-            <option value="DELIVERED" {% if request.GET.status == 'DELIVERED' %}selected{% endif %}>배송완료</option>
-        </select>
-        <button type="submit" class="btn btn-secondary">{% trans "검색" %}</button>
-    </form>
-    <a href="{% url 'sales:shipment_excel' %}" class="btn btn-secondary whitespace-nowrap">Excel</a>
-</div>
+{% block header_actions %}
+<a href="{% url 'sales:shipment_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    Excel
+</a>
+<a href="{% url 'sales:shipment_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    가져오기
+</a>
+{% endblock %}
 
-<div class="bg-white shadow-sm rounded-xl overflow-hidden">
-    <div class="table-responsive">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">배송번호</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">택배사</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">운송장번호</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">수취인</th>
-                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">발송일</th>
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <!-- 필터 & 검색 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px] relative">
+                <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="배송번호, 운송장, 주문번호로 검색..."
+                       class="form-input pl-10">
+            </div>
+            <select name="status" class="form-input w-auto">
+                <option value="">전체 상태</option>
+                <option value="PREPARING" {% if request.GET.status == 'PREPARING' %}selected{% endif %}>준비중</option>
+                <option value="SHIPPED" {% if request.GET.status == 'SHIPPED' %}selected{% endif %}>발송</option>
+                <option value="IN_TRANSIT" {% if request.GET.status == 'IN_TRANSIT' %}selected{% endif %}>배송중</option>
+                <option value="DELIVERED" {% if request.GET.status == 'DELIVERED' %}selected{% endif %}>배송완료</option>
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+
+    <!-- 테이블 -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">배송번호</th>
+                    <th class="px-4 py-3">주문번호</th>
+                    <th class="px-4 py-3">배송유형</th>
+                    <th class="px-4 py-3">택배사</th>
+                    <th class="px-4 py-3">운송장번호</th>
+                    <th class="px-4 py-3">수취인</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3">발송일</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody class="divide-y divide-gray-100">
                 {% for s in shipments %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm font-medium"><a href="{% url 'sales:shipment_detail' s.pk %}" class="text-blue-600 hover:underline">{{ s.shipment_number }}</a></td>
-                    <td class="px-4 py-3 text-sm"><a href="{% url 'sales:order_detail' s.order.pk %}" class="text-blue-600 hover:underline">{{ s.order.order_number }}</a></td>
-                    <td class="px-4 py-3 text-sm">{{ s.get_carrier_display }}</td>
-                    <td class="px-4 py-3 text-sm">
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono text-gray-900"><a href="{% url 'sales:shipment_detail' s.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ s.shipment_number }}</a></td>
+                    <td class="px-4 py-3 text-gray-600"><a href="{% url 'sales:order_detail' s.order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ s.order.order_number }}</a></td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.get_shipping_type_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.get_carrier_display|default:"-" }}</td>
+                    <td class="px-4 py-3 font-mono text-gray-600">
                         {% if s.tracking_url %}<a href="{{ s.tracking_url }}" target="_blank" class="text-blue-600 hover:underline">{{ s.tracking_number }}</a>
                         {% else %}{{ s.tracking_number|default:"-" }}{% endif %}
                     </td>
-                    <td class="px-4 py-3 text-sm">{{ s.receiver_name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.receiver_name|default:"-" }}</td>
                     <td class="px-4 py-3 text-center">
-                        {% if s.status == 'DELIVERED' %}<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">배송완료</span>
-                        {% elif s.status == 'IN_TRANSIT' or s.status == 'SHIPPED' %}<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">{{ s.get_status_display }}</span>
-                        {% elif s.status == 'RETURNED' %}<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">반품</span>
-                        {% else %}<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{{ s.get_status_display }}</span>{% endif %}
+                        {% if s.status == 'DELIVERED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">배송완료</span>
+                        {% elif s.status == 'IN_TRANSIT' or s.status == 'SHIPPED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ s.get_status_display }}</span>
+                        {% elif s.status == 'RETURNED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">반품</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ s.get_status_display }}</span>{% endif %}
                     </td>
-                    <td class="px-4 py-3 text-sm">{{ s.shipped_date|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.shipped_date|default:"-" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">배송 내역이 없습니다.</td></tr>
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">배송 내역이 없습니다.</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
 
-{% if is_paginated %}
-<div class="mt-4 flex justify-center">
-    <nav class="flex gap-1">
-        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary text-xs">이전</a>{% endif %}
-        <span class="btn text-xs">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary text-xs">다음</a>{% endif %}
-    </nav>
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&q={{ request.GET.q }}&status={{ request.GET.status }}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 {% endblock %}

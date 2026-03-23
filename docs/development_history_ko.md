@@ -176,25 +176,28 @@ venv\Scripts\activate             # Windows
 # 3. 패키지 설치
 pip install -r requirements/dev.txt
 
-# 4. 환경변수 설정
+# 4. 프론트엔드 벤더 파일 다운로드 (Tailwind CSS, HTMX, Alpine.js, Chart.js)
+bash scripts/download_vendor.sh
+
+# 5. 환경변수 설정
 mkdir -p local
 cp .env.example local/.env
 # local/.env 열어서 SECRET_KEY 값 변경 (필수!)
 # SECRET_KEY=django-insecure-your-random-50-char-key-here
 
-# 5. SECRET_KEY 생성하는 법:
+# 6. SECRET_KEY 생성하는 법:
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 
-# 6. DB 생성 및 마이그레이션
+# 7. DB 생성 및 마이그레이션
 python manage.py migrate
 
-# 7. 관리자 계정 생성
+# 8. 관리자 계정 생성
 python manage.py createsuperuser
 # username: admin
 # email: admin@yourdomain.com
 # password: (8자리 이상, 영문+숫자)
 
-# 8. 계정 역할 설정
+# 9. 계정 역할 설정
 python manage.py shell
 >>> from apps.accounts.models import User
 >>> u = User.objects.get(username='admin')
@@ -203,7 +206,7 @@ python manage.py shell
 >>> u.save()
 >>> exit()
 
-# 9. 개발 서버 실행
+# 10. 개발 서버 실행
 python manage.py runserver 0.0.0.0:8000
 # 브라우저: http://localhost:8000
 ```
@@ -265,28 +268,48 @@ ERP_Suite/
 ├── apps/
 │   ├── core/                 # BaseModel, 알림, 백업, 휴지통, 증빙, 감사
 │   ├── accounts/             # 사용자, 역할(admin/manager/staff)
-│   ├── inventory/            # 제품, 카테고리, 창고, 입출고, 재고
-│   ├── production/           # BOM, 생산계획, 작업지시, 생산실적
-│   ├── sales/                # 거래처, 고객, 주문, 수수료
+│   ├── inventory/            # 제품, 카테고리, 창고, 입출고, LOT, 재고평가
+│   ├── production/           # BOM, 생산계획, 작업지시, 생산실적, MRP, 표준원가, 품질검수
+│   ├── sales/                # 거래처, 고객, 주문, 견적, 수수료, 배송추적
 │   ├── service/              # AS요청, 수리이력
-│   ├── accounting/           # 세금계산서, 부가세, 손익분기점, 전표
+│   ├── accounting/           # 세금계산서, 전표, 미수금/미지급금, 예산, 정산, 다중통화
 │   ├── investment/           # 투자자, 라운드, 지분, 배당
 │   ├── warranty/             # 정품등록, 시리얼번호 인증
 │   ├── marketplace/          # 외부스토어 연동(네이버/쿠팡 등)
-│   └── inquiry/              # 문의관리, LLM 자동답변
+│   ├── inquiry/              # 문의관리, LLM 자동답변
+│   ├── hr/                   # 부서, 직급, 직원, 인사발령, 급여
+│   ├── attendance/           # 출퇴근, 휴가, 연차
+│   ├── board/                # 공지/자유게시판
+│   ├── calendar_app/         # 일정 (FullCalendar.js)
+│   ├── messenger/            # 실시간 채팅 (WebSocket)
+│   ├── ad/                   # Active Directory 연동
+│   ├── advertising/          # 광고 캠페인, 소재, 성과, 예산
+│   ├── approval/             # 다단계 결재/품의
+│   ├── asset/                # 고정자산, 감가상각
+│   └── api/                  # REST API (13 ViewSet, JWT 인증)
 ├── templates/
 │   ├── base.html             # 공통 레이아웃 (사이드바, 헤더)
-│   ├── accounts/             # 로그인, 사용자관리 (3개)
-│   ├── core/                 # 대시보드, 백업, 휴지통, 증빙, 감사, 알림 (9개)
-│   ├── inventory/            # 제품, 창고, 입출고 등 (12개)
-│   ├── production/           # BOM, 생산계획 등 (11개)
-│   ├── sales/                # 거래처, 고객, 주문, 수수료 (13개)
-│   ├── service/              # AS, 수리 (4개)
-│   ├── accounting/           # 세금계산서, 전표 등 (13개)
-│   ├── investment/           # 투자자, 지분 등 (11개)
-│   ├── warranty/             # 정품등록 (3개)
-│   ├── marketplace/          # 외부스토어 (5개)
-│   └── inquiry/              # 문의관리 (6개)
+│   ├── accounts/             # 로그인, 사용자관리
+│   ├── core/                 # 대시보드, 백업, 휴지통, 증빙, 감사, 알림
+│   ├── inventory/            # 제품, 창고, 입출고, 재고실사, 재고평가
+│   ├── production/           # BOM, 생산계획, MRP, 표준원가, 품질검수
+│   ├── sales/                # 거래처, 고객, 주문, 견적, 수수료, 배송
+│   ├── service/              # AS, 수리
+│   ├── accounting/           # 세금계산서, 전표, 미수금/미지급금, 예산, 정산
+│   ├── investment/           # 투자자, 지분
+│   ├── warranty/             # 정품등록
+│   ├── marketplace/          # 외부스토어
+│   ├── inquiry/              # 문의관리
+│   ├── hr/                   # 부서, 직원, 급여
+│   ├── attendance/           # 근태, 휴가
+│   ├── board/                # 게시판
+│   ├── calendar_app/         # 일정
+│   ├── messenger/            # 채팅
+│   ├── ad/                   # AD 관리
+│   ├── advertising/          # 캠페인, 성과
+│   ├── approval/             # 결재/품의
+│   ├── asset/                # 고정자산, 감가상각
+│   └── audit/                # 감사 증적
 ├── docs/
 │   ├── 사용자_가이드.md
 │   ├── 개발자_가이드.md

@@ -17,6 +17,7 @@ cd ERP_Suite
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements/base.txt
+bash scripts/download_vendor.sh
 mkdir -p local && cp .env.example local/.env
 python manage.py migrate
 ```

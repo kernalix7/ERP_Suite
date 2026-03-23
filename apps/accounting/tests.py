@@ -11,7 +11,9 @@ from apps.sales.models import Partner
 
 from .models import (
     AccountCode,
-    ApprovalRequest,
+    ClosingPeriod,
+    Currency,
+    ExchangeRate,
     FixedCost,
     TaxInvoice,
     TaxRate,
@@ -19,6 +21,7 @@ from .models import (
     VoucherLine,
     WithholdingTax,
 )
+from apps.approval.models import ApprovalRequest
 
 
 class TaxInvoiceTests(TestCase):
@@ -385,7 +388,7 @@ class ApprovalStepTests(TestCase):
 
     def test_multi_step_approval(self):
         """다단계 결재선 생성 및 순차 승인"""
-        from apps.accounting.models import ApprovalStep
+        from apps.approval.models import ApprovalStep
 
         req = ApprovalRequest.objects.create(
             request_number='AP-STEP-001',
@@ -429,7 +432,7 @@ class ApprovalStepTests(TestCase):
 
     def test_approval_step_rejection(self):
         """결재 단계 반려"""
-        from apps.accounting.models import ApprovalStep
+        from apps.approval.models import ApprovalStep
 
         req = ApprovalRequest.objects.create(
             request_number='AP-STEP-REJ',
@@ -455,7 +458,7 @@ class ApprovalStepTests(TestCase):
 
     def test_approval_step_str(self):
         """결재 단계 문자열 표현"""
-        from apps.accounting.models import ApprovalStep
+        from apps.approval.models import ApprovalStep
 
         req = ApprovalRequest.objects.create(
             request_number='AP-STEP-STR',
@@ -474,7 +477,7 @@ class ApprovalStepTests(TestCase):
 
     def test_unique_together_request_step_order(self):
         """같은 결재요청에 같은 단계순서 중복 불가"""
-        from apps.accounting.models import ApprovalStep
+        from apps.approval.models import ApprovalStep
 
         req = ApprovalRequest.objects.create(
             request_number='AP-STEP-UNIQ',
@@ -747,3 +750,97 @@ class PaymentTests(TestCase):
         self.assertIn('CASH', choices)
         self.assertIn('CHECK', choices)
         self.assertIn('CARD', choices)
+
+
+class ClosingPeriodTest(TestCase):
+    """결산마감 모델 테스트"""
+
+    def test_closing_period_creation(self):
+        """ClosingPeriod 생성 가능"""
+        period = ClosingPeriod.objects.create(
+            year=2026,
+            month=3,
+            is_closed=False,
+        )
+        self.assertEqual(period.year, 2026)
+        self.assertEqual(period.month, 3)
+        self.assertFalse(period.is_closed)
+        self.assertEqual(str(period), '2026년 03월 미마감')
+
+    def test_unique_year_month(self):
+        """동일 년/월 중복 생성 불가"""
+        ClosingPeriod.objects.create(year=2026, month=6)
+        with self.assertRaises(IntegrityError):
+            ClosingPeriod.objects.create(year=2026, month=6)
+
+
+class CurrencyTest(TestCase):
+    """통화 모델 테스트"""
+
+    def test_currency_creation(self):
+        """Currency 생성 가능"""
+        currency = Currency.objects.create(
+            code='USD',
+            name='미국 달러',
+            symbol='$',
+            decimal_places=2,
+            is_base=False,
+        )
+        self.assertEqual(currency.code, 'USD')
+        self.assertEqual(currency.name, '미국 달러')
+        self.assertEqual(currency.symbol, '$')
+        self.assertEqual(str(currency), 'USD (미국 달러)')
+
+    def test_base_currency_unique(self):
+        """is_base=True인 통화가 하나만 존재하도록"""
+        krw = Currency.objects.create(
+            code='KRW', name='원화', symbol='₩',
+            decimal_places=0, is_base=True,
+        )
+        # 두 번째 기준통화 생성 시 기존 기준통화가 해제됨
+        usd = Currency.objects.create(
+            code='USD', name='미국 달러', symbol='$',
+            decimal_places=2, is_base=True,
+        )
+        krw.refresh_from_db()
+        self.assertFalse(krw.is_base)
+        self.assertTrue(usd.is_base)
+        # 기준통화는 하나만 존재
+        self.assertEqual(
+            Currency.objects.filter(is_base=True).count(), 1,
+        )
+
+
+class ExchangeRateTest(TestCase):
+    """환율 모델 테스트"""
+
+    def setUp(self):
+        self.currency = Currency.objects.create(
+            code='USD', name='미국 달러', symbol='$',
+        )
+
+    def test_exchange_rate_creation(self):
+        """ExchangeRate 생성 가능"""
+        rate = ExchangeRate.objects.create(
+            currency=self.currency,
+            rate_date=date(2026, 3, 20),
+            rate=Decimal('1350.5000'),
+        )
+        self.assertEqual(rate.currency, self.currency)
+        self.assertEqual(rate.rate, Decimal('1350.5000'))
+        self.assertIn('USD', str(rate))
+        self.assertIn('2026-03-20', str(rate))
+
+    def test_unique_currency_date(self):
+        """동일 통화/날짜 중복 불가"""
+        ExchangeRate.objects.create(
+            currency=self.currency,
+            rate_date=date(2026, 3, 20),
+            rate=Decimal('1350.0000'),
+        )
+        with self.assertRaises(IntegrityError):
+            ExchangeRate.objects.create(
+                currency=self.currency,
+                rate_date=date(2026, 3, 20),
+                rate=Decimal('1355.0000'),
+            )

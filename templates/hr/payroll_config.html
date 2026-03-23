@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "급여 설정" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "급여 설정" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'hr:payroll_list' %}" class="btn btn-secondary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    {% trans "급여 관리" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- 등록 폼 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-base font-semibold text-gray-900 mb-4">{% trans "새 년도 설정 추가" %}</h3>
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                {% for error in form.non_field_errors %}
+                <p class="text-sm text-red-700">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="space-y-4">
+                {% for field in form %}
+                <div>
+                    <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ field.label }}
+                        {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                    </label>
+                    {{ field }}
+                    {% if field.help_text %}
+                    <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                    {% endif %}
+                    {% if field.errors %}
+                    <div class="mt-1">
+                        {% for error in field.errors %}
+                        <p class="text-xs text-red-600">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <button type="submit" class="btn btn-primary w-full">{% trans "저장" %}</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 기존 설정 목록 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-base font-semibold text-gray-900">{% trans "연도별 급여 설정" %}</h3>
+        </div>
+
+        {% if configs %}
+        <div class="divide-y divide-gray-100">
+            {% for config in configs %}
+            <div class="p-4 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-lg font-bold text-gray-900">{{ config.year }}{% trans "년" %}</span>
+                    <span class="text-sm text-gray-500">{% trans "최저시급" %}: {{ config.minimum_wage_hourly|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">{% trans "국민연금" %}</span>
+                        <span class="font-mono text-gray-900">{{ config.national_pension_rate }}%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">{% trans "건강보험" %}</span>
+                        <span class="font-mono text-gray-900">{{ config.health_insurance_rate }}%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">{% trans "장기요양" %}</span>
+                        <span class="font-mono text-gray-900">{{ config.long_term_care_rate }}%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">{% trans "고용보험" %}</span>
+                        <span class="font-mono text-gray-900">{{ config.employment_insurance_rate }}%</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-6 py-12 text-center text-gray-400">
+            <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            {% trans "등록된 급여 설정이 없습니다." %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

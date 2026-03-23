@@ -68,18 +68,18 @@
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-                <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                    <tr>
-                        <th class="px-6 py-3 font-semibold">{% trans "유형" %}</th>
-                        <th class="px-6 py-3 font-semibold">{% trans "기간" %}</th>
-                        <th class="px-6 py-3 font-semibold text-right">{% trans "일수" %}</th>
-                        <th class="px-6 py-3 font-semibold">{% trans "사유" %}</th>
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">{% trans "유형" %}</th>
+                        <th class="px-4 py-3">{% trans "기간" %}</th>
+                        <th class="px-4 py-3 text-right">{% trans "일수" %}</th>
+                        <th class="px-4 py-3">{% trans "사유" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for leave in used_leaves %}
                     <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-3">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                 {% if leave.leave_type == 'ANNUAL' %}bg-blue-100 text-blue-800
                                 {% elif leave.leave_type == 'HALF_AM' %}bg-cyan-100 text-cyan-800
@@ -90,9 +90,9 @@
                                 {{ leave.get_leave_type_display }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-gray-700">{{ leave.start_date|date:"Y-m-d" }} ~ {{ leave.end_date|date:"Y-m-d" }}</td>
-                        <td class="px-6 py-4 text-right font-medium text-gray-900">{{ leave.days }}{% trans "일" %}</td>
-                        <td class="px-6 py-4 text-gray-700 max-w-xs truncate">{{ leave.reason }}</td>
+                        <td class="px-4 py-3 text-gray-700">{{ leave.start_date|date:"Y-m-d" }} ~ {{ leave.end_date|date:"Y-m-d" }}</td>
+                        <td class="px-4 py-3 text-right font-medium text-gray-900">{{ leave.days }}{% trans "일" %}</td>
+                        <td class="px-4 py-3 text-gray-700 max-w-xs truncate">{{ leave.reason }}</td>
                     </tr>
                     {% empty %}
                     <tr>

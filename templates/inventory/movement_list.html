@@ -53,22 +53,22 @@
     <!-- 테이블 -->
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                    <th class="px-6 py-3 font-semibold">전표번호</th>
-                    <th class="px-6 py-3 font-semibold">유형</th>
-                    <th class="px-6 py-3 font-semibold">제품</th>
-                    <th class="px-6 py-3 font-semibold">창고</th>
-                    <th class="px-6 py-3 font-semibold text-right">수량</th>
-                    <th class="px-6 py-3 font-semibold">입출고일</th>
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">전표번호</th>
+                    <th class="px-4 py-3">유형</th>
+                    <th class="px-4 py-3">제품</th>
+                    <th class="px-4 py-3">창고</th>
+                    <th class="px-4 py-3 text-right">수량</th>
+                    <th class="px-4 py-3">입출고일</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for movement in movements %}
                 <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
                     onclick="location.href='{% url 'inventory:movement_detail' movement.pk %}'">
-                    <td class="px-6 py-4 font-mono text-blue-600 font-medium">{{ movement.movement_number }}</td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3 font-mono text-blue-600 font-medium">{{ movement.movement_number }}</td>
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             {% if movement.movement_type == 'IN' %}bg-green-100 text-green-800
                             {% elif movement.movement_type == 'OUT' %}bg-red-100 text-red-800
@@ -77,13 +77,13 @@
                             {{ movement.get_movement_type_display }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 font-medium text-gray-900">{{ movement.product }}</td>
-                    <td class="px-6 py-4 text-gray-600">{{ movement.warehouse }}</td>
-                    <td class="px-6 py-4 text-right font-medium
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ movement.product }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ movement.warehouse }}</td>
+                    <td class="px-4 py-3 text-right font-medium
                         {% if movement.movement_type == 'IN' %}text-green-600{% elif movement.movement_type == 'OUT' %}text-red-600{% else %}text-gray-900{% endif %}">
                         {% if movement.movement_type == 'IN' %}+{% elif movement.movement_type == 'OUT' %}-{% endif %}{{ movement.quantity }}
                     </td>
-                    <td class="px-6 py-4 text-gray-500">{{ movement.date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ movement.movement_date|date:"Y-m-d" }}</td>
                 </tr>
                 {% empty %}
                 <tr>

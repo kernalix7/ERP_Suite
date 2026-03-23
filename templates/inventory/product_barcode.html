@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}바코드 - {{ object.name }}{% endblock %}
 {% block page_title %}제품 바코드{% endblock %}
@@ -20,7 +21,7 @@
             <div class="mt-2 flex justify-center gap-4 text-sm text-gray-600">
                 <span>코드: <strong>{{ object.code }}</strong></span>
                 <span>유형: <strong>{{ object.get_product_type_display }}</strong></span>
-                <span>단가: <strong>{{ object.unit_price|floatformat:0 }}원</strong></span>
+                <span>단가: <strong>{{ object.unit_price|intcomma }}원</strong></span>
             </div>
         </div>
 

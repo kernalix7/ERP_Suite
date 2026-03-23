@@ -1,13 +1,17 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}주문 상세 - {{ order.order_number }} - ERP Suite{% endblock %}
 {% block page_title %}주문 상세{% endblock %}
 
 {% block header_actions %}
-{% if order.status == 'DRAFT' %}
-<a href="{% url 'sales:order_update' order.pk %}" class="btn btn-primary">수정</a>
-{% endif %}
-<a href="{% url 'sales:order_list' %}" class="btn btn-secondary">목록으로</a>
+<div class="flex flex-wrap items-center gap-2">
+    {% if order.status != 'CANCELLED' %}
+    <a href="{% url 'sales:order_update' order.pk %}" class="btn btn-primary">수정</a>
+    {% endif %}
+    <a href="{% url 'sales:order_delete' order.pk %}" class="btn btn-danger">삭제</a>
+    <a href="{% url 'sales:order_list' %}" class="btn btn-secondary">목록</a>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -36,6 +40,10 @@
                 <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ order.order_number }}</dd>
             </div>
             <div>
+                <dt class="text-sm text-gray-500">주문유형</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.get_order_type_display }}</dd>
+            </div>
+            <div>
                 <dt class="text-sm text-gray-500">거래처</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ order.partner.name|default:"-" }}</dd>
             </div>
@@ -50,25 +58,142 @@
                 </dd>
             </div>
             <div>
+                <dt class="text-sm text-gray-500">담당자</dt>
+                <dd class="mt-1 text-sm text-gray-900">{% if order.assigned_to %}{{ order.assigned_to.get_full_name|default:order.assigned_to.username }}{% else %}-{% endif %}</dd>
+            </div>
+            <div>
                 <dt class="text-sm text-gray-500">주문일</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ order.order_date|date:"Y-m-d" }}</dd>
             </div>
             <div>
+                <dt class="text-sm text-gray-500">납기일</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.delivery_date|date:"Y-m-d"|default:"-" }}</dd>
+            </div>
+            <div>
                 <dt class="text-sm text-gray-500">합계금액</dt>
-                <dd class="mt-1 text-sm font-bold text-gray-900">{{ order.total_amount|floatformat:0 }}원</dd>
+                <dd class="mt-1 text-sm font-bold text-gray-900">{{ order.grand_total|intcomma }}원</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">입금상태</dt>
+                <dd class="mt-1 text-sm">
+                    {% if order.is_paid %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">입금완료</span>
+                    {% if order.paid_date %}<span class="ml-1 text-gray-500">{{ order.paid_date|date:"Y-m-d" }}</span>{% endif %}
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">미입금</span>
+                    {% endif %}
+                </dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">작성자</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ order.created_by|default:"-" }}</dd>
             </div>
-            {% if order.notes %}
+            {% if order.bank_account %}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">입금계좌</dt>
+                <dd class="mt-1 text-sm text-gray-900 font-medium">
+                    {{ order.bank_account.bank }} {{ order.bank_account.account_number }} ({{ order.bank_account.owner }})
+                </dd>
+            </div>
+            {% endif %}
+            {% if order.shipping_method %}
+            <div>
+                <dt class="text-sm text-gray-500">배송방법</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.shipping_method }}</dd>
+            </div>
+            {% endif %}
+            {% if order.tracking_number %}
+            <div>
+                <dt class="text-sm text-gray-500">운송장번호</dt>
+                <dd class="mt-1 text-sm font-mono text-gray-900">{{ order.tracking_number }}</dd>
+            </div>
+            {% endif %}
+            {% if order.shipping_address %}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">배송주소</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.shipping_address }}</dd>
+            </div>
+            {% endif %}
             <div class="md:col-span-2 lg:col-span-3">
                 <dt class="text-sm text-gray-500">비고</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ order.notes }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.notes|default:"-" }}</dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- 주문 처리 -->
+    {% if status_actions or not order.is_paid %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">주문 처리</h2>
+        <div class="flex flex-wrap gap-3">
+            {% for action in status_actions %}
+            <form method="post" action="{% url 'sales:order_status_change' order.pk %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="{{ action.value }}">
+                <button type="submit" class="btn {{ action.css }}"
+                    {% if action.confirm %}onclick="return confirm('{{ action.confirm }}')"{% endif %}>
+                    {{ action.icon|safe }}
+                    {{ action.label }}
+                </button>
+            </form>
+            {% endfor %}
+            {% if order.status == 'CONFIRMED' %}
+            <a href="{% url 'sales:shipment_create' order.pk %}" class="btn btn-primary">
+                <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                </svg>
+                배송 등록
+            </a>
+            {% endif %}
+            {% if not order.is_paid and order.status != 'CANCELLED' %}
+            <!-- 입금 처리 옵션 -->
+            <div class="flex flex-wrap items-end gap-3" x-data="paymentForm()">
+                <!-- 전액 입금 -->
+                <form method="post" action="{% url 'sales:order_payment' order.pk %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="payment_mode" value="full">
+                    <button type="submit" class="btn btn-primary bg-emerald-600 hover:bg-emerald-700"
+                            onclick="return confirm('{{ order.grand_total|intcomma }}원 전액 입금 처리하시겠습니까?')">
+                        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        전액 입금 ({{ order.grand_total|intcomma }}원)
+                    </button>
+                </form>
+                {% if partner_commission_rate %}
+                <!-- 수수료 자동 차감 입금 -->
+                <form method="post" action="{% url 'sales:order_payment' order.pk %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="payment_mode" value="auto_commission">
+                    <button type="submit" class="btn btn-primary bg-blue-600 hover:bg-blue-700"
+                            onclick="return confirm('수수료 {{ partner_commission_rate }}% ({{ partner_commission|intcomma }}원) 차감\n실 입금액: {{ auto_deposit|intcomma }}원\n\n처리하시겠습니까?')">
+                        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
+                        </svg>
+                        수수료 차감 ({{ auto_deposit|intcomma }}원)
+                    </button>
+                </form>
+                {% endif %}
+                <!-- 실 입금액 수동 입력 -->
+                <form method="post" action="{% url 'sales:order_payment' order.pk %}" class="inline flex items-end gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="payment_mode" value="manual">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">실 입금액</label>
+                        <input type="number" name="deposit_amount" class="form-input w-36 text-right text-sm"
+                               placeholder="{{ order.grand_total }}" min="0" required
+                               @input="diff = {{ order.grand_total }} - ($event.target.value || 0)">
+                    </div>
+                    <button type="submit" class="btn btn-secondary"
+                            onclick="return confirm('입력한 금액으로 입금 처리하시겠습니까?')">
+                        수동 입금
+                    </button>
+                </form>
             </div>
             {% endif %}
         </div>
     </div>
+    {% endif %}
 
     <!-- 주문 항목 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -82,8 +207,12 @@
                         <th class="px-4 py-3 w-8">#</th>
                         <th class="px-4 py-3">제품</th>
                         <th class="px-4 py-3 text-right">수량</th>
-                        <th class="px-4 py-3 text-right">단가</th>
-                        <th class="px-4 py-3 text-right">소계</th>
+                        <th class="px-4 py-3 text-right">원가</th>
+                        <th class="px-4 py-3 text-right">공급단가</th>
+                        <th class="px-4 py-3 text-right">공급가액</th>
+                        <th class="px-4 py-3 text-right">부가세</th>
+                        <th class="px-4 py-3 text-right">이익</th>
+                        <th class="px-4 py-3 text-right">이익률</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -92,23 +221,91 @@
                         <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
                         <td class="px-4 py-3 text-gray-900 font-medium">{{ item.product }}</td>
                         <td class="px-4 py-3 text-right text-gray-600">{{ item.quantity }}</td>
-                        <td class="px-4 py-3 text-right text-gray-600">{{ item.unit_price|floatformat:0 }}원</td>
-                        <td class="px-4 py-3 text-right font-medium text-gray-900">{{ item.subtotal|floatformat:0 }}원</td>
+                        <td class="px-4 py-3 text-right text-gray-500">{{ item.cost_price|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ item.unit_price|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right font-medium text-gray-900">{{ item.amount|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ item.tax_amount|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right font-medium {% if item.profit >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
+                            {{ item.profit|intcomma }}원
+                        </td>
+                        <td class="px-4 py-3 text-right {% if item.profit_rate >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
+                            {{ item.profit_rate }}%
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-400">주문 항목이 없습니다.</td>
+                        <td colspan="9" class="px-4 py-8 text-center text-gray-400">주문 항목이 없습니다.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>
-                    <tr class="bg-gray-50 font-semibold">
-                        <td colspan="4" class="px-4 py-3 text-right text-gray-700">합계</td>
-                        <td class="px-4 py-3 text-right text-gray-900">{{ order.total_amount|floatformat:0 }}원</td>
+                    <tr class="bg-gray-50 text-sm">
+                        <td colspan="5" class="px-4 py-3 text-right font-medium text-gray-500">원가 합계</td>
+                        <td colspan="2" class="px-4 py-3 text-right font-medium text-gray-700">{{ total_cost|intcomma }}원</td>
+                        <td colspan="2" class="px-4 py-3"></td>
+                    </tr>
+                    {% if shipping_cost %}
+                    <tr class="bg-gray-50 text-sm">
+                        <td colspan="5" class="px-4 py-3 text-right font-medium text-gray-500">배송비</td>
+                        <td colspan="2" class="px-4 py-3 text-right font-medium text-red-600">-{{ shipping_cost|intcomma }}원</td>
+                        <td colspan="2" class="px-4 py-3"></td>
+                    </tr>
+                    {% endif %}
+                    <tr class="bg-gray-50 font-semibold text-sm">
+                        <td colspan="5" class="px-4 py-3 text-right">공급가액 합계</td>
+                        <td class="px-4 py-3 text-right">{{ order.total_amount|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right">{{ order.tax_total|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right font-bold {% if total_profit >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
+                            {{ total_profit|intcomma }}원
+                        </td>
+                        <td class="px-4 py-3 text-right {% if total_profit_rate >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
+                            {{ total_profit_rate }}%
+                        </td>
+                    </tr>
+                    <tr class="bg-gray-50 font-bold text-sm">
+                        <td colspan="5" class="px-4 py-3 text-right">총합계 (세포함)</td>
+                        <td colspan="4" class="px-4 py-3 text-right text-blue-600">{{ order.grand_total|intcomma }}원</td>
                     </tr>
                 </tfoot>
             </table>
         </div>
     </div>
+
+    <!-- 배송 내역 -->
+    {% if order.shipments.exists %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">배송 내역</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">배송번호</th>
+                        <th class="px-4 py-3">배송유형</th>
+                        <th class="px-4 py-3">택배사</th>
+                        <th class="px-4 py-3">운송장번호</th>
+                        <th class="px-4 py-3">상태</th>
+                        <th class="px-4 py-3">발송일</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for shipment in order.shipments.all %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3">
+                            <a href="{% url 'sales:shipment_detail' shipment.pk %}" class="text-blue-600 hover:text-blue-800">{{ shipment.shipment_number }}</a>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">{{ shipment.get_shipping_type_display }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ shipment.get_carrier_display|default:"-" }}</td>
+                        <td class="px-4 py-3 font-mono text-gray-600">{{ shipment.tracking_number|default:"-" }}</td>
+                        <td class="px-4 py-3">{{ shipment.get_status_display }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ shipment.shipped_date|date:"Y-m-d"|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

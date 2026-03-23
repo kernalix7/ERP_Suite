@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{% trans "통화 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "통화 관리" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:currency_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "통화코드" %}</th>
+                    <th class="px-4 py-3">{% trans "통화명" %}</th>
+                    <th class="px-4 py-3">{% trans "기호" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "소수자리" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "기준통화" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for currency in currencies %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">
+                        <code class="bg-gray-100 px-2 py-0.5 rounded text-xs">{{ currency.code }}</code>
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">{{ currency.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ currency.symbol }}</td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ currency.decimal_places }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if currency.is_base %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{% trans "기준" %}</span>
+                        {% else %}
+                            <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'accounting:currency_update' currency.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">{% trans "수정" %}</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">{% trans "등록된 통화가 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

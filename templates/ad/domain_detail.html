@@ -7,7 +7,7 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-gray-900">{{ domain.name }}</h1>
-        <div class="flex space-x-2">
+        <div class="flex gap-2">
             <form method="post" action="{% url 'ad:connection_test' domain.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-secondary">{% trans "연결 테스트" %}</button>
@@ -26,6 +26,7 @@
             <div><dt class="text-gray-500">{% trans "SSL/TLS" %}</dt><dd class="font-medium">{% if domain.use_ssl %}SSL{% elif domain.use_start_tls %}StartTLS{% else %}{% trans "없음" %}{% endif %}</dd></div>
             <div><dt class="text-gray-500">{% trans "자동 동기화" %}</dt><dd class="font-medium">{% if domain.sync_enabled %}{{ domain.sync_interval_minutes }}{% trans "분 주기" %}{% else %}{% trans "비활성" %}{% endif %}</dd></div>
             <div><dt class="text-gray-500">{% trans "마지막 동기화" %}</dt><dd class="font-medium">{% if domain.last_sync_at %}{{ domain.last_sync_at|date:"Y-m-d H:i:s" }}{% else %}-{% endif %}</dd></div>
+            <div class="md:col-span-2"><dt class="text-gray-500">비고</dt><dd class="font-medium">{{ domain.notes|default:"-" }}</dd></div>
         </dl>
     </div>
 
@@ -81,18 +82,18 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "AD 계정" %}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "ERP 사용자" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "마지막 동기화" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "AD 계정" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "ERP 사용자" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "마지막 동기화" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     {% for mapping in user_mappings %}
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-3 text-sm font-medium">{{ mapping.sam_account_name }}</td>
-                        <td class="px-6 py-3 text-sm text-gray-500">{{ mapping.user }}</td>
-                        <td class="px-6 py-3 text-center">
+                        <td class="px-4 py-3 text-sm font-medium">{{ mapping.sam_account_name }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">{{ mapping.user }}</td>
+                        <td class="px-4 py-3 text-center">
                             {% if mapping.sync_status == 'SYNCED' %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ mapping.get_sync_status_display }}</span>
                             {% elif mapping.sync_status == 'ERROR' %}
@@ -101,10 +102,10 @@
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{{ mapping.get_sync_status_display }}</span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-3 text-sm text-gray-400">{% if mapping.last_sync_at %}{{ mapping.last_sync_at|date:"m/d H:i" }}{% else %}-{% endif %}</td>
+                        <td class="px-4 py-3 text-sm text-gray-400">{% if mapping.last_sync_at %}{{ mapping.last_sync_at|date:"m/d H:i" }}{% else %}-{% endif %}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" class="px-6 py-4 text-center text-gray-400 text-sm">{% trans "매핑된 사용자가 없습니다." %}</td></tr>
+                    <tr><td colspan="4" class="px-4 py-3 text-center text-gray-400 text-sm">{% trans "매핑된 사용자가 없습니다." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -120,32 +121,32 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "유형" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "생성" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "수정" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "비활성" %}</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "오류" %}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "시작" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "유형" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "생성" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "수정" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "비활성" %}</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "오류" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "시작" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     {% for log in sync_logs %}
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-3 text-sm">{{ log.get_sync_type_display }}</td>
-                        <td class="px-6 py-3 text-center">
+                        <td class="px-4 py-3 text-sm">{{ log.get_sync_type_display }}</td>
+                        <td class="px-4 py-3 text-center">
                             {% if log.status == 'SUCCESS' %}<span class="text-green-600 text-sm font-medium">{{ log.get_status_display }}</span>
                             {% elif log.status == 'FAILED' %}<span class="text-red-600 text-sm font-medium">{{ log.get_status_display }}</span>
                             {% else %}<span class="text-yellow-600 text-sm font-medium">{{ log.get_status_display }}</span>{% endif %}
                         </td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.users_created }}</td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.users_updated }}</td>
-                        <td class="px-6 py-3 text-center text-sm">{{ log.users_disabled }}</td>
-                        <td class="px-6 py-3 text-center text-sm {% if log.errors_count > 0 %}text-red-600 font-medium{% endif %}">{{ log.errors_count }}</td>
-                        <td class="px-6 py-3 text-sm text-gray-400">{{ log.started_at|date:"Y-m-d H:i" }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.users_created }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.users_updated }}</td>
+                        <td class="px-4 py-3 text-center text-sm">{{ log.users_disabled }}</td>
+                        <td class="px-4 py-3 text-center text-sm {% if log.errors_count > 0 %}text-red-600 font-medium{% endif %}">{{ log.errors_count }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-400">{{ log.started_at|date:"Y-m-d H:i" }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" class="px-6 py-4 text-center text-gray-400 text-sm">{% trans "동기화 이력이 없습니다." %}</td></tr>
+                    <tr><td colspan="7" class="px-4 py-3 text-center text-gray-400 text-sm">{% trans "동기화 이력이 없습니다." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

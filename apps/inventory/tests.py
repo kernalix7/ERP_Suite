@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
 
 from django.test import TestCase
 
@@ -32,7 +32,8 @@ class StockMovementSignalTest(TestCase):
         )
         self._movement_seq = 0
 
-    def _create_movement(self, movement_type, quantity, product=None):
+    def _create_movement(self, movement_type, quantity, product=None,
+                         unit_price=1000):
         """StockMovement 헬퍼 — 고유 전표번호 자동 생성"""
         self._movement_seq += 1
         return StockMovement.objects.create(
@@ -41,7 +42,7 @@ class StockMovementSignalTest(TestCase):
             product=product or self.product,
             warehouse=self.warehouse,
             quantity=quantity,
-            unit_price=1000,
+            unit_price=unit_price,
             movement_date=date.today(),
             created_by=self.user,
         )
@@ -181,6 +182,87 @@ class StockMovementSignalTest(TestCase):
         """이익률(profit_margin) 계산이 정확한지 확인"""
         # unit_price=10000, cost_price=7000 → (10000-7000)/10000*100 = 30.0
         self.assertEqual(self.product.profit_margin, 30.0)
+
+    # ── 이동평균단가 테스트 ──────────────────────────────────
+
+    def test_weighted_avg_cost_single_receipt(self):
+        """단일 입고 시 cost_price가 입고단가로 갱신"""
+        # 기존 재고 0, cost_price 7000 → 입고 50개 @ 8000
+        self._create_movement('IN', 50, unit_price=8000)
+        self._refresh_product()
+        # (0*7000 + 50*8000) / 50 = 8000
+        self.assertEqual(self.product.cost_price, Decimal('8000'))
+
+    def test_weighted_avg_cost_multiple_receipts(self):
+        """서로 다른 단가로 여러 번 입고 시 가중평균 계산"""
+        # 1차: 100개 @ 1000원
+        self._create_movement('IN', 100, unit_price=1000)
+        self._refresh_product()
+        self.assertEqual(self.product.cost_price, Decimal('1000'))
+        # 2차: 50개 @ 1600원
+        # (100*1000 + 50*1600) / 150 = 180000/150 = 1200
+        self._create_movement('IN', 50, unit_price=1600)
+        self._refresh_product()
+        self.assertEqual(self.product.cost_price, Decimal('1200'))
+
+    def test_weighted_avg_cost_with_existing_stock(self):
+        """기존 재고가 있는 상태에서 입고 시 가중평균"""
+        # 기존 재고 100개 @ 7000원 (setUp의 cost_price)
+        self.product.current_stock = 100
+        self.product.save(update_fields=['current_stock'])
+        # 입고 50개 @ 10000원
+        # (100*7000 + 50*10000) / 150 = 1200000/150 = 8000
+        self._create_movement('IN', 50, unit_price=10000)
+        self._refresh_product()
+        self.assertEqual(self.product.cost_price, Decimal('8000'))
+
+    def test_weighted_avg_cost_out_does_not_change(self):
+        """출고 시 cost_price는 변경되지 않음"""
+        self._create_movement('IN', 100, unit_price=5000)
+        self._refresh_product()
+        cost_before = self.product.cost_price
+        self._create_movement('OUT', 30, unit_price=5000)
+        self._refresh_product()
+        self.assertEqual(self.product.cost_price, cost_before)
+
+    def test_weighted_avg_cost_return_does_not_change(self):
+        """반품(RETURN) 입고 시 cost_price는 변경되지 않음"""
+        self._create_movement('IN', 100, unit_price=5000)
+        self._refresh_product()
+        cost_before = self.product.cost_price
+        self._create_movement('RETURN', 10, unit_price=5000)
+        self._refresh_product()
+        self.assertEqual(self.product.cost_price, cost_before)
+
+    def test_weighted_avg_cost_zero_price_ignored(self):
+        """unit_price=0인 입고는 원가 변경 없음"""
+        self._create_movement('IN', 100, unit_price=5000)
+        self._refresh_product()
+        cost_before = self.product.cost_price
+        self._create_movement('IN', 50, unit_price=0)
+        self._refresh_product()
+        self.assertEqual(self.product.cost_price, cost_before)
+
+    def test_weighted_avg_cost_rounding(self):
+        """이동평균단가 반올림 (KRW — 소수점 없음)"""
+        # 재고 0 → 입고 3개 @ 1000원 → cost=1000
+        self._create_movement('IN', 3, unit_price=1000)
+        # 재고 3 → 입고 2개 @ 1100원
+        # (3*1000 + 2*1100) / 5 = 5200/5 = 1040
+        self._create_movement('IN', 2, unit_price=1100)
+        self._refresh_product()
+        self.assertEqual(self.product.cost_price, Decimal('1040'))
+
+    def test_weighted_avg_cost_prod_in(self):
+        """생산입고(PROD_IN)도 이동평균 적용"""
+        self.product.current_stock = 100
+        self.product.cost_price = Decimal('5000')
+        self.product.save(update_fields=['current_stock', 'cost_price'])
+        # 생산입고 50개 @ 4000원
+        # (100*5000 + 50*4000) / 150 = 700000/150 ≈ 4667
+        self._create_movement('PROD_IN', 50, unit_price=4000)
+        self._refresh_product()
+        self.assertEqual(self.product.cost_price, Decimal('4667'))
 
     def test_product_profit_margin_zero_price(self):
         """판매단가가 0일 때 이익률이 0인지 확인"""
@@ -425,3 +507,199 @@ class StockMovementModelTest(TestCase):
         self.assertIn('RAW', choices)
         self.assertIn('SEMI', choices)
         self.assertIn('FINISHED', choices)
+
+
+class StockLotTest(TestCase):
+    """FIFO/LIFO 재고평가 LOT 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='lotuser', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-LOT', name='LOT창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='LOT-PRD-001',
+            name='LOT테스트제품',
+            product_type='FINISHED',
+            unit_price=10000,
+            cost_price=5000,
+            current_stock=0,
+            valuation_method='FIFO',
+            created_by=self.user,
+        )
+        self._movement_seq = 0
+
+    def _create_movement(self, movement_type, quantity, product=None,
+                         unit_price=1000, movement_date=None):
+        """StockMovement 헬퍼 — 고유 전표번호 자동 생성"""
+        self._movement_seq += 1
+        return StockMovement.objects.create(
+            movement_number=f'LOT-MOV-{self._movement_seq:04d}',
+            movement_type=movement_type,
+            product=product or self.product,
+            warehouse=self.warehouse,
+            quantity=quantity,
+            unit_price=unit_price,
+            movement_date=movement_date or date.today(),
+            created_by=self.user,
+        )
+
+    def test_inbound_creates_stock_lot(self):
+        """IN 타입 StockMovement 생성 시 StockLot 자동 생성 확인"""
+        from apps.inventory.models import StockLot
+        self._create_movement('IN', 50, unit_price=3000)
+        lots = StockLot.objects.filter(product=self.product)
+        self.assertEqual(lots.count(), 1)
+        lot = lots.first()
+        self.assertEqual(lot.initial_quantity, 50)
+        self.assertEqual(lot.remaining_quantity, 50)
+        self.assertEqual(lot.unit_cost, 3000)
+
+    def test_lot_number_auto_generated(self):
+        """lot_number가 자동 채번되는지"""
+        from apps.inventory.models import StockLot
+        mv = self._create_movement('IN', 10)
+        lot = StockLot.objects.filter(product=self.product).first()
+        self.assertIsNotNone(lot)
+        # LOT-{product.code}-{YYYYMMDD}-{seq}
+        self.assertTrue(lot.lot_number.startswith(f'LOT-{self.product.code}-'))
+        self.assertRegex(lot.lot_number, r'LOT-LOT-PRD-001-\d{8}-\d{3}')
+
+    def test_fifo_consumes_oldest_first(self):
+        """FIFO 제품의 OUT 시 가장 오래된 LOT부터 소진"""
+        from apps.inventory.models import StockLot
+        # 먼저 오래된 입고
+        self._create_movement(
+            'IN', 30, unit_price=1000,
+            movement_date=date.today() - timedelta(days=10),
+        )
+        # 최근 입고
+        self._create_movement(
+            'IN', 30, unit_price=2000,
+            movement_date=date.today(),
+        )
+        lots = StockLot.objects.filter(
+            product=self.product,
+        ).order_by('received_date', 'pk')
+        self.assertEqual(lots.count(), 2)
+
+        # 출고 20개 — FIFO이므로 오래된 LOT(1000원)부터 소진
+        self._create_movement('OUT', 20)
+        lots_after = StockLot.objects.filter(
+            product=self.product,
+        ).order_by('received_date', 'pk')
+        # 오래된 LOT: 30 - 20 = 10 잔여
+        self.assertEqual(lots_after[0].remaining_quantity, 10)
+        # 최근 LOT: 30 그대로
+        self.assertEqual(lots_after[1].remaining_quantity, 30)
+
+    def test_lifo_consumes_newest_first(self):
+        """LIFO 제품의 OUT 시 최근 LOT부터 소진"""
+        from apps.inventory.models import StockLot
+        self.product.valuation_method = 'LIFO'
+        self.product.save(update_fields=['valuation_method'])
+
+        # 오래된 입고
+        self._create_movement(
+            'IN', 30, unit_price=1000,
+            movement_date=date.today() - timedelta(days=10),
+        )
+        # 최근 입고
+        self._create_movement(
+            'IN', 30, unit_price=2000,
+            movement_date=date.today(),
+        )
+
+        # 출고 20개 — LIFO이므로 최근 LOT(2000원)부터 소진
+        self._create_movement('OUT', 20)
+        lots_after = StockLot.objects.filter(
+            product=self.product,
+        ).order_by('received_date', 'pk')
+        # 오래된 LOT: 30 그대로
+        self.assertEqual(lots_after[0].remaining_quantity, 30)
+        # 최근 LOT: 30 - 20 = 10
+        self.assertEqual(lots_after[1].remaining_quantity, 10)
+
+    def test_avg_creates_lot_but_no_special_consume(self):
+        """AVG 제품도 LOT 생성하지만 소진 순서는 FIFO"""
+        from apps.inventory.models import StockLot
+        self.product.valuation_method = 'AVG'
+        self.product.save(update_fields=['valuation_method'])
+
+        # 오래된 입고
+        self._create_movement(
+            'IN', 30, unit_price=1000,
+            movement_date=date.today() - timedelta(days=10),
+        )
+        # 최근 입고
+        self._create_movement(
+            'IN', 30, unit_price=2000,
+            movement_date=date.today(),
+        )
+        lots = StockLot.objects.filter(product=self.product)
+        self.assertEqual(lots.count(), 2)
+
+        # 출고 20개 — AVG는 FIFO 순서로 소진
+        self._create_movement('OUT', 20)
+        lots_after = StockLot.objects.filter(
+            product=self.product,
+        ).order_by('received_date', 'pk')
+        # 오래된 LOT부터 소진: 30 - 20 = 10
+        self.assertEqual(lots_after[0].remaining_quantity, 10)
+        self.assertEqual(lots_after[1].remaining_quantity, 30)
+
+
+class ReservedStockTest(TestCase):
+    """재고 예약 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='rsuser', password='testpass123', role='staff',
+        )
+
+    def test_reserved_stock_default_zero(self):
+        """새 제품의 reserved_stock은 0"""
+        product = Product.objects.create(
+            code='RS-001', name='예약재고제품',
+            product_type='FINISHED', unit_price=1000,
+            cost_price=500, created_by=self.user,
+        )
+        self.assertEqual(product.reserved_stock, 0)
+
+    def test_available_stock_property(self):
+        """available_stock = current_stock - reserved_stock"""
+        product = Product.objects.create(
+            code='RS-002', name='가용재고제품',
+            product_type='FINISHED', unit_price=1000,
+            cost_price=500, current_stock=100,
+            reserved_stock=30, created_by=self.user,
+        )
+        self.assertEqual(product.available_stock, 70)
+
+    def test_reserved_stock_non_negative_constraint(self):
+        """reserved_stock이 음수가 되면 DB 에러"""
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            Product.objects.create(
+                code='RS-NEG', name='음수예약제품',
+                product_type='FINISHED', unit_price=1000,
+                cost_price=500, reserved_stock=-1,
+                created_by=self.user,
+            )
+
+
+class InventoryValuationViewTest(TestCase):
+    """재고평가 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='valuser', password='testpass123', role='staff',
+        )
+        self.client.force_login(self.user)
+
+    def test_valuation_page_loads(self):
+        """/inventory/valuation/ 페이지 접근 가능"""
+        response = self.client.get('/inventory/valuation/')
+        self.assertEqual(response.status_code, 200)

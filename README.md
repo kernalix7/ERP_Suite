@@ -10,13 +10,14 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 
 | Module | Description |
 |--------|-------------|
-| **Inventory** | Products (raw/semi/finished), warehouses, stock movements, inter-warehouse transfers, barcode/QR scanning, safety stock alerts |
-| **Production** | BOM management, production planning, work orders, production records with auto stock adjustments |
-| **Sales** | Partners, customers, orders, quotes (with one-click order conversion), shipment tracking, commission management |
-| **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking |
+| **Inventory** | Products (raw/semi/finished), warehouses, stock movements, inter-warehouse transfers, barcode/QR scanning, safety stock alerts, StockLot (FIFO/LIFO inventory valuation), WarehouseStock (per-warehouse stock), reserved stock management |
+| **Production** | BOM management, production planning, work orders, production records with auto stock adjustments, MRP (Material Requirements Planning), StandardCost (standard costing), QualityInspection (quality control) |
+| **Sales** | Partners, customers, orders, quotes (with one-click order conversion), ShipmentItem (partial shipments), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), commission management, partner analytics |
+| **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking, reverse cascade on PO cancellation |
 | **Service** | Service requests, repair history tracking, warranty period verification |
-| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, vouchers, account codes, withholding tax, multi-step approval workflow |
+| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, vouchers, account codes, withholding tax, multi-step approval workflow, ClosingPeriod (period closing), Budget (budget management), Currency/ExchangeRate (multi-currency), AR/AP Aging |
 | **Investment** | Investors, funding rounds, equity tracking (donut charts), dividend/distribution records |
+| **Asset** | Fixed asset management, depreciation (straight-line / declining balance methods) |
 | **Marketplace** | Naver/Coupang store integration, order sync, sync history |
 | **Inquiry** | Multi-channel inquiry management, Claude AI auto-reply drafts, reply templates |
 | **Warranty** | Serial number authentication, warranty period management, QR verification |
@@ -26,7 +27,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 
 | Module | Description |
 |--------|-------------|
-| **HR** | Departments, positions, employee profiles, personnel actions, org chart |
+| **HR** | Departments, positions, employee profiles, personnel actions, org chart, Payroll (payroll management), PayrollConfig (4 major insurance settings) |
 | **Attendance** | Check-in/out records, leave requests/approvals, annual leave balance |
 | **Board** | Notice/free boards, posts, comments (nested replies) |
 | **Calendar** | Schedule management with FullCalendar.js, AJAX API |
@@ -46,7 +47,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | Layer | Technology |
 |-------|------------|
 | Backend | Django 5.x / Python 3.13 |
-| Frontend | Django Templates + Tailwind CSS (CDN) + HTMX + Alpine.js + Chart.js + FullCalendar.js |
+| Frontend | Django Templates + Tailwind CSS (local build) + HTMX + Alpine.js + Chart.js + FullCalendar.js (all served from static/vendor/) |
 | Database | SQLite (dev) / PostgreSQL 16 (prod) |
 | Real-time | Django Channels + WebSocket (Daphne ASGI) |
 | Async Tasks | Celery + Redis (task queue, scheduled backups) |
@@ -79,6 +80,9 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 # Install dependencies
 pip install -r requirements/base.txt
 
+# Download frontend vendor libraries (local build)
+bash scripts/download_vendor.sh
+
 # Configure environment
 mkdir -p local
 cp .env.example local/.env
@@ -87,15 +91,11 @@ cp .env.example local/.env
 # Run migrations
 python manage.py migrate
 
-# Create admin user
-python manage.py createsuperuser
+# Option A: Production — admin account only (ID: admin / PW: Admin12#)
+python manage.py init_prod
 
-# Set admin role
-python manage.py shell -c "
-from apps.accounts.models import User
-u = User.objects.get(username='admin')
-u.role = 'admin'; u.name = 'Admin'; u.save()
-"
+# Option B: Sandbox — demo data with sample users/products/orders
+python manage.py seed_data
 
 # Compile translations
 python manage.py compilemessages
@@ -154,10 +154,14 @@ ERP_Suite/
 │   ├── messenger/       # Internal chat (1:1/group, WebSocket real-time)
 │   ├── ad/              # Active Directory / LDAP integration
 │   ├── advertising/     # Ad campaign/creative management, performance tracking, budgets
+│   ├── asset/           # Fixed asset management, depreciation (straight-line/declining balance)
+│   ├── approval/        # Standalone approval workflows
 │   └── api/             # REST API (DRF ViewSets, JWT auth)
 ├── config/              # Django settings (base/dev/prod), celery, asgi, wsgi
-├── templates/           # 190+ HTML templates (Tailwind CSS, responsive)
+├── templates/           # 250+ HTML templates (Tailwind CSS, responsive)
 ├── static/              # CSS, JS, PWA (manifest.json, sw.js)
+│   └── vendor/          # Local vendor libraries (Tailwind, HTMX, Alpine.js, Chart.js, FullCalendar.js)
+├── scripts/             # Utility scripts (download_vendor.sh, etc.)
 ├── tests/verification/  # Verification tests (security/integrity/performance/workflow/DR)
 ├── e2e/                 # Playwright E2E tests
 ├── loadtest/            # Locust load tests
@@ -174,11 +178,14 @@ ERP_Suite/
 ## Testing
 
 ```bash
-# Unit tests (440+ tests across all apps)
-python manage.py test apps/ -v 2
+# Unit tests (592 tests across all apps, --parallel for speed)
+python manage.py test apps/ -v 2 --parallel
 
 # Verification tests (security/integrity/performance/workflow/disaster recovery)
-python manage.py test tests.verification -v 2
+python manage.py test tests.verification -v 2 --parallel
+
+# All tests at once
+python manage.py test apps/ tests.verification -v 0 --parallel
 
 # E2E tests (Playwright)
 cd e2e && pytest -v
@@ -187,9 +194,9 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**Test coverage: 440+ tests (unit + verification)**
+**Test coverage: 592 tests (unit + verification)**
 
-Verification criteria cover 82+ items across 7 categories:
+Verification criteria cover 152 items across 9 categories:
 - SEC-001~020: Security (OWASP Top 10)
 - INT-001~015: Data integrity
 - PERF-001~007: Performance
@@ -201,13 +208,20 @@ Verification criteria cover 82+ items across 7 categories:
 ## Key Data Flows
 
 - **Stock Management**: `StockMovement` signals use `F()` expressions for atomic `Product.current_stock` updates (race-condition safe)
+- **Order Confirmation**: Order CONFIRMED → reserved_stock reservation + AR auto-creation + tax invoice generation
 - **Order Fulfillment**: Order shipped (SHIPPED) → auto stock OUT via signal
+- **FIFO/LIFO**: StockLot auto-creation on receipt, auto-consumption on outbound (FIFO/LIFO valuation)
 - **Production**: Production record → auto finished goods IN + raw materials OUT (transactional)
+- **MRP**: MRP run → BOM explosion + auto purchase order generation for shortages
+- **Production Cancellation**: ProductionPlan/WorkOrder CANCELLED → auto stock movement reversal
 - **Purchasing**: Receipt confirmation → auto stock IN + PO status transition
+- **Purchase Cancellation**: PurchaseOrder CANCELLED → AP/tax invoice soft delete (reverse cascade)
 - **Quotes**: One-click quote-to-order conversion (items auto-copied)
 - **Tax**: `OrderItem.save()` → auto 10% VAT calculation
 - **Approvals**: Multi-step approval workflow (draft → level 1 → level 2 → ... → final)
 - **AR/AP**: Payment registration → auto balance recalculation
+- **Period Closing**: ClosingPeriod → blocks voucher modifications for the closed month
+- **Payroll**: `Payroll.save()` → auto deductions for 4 major insurances and taxes
 
 ## Security
 
@@ -217,17 +231,21 @@ Verification criteria cover 82+ items across 7 categories:
 - Stock updates: `F()` expressions to prevent race conditions
 - File uploads: extension whitelist + 10MB size limit
 - Production: HSTS, SSL redirect, HttpOnly cookies, 8-hour session expiry
-- Audit trail: django-simple-history on all models
+- CSP: `unsafe-eval` removed, strict Content Security Policy enforced
+- OWASP: OWASP Top 10 audit passed
+- Offline: 100% offline-capable (all vendor assets served locally)
+- Audit trail: django-simple-history on all models, ISMS-level audit dashboard (access logs, data changes, login history, meta-audit)
 - Access logs: `AccessLogMiddleware` (user/path/response time)
+- Audit access control: `is_auditor` role-based access, all audit views logged (who viewed what)
 - Monitoring: Prometheus metrics + Sentry error tracking
 
 ## Scale
 
-- **20 apps**, **82+ models** (all with history tracking)
-- **265+ views**, **190+ templates**, **270+ URL endpoints**
-- **~17,000 lines** of Python (excluding migrations)
-- **440+ tests** (unit + verification)
-- **90+ migrations**, **25 packages**
+- **22 apps**, **106 models** (all with history tracking)
+- **300+ views**, **244 templates**, **320+ URL endpoints**
+- **~30,000 lines** of Python (excluding migrations)
+- **592 tests** (unit + verification)
+- **110+ migrations**, **25+ packages**
 
 ## Contributing
 
@@ -239,4 +257,4 @@ For security issues, follow the process in [SECURITY.md](SECURITY.md).
 
 ## License
 
-Apache 2.0
+Proprietary

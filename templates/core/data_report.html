@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}데이터 입력 가이드 - ERP Suite{% endblock %}
+{% block page_title %}데이터 입력 가이드{% endblock %}
+
+{% block content %}
+{% if report.updated_at %}
+<div class="mb-4 text-sm text-gray-500">
+    마지막 갱신: {{ report.updated_at }}
+</div>
+{% endif %}
+
+{% if not report.sections %}
+<div class="bg-white rounded-xl shadow-sm border p-12 text-center text-gray-400">
+    아직 등록된 가이드가 없습니다.<br>
+    Beta 환경에서 데이터를 임포트하면 이 페이지에 입력 가이드가 자동 생성됩니다.
+</div>
+{% endif %}
+
+{% for section in report.sections %}
+<div class="bg-white rounded-xl shadow-sm border mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <div>
+            <h2 class="text-lg font-bold text-gray-900">{{ section.title }}</h2>
+            {% if section.description %}
+            <p class="text-sm text-gray-500 mt-1">{{ section.description }}</p>
+            {% endif %}
+        </div>
+        {% if section.updated_at %}
+        <span class="text-xs text-gray-400">{{ section.updated_at }}</span>
+        {% endif %}
+    </div>
+
+    {% regroup section.items by group as grouped_items %}
+    {% for group in grouped_items %}
+    <div class="px-6 py-4 {% if not forloop.last %}border-b border-gray-100{% endif %}">
+        {% if group.grouper %}
+        <h3 class="text-sm font-semibold text-blue-700 uppercase tracking-wider mb-3">{{ group.grouper }}</h3>
+        {% endif %}
+
+        <div class="space-y-4">
+            {% for item in group.list %}
+            <div class="bg-gray-50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-medium text-gray-900">{{ item.label }}</span>
+                    {% if item.nav_path %}
+                    <span class="text-xs text-blue-600">{{ item.nav_path }}</span>
+                    {% endif %}
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {% for field in item.fields %}
+                    <div class="flex flex-col">
+                        <span class="text-xs text-gray-400">{{ field.name }}</span>
+                        <span class="text-sm text-gray-800 font-mono">{{ field.value }}</span>
+                        {% if field.help %}
+                        <span class="text-xs text-gray-400 italic">{{ field.help }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endfor %}
+
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+    <h3 class="text-base font-semibold text-blue-800 mb-2">사용 방법</h3>
+    <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
+        <li>이 페이지는 Beta 환경에서 AI가 데이터를 임포트할 때 자동으로 갱신됩니다.</li>
+        <li>Prod 환경에서 이 가이드를 보면서 동일한 데이터를 수동으로 입력하세요.</li>
+        <li>각 항목의 <strong>필드명</strong>과 <strong>값</strong>을 참고하여 해당 메뉴에서 입력합니다.</li>
+        <li>네비게이션 경로가 표시된 경우, 해당 메뉴로 이동하여 입력하세요.</li>
+    </ul>
+</div>
+{% endblock %}

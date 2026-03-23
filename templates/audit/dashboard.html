@@ -1,0 +1,144 @@
+{% extends "audit/base_audit.html" %}
+{% load i18n %}
+
+{% block audit_content %}
+<!-- 통계 카드 -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">오늘 접근 로그</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ today_access_count|default:"0" }}</p>
+            </div>
+            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            </div>
+        </div>
+        <a href="{% url 'core:audit_access_log' %}" class="text-xs text-blue-600 hover:underline mt-2 inline-block">상세보기 →</a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">7일간 데이터 변경</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ week_changes|default:"0" }}</p>
+            </div>
+            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+        </div>
+        <a href="{% url 'core:audit_data_changes' %}" class="text-xs text-green-600 hover:underline mt-2 inline-block">상세보기 →</a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">오늘 로그인 실패</p>
+                <p class="text-2xl font-bold {% if failed_logins_today > 0 %}text-red-600{% else %}text-gray-900{% endif %} mt-1">{{ failed_logins_today|default:"0" }}</p>
+            </div>
+            <div class="w-10 h-10 {% if failed_logins_today > 0 %}bg-red-100{% else %}bg-gray-100{% endif %} rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 {% if failed_logins_today > 0 %}text-red-600{% else %}text-gray-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">잠긴 계정: {{ locked_accounts|default:"0" }}건</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">감사권한 보유자</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ auditor_count|default:"0" }}명</p>
+            </div>
+            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+        </div>
+        <a href="{% url 'core:audit_audit_log' %}" class="text-xs text-purple-600 hover:underline mt-2 inline-block">열람 기록 →</a>
+    </div>
+</div>
+
+<!-- ISMS 증적 항목 -->
+<div class="bg-white rounded-xl shadow-sm border mb-8">
+    <div class="px-6 py-4 border-b">
+        <h3 class="text-sm font-semibold text-gray-900">ISMS 증적 관리 항목</h3>
+    </div>
+    <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">접근통제</p>
+                    <p class="text-xs text-gray-500">시스템 접근 로그, 비인가 접근 탐지</p>
+                </div>
+            </div>
+            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">인증 및 권한관리</p>
+                    <p class="text-xs text-gray-500">로그인 이력, 실패 시도, 계정 잠금</p>
+                </div>
+            </div>
+            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">개인정보 보호</p>
+                    <p class="text-xs text-gray-500">민감데이터 암호화, 접근 기록, 변경 이력</p>
+                </div>
+            </div>
+            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">감사 증적 보호</p>
+                    <p class="text-xs text-gray-500">증적 열람 기록(메타감사), 감사권한 분리</p>
+                </div>
+            </div>
+            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">5</span>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">데이터 무결성</p>
+                    <p class="text-xs text-gray-500">전체 모델 변경이력(simple_history), 소프트삭제</p>
+                </div>
+            </div>
+            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">6</span>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">암호화</p>
+                    <p class="text-xs text-gray-500">비밀번호 PBKDF2-SHA256 해시, 민감필드 Fernet 암호화</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 최근 감사 열람 기록 -->
+<div class="bg-white rounded-xl shadow-sm border">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-gray-900">최근 감사 열람 기록</h3>
+        <a href="{% url 'core:audit_audit_log' %}" class="text-xs text-blue-600 hover:underline">전체보기 →</a>
+    </div>
+    <div class="table-responsive">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">열람자</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">섹션</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">IP</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">일시</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for log in recent_audit_access %}
+                <tr>
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ log.user }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">{{ log.get_section_display }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500 font-mono">{{ log.ip_address }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ log.accessed_at|date:"m/d H:i:s" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-400">열람 기록이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

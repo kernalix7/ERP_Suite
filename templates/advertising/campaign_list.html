@@ -40,6 +40,7 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
@@ -74,10 +75,11 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 
     {% if page_obj.has_other_pages %}
-    <div class="flex justify-center space-x-2">
+    <div class="flex justify-center gap-2">
         {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded text-sm">&laquo;</a>{% endif %}
         <span class="px-3 py-1 text-sm text-gray-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
         {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded text-sm">&raquo;</a>{% endif %}
