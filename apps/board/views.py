@@ -157,6 +157,7 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
         return reverse('board:post_list', kwargs={'slug': self.object.board.slug})
 
     def form_valid(self, form):
+        self.object.comments.filter(is_active=True).update(is_active=False)
         self.object.soft_delete()
         from django.http import HttpResponseRedirect
         return HttpResponseRedirect(self.get_success_url())

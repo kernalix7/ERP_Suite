@@ -459,3 +459,218 @@ class AttendanceViewTest(TestCase):
             user=self.user, year=date.today().year,
         )
         self.assertEqual(balance.used_days, Decimal('1'))
+
+
+class LeaveSignalTest(TestCase):
+    """LeaveRequest 시그널 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='signaluser', password='testpass123',
+            role='staff', name='시그널유저',
+        )
+        self.balance = AnnualLeaveBalance.objects.create(
+            user=self.user,
+            year=date.today().year,
+            total_days=Decimal('15'),
+            used_days=Decimal('0'),
+            created_by=self.user,
+        )
+
+    def _make_leave(self, days=Decimal('2'), leave_type='ANNUAL', status='PENDING'):
+        return LeaveRequest.objects.create(
+            user=self.user,
+            leave_type=leave_type,
+            start_date=date.today(),
+            end_date=date.today(),
+            days=days,
+            reason='테스트',
+            status=status,
+            created_by=self.user,
+        )
+
+    def test_approval_increases_used_days(self):
+        """APPROVED 시 used_days F() 증가"""
+        leave = self._make_leave(days=Decimal('3'))
+        leave.status = LeaveRequest.LeaveStatus.APPROVED
+        leave.save()
+        self.balance.refresh_from_db()
+        self.assertEqual(self.balance.used_days, Decimal('3'))
+
+    def test_approval_half_day(self):
+        """반차(HALF_AM) 승인 시 0.5일 증가"""
+        leave = self._make_leave(days=Decimal('0.5'), leave_type='HALF_AM')
+        leave.status = LeaveRequest.LeaveStatus.APPROVED
+        leave.save()
+        self.balance.refresh_from_db()
+        self.assertEqual(self.balance.used_days, Decimal('0.5'))
+
+    def test_cancelled_after_approved_restores_balance(self):
+        """APPROVED 후 CANCELLED 시 used_days 복원"""
+        leave = self._make_leave(days=Decimal('2'))
+        leave.status = LeaveRequest.LeaveStatus.APPROVED
+        leave.save()
+        self.balance.refresh_from_db()
+        self.assertEqual(self.balance.used_days, Decimal('2'))
+
+        leave.status = LeaveRequest.LeaveStatus.CANCELLED
+        leave.save()
+        self.balance.refresh_from_db()
+        self.assertEqual(self.balance.used_days, Decimal('0'))
+
+    def test_rejected_does_not_change_balance(self):
+        """REJECTED 상태는 연차 잔액 영향 없음"""
+        leave = self._make_leave(days=Decimal('2'))
+        leave.status = LeaveRequest.LeaveStatus.REJECTED
+        leave.save()
+        self.balance.refresh_from_db()
+        self.assertEqual(self.balance.used_days, Decimal('0'))
+
+    def test_sick_leave_does_not_affect_annual_balance(self):
+        """병가(SICK)는 연차 잔액 영향 없음"""
+        leave = self._make_leave(days=Decimal('5'), leave_type='SICK')
+        leave.status = LeaveRequest.LeaveStatus.APPROVED
+        leave.save()
+        self.balance.refresh_from_db()
+        self.assertEqual(self.balance.used_days, Decimal('0'))
+
+    def test_multiple_approvals_accumulate(self):
+        """여러 번 승인 시 누적 계산"""
+        leave1 = self._make_leave(days=Decimal('1'))
+        leave1.status = LeaveRequest.LeaveStatus.APPROVED
+        leave1.save()
+        leave2 = self._make_leave(days=Decimal('2'))
+        leave2.status = LeaveRequest.LeaveStatus.APPROVED
+        leave2.save()
+        self.balance.refresh_from_db()
+        self.assertEqual(self.balance.used_days, Decimal('3'))
+
+    def test_balance_auto_created_if_missing(self):
+        """잔액 레코드 없어도 자동 생성"""
+        self.balance.delete()
+        other_year_date = date(date.today().year, 1, 15)
+        leave = LeaveRequest.objects.create(
+            user=self.user,
+            leave_type='ANNUAL',
+            start_date=other_year_date,
+            end_date=other_year_date,
+            days=Decimal('1'),
+            reason='테스트',
+            status='PENDING',
+            created_by=self.user,
+        )
+        leave.status = LeaveRequest.LeaveStatus.APPROVED
+        leave.save()
+        balance = AnnualLeaveBalance.objects.get(
+            user=self.user, year=other_year_date.year,
+        )
+        self.assertEqual(balance.used_days, Decimal('1'))
+
+
+class AttendanceSignalTest(TestCase):
+    """AttendanceRecord 시그널 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='attrsignaluser', password='testpass123',
+            role='staff', name='출퇴근시그널유저',
+        )
+
+    def test_overtime_calculated_on_checkin_checkout(self):
+        """출퇴근 모두 기록 시 overtime_hours 자동 계산 (8h 초과분)"""
+        check_in = timezone.now().replace(hour=9, minute=0, second=0, microsecond=0)
+        check_out = check_in + timedelta(hours=10)  # 10h → 2h overtime
+        record = AttendanceRecord.objects.create(
+            user=self.user,
+            date=date.today(),
+            check_in=check_in,
+            check_out=check_out,
+            created_by=self.user,
+        )
+        record.refresh_from_db()
+        self.assertEqual(record.overtime_hours, Decimal('2.0'))
+
+    def test_no_overtime_for_exactly_8_hours(self):
+        """정확히 8시간 근무 시 overtime 0"""
+        check_in = timezone.now().replace(hour=9, minute=0, second=0, microsecond=0)
+        check_out = check_in + timedelta(hours=8)
+        record = AttendanceRecord.objects.create(
+            user=self.user,
+            date=date.today(),
+            check_in=check_in,
+            check_out=check_out,
+            created_by=self.user,
+        )
+        record.refresh_from_db()
+        self.assertEqual(record.overtime_hours, Decimal('0'))
+
+    def test_no_overtime_update_without_checkout(self):
+        """퇴근 없으면 overtime 계산 안 함"""
+        record = AttendanceRecord.objects.create(
+            user=self.user,
+            date=date.today(),
+            check_in=timezone.now(),
+            created_by=self.user,
+        )
+        record.refresh_from_db()
+        self.assertEqual(record.overtime_hours, Decimal('0'))
+
+    def test_overtime_half_hour_rounding(self):
+        """초과근무 0.5h 단위 반올림"""
+        check_in = timezone.now().replace(hour=9, minute=0, second=0, microsecond=0)
+        check_out = check_in + timedelta(hours=9, minutes=15)  # 1.25h → rounds to 1.5h
+        record = AttendanceRecord.objects.create(
+            user=self.user,
+            date=date.today(),
+            check_in=check_in,
+            check_out=check_out,
+            created_by=self.user,
+        )
+        record.refresh_from_db()
+        self.assertEqual(record.overtime_hours, Decimal('1.5'))
+
+
+class LeaveRequestFormTest(TestCase):
+    """LeaveRequestForm 폼 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='formuser', password='testpass123',
+            role='staff', name='폼유저',
+        )
+
+    def test_valid_form(self):
+        """유효한 폼 데이터"""
+        from apps.attendance.forms import LeaveRequestForm
+        data = {
+            'leave_type': 'ANNUAL',
+            'start_date': '2026-05-01',
+            'end_date': '2026-05-03',
+            'reason': '개인 사유',
+        }
+        form = LeaveRequestForm(data=data)
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_end_before_start_invalid(self):
+        """종료일이 시작일보다 이른 경우 유효하지 않음"""
+        from apps.attendance.forms import LeaveRequestForm
+        data = {
+            'leave_type': 'ANNUAL',
+            'start_date': '2026-05-05',
+            'end_date': '2026-05-01',
+            'reason': '테스트',
+        }
+        form = LeaveRequestForm(data=data)
+        self.assertFalse(form.is_valid())
+
+    def test_missing_reason_invalid(self):
+        """사유 없으면 유효하지 않음"""
+        from apps.attendance.forms import LeaveRequestForm
+        data = {
+            'leave_type': 'ANNUAL',
+            'start_date': '2026-05-01',
+            'end_date': '2026-05-03',
+            'reason': '',
+        }
+        form = LeaveRequestForm(data=data)
+        self.assertFalse(form.is_valid())

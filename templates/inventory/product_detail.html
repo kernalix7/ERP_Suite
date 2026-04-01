@@ -14,8 +14,8 @@
 
 {% block content %}
 <!-- 제품 정보 카드 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-    <div class="flex items-start justify-between mb-6">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <div class="flex items-start justify-between mb-4 sm:mb-6">
         <div>
             <h2 class="text-xl font-bold text-gray-900">{{ product.name }}</h2>
             <p class="text-sm text-gray-500 font-mono mt-1">{{ product.code }}</p>
@@ -29,7 +29,7 @@
         </span>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <div class="bg-gray-50 rounded-lg p-4">
             <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">카테고리</p>
             <p class="text-sm font-medium text-gray-900">{{ product.category|default:"-" }}</p>
@@ -96,12 +96,12 @@
 </div>
 
 <!-- 최근 입출고 이력 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <h3 class="text-base font-semibold text-gray-900">최근 입출고 이력</h3>
         <a href="{% url 'inventory:movement_list' %}?product={{ product.pk }}" class="text-sm text-blue-600 hover:text-blue-800">전체보기</a>
     </div>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -116,7 +116,7 @@
                 {% for movement in movements %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3">
-                        <a href="{% url 'inventory:movement_detail' movement.pk %}" class="text-blue-600 hover:text-blue-800 font-mono">
+                        <a href="{% url 'inventory:movement_detail' movement.movement_number %}" class="text-blue-600 hover:text-blue-800 font-mono">
                             {{ movement.movement_number }}
                         </a>
                     </td>

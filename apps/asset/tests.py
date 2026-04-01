@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.db import IntegrityError
 from django.test import TestCase
 
+from apps.accounting.models import AccountCode, Voucher, VoucherLine
 from apps.asset.models import AssetCategory, DepreciationRecord, FixedAsset
 
 
@@ -141,3 +142,176 @@ class DepreciationRecordTest(TestCase):
                 accumulated_amount=Decimal('40000'),
                 book_value_after=Decimal('560000'),
             )
+
+
+class DepreciationSignalTest(TestCase):
+    """감가상각 시그널 테스트"""
+
+    def setUp(self):
+        self.category = AssetCategory.objects.create(
+            name='비품', code='EQ-SIG',
+            useful_life_years=5,
+        )
+        self.asset = FixedAsset.objects.create(
+            asset_number='FA-SIG-001',
+            name='테스트 자산',
+            category=self.category,
+            acquisition_date=date(2026, 1, 1),
+            acquisition_cost=Decimal('1200000'),
+            residual_value=Decimal('0'),
+            useful_life_years=5,
+        )
+        # 시그널 테스트용 계정과목
+        self.acct_820 = AccountCode.objects.create(
+            code='820', name='감가상각비',
+            account_type='EXPENSE',
+        )
+        self.acct_159 = AccountCode.objects.create(
+            code='159', name='감가상각누계액',
+            account_type='ASSET',
+        )
+
+    def test_depreciation_updates_asset_atomically(self):
+        """DepreciationRecord 생성 → FixedAsset F() 원자적 갱신"""
+        DepreciationRecord.objects.create(
+            asset=self.asset,
+            year=2026, month=1,
+            depreciation_amount=Decimal('20000'),
+            accumulated_amount=Decimal('20000'),
+            book_value_after=Decimal('1180000'),
+        )
+        self.asset.refresh_from_db()
+        self.assertEqual(self.asset.accumulated_depreciation, Decimal('20000'))
+        self.assertEqual(self.asset.book_value, Decimal('1180000'))
+
+    def test_depreciation_creates_voucher(self):
+        """DepreciationRecord 생성 → 자동전표(차변:감가상각비, 대변:누계액)"""
+        before_count = Voucher.objects.count()
+        DepreciationRecord.objects.create(
+            asset=self.asset,
+            year=2026, month=2,
+            depreciation_amount=Decimal('20000'),
+            accumulated_amount=Decimal('20000'),
+            book_value_after=Decimal('1180000'),
+        )
+        self.assertEqual(Voucher.objects.count(), before_count + 1)
+        voucher = Voucher.objects.latest('pk')
+        self.assertIn('감가상각', voucher.description)
+        lines = voucher.lines.all()
+        self.assertEqual(lines.count(), 2)
+        debit_line = lines.get(debit__gt=0)
+        credit_line = lines.get(credit__gt=0)
+        self.assertEqual(debit_line.account, self.acct_820)
+        self.assertEqual(debit_line.debit, Decimal('20000'))
+        self.assertEqual(credit_line.account, self.acct_159)
+        self.assertEqual(credit_line.credit, Decimal('20000'))
+
+    def test_depreciation_no_voucher_without_accounts(self):
+        """계정과목 없으면 전표 미생성 (에러 없이 진행)"""
+        self.acct_820.delete()
+        before_count = Voucher.objects.count()
+        DepreciationRecord.objects.create(
+            asset=self.asset,
+            year=2026, month=3,
+            depreciation_amount=Decimal('20000'),
+            accumulated_amount=Decimal('20000'),
+            book_value_after=Decimal('1180000'),
+        )
+        # 전표는 생성되지 않지만, 자산 갱신은 여전히 수행됨
+        self.assertEqual(Voucher.objects.count(), before_count)
+        self.asset.refresh_from_db()
+        self.assertEqual(self.asset.accumulated_depreciation, Decimal('20000'))
+
+    def test_consecutive_depreciation(self):
+        """연속 감가상각 → 누적 반영"""
+        DepreciationRecord.objects.create(
+            asset=self.asset,
+            year=2026, month=1,
+            depreciation_amount=Decimal('20000'),
+            accumulated_amount=Decimal('20000'),
+            book_value_after=Decimal('1180000'),
+        )
+        DepreciationRecord.objects.create(
+            asset=self.asset,
+            year=2026, month=2,
+            depreciation_amount=Decimal('20000'),
+            accumulated_amount=Decimal('40000'),
+            book_value_after=Decimal('1160000'),
+        )
+        self.asset.refresh_from_db()
+        self.assertEqual(self.asset.accumulated_depreciation, Decimal('40000'))
+        self.assertEqual(self.asset.book_value, Decimal('1160000'))
+
+
+class AssetDisposalSignalTest(TestCase):
+    """자산 처분 시그널 테스트"""
+
+    def setUp(self):
+        self.category = AssetCategory.objects.create(
+            name='비품', code='EQ-DISP',
+            useful_life_years=5,
+        )
+        self.asset = FixedAsset.objects.create(
+            asset_number='FA-DISP-001',
+            name='처분 테스트 자산',
+            category=self.category,
+            acquisition_date=date(2024, 1, 1),
+            acquisition_cost=Decimal('1000000'),
+            residual_value=Decimal('100000'),
+            useful_life_years=5,
+            accumulated_depreciation=Decimal('600000'),
+        )
+        # 계정과목 생성
+        AccountCode.objects.create(code='159', name='감가상각누계액', account_type='ASSET')
+        AccountCode.objects.create(code='150', name='유형자산', account_type='ASSET')
+        AccountCode.objects.create(code='101', name='보통예금', account_type='ASSET')
+        AccountCode.objects.create(code='901', name='유형자산처분이익', account_type='REVENUE')
+        AccountCode.objects.create(code='951', name='유형자산처분손실', account_type='EXPENSE')
+
+    def test_disposal_with_gain(self):
+        """처분이익 발생 시 전표 자동 생성"""
+        before_count = Voucher.objects.count()
+        # book_value = 1000000 - 600000 = 400000, disposal = 500000 → 이익 100000
+        self.asset.status = FixedAsset.Status.DISPOSED
+        self.asset.disposal_date = date(2026, 3, 1)
+        self.asset.disposal_amount = Decimal('500000')
+        self.asset.disposal_reason = '교체'
+        self.asset.save()
+
+        self.assertEqual(Voucher.objects.count(), before_count + 1)
+        voucher = Voucher.objects.latest('pk')
+        self.assertIn('처분', voucher.description)
+        # 차변합 = 대변합 (복식부기)
+        self.assertTrue(voucher.is_balanced)
+
+    def test_disposal_with_loss(self):
+        """처분손실 발생 시 전표 자동 생성"""
+        before_count = Voucher.objects.count()
+        # book_value = 400000, disposal = 200000 → 손실 200000
+        self.asset.status = FixedAsset.Status.DISPOSED
+        self.asset.disposal_date = date(2026, 3, 1)
+        self.asset.disposal_amount = Decimal('200000')
+        self.asset.save()
+
+        self.assertEqual(Voucher.objects.count(), before_count + 1)
+        voucher = Voucher.objects.latest('pk')
+        self.assertTrue(voucher.is_balanced)
+
+    def test_scrap_zero_disposal(self):
+        """폐기(처분금액 0) 시 전표 생성"""
+        before_count = Voucher.objects.count()
+        self.asset.status = FixedAsset.Status.SCRAPPED
+        self.asset.disposal_date = date(2026, 3, 1)
+        self.asset.disposal_amount = Decimal('0')
+        self.asset.save()
+
+        self.assertEqual(Voucher.objects.count(), before_count + 1)
+        voucher = Voucher.objects.latest('pk')
+        self.assertTrue(voucher.is_balanced)
+
+    def test_no_voucher_on_status_unchanged(self):
+        """상태 변경 없으면 전표 미생성"""
+        before_count = Voucher.objects.count()
+        self.asset.name = '이름 변경만'
+        self.asset.save()
+        self.assertEqual(Voucher.objects.count(), before_count)

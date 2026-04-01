@@ -1,20 +1,20 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n phone_filters %}
 
 {% block title %}{{ employee.user.name|default:employee.user.username }} - {% trans "직원 상세" %} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "직원 상세" %}{% endblock %}
 
 {% block header_actions %}
 <div class="flex items-center gap-2">
-    <a href="{% url 'hr:employee_update' employee.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+    <a href="{% url 'hr:employee_update' employee.employee_number %}" class="btn btn-primary">{% trans "수정" %}</a>
     <a href="{% url 'hr:employee_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 </div>
 {% endblock %}
 
 {% block content %}
 <!-- 직원 정보 카드 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-    <div class="flex items-start justify-between mb-6">
+<div class="bg-white shadow rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 sm:mb-6">
         <div class="flex items-center gap-4">
             <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-bold text-blue-700">
                 {{ employee.user.name|default:employee.user.username|truncatechars:1 }}
@@ -32,7 +32,7 @@
         </span>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <div class="bg-gray-50 rounded-lg p-4">
             <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "부서" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ employee.department|default:"-" }}</p>
@@ -40,6 +40,10 @@
         <div class="bg-gray-50 rounded-lg p-4">
             <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "직급" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ employee.position|default:"-" }}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "고용유형" %}</p>
+            <p class="text-sm font-medium text-gray-900">{{ employee.get_employee_type_display }}</p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
             <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "계약유형" %}</p>
@@ -51,7 +55,7 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mt-4">
         <div class="bg-gray-50 rounded-lg p-4">
             <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "입사일" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ employee.hire_date|date:"Y-m-d" }}</p>
@@ -62,7 +66,7 @@
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
             <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "연락처" %}</p>
-            <p class="text-sm font-medium text-gray-900">{{ employee.user.phone|default:"-" }}</p>
+            <p class="text-sm font-medium text-gray-900">{{ employee.user.phone|format_phone|default:"-" }}</p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
             <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "비상연락처" %}</p>
@@ -90,6 +94,28 @@
     </div>
     {% endif %}
 
+    {% if employee.external_company %}
+    <div class="mt-4 bg-orange-50 rounded-lg p-4">
+        <p class="text-xs text-orange-500 uppercase tracking-wider mb-1">{% trans "소속 외부업체" %}</p>
+        <p class="text-sm font-medium text-orange-900">
+            {{ employee.external_company.name }}
+            {% if employee.external_company.contact_person %}
+            <span class="text-orange-600 font-normal ml-2">({{ employee.external_company.contact_person }})</span>
+            {% endif %}
+        </p>
+        {% if employee.contract_start or employee.contract_end %}
+        <p class="text-xs text-orange-600 mt-1">
+            {% trans "계약:" %} {{ employee.contract_start|date:"Y-m-d"|default:"?" }} ~ {{ employee.contract_end|date:"Y-m-d"|default:"?" }}
+        </p>
+        {% endif %}
+    </div>
+    {% elif employee.contract_start or employee.contract_end %}
+    <div class="mt-4 bg-gray-50 rounded-lg p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "계약기간" %}</p>
+        <p class="text-sm font-medium text-gray-900">{{ employee.contract_start|date:"Y-m-d"|default:"?" }} ~ {{ employee.contract_end|date:"Y-m-d"|default:"?" }}</p>
+    </div>
+    {% endif %}
+
     {% if employee.resignation_date %}
     <div class="mt-4 bg-red-50 rounded-lg p-4">
         <p class="text-xs text-red-500 uppercase tracking-wider mb-1">{% trans "퇴사일" %}</p>
@@ -104,13 +130,13 @@
 </div>
 
 <!-- 인사발령 이력 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+<div class="bg-white shadow rounded-lg">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h3 class="text-base font-semibold text-gray-900">{% trans "인사발령 이력" %}</h3>
         <a href="{% url 'hr:action_create' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">{% trans "발령 등록" %}</a>
     </div>
 
-    <div class="p-6">
+    <div class="p-4 sm:p-6">
         {% if actions %}
         <div class="relative">
             <!-- 타임라인 라인 -->

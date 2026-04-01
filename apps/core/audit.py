@@ -1,6 +1,8 @@
 """감사 증적 관리 (Audit Trail) — ISMS 증적 / 회계 증빙 / 시스템 감사"""
+import json
 import logging
 import re
+from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
 
@@ -10,7 +12,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import models
+from django.http import HttpResponse
 from django.utils import timezone
+from django.views import View
 from django.views.generic import ListView, TemplateView
 from simple_history.models import HistoricalRecords
 
@@ -145,6 +149,18 @@ class AuditDashboardView(AuditRequiredMixin, TemplateView):
         # 감사권한 보유자 수
         ctx['auditor_count'] = User.objects.filter(is_auditor=True, is_active=True).count()
 
+        # ISMS 자동 진단
+        ctx['isms_checks'] = self._run_isms_checks()
+
+        # 결재 현황
+        ctx.update(self._get_approval_stats())
+
+        # 권한 변경 이력
+        ctx['recent_role_changes'] = self._get_recent_role_changes()
+
+        # Chart.js 시계열 데이터
+        ctx.update(self._build_chart_data(today, week_ago))
+
         return ctx
 
     @staticmethod
@@ -175,6 +191,182 @@ class AuditDashboardView(AuditRequiredMixin, TemplateView):
                 except Exception:
                     pass
         return total
+
+    @staticmethod
+    def _run_isms_checks():
+        """ISMS 증적 자동 진단"""
+        checks = []
+
+        # 1. 접근통제
+        allowed_hosts_ok = bool(getattr(settings, 'ALLOWED_HOSTS', [])) and settings.ALLOWED_HOSTS != ['*']
+        csp_ok = 'csp.middleware.CSPMiddleware' in getattr(settings, 'MIDDLEWARE', [])
+        checks.append({
+            'name': '접근통제',
+            'desc': 'ALLOWED_HOSTS 설정, CSP 헤더',
+            'passed': allowed_hosts_ok or csp_ok,
+            'details': f'ALLOWED_HOSTS: {"설정됨" if allowed_hosts_ok else "미설정"}, CSP: {"활성" if csp_ok else "미활성"}',
+        })
+
+        # 2. 인증
+        axes_ok = 'axes.middleware.AxesMiddleware' in getattr(settings, 'MIDDLEWARE', [])
+        hashers = getattr(settings, 'PASSWORD_HASHERS', [])
+        pbkdf2_ok = any('PBKDF2' in h for h in hashers) if hashers else True
+        checks.append({
+            'name': '인증',
+            'desc': 'AXES 브루트포스 방지, 비밀번호 해시',
+            'passed': axes_ok and pbkdf2_ok,
+            'details': f'AXES: {"활성" if axes_ok else "미활성"}, PBKDF2: {"사용" if pbkdf2_ok else "미사용"}',
+        })
+
+        # 3. 개인정보
+        encryption_key = bool(getattr(settings, 'FIELD_ENCRYPTION_KEY', ''))
+        from django.apps import apps as django_apps
+        encrypted_count = 0
+        for model in django_apps.get_models():
+            for field in model._meta.get_fields():
+                if type(field).__name__ == 'EncryptedCharField':
+                    encrypted_count += 1
+                    break
+        checks.append({
+            'name': '개인정보 보호',
+            'desc': '민감데이터 암호화, 암호화 키 설정',
+            'passed': encryption_key and encrypted_count > 0,
+            'details': f'암호화 키: {"설정됨" if encryption_key else "미설정"}, 암호화 모델: {encrypted_count}개',
+        })
+
+        # 4. 감사 증적
+        audit_table_ok = True
+        try:
+            AuditAccessLog.objects.count()
+        except Exception:
+            audit_table_ok = False
+        auditor_separated = User.objects.filter(is_auditor=True).exists()
+        checks.append({
+            'name': '감사 증적',
+            'desc': '열람 기록 테이블, 감사권한 분리',
+            'passed': audit_table_ok and auditor_separated,
+            'details': f'열람기록: {"정상" if audit_table_ok else "오류"}, 감사권한분리: {"적용" if auditor_separated else "미적용"}',
+        })
+
+        # 5. 데이터 무결성
+        history_count = 0
+        for model in django_apps.get_models():
+            if hasattr(model, 'history'):
+                history_count += 1
+        checks.append({
+            'name': '데이터 무결성',
+            'desc': 'HistoricalRecords 이력 추적',
+            'passed': history_count >= 10,
+            'details': f'이력추적 모델: {history_count}개',
+        })
+
+        # 6. 암호화
+        secure_ssl = getattr(settings, 'SECURE_SSL_REDIRECT', False)
+        fernet_ok = bool(getattr(settings, 'FIELD_ENCRYPTION_KEY', ''))
+        checks.append({
+            'name': '암호화',
+            'desc': 'HTTPS 설정, Fernet 키',
+            'passed': fernet_ok,
+            'details': f'HTTPS: {"강제" if secure_ssl else "미강제(dev)"}, Fernet: {"설정됨" if fernet_ok else "미설정"}',
+        })
+
+        return checks
+
+    @staticmethod
+    def _get_approval_stats():
+        """결재 현황 통계"""
+        from apps.approval.models import ApprovalRequest
+        qs = ApprovalRequest.objects.filter(is_active=True)
+        return {
+            'approval_pending': qs.filter(status__in=['DRAFT', 'SUBMITTED']).count(),
+            'approval_approved': qs.filter(status='APPROVED').count(),
+            'approval_rejected': qs.filter(status='REJECTED').count(),
+            'recent_approvals': qs.select_related('requester').order_by('-created_at')[:10],
+        }
+
+    @staticmethod
+    def _get_recent_role_changes():
+        """최근 권한 변경 이력 (User.history에서 role 변경 추출)"""
+        changes = []
+        try:
+            records = User.history.order_by('-history_date')[:200]
+            for record in records:
+                prev = record.prev_record
+                if prev and prev.role != record.role:
+                    role_display = dict(User.Role.choices)
+                    changes.append({
+                        'username': record.username,
+                        'name': record.name,
+                        'old_role': role_display.get(prev.role, prev.role),
+                        'new_role': role_display.get(record.role, record.role),
+                        'changed_at': record.history_date,
+                        'changed_by': str(record.history_user) if record.history_user else '(시스템)',
+                    })
+                if len(changes) >= 10:
+                    break
+        except Exception:
+            pass
+        return changes
+
+    @staticmethod
+    def _build_chart_data(today, week_ago):
+        """Chart.js 시계열 데이터"""
+        from django.apps import apps as django_apps
+
+        labels = []
+        access_data = []
+        change_data = []
+
+        for i in range(6, -1, -1):
+            d = today - timedelta(days=i)
+            labels.append(d.strftime('%m/%d'))
+
+            # 접근 로그 (AuditAccessLog 활용)
+            access_data.append(
+                AuditAccessLog.objects.filter(accessed_at__date=d).count()
+            )
+
+            # 데이터 변경 (simple_history)
+            day_start = timezone.make_aware(
+                timezone.datetime.combine(d, timezone.datetime.min.time())
+            )
+            day_end = day_start + timedelta(days=1)
+            day_changes = 0
+            for model in django_apps.get_models():
+                if hasattr(model, 'history'):
+                    try:
+                        day_changes += model.history.filter(
+                            history_date__gte=day_start,
+                            history_date__lt=day_end,
+                        ).count()
+                    except Exception:
+                        pass
+            change_data.append(day_changes)
+
+        # 로그인 성공/실패 (axes)
+        login_success = []
+        login_fail = []
+        try:
+            from axes.models import AccessAttempt, AccessLog
+            for i in range(6, -1, -1):
+                d = today - timedelta(days=i)
+                login_fail.append(
+                    AccessAttempt.objects.filter(attempt_time__date=d).count()
+                )
+                login_success.append(
+                    AccessLog.objects.filter(attempt_time__date=d).count()
+                )
+        except Exception:
+            login_success = [0] * 7
+            login_fail = [0] * 7
+
+        return {
+            'chart_labels': json.dumps(labels),
+            'chart_access_data': json.dumps(access_data),
+            'chart_change_data': json.dumps(change_data),
+            'chart_login_success': json.dumps(login_success),
+            'chart_login_fail': json.dumps(login_fail),
+        }
 
 
 class AccessLogView(AuditRequiredMixin, TemplateView):
@@ -383,3 +575,110 @@ class AuditAccessLogView(AuditRequiredMixin, ListView):
         ctx['filter_section'] = self.request.GET.get('section', '')
         ctx['section_choices'] = AuditAccessLog.Section.choices
         return ctx
+
+
+class AuditExcelExportView(AuditRequiredMixin, View):
+    """증적 보고서 Excel 다운로드"""
+    audit_section = AuditAccessLog.Section.DASHBOARD
+
+    def get(self, request, *args, **kwargs):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill
+
+        wb = openpyxl.Workbook()
+        header_font = Font(bold=True, color='FFFFFF')
+        header_fill = PatternFill(start_color='2563EB', end_color='2563EB', fill_type='solid')
+
+        # Sheet 1: 감사 열람 기록
+        ws = wb.active
+        ws.title = '감사열람기록'
+        headers = ['열람자', '섹션', 'IP', 'User-Agent', '일시']
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+        for row, log in enumerate(AuditAccessLog.objects.select_related('user').order_by('-accessed_at')[:500], 2):
+            ws.cell(row=row, column=1, value=str(log.user))
+            ws.cell(row=row, column=2, value=log.get_section_display())
+            ws.cell(row=row, column=3, value=log.ip_address or '')
+            ws.cell(row=row, column=4, value=(log.user_agent or '')[:100])
+            ws.cell(row=row, column=5, value=log.accessed_at.strftime('%Y-%m-%d %H:%M:%S'))
+
+        # Sheet 2: 데이터 변경 이력
+        ws2 = wb.create_sheet('데이터변경이력')
+        headers2 = ['모델', '유형', '변경자', '일시']
+        for col, h in enumerate(headers2, 1):
+            cell = ws2.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+        row_idx = 2
+        from django.apps import apps as django_apps
+        type_map = {'+': '생성', '~': '수정', '-': '삭제'}
+        for model in django_apps.get_models():
+            if hasattr(model, 'history') and row_idx < 1000:
+                try:
+                    for rec in model.history.select_related('history_user').order_by('-history_date')[:50]:
+                        ws2.cell(row=row_idx, column=1, value=model._meta.verbose_name)
+                        ws2.cell(row=row_idx, column=2, value=type_map.get(rec.history_type, '?'))
+                        ws2.cell(row=row_idx, column=3, value=str(rec.history_user) if rec.history_user else '(시스템)')
+                        ws2.cell(row=row_idx, column=4, value=rec.history_date.strftime('%Y-%m-%d %H:%M:%S'))
+                        row_idx += 1
+                except Exception:
+                    pass
+
+        # Sheet 3: 로그인 이력
+        ws3 = wb.create_sheet('로그인이력')
+        headers3 = ['사용자', 'IP', '결과', '시도횟수', '일시']
+        for col, h in enumerate(headers3, 1):
+            cell = ws3.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+        row_idx = 2
+        try:
+            from axes.models import AccessAttempt, AccessLog
+            for a in AccessAttempt.objects.order_by('-attempt_time')[:250]:
+                ws3.cell(row=row_idx, column=1, value=a.username)
+                ws3.cell(row=row_idx, column=2, value=a.ip_address or '')
+                ws3.cell(row=row_idx, column=3, value='실패')
+                ws3.cell(row=row_idx, column=4, value=a.failures_since_start)
+                ws3.cell(row=row_idx, column=5, value=a.attempt_time.strftime('%Y-%m-%d %H:%M:%S'))
+                row_idx += 1
+            for a in AccessLog.objects.order_by('-attempt_time')[:250]:
+                ws3.cell(row=row_idx, column=1, value=a.username)
+                ws3.cell(row=row_idx, column=2, value=a.ip_address or '')
+                ws3.cell(row=row_idx, column=3, value='성공')
+                ws3.cell(row=row_idx, column=4, value=0)
+                ws3.cell(row=row_idx, column=5, value=a.attempt_time.strftime('%Y-%m-%d %H:%M:%S'))
+                row_idx += 1
+        except Exception:
+            pass
+
+        # Sheet 4: 권한 변경
+        ws4 = wb.create_sheet('권한변경이력')
+        headers4 = ['사용자', '이전역할', '변경역할', '변경자', '일시']
+        for col, h in enumerate(headers4, 1):
+            cell = ws4.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+        role_display = dict(User.Role.choices)
+        row_idx = 2
+        try:
+            for rec in User.history.order_by('-history_date')[:500]:
+                prev = rec.prev_record
+                if prev and prev.role != rec.role:
+                    ws4.cell(row=row_idx, column=1, value=rec.username)
+                    ws4.cell(row=row_idx, column=2, value=role_display.get(prev.role, prev.role))
+                    ws4.cell(row=row_idx, column=3, value=role_display.get(rec.role, rec.role))
+                    ws4.cell(row=row_idx, column=4, value=str(rec.history_user) if rec.history_user else '(시스템)')
+                    ws4.cell(row=row_idx, column=5, value=rec.history_date.strftime('%Y-%m-%d %H:%M:%S'))
+                    row_idx += 1
+        except Exception:
+            pass
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        now_str = timezone.now().strftime('%Y%m%d_%H%M')
+        response['Content-Disposition'] = f'attachment; filename="audit_report_{now_str}.xlsx"'
+        wb.save(response)
+        return response

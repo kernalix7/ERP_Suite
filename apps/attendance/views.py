@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.db.models import F, Sum
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
@@ -33,7 +34,7 @@ class AttendanceDashboardView(LoginRequiredMixin, TemplateView):
         context['current_time'] = now
 
         # 오늘 출근 현황
-        today_records = AttendanceRecord.objects.filter(date=today)
+        today_records = AttendanceRecord.objects.filter(date=today, is_active=True)
         context['today_checked_in'] = today_records.filter(
             check_in__isnull=False
         ).count()
@@ -54,6 +55,7 @@ class AttendanceDashboardView(LoginRequiredMixin, TemplateView):
             user=user,
             date__gte=month_start,
             date__lte=today,
+            is_active=True,
         )
         context['month_work_days'] = my_month_records.filter(
             check_in__isnull=False
@@ -121,11 +123,7 @@ class CheckOutView(LoginRequiredMixin, View):
             return redirect('attendance:dashboard')
 
         record.check_out = now
-        # 8시간 초과 시 초과근무 계산
-        work_hours = record.work_hours
-        if work_hours and work_hours > 8:
-            record.overtime_hours = Decimal(str(round(work_hours - 8, 1)))
-        record.save(update_fields=['check_out', 'overtime_hours', 'updated_at'])
+        record.save(update_fields=['check_out', 'updated_at'])
 
         messages.success(request, f'퇴근 완료 ({now.strftime("%H:%M")})')
         return redirect('attendance:dashboard')
@@ -146,6 +144,7 @@ class AttendanceListView(LoginRequiredMixin, ListView):
             user=self.request.user,
             date__year=year,
             date__month=month,
+            is_active=True,
         ).order_by('-date')
 
     def get_context_data(self, **kwargs):
@@ -168,7 +167,8 @@ class AttendanceAdminView(ManagerRequiredMixin, ListView):
         today = timezone.localdate()
         date = self.request.GET.get('date', str(today))
         return AttendanceRecord.objects.filter(
-            date=date
+            date=date,
+            is_active=True,
         ).select_related('user').order_by('user__name')
 
     def get_context_data(self, **kwargs):
@@ -197,7 +197,8 @@ class LeaveRequestListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         return LeaveRequest.objects.filter(
-            user=self.request.user
+            user=self.request.user,
+            is_active=True,
         ).select_related('approved_by').order_by('-created_at')
 
 
@@ -232,23 +233,34 @@ class LeaveApproveView(ManagerRequiredMixin, View):
         leave = get_object_or_404(LeaveRequest, pk=pk)
         action = request.POST.get('action')
 
-        if action == 'approve':
-            leave.status = LeaveRequest.LeaveStatus.APPROVED
-            leave.approved_by = request.user
-            leave.approved_at = timezone.now()
-            leave.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
+        # 이중 승인/반려 방지: PENDING 상태만 처리 가능
+        if leave.status != LeaveRequest.LeaveStatus.PENDING:
+            messages.error(request, '이미 처리된 휴가 신청입니다.')
+            return redirect('attendance:leave_list')
 
-            # 연차 사용일수 업데이트
-            if leave.leave_type in ('ANNUAL', 'HALF_AM', 'HALF_PM'):
-                balance, _ = AnnualLeaveBalance.objects.get_or_create(
-                    user=leave.user,
-                    year=leave.start_date.year,
-                    defaults={'created_by': request.user},
-                )
-                AnnualLeaveBalance.objects.filter(pk=balance.pk).update(
-                    used_days=F('used_days') + leave.days
-                )
-                balance.refresh_from_db()
+        if action == 'approve':
+            with transaction.atomic():
+                # 잔여일수 검증 (실제 차감은 시그널이 처리)
+                if leave.leave_type in ('ANNUAL', 'HALF_AM', 'HALF_PM'):
+                    balance, _ = AnnualLeaveBalance.objects.get_or_create(
+                        user=leave.user,
+                        year=leave.start_date.year,
+                        defaults={'created_by': request.user},
+                    )
+                    # select_for_update로 동시 승인 방지
+                    balance = AnnualLeaveBalance.objects.select_for_update().get(pk=balance.pk)
+
+                    if balance.used_days + leave.days > balance.total_days:
+                        messages.error(
+                            request,
+                            f'잔여 연차가 부족합니다. (잔여: {balance.remaining_days}일, 신청: {leave.days}일)',
+                        )
+                        return redirect('attendance:leave_list')
+
+                leave.status = LeaveRequest.LeaveStatus.APPROVED
+                leave.approved_by = request.user
+                leave.approved_at = timezone.now()
+                leave.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
 
             messages.success(request, '휴가가 승인되었습니다.')
 
@@ -281,6 +293,7 @@ class LeaveBalanceView(LoginRequiredMixin, TemplateView):
             user=self.request.user,
             status=LeaveRequest.LeaveStatus.APPROVED,
             start_date__year=today.year,
+            is_active=True,
         ).order_by('-start_date')
 
         return context

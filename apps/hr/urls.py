@@ -16,14 +16,21 @@ urlpatterns = [
     path('positions/', views.PositionListView.as_view(), name='position_list'),
     path('positions/create/', views.PositionCreateView.as_view(), name='position_create'),
     path('positions/<int:pk>/edit/', views.PositionUpdateView.as_view(), name='position_update'),
+    # 외부 협력업체
+    path('external-companies/', views.ExternalCompanyListView.as_view(), name='external_company_list'),
+    path('external-companies/create/', views.ExternalCompanyCreateView.as_view(), name='external_company_create'),
+    path('external-companies/<int:pk>/edit/', views.ExternalCompanyUpdateView.as_view(), name='external_company_update'),
     # 직원
     path('employees/', views.EmployeeListView.as_view(), name='employee_list'),
     path('employees/create/', views.EmployeeCreateView.as_view(), name='employee_create'),
-    path('employees/<int:pk>/', views.EmployeeDetailView.as_view(), name='employee_detail'),
-    path('employees/<int:pk>/edit/', views.EmployeeUpdateView.as_view(), name='employee_update'),
+    path('employees/<str:slug>/', views.EmployeeDetailView.as_view(), name='employee_detail'),
+    path('employees/<str:slug>/edit/', views.EmployeeUpdateView.as_view(), name='employee_update'),
     # 인사발령
     path('personnel-actions/', views.PersonnelActionListView.as_view(), name='action_list'),
     path('personnel-actions/create/', views.PersonnelActionCreateView.as_view(), name='action_create'),
+    # 입퇴사 처리
+    path('onboarding/', views.OnboardingView.as_view(), name='onboarding'),
+    path('offboarding/', views.OffboardingView.as_view(), name='offboarding'),
     # 급여
     path('payroll/', views.PayrollListView.as_view(), name='payroll_list'),
     path('payroll/create/', views.PayrollCreateView.as_view(), name='payroll_create'),

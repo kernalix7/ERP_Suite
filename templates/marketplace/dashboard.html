@@ -5,58 +5,62 @@
 {% block page_title %}스토어 대시보드{% endblock %}
 
 {% block header_actions %}
+<form method="post" action="{% url 'marketplace:sync_preview' %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">주문 불러오기</button>
+</form>
 <a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">주문 목록</a>
 {% endblock %}
 
 {% block content %}
 <!-- 상태별 주문건수 카드 -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="bg-white shadow-sm rounded-xl p-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-8">
+    <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">신규주문</p>
                 <p class="mt-2 text-2xl font-bold text-blue-600">{{ new_order_count|default:0 }}</p>
             </div>
-            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
             </div>
         </div>
     </div>
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">확인</p>
                 <p class="mt-2 text-2xl font-bold text-yellow-600">{{ confirmed_count|default:0 }}</p>
             </div>
-            <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
             </div>
         </div>
     </div>
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">발송완료</p>
                 <p class="mt-2 text-2xl font-bold text-indigo-600">{{ shipped_count|default:0 }}</p>
             </div>
-            <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/>
                 </svg>
             </div>
         </div>
     </div>
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">배송완료</p>
                 <p class="mt-2 text-2xl font-bold text-green-600">{{ delivered_count|default:0 }}</p>
             </div>
-            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
@@ -66,10 +70,10 @@
 </div>
 
 <!-- 최근 동기화 정보 -->
-<div class="bg-white shadow-sm rounded-xl p-6 mb-8">
+<div class="bg-white shadow rounded-lg p-4 sm:p-6 mb-4 sm:mb-8">
     <h3 class="text-lg font-semibold text-gray-800 mb-4">최근 동기화 정보</h3>
     {% if last_sync %}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
             <p class="text-sm text-gray-500">마지막 동기화</p>
             <p class="text-sm font-medium text-gray-900">{{ last_sync.started_at|date:"Y-m-d H:i" }}</p>
@@ -91,15 +95,15 @@
 </div>
 
 <!-- 최근 주문 5건 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <h3 class="text-lg font-semibold text-gray-800">최근 주문</h3>
         <a href="{% url 'marketplace:order_list' %}" class="text-sm text-blue-600 hover:text-blue-800">전체보기</a>
     </div>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                     <th class="px-4 py-3">주문번호</th>
                     <th class="px-4 py-3">상품명</th>
                     <th class="px-4 py-3 text-right">금액</th>
@@ -111,7 +115,7 @@
                 {% for order in recent_orders %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3 font-mono text-gray-900">
-                        <a href="{% url 'marketplace:order_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        <a href="{% url 'marketplace:order_detail' order.store_order_id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ order.order_number }}
                         </a>
                     </td>

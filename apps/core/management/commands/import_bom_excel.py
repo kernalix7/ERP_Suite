@@ -88,7 +88,7 @@ class Command(BaseCommand):
         data = {
             'product_name': ws['C2'].value,           # DiveChecker V1
             'version': ws['C4'].value,                # V1_20260205
-            'author': ws['C5'].value,                 # 김대현
+            'author': ws['C5'].value,                 # 작성자
             'unit_cost': ws['I6'].value,              # 25007 (1대 비용 단가합)
             'total_cost': ws['J6'].value,             # 1654530 (1대 비용 전체합)
             'materials': [],

@@ -2,10 +2,10 @@ import logging
 
 from django.db import transaction
 from django.db.models import Q, Sum
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from apps.inventory.models import StockMovement, Warehouse
+from apps.inventory.models import Product, StockMovement, Warehouse
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,14 @@ def _record_ref_prefix(work_order, record):
 
 
 def _delete_old_movements(record):
-    """해당 생산실적에 연결된 기존 재고이동 soft delete (수정 시 역분개용)"""
+    """해당 생산실적에 연결된 기존 재고이동 soft delete (수정 시 역분개용)
+
+    개별 save() 대신 QuerySet.update()로 bulk 처리하되,
+    inventory pre_save 시그널이 발동하지 않으므로 재고 복원을 수동으로 수행.
+    """
+    from django.db.models import F as F_expr
+    from apps.inventory.models import Product, WarehouseStock
+
     prefix = _record_ref_prefix(record.work_order, record)
     movements = StockMovement.all_objects.filter(
         movement_type__in=['PROD_IN', 'PROD_OUT'],
@@ -25,9 +32,42 @@ def _delete_old_movements(record):
         Q(movement_number=f'PI-{prefix}')
         | Q(movement_number__startswith=f'PO-{prefix}')
     )
-    for movement in movements:
-        movement.is_active = False
-        movement.save()
+
+    # 재고 복원을 위해 먼저 movement 목록 수집
+    INBOUND = {'IN', 'ADJ_PLUS', 'PROD_IN', 'RETURN'}
+    OUTBOUND = {'OUT', 'ADJ_MINUS', 'PROD_OUT'}
+    for mv in movements:
+        if mv.movement_type in INBOUND:
+            Product.objects.filter(pk=mv.product_id).update(
+                current_stock=F_expr('current_stock') - mv.quantity,
+            )
+            try:
+                ws = WarehouseStock.objects.get(
+                    warehouse_id=mv.warehouse_id,
+                    product_id=mv.product_id,
+                )
+                WarehouseStock.objects.filter(pk=ws.pk).update(
+                    quantity=F_expr('quantity') - mv.quantity,
+                )
+            except WarehouseStock.DoesNotExist:
+                pass
+        elif mv.movement_type in OUTBOUND:
+            Product.objects.filter(pk=mv.product_id).update(
+                current_stock=F_expr('current_stock') + mv.quantity,
+            )
+            try:
+                ws = WarehouseStock.objects.get(
+                    warehouse_id=mv.warehouse_id,
+                    product_id=mv.product_id,
+                )
+                WarehouseStock.objects.filter(pk=ws.pk).update(
+                    quantity=F_expr('quantity') + mv.quantity,
+                )
+            except WarehouseStock.DoesNotExist:
+                pass
+
+    # bulk soft delete (시그널 우회)
+    movements.update(is_active=False)
 
 
 def _create_movements(instance, warehouse):
@@ -134,15 +174,28 @@ def auto_stock_on_production(sender, instance, created, **kwargs):
     plan = work_order.production_plan
 
     with transaction.atomic():
-        # 생산단가 스냅샷 (최초 등록 시: BOM 기반 실제 생산원가)
+        # 생산단가 + 실제원가 스냅샷 (최초 등록 시)
         if created and not instance.unit_cost:
             bom = plan.bom
             unit_cost = int(bom.total_material_cost) if bom else 0
-            from apps.production.models import ProductionRecord
+            qty = instance.good_quantity or 1
+            update_fields = {'unit_cost': unit_cost}
+
+            # 표준원가 기반 실제원가 자동 세팅
+            from apps.production.models import StandardCost, ProductionRecord
+            std = StandardCost.objects.filter(
+                product=plan.product, is_current=True, is_active=True,
+            ).first()
+            if std:
+                update_fields['actual_material_cost'] = std.material_cost * qty
+                update_fields['actual_labor_cost'] = std.labor_cost * qty
+                update_fields['actual_overhead_cost'] = std.overhead_cost * qty
+
             ProductionRecord.objects.filter(pk=instance.pk).update(
-                unit_cost=unit_cost,
+                **update_fields,
             )
-            instance.unit_cost = unit_cost
+            for k, v in update_fields.items():
+                setattr(instance, k, v)
 
         # 원자재 부족 체크 (경고 로깅)
         if created:
@@ -172,7 +225,7 @@ def auto_stock_on_production(sender, instance, created, **kwargs):
 
 
 def _cancel_production_records_stock(work_orders):
-    """작업지시 목록에 연결된 생산실적의 재고이동을 soft delete"""
+    """작업지시 목록에 연결된 생산실적 + 재고이동을 soft delete"""
     from apps.production.models import ProductionRecord
 
     records = ProductionRecord.objects.filter(
@@ -193,6 +246,9 @@ def _cancel_production_records_stock(work_orders):
             mv.save(update_fields=['is_active', 'updated_at'])
             cancelled_count += 1
 
+        # 생산실적도 soft delete (QuerySet.update로 post_save 시그널 우회)
+        ProductionRecord.objects.filter(pk=record.pk).update(is_active=False)
+
     return cancelled_count
 
 
@@ -211,6 +267,10 @@ def cancel_plan_cascade(sender, instance, **kwargs):
         with transaction.atomic():
             work_orders = instance.work_orders.filter(is_active=True)
             count = _cancel_production_records_stock(work_orders)
+            # 관련 작업지시도 CANCELLED로 변경
+            work_orders.exclude(status='CANCELLED').update(
+                status='CANCELLED',
+            )
             logger.info(
                 'ProductionPlan %s cancelled — %d stock movements reversed',
                 instance.plan_number, count,
@@ -235,3 +295,66 @@ def cancel_work_order_cascade(sender, instance, **kwargs):
                 'WorkOrder %s cancelled — %d stock movements reversed',
                 instance.order_number, count,
             )
+
+
+# ── BOM/StandardCost → Product.cost_price 자동 동기화 ────────────
+
+
+def _sync_product_cost_price(product):
+    """제품 원가 자동 동기화. 우선순위: StandardCost > BOM > 기존값 유지"""
+    from apps.production.models import BOM, StandardCost
+
+    # 1순위: 현행 표준원가
+    std_cost = StandardCost.objects.filter(
+        product=product, is_current=True, is_active=True,
+    ).first()
+    if std_cost and std_cost.total_standard_cost > 0:
+        if product.cost_price != std_cost.total_standard_cost:
+            Product.objects.filter(pk=product.pk).update(
+                cost_price=std_cost.total_standard_cost,
+            )
+        return
+
+    # 2순위: 기본 BOM 자재원가
+    default_bom = BOM.objects.filter(
+        product=product, is_default=True, is_active=True,
+    ).prefetch_related('items__material').first()
+    if default_bom:
+        bom_cost = default_bom.total_material_cost
+        if bom_cost and bom_cost > 0 and product.cost_price != bom_cost:
+            Product.objects.filter(pk=product.pk).update(
+                cost_price=int(bom_cost),
+            )
+        return
+
+    # 3순위: 기존값 유지 (아무것도 안함)
+
+
+@receiver(post_save, sender='production.BOMItem')
+def sync_cost_on_bom_item_save(sender, instance, **kwargs):
+    """BOMItem 저장 시 해당 BOM 완제품의 cost_price 동기화"""
+    bom = instance.bom
+    if bom.is_default and bom.is_active:
+        _sync_product_cost_price(bom.product)
+
+
+@receiver(post_delete, sender='production.BOMItem')
+def sync_cost_on_bom_item_delete(sender, instance, **kwargs):
+    """BOMItem 삭제 시 해당 BOM 완제품의 cost_price 동기화"""
+    bom = instance.bom
+    if bom.is_default and bom.is_active:
+        _sync_product_cost_price(bom.product)
+
+
+@receiver(post_save, sender='production.BOM')
+def sync_cost_on_bom_save(sender, instance, **kwargs):
+    """BOM 저장 시 (is_default 변경 등) 완제품의 cost_price 동기화"""
+    if instance.is_default and instance.is_active:
+        _sync_product_cost_price(instance.product)
+
+
+@receiver(post_save, sender='production.StandardCost')
+def sync_cost_on_standard_cost_save(sender, instance, **kwargs):
+    """StandardCost 저장 시 완제품의 cost_price 동기화"""
+    if instance.is_current and instance.is_active:
+        _sync_product_cost_price(instance.product)

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "권한 신청" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "권한 신청" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <!-- 현재 역할 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">{% trans "현재 역할" %}</p>
+                <p class="text-lg font-semibold text-gray-800">{{ current_role }}</p>
+            </div>
+        </div>
+    </div>
+
+    {% if user.role == 'admin' %}
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <p class="text-sm text-amber-800">{% trans "이미 최상위 권한(관리자)을 보유하고 있어 추가 신청이 불필요합니다." %}</p>
+    </div>
+    {% else %}
+    <!-- 신청 폼 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "권한 신청" %}</h2>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }} <span class="text-red-500">*</span></label>
+                {{ field }}
+                {% if field.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="pt-2">
+                <button type="submit" class="btn btn-primary">{% trans "신청" %}</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- 신청 이력 -->
+    {% if request_history %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "신청 이력" %}</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3">{% trans "결재번호" %}</th>
+                        <th class="px-6 py-3">{% trans "제목" %}</th>
+                        <th class="px-6 py-3">{% trans "상태" %}</th>
+                        <th class="px-6 py-3">{% trans "신청일" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for req in request_history %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-3 text-sm">{{ req.request_number }}</td>
+                        <td class="px-6 py-3 text-sm">{{ req.title }}</td>
+                        <td class="px-6 py-3">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                {% if req.status == 'APPROVED' %}bg-green-100 text-green-800
+                                {% elif req.status == 'REJECTED' %}bg-red-100 text-red-800
+                                {% elif req.status == 'CANCELLED' %}bg-gray-100 text-gray-800
+                                {% else %}bg-blue-100 text-blue-800{% endif %}">
+                                {{ req.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-3 text-sm text-gray-500">{{ req.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

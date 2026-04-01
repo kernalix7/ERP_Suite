@@ -10,13 +10,16 @@
 {% block content %}
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+
+    <!-- 제품 정보 -->
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-800">정품등록 정보</h2>
+            <h2 class="text-lg font-semibold text-gray-800">제품 정보</h2>
         </div>
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
             {% for field in form %}
-            <div {% if field.name == 'notes' %}class="md:col-span-2"{% endif %}>
+            {% if field.name == 'serial_number' or field.name == 'product' or field.name == 'purchase_date' or field.name == 'purchase_channel' %}
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">
                     {{ field.label }}
                     {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
@@ -29,6 +32,126 @@
                 <p class="mt-1 text-xs text-red-600">{{ error }}</p>
                 {% endfor %}
             </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 고객 정보 -->
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">고객 정보</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- 고객 선택 -->
+            {% with field=form.customer %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                </label>
+                {{ field }}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endwith %}
+
+            <!-- 고객 정보와 다름 체크박스 -->
+            {% with field=form.custom_info %}
+            <div class="flex items-end pb-1">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    {{ field }}
+                    <span class="text-sm text-gray-700">{{ field.label }}</span>
+                </label>
+            </div>
+            {% endwith %}
+
+            <!-- 고객명 -->
+            {% with field=form.customer_name %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endwith %}
+
+            <!-- 연락처 -->
+            {% with field=form.phone %}
+            <div>
+                {% include "includes/phone_field.html" with field=field %}
+            </div>
+            {% endwith %}
+
+            <!-- 이메일 -->
+            {% with field=form.email %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                </label>
+                {{ field }}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endwith %}
+        </div>
+    </div>
+
+    <!-- 보증 정보 -->
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">보증 정보</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            {% for field in form %}
+            {% if field.name == 'warranty_start' or field.name == 'warranty_end' or field.name == 'warranty_days' or field.name == 'verified_warranty_days' %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 인증 / 사진 / 비고 -->
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-6" id="verification-section">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-800">인증 정보</h2>
+            {% if not form.instance.is_verified %}
+            <span class="text-xs text-gray-400">인증 완료 후 활성화됩니다</span>
+            {% endif %}
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            {% for field in form %}
+            {% if field.name == 'photo' or field.name == 'is_verified' or field.name == 'notes' %}
+            <div {% if field.name == 'notes' %}class="md:col-span-2"{% endif %}>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                </label>
+                {{ field }}
+                {% if field.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
             {% endfor %}
         </div>
     </div>
@@ -45,19 +168,60 @@
 (function() {
     const customers = JSON.parse(document.getElementById('customer-data').textContent);
     const customerSel = document.getElementById('id_customer');
+    const customInfoCb = document.getElementById('id_custom_info');
     const nameInput = document.getElementById('id_customer_name');
     const phoneInput = document.getElementById('id_phone');
     const emailInput = document.getElementById('id_email');
 
-    if (!customerSel) return;
+    const customerFields = [nameInput, phoneInput, emailInput];
 
-    customerSel.addEventListener('change', function() {
-        const data = customers[this.value];
+    function setFieldsReadonly(readonly) {
+        customerFields.forEach(function(field) {
+            if (!field) return;
+            if (readonly) {
+                field.setAttribute('readonly', 'readonly');
+                field.classList.add('bg-gray-100', 'cursor-not-allowed');
+            } else {
+                field.removeAttribute('readonly');
+                field.classList.remove('bg-gray-100', 'cursor-not-allowed');
+            }
+        });
+    }
+
+    function fillFromCustomer() {
+        if (!customerSel) return;
+        var data = customers[customerSel.value];
         if (!data) return;
         if (nameInput) nameInput.value = data.name;
-        if (phoneInput && !phoneInput.value) phoneInput.value = data.phone;
-        if (emailInput && !emailInput.value) emailInput.value = data.email;
-    });
+        if (phoneInput) phoneInput.value = data.phone;
+        if (emailInput) emailInput.value = data.email;
+    }
+
+    function updateState() {
+        if (!customInfoCb) return;
+        var isCustom = customInfoCb.checked;
+        setFieldsReadonly(!isCustom);
+        if (!isCustom && customerSel && customerSel.value) {
+            fillFromCustomer();
+        }
+    }
+
+    // 고객 선택 시 자동 채움
+    if (customerSel) {
+        customerSel.addEventListener('change', function() {
+            if (!customInfoCb || !customInfoCb.checked) {
+                fillFromCustomer();
+            }
+        });
+    }
+
+    // 체크박스 변경 시 readonly 토글
+    if (customInfoCb) {
+        customInfoCb.addEventListener('change', updateState);
+    }
+
+    // 초기 상태 설정
+    updateState();
 })();
 </script>
 {% endif %}

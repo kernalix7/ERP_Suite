@@ -5,3 +5,6 @@ class MarketplaceConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.marketplace'
     verbose_name = '외부스토어'
+
+    def ready(self):
+        import apps.marketplace.signals  # noqa: F401

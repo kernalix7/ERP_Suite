@@ -844,3 +844,174 @@ class ExchangeRateTest(TestCase):
                 rate_date=date(2026, 3, 20),
                 rate=Decimal('1355.0000'),
             )
+
+
+class TaxInvoiceElectronicTests(TestCase):
+    """전자세금계산서 필드 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='P-E001',
+            name='전자발행 테스트 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.invoice = TaxInvoice.objects.create(
+            invoice_number='TI-E-0001',
+            invoice_type=TaxInvoice.InvoiceType.SALES,
+            partner=self.partner,
+            issue_date=date(2026, 3, 24),
+            supply_amount=Decimal('500000'),
+            tax_amount=Decimal('50000'),
+            total_amount=Decimal('550000'),
+        )
+
+    def test_default_electronic_status(self):
+        """기본 전자발행상태는 NONE"""
+        self.assertEqual(self.invoice.electronic_status, 'NONE')
+
+    def test_electronic_status_choices(self):
+        """ElectronicStatus 선택지 확인"""
+        choices = dict(TaxInvoice.ElectronicStatus.choices)
+        self.assertIn('NONE', choices)
+        self.assertIn('ISSUED', choices)
+        self.assertIn('SENT', choices)
+        self.assertIn('ACCEPTED', choices)
+        self.assertIn('REJECTED', choices)
+        self.assertIn('CANCELLED', choices)
+        self.assertEqual(choices['NONE'], '미발행')
+        self.assertEqual(choices['ACCEPTED'], '국세청 승인')
+
+    def test_electronic_fields_blank_by_default(self):
+        """전자발행 필드들은 기본적으로 비어있음"""
+        self.assertEqual(self.invoice.nts_confirmation_number, '')
+        self.assertEqual(self.invoice.issue_id, '')
+        self.assertIsNone(self.invoice.sent_at)
+        self.assertEqual(self.invoice.nts_response, {})
+
+    def test_update_electronic_status(self):
+        """전자발행 상태 변경"""
+        self.invoice.electronic_status = TaxInvoice.ElectronicStatus.ISSUED
+        self.invoice.issue_id = 'test-uuid-1234'
+        self.invoice.sent_at = timezone.now()
+        self.invoice.save()
+
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.electronic_status, 'ISSUED')
+        self.assertEqual(self.invoice.issue_id, 'test-uuid-1234')
+        self.assertIsNotNone(self.invoice.sent_at)
+
+    def test_nts_response_json(self):
+        """국세청 응답 JSON 저장"""
+        self.invoice.nts_response = {
+            'ResultCode': '00',
+            'NTSConfirmNumber': 'NTS-2026-0001',
+        }
+        self.invoice.save()
+
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.nts_response['ResultCode'], '00')
+
+
+class NTSClientTests(TestCase):
+    """국세청 API 클라이언트 단위 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='P-NTS001',
+            name='NTS 테스트 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.invoice = TaxInvoice.objects.create(
+            invoice_number='TI-NTS-0001',
+            invoice_type=TaxInvoice.InvoiceType.SALES,
+            partner=self.partner,
+            issue_date=date(2026, 3, 24),
+            supply_amount=Decimal('1000000'),
+            tax_amount=Decimal('100000'),
+            total_amount=Decimal('1100000'),
+        )
+
+    def test_nts_api_error(self):
+        """NTSAPIError 예외 생성"""
+        from apps.accounting.nts_client import NTSAPIError
+        error = NTSAPIError('테스트 에러', code='E001', response_data={'key': 'val'})
+        self.assertEqual(str(error), '테스트 에러')
+        self.assertEqual(error.code, 'E001')
+        self.assertEqual(error.response_data, {'key': 'val'})
+
+    def test_nts_client_build_xml(self):
+        """XML 빌드 기본 동작"""
+        from apps.accounting.nts_client import NTSClient
+        client = NTSClient()
+        client._config = {
+            'business_number': '1234567890',
+            'environment': 'test',
+        }
+        xml = client._build_xml(self.invoice)
+        self.assertIn('1000000', xml)
+        self.assertIn('100000', xml)
+        self.assertIn('1100000', xml)
+
+    def test_nts_client_cancel_invalid_status(self):
+        """취소 불가 상태에서 cancel 호출 시 에러"""
+        from apps.accounting.nts_client import NTSClient, NTSAPIError
+        client = NTSClient()
+        client._config = {
+            'business_number': '1234567890',
+            'api_key': 'test',
+            'environment': 'test',
+        }
+        self.invoice.electronic_status = 'NONE'
+        with self.assertRaises(NTSAPIError):
+            client.cancel(self.invoice, reason='테스트')
+
+    def test_nts_client_query_no_issue_id(self):
+        """issue_id 없이 query 호출 시 에러"""
+        from apps.accounting.nts_client import NTSClient, NTSAPIError
+        client = NTSClient()
+        client._config = {
+            'business_number': '1234567890',
+            'api_key': 'test',
+            'environment': 'test',
+        }
+        self.invoice.issue_id = ''
+        with self.assertRaises(NTSAPIError):
+            client.query(self.invoice)
+
+
+class BankAccountSyncTest(TestCase):
+    """BankAccount 연동 필드 테스트"""
+
+    def test_show_on_dashboard_default_false(self):
+        """show_on_dashboard 기본값 False"""
+        from .models import BankAccount
+        acct = BankAccount.objects.create(
+            name='테스트통장', account_type='BUSINESS', owner='테스트',
+        )
+        self.assertFalse(acct.show_on_dashboard)
+
+    def test_employee_fk_nullable(self):
+        """employee FK는 null 가능"""
+        from .models import BankAccount
+        acct = BankAccount.objects.create(
+            name='일반통장', account_type='BUSINESS', owner='회사',
+        )
+        self.assertIsNone(acct.employee)
+
+    def test_partner_fk_nullable(self):
+        """partner FK는 null 가능"""
+        from .models import BankAccount
+        acct = BankAccount.objects.create(
+            name='일반통장', account_type='BUSINESS', owner='회사',
+        )
+        self.assertIsNone(acct.partner)
+
+    def test_personal_account_type(self):
+        """PERSONAL 계좌 유형 사용 가능"""
+        from .models import BankAccount
+        acct = BankAccount.objects.create(
+            name='급여통장', account_type='PERSONAL', owner='직원',
+            bank='국민은행',
+        )
+        self.assertEqual(acct.account_type, 'PERSONAL')
+        self.assertEqual(acct.get_account_type_display(), '개인통장')

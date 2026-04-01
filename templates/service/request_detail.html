@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize phone_filters %}
 
 {% block title %}AS 상세 - {{ service_request.request_number }} - ERP Suite{% endblock %}
 {% block page_title %}AS 상세{% endblock %}
 
 {% block header_actions %}
 {% if service_request.status != 'COMPLETED' and service_request.status != 'CANCELLED' %}
-<a href="{% url 'service:request_update' service_request.pk %}" class="btn btn-primary">수정</a>
+<a href="{% url 'service:request_update' service_request.request_number %}" class="btn btn-primary">수정</a>
 {% endif %}
 <a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
@@ -14,8 +14,8 @@
 {% block content %}
 <div class="space-y-6">
     <!-- AS 정보 카드 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between mb-4">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h2 class="text-lg font-semibold text-gray-800">AS 정보</h2>
             <div class="flex items-center gap-2">
                 {% if service_request.is_warranty %}
@@ -41,7 +41,7 @@
                 {% endif %}
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">AS번호</dt>
                 <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ service_request.request_number }}</dd>
@@ -50,7 +50,7 @@
                 <dt class="text-sm text-gray-500">고객</dt>
                 <dd class="mt-1 text-sm text-gray-900">
                     {% if service_request.customer %}
-                    <a href="{% url 'sales:customer_detail' service_request.customer.pk %}" class="text-blue-600 hover:text-blue-800">{{ service_request.customer.name }}</a>
+                    <a href="{% url 'sales:customer_detail' service_request.customer.code %}" class="text-blue-600 hover:text-blue-800">{{ service_request.customer.name }}</a>
                     {% else %}
                     -
                     {% endif %}
@@ -58,7 +58,7 @@
             </div>
             <div>
                 <dt class="text-sm text-gray-500">연락처</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ service_request.customer.phone|default:"-" }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ service_request.customer.phone|format_phone|default:"-" }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">제품</dt>
@@ -98,8 +98,8 @@
     </div>
 
     <!-- 수리 이력 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+    <div class="bg-white shadow rounded-lg border border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <h2 class="text-lg font-semibold text-gray-800">수리 이력</h2>
             {% if service_request.status != 'COMPLETED' and service_request.status != 'CANCELLED' %}
             <a href="{% url 'service:repair_create' %}" class="btn btn-primary text-sm">
@@ -110,10 +110,10 @@
             </a>
             {% endif %}
         </div>
-        <div class="overflow-x-auto">
+        <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                         <th class="px-4 py-3">#</th>
                         <th class="px-4 py-3">수리일</th>
                         <th class="px-4 py-3">수리내용</th>

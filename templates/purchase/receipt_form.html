@@ -5,7 +5,7 @@
 {% block page_title %}{% trans "입고 등록" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'purchase:po_detail' purchase_order.pk %}" class="btn btn-secondary">{% trans "발주서로 돌아가기" %}</a>
+<a href="{% url 'purchase:po_detail' purchase_order.po_number %}" class="btn btn-secondary">{% trans "발주서로 돌아가기" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -13,9 +13,9 @@
     {% csrf_token %}
 
     <!-- 발주 정보 요약 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "발주 정보" %}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div>
                 <dt class="text-sm text-gray-500">{% trans "발주번호" %}</dt>
                 <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ purchase_order.po_number }}</dd>
@@ -32,11 +32,11 @@
     </div>
 
     <!-- 입고 기본정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-        <div class="px-6 py-4 border-b border-gray-200">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "입고 정보" %}</h2>
         </div>
-        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
             {% for field in form %}
             <div {% if field.name == 'notes' %}class="md:col-span-2"{% endif %}>
                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -56,11 +56,11 @@
     </div>
 
     <!-- 입고 항목 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-        <div class="px-6 py-4 border-b border-gray-200">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "입고 항목" %}</h2>
         </div>
-        <div class="overflow-x-auto">
+        <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -107,7 +107,7 @@
 
     <!-- 버튼 -->
     <div class="flex justify-end gap-3">
-        <a href="{% url 'purchase:po_detail' purchase_order.pk %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        <a href="{% url 'purchase:po_detail' purchase_order.po_number %}" class="btn btn-secondary">{% trans "취소" %}</a>
         <button type="submit" class="btn btn-primary">{% trans "입고 확인" %}</button>
     </div>
 </form>

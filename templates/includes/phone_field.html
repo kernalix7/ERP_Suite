@@ -1,0 +1,44 @@
+{% comment %}
+전화번호 입력 필드 include 템플릿
+사용법: {% include "includes/phone_field.html" with field=form.phone %}
+{% endcomment %}
+{% load i18n %}
+<div x-data="phoneInput('{{ field.id_for_label }}')" class="space-y-1">
+
+    {# 라벨 #}
+    <label for="{{ field.id_for_label }}" class="form-label">
+        {{ field.label }}
+        {% if field.field.required %}<span class="form-required">*</span>{% endif %}
+    </label>
+
+    {# 국가코드 + 번호 입력 가로 배치 #}
+    <div class="flex gap-2 items-center">
+        {# 국가코드 선택 #}
+        <select x-model="countryCode" @change="onCountryChange()"
+                class="form-input w-auto text-sm flex-shrink-0">
+            <template x-for="c in countries" :key="c.code">
+                <option :value="c.code" x-text="c.label"></option>
+            </template>
+        </select>
+
+        {# 전화번호 입력 #}
+        <input type="tel"
+               :value="formattedDisplay"
+               @input="onInput($event)"
+               @paste="onPaste($event)"
+               :placeholder="countryCode === '+82' ? '010-1234-5678' : countryCode === '+1' ? '(123) 456-7890' : '1234-5678'"
+               class="form-input flex-1"
+               autocomplete="tel">
+    </div>
+
+    {# 원래 Django 폼 필드 (hidden, 실제 POST 전송용) #}
+    <div class="hidden">{{ field }}</div>
+
+    {# 도움말/에러 #}
+    {% if field.help_text %}
+    <p class="text-xs text-gray-500">{{ field.help_text }}</p>
+    {% endif %}
+    {% for error in field.errors %}
+    <p class="text-xs text-red-500">{{ error }}</p>
+    {% endfor %}
+</div>

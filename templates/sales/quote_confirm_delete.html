@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}견적서 삭제 - ERP Suite{% endblock %}
+{% block page_title %}견적서 삭제{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+            </div>
+            <h2 class="text-lg font-bold text-gray-900 mb-2">견적서를 삭제하시겠습니까?</h2>
+            <p class="text-sm font-medium text-gray-700 mb-1">{{ object }}</p>
+            <p class="text-sm text-red-600 mt-3">이 항목이 비활성화됩니다.</p>
+        </div>
+
+        {% if order_blocked %}
+        <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-700 font-medium">
+                출고 완료된 주문({{ converted_order.order_number }})이 연결되어 있어 삭제할 수 없습니다.
+            </p>
+        </div>
+        <div class="mt-6 flex justify-center">
+            <a href="javascript:history.back()" class="btn btn-secondary">돌아가기</a>
+        </div>
+        {% else %}
+        <form method="post" class="mt-6">
+            {% csrf_token %}
+
+            {% if converted_order %}
+            <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p class="text-sm text-yellow-800 font-medium mb-2">연결된 주문이 있습니다.</p>
+                <p class="text-sm text-yellow-700 mb-3">주문번호: {{ converted_order.order_number }} ({{ converted_order.get_status_display }})</p>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="delete_order" value="1"
+                           class="w-4 h-4 text-red-600 border-gray-300 rounded">
+                    <span class="text-sm text-gray-700">연결된 주문({{ converted_order.order_number }})도 함께 삭제</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-2">체크 시 주문이 취소 처리되며 AR/재고/세금계산서가 연쇄 취소됩니다.</p>
+            </div>
+            {% endif %}
+
+            <div class="flex items-center justify-center gap-3">
+                <a href="javascript:history.back()" class="btn btn-secondary">취소</a>
+                <button type="submit" class="btn btn-danger">삭제</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -5,7 +5,7 @@
 
 {% block header_actions %}
 {% if object.status == 'DRAFT' and object.requester == request.user %}
-<a href="{% url 'approval:approval_update' object.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+<a href="{% url 'approval:approval_update' object.request_number %}" class="btn btn-primary">{% trans "수정" %}</a>
 {% endif %}
 <a href="{% url 'approval:approval_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
@@ -14,7 +14,7 @@
 <div class="max-w-4xl mx-auto space-y-6">
 
     <!-- 결재문서 본문 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
 
         <!-- 문서 헤더: 제목 + 결재란 -->
         <div class="border-b-2 border-gray-300 p-6">
@@ -62,14 +62,14 @@
                             <tr>
                                 <td class="border border-gray-400 px-3 py-3 h-16 align-middle">
                                     <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-blue-500 text-blue-600 font-bold text-xs">
-                                        {{ object.requester.get_short_name|default:object.requester.username }}
+                                        {{ object.requester.name|default:object.requester.username }}
                                     </div>
                                 </td>
                                 {% for step in steps %}
                                 <td class="border border-gray-400 px-3 py-3 h-16 align-middle">
                                     {% if step.status == 'APPROVED' %}
                                     <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-green-500 text-green-600 font-bold text-xs">
-                                        {{ step.approver.get_short_name|default:step.approver.username }}
+                                        {{ step.approver.name|default:step.approver.username }}
                                     </div>
                                     {% elif step.status == 'REJECTED' %}
                                     <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-red-500 text-red-600 font-bold text-xs">
@@ -87,9 +87,9 @@
                                 {% endfor %}
                             </tr>
                             <tr>
-                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ object.requester.get_short_name|default:object.requester.username }}</td>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ object.requester }}</td>
                                 {% for step in steps %}
-                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ step.approver.get_short_name|default:step.approver.username }}</td>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ step.approver }}</td>
                                 {% endfor %}
                             </tr>
                             <tr>
@@ -111,13 +111,13 @@
                             <tr>
                                 <td class="border border-gray-400 px-3 py-3 h-16 align-middle">
                                     <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-blue-500 text-blue-600 font-bold text-xs">
-                                        {{ object.requester.get_short_name|default:object.requester.username }}
+                                        {{ object.requester.name|default:object.requester.username }}
                                     </div>
                                 </td>
                                 <td class="border border-gray-400 px-3 py-3 h-16 align-middle">
                                     {% if object.status == 'APPROVED' %}
                                     <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-green-500 text-green-600 font-bold text-xs">
-                                        {{ object.approver.get_short_name|default:object.approver.username }}
+                                        {% if object.approver %}{{ object.approver.name|default:object.approver.username }}{% endif %}
                                     </div>
                                     {% elif object.status == 'REJECTED' %}
                                     <div class="inline-flex items-center justify-center w-12 h-12 rounded-full border-2 border-red-500 text-red-600 font-bold text-xs">
@@ -134,8 +134,8 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ object.requester.get_short_name|default:object.requester.username }}</td>
-                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ object.approver.get_short_name|default:object.approver.username|default:"-" }}</td>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{{ object.requester }}</td>
+                                <td class="border border-gray-400 px-2 py-1 text-xs text-gray-600">{% if object.approver %}{{ object.approver }}{% else %}-{% endif %}</td>
                             </tr>
                             <tr>
                                 <td class="border border-gray-400 px-2 py-1 text-xs text-gray-400">{{ object.created_at|date:"m/d" }}</td>
@@ -250,7 +250,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <!-- 결재 이력 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
             <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -310,10 +310,10 @@
         <!-- 결재 액션 -->
         <div class="space-y-4">
             {% if can_submit %}
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
                 <h3 class="text-base font-semibold text-gray-800 mb-3">{% trans "결재 요청" %}</h3>
                 <p class="text-sm text-gray-600 mb-4">{% trans "작성이 완료되면 결재를 요청하세요." %}</p>
-                <form method="post" action="{% url 'approval:approval_submit' object.pk %}">
+                <form method="post" action="{% url 'approval:approval_submit' object.request_number %}">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-primary w-full" onclick="return confirm('결재를 요청하시겠습니까?')">
                         <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,12 +326,12 @@
             {% endif %}
 
             {% if can_approve %}
-            <div class="bg-white rounded-xl shadow-sm border border-blue-200 p-5">
+            <div class="bg-white rounded-lg shadow-sm border border-blue-200 p-5">
                 <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                     <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
                     {% trans "결재 처리" %}
                 </h3>
-                <form method="post" action="{% url 'approval:approval_action' object.pk %}">
+                <form method="post" action="{% url 'approval:approval_action' object.request_number %}">
                     {% csrf_token %}
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "의견 (반려 시 필수)" %}</label>
@@ -352,12 +352,12 @@
             {% endif %}
 
             {% if can_approve_step %}
-            <div class="bg-white rounded-xl shadow-sm border border-blue-200 p-5">
+            <div class="bg-white rounded-lg shadow-sm border border-blue-200 p-5">
                 <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                     <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
                     {% trans "결재 처리" %} ({{ current_step_obj.step_order }}{% trans "단계" %})
                 </h3>
-                <form method="post" action="{% url 'approval:approval_step_action' object.pk current_step_obj.pk %}">
+                <form method="post" action="{% url 'approval:approval_step_action' object.request_number current_step_obj.pk %}">
                     {% csrf_token %}
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "의견" %}</label>

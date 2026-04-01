@@ -14,7 +14,7 @@
 
 {% block content %}
 <!-- 관련 정보 요약 -->
-<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
     <h4 class="text-sm font-medium text-blue-800 mb-2">{% if is_receipt %}{% trans "미수금 정보" %}{% else %}{% trans "미지급금 정보" %}{% endif %}</h4>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         {% if is_receipt %}
@@ -33,7 +33,7 @@
 
 <form method="post">
     {% csrf_token %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
         <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">{% if is_receipt %}{% trans "입금 정보" %}{% else %}{% trans "출금 정보" %}{% endif %}</h2>
         </div>

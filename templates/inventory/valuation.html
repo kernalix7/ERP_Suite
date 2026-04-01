@@ -7,7 +7,7 @@
 {% block content %}
 <!-- 요약 카드 -->
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">{% trans "평가 대상 제품" %}</p>
@@ -20,7 +20,7 @@
             </div>
         </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">{% trans "총 재고평가액" %}</p>
@@ -33,7 +33,7 @@
             </div>
         </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">{% trans "이동평균 기준" %}</p>
@@ -49,7 +49,7 @@
 </div>
 
 <!-- 재고평가 테이블 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1">
@@ -68,7 +68,7 @@
         </form>
     </div>
 
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">

@@ -15,15 +15,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <div id="calendar"></div>
+<div class="bg-white shadow rounded-lg p-2 sm:p-6">
+    <div class="w-full overflow-x-auto">
+        <div id="calendar"></div>
+    </div>
 </div>
 
 <!-- 일정 상세 모달 -->
 <div id="event-modal" class="fixed inset-0 z-50 hidden" x-data="{ open: false }" x-show="open" x-cloak>
     <div class="fixed inset-0 bg-black bg-opacity-50" @click="open = false; document.getElementById('event-modal').classList.add('hidden')"></div>
     <div class="fixed inset-0 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
             <button @click="open = false; document.getElementById('event-modal').classList.add('hidden')"
                     class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

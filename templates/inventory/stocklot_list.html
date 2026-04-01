@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "재고 LOT 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "재고 LOT 관리" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <!-- 필터 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+                <input type="text" name="q" value="{{ q }}" placeholder="{% trans 'LOT번호, 제품코드 또는 제품명으로 검색...' %}"
+                       class="form-input">
+            </div>
+            <div class="w-full sm:w-44">
+                <select name="warehouse" class="form-input">
+                    <option value="">{% trans "전체 창고" %}</option>
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.pk }}" {% if selected_warehouse == wh.pk|stringformat:"d" %}selected{% endif %}>{{ wh.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-gray-600">
+                <input type="checkbox" name="show_empty" value="1" {% if show_empty %}checked{% endif %} class="form-checkbox">
+                {% trans "소진 LOT 포함" %}
+            </label>
+            <button type="submit" class="btn btn-secondary">
+                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                {% trans "검색" %}
+            </button>
+        </form>
+    </div>
+
+    <!-- 테이블 -->
+    <div class="table-responsive">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "LOT번호" %}</th>
+                    <th class="px-4 py-3">{% trans "제품" %}</th>
+                    <th class="px-4 py-3">{% trans "창고" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "초기수량" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "잔여수량" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "입고단가" %}</th>
+                    <th class="px-4 py-3">{% trans "입고일" %}</th>
+                    <th class="px-4 py-3">{% trans "유효기한" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for lot in lots %}
+                <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onclick="location.href='{% url 'inventory:stocklot_detail' lot.lot_number %}'">
+                    <td class="px-4 py-3 font-mono text-blue-600 font-medium">{{ lot.lot_number }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">
+                        <div>{{ lot.product.name }}</div>
+                        <div class="text-xs text-gray-500 font-mono">{{ lot.product.code }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ lot.warehouse.name }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ lot.initial_quantity }}</td>
+                    <td class="px-4 py-3 text-right font-medium
+                        {% if lot.remaining_quantity == 0 %}text-gray-400
+                        {% elif lot.remaining_quantity < lot.initial_quantity %}text-yellow-600
+                        {% else %}text-green-600{% endif %}">
+                        {{ lot.remaining_quantity }}
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ lot.unit_cost|floatformat:0 }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ lot.received_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ lot.expiry_date|date:"Y-m-d"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                        </svg>
+                        {% trans "재고 LOT가 없습니다." %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">
+            {% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}
+        </p>
+        <nav class="flex flex-wrap items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&warehouse={{ selected_warehouse }}&show_empty={{ show_empty }}"
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&q={{ q }}&warehouse={{ selected_warehouse }}&show_empty={{ show_empty }}"
+               class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&warehouse={{ selected_warehouse }}&show_empty={{ show_empty }}"
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

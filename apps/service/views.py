@@ -27,7 +27,7 @@ class ServiceRequestListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class ServiceRequestCreateView(LoginRequiredMixin, CreateView):
+class ServiceRequestCreateView(ManagerRequiredMixin, CreateView):
     model = ServiceRequest
     form_class = ServiceRequestForm
     template_name = 'service/request_form.html'
@@ -60,6 +60,8 @@ class ServiceRequestCreateView(LoginRequiredMixin, CreateView):
 class ServiceRequestDetailView(LoginRequiredMixin, DetailView):
     model = ServiceRequest
     template_name = 'service/request_detail.html'
+    slug_field = 'request_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -68,14 +70,16 @@ class ServiceRequestDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class ServiceRequestUpdateView(LoginRequiredMixin, UpdateView):
+class ServiceRequestUpdateView(ManagerRequiredMixin, UpdateView):
     model = ServiceRequest
     form_class = ServiceRequestForm
     template_name = 'service/request_form.html'
     success_url = reverse_lazy('service:request_list')
+    slug_field = 'request_number'
+    slug_url_kwarg = 'slug'
 
 
-class RepairRecordCreateView(LoginRequiredMixin, CreateView):
+class RepairRecordCreateView(ManagerRequiredMixin, CreateView):
     model = RepairRecord
     form_class = RepairRecordForm
     template_name = 'service/repair_form.html'
@@ -93,6 +97,7 @@ class ServiceRequestImportView(BaseImportView):
     page_title = 'AS 접수 일괄 가져오기'
     cancel_url = reverse_lazy('service:request_list')
     sample_url = reverse_lazy('service:request_import_sample')
+    export_filename = 'AS요청_데이터'
     field_hints = [
         'AS번호(request_number)가 동일하면 기존 접수가 수정됩니다.',
         'customer_name: 고객명, product_code: 제품코드',

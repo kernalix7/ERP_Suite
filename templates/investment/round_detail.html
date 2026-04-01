@@ -12,9 +12,9 @@
 
 {% block content %}
 <!-- 라운드 정보 -->
-<div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">라운드 정보</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <div>
             <p class="text-sm text-gray-500">라운드명</p>
             <p class="mt-1 font-medium text-gray-900">{{ round.name }}</p>
@@ -68,36 +68,36 @@
 </div>
 
 <!-- 참여 투자자 -->
-<div class="bg-white rounded-xl shadow-sm p-6">
-    <div class="flex items-center justify-between mb-4">
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <h3 class="text-lg font-semibold text-gray-900">참여 투자자</h3>
         <a href="{% url 'investment:investment_create' %}" class="btn btn-primary text-sm">투자내역 추가</a>
     </div>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
-                <tr class="border-b border-gray-200">
-                    <th class="text-left py-3 px-4 font-medium text-gray-500">투자자</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">투자금액</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">지분율</th>
-                    <th class="text-left py-3 px-4 font-medium text-gray-500">투자일</th>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">투자자</th>
+                    <th class="px-4 py-3 text-right">투자금액</th>
+                    <th class="px-4 py-3 text-right">지분율</th>
+                    <th class="px-4 py-3">투자일</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-100">
                 {% for inv in investments %}
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 px-4 font-medium text-gray-900">
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">
                         <a href="{% url 'investment:investor_detail' inv.investor.pk %}" class="text-blue-600 hover:text-blue-800">
                             {{ inv.investor.name }}
                         </a>
                     </td>
-                    <td class="py-3 px-4 text-right">{{ inv.amount|intcomma }}원</td>
-                    <td class="py-3 px-4 text-right">{{ inv.share_percentage }}%</td>
-                    <td class="py-3 px-4">{{ inv.investment_date }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ inv.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ inv.share_percentage }}%</td>
+                    <td class="px-4 py-3 text-gray-600">{{ inv.investment_date }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="py-8 text-center text-gray-400">참여 투자자가 없습니다.</td>
+                    <td colspan="4" class="px-4 py-12 text-center text-gray-400">참여 투자자가 없습니다.</td>
                 </tr>
                 {% endfor %}
             </tbody>

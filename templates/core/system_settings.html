@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "시스템 설정" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "시스템 설정" %}{% endblock %}
+
+{% block content %}
+<!-- 빠른 작업 + 시스템 상태 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    <!-- 빠른 작업 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "빠른 작업" %}</h3>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'core:backup_download' %}" class="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                {% trans "DB 백업 실행" %}
+            </a>
+            <a href="{% url 'core:backup' %}" class="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                {% trans "백업 관리" %}
+            </a>
+        </div>
+    </div>
+    <!-- 시스템 상태 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "시스템 상태" %}</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            <div>
+                <span class="text-gray-500">Django</span>
+                <p class="font-medium text-gray-800">{{ system_info.django_version }}</p>
+            </div>
+            <div>
+                <span class="text-gray-500">Python</span>
+                <p class="font-medium text-gray-800">{{ system_info.python_version }}</p>
+            </div>
+            <div>
+                <span class="text-gray-500">{% trans "DB 크기" %}</span>
+                <p class="font-medium text-gray-800">{{ system_info.db_size }}</p>
+            </div>
+            <div>
+                <span class="text-gray-500">{% trans "사용자" %}</span>
+                <p class="font-medium text-gray-800">{{ system_info.user_count }}{% trans "명" %}</p>
+            </div>
+            <div>
+                <span class="text-gray-500">{% trans "직원" %}</span>
+                <p class="font-medium text-gray-800">{{ system_info.employee_count }}{% trans "명" %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div x-data="{ activeTab: '{{ active_tab }}' }" class="space-y-6">
+    <!-- 카테고리 탭 -->
+    <div class="border-b border-gray-200">
+        <nav class="-mb-px flex space-x-6">
+            {% for cat_value, cat_label in categories %}
+            <button @click="activeTab = '{{ cat_value }}'"
+                    :class="activeTab === '{{ cat_value }}' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                    class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+                {{ cat_label }}
+                <span class="ml-1 px-2 py-0.5 rounded-full text-xs"
+                      :class="activeTab === '{{ cat_value }}' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'">
+                    {{ grouped_configs|dictsort:"0"|first }}
+                    {% with configs=grouped_configs %}
+                    {% for key, group in configs.items %}
+                    {% if key == cat_value %}{{ group.configs|length }}{% endif %}
+                    {% endfor %}
+                    {% endwith %}
+                </span>
+            </button>
+            {% endfor %}
+        </nav>
+    </div>
+
+    <!-- 탭 콘텐츠 -->
+    {% for cat_value, group in grouped_configs.items %}
+    <div x-show="activeTab === '{{ cat_value }}'" x-cloak>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800">{{ group.label }} {% trans "설정" %}</h2>
+                    <p class="text-sm text-gray-500 mt-1">
+                        {% if cat_value == 'NTS' %}{% trans "국세청 홈택스 전자세금계산서 API 연동 설정" %}
+                        {% elif cat_value == 'MARKETPLACE' %}{% trans "네이버/쿠팡 등 마켓플레이스 API 연동 설정" %}
+                        {% elif cat_value == 'SHIPPING' %}{% trans "택배사 배송추적 API 설정" %}
+                        {% elif cat_value == 'EMAIL' %}{% trans "SMTP 이메일 발송 설정" %}
+                        {% elif cat_value == 'AI' %}{% trans "문의 자동답변 등 AI 서비스 API 설정" %}
+                        {% elif cat_value == 'ADDRESS' %}{% trans "도로명주소 검색 API 설정 (juso.go.kr)" %}
+                        {% elif cat_value == 'GENERAL' %}{% trans "일반 설정" %}
+                        {% elif cat_value == 'COMPANY' %}{% trans "회사 기본 정보 설정" %}
+                        {% elif cat_value == 'HR' %}{% trans "인사관리 기본 설정" %}
+                        {% elif cat_value == 'SECURITY' %}{% trans "보안 정책 설정" %}
+                        {% elif cat_value == 'BACKUP' %}{% trans "백업 및 복구 설정" %}
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    {% if cat_value == 'EMAIL' or cat_value == 'NTS' or cat_value == 'ADDRESS' or cat_value == 'MARKETPLACE' or cat_value == 'SHIPPING' or cat_value == 'AI' %}
+                    <button onclick="testConnection('{{ cat_value }}')"
+                            class="btn btn-secondary text-sm" id="test-btn-{{ cat_value }}">
+                        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        {% trans "연결 테스트" %}
+                    </button>
+                    {% endif %}
+                    <button onclick="openAddModal('{{ cat_value }}')" class="btn btn-primary text-sm">
+                        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        {% trans "설정 추가" %}
+                    </button>
+                </div>
+            </div>
+
+            {% if group.configs %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3">{% trans "표시명" %}</th>
+                            <th class="px-6 py-3">{% trans "설정키" %}</th>
+                            <th class="px-6 py-3">{% trans "설정값" %}</th>
+                            <th class="px-6 py-3">{% trans "타입" %}</th>
+                            <th class="px-6 py-3 text-right">{% trans "관리" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for config in group.configs %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div class="text-sm font-medium text-gray-900">{{ config.display_name }}</div>
+                                {% if config.description %}
+                                <div class="text-xs text-gray-500">{{ config.description }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                <code class="text-sm bg-gray-100 px-2 py-1 rounded">{{ config.key }}</code>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="text-sm text-gray-700">
+                                    {% if config.is_secret %}
+                                    <span class="text-gray-400">********</span>
+                                    {% elif config.value %}
+                                    {{ config.value|truncatechars:50 }}
+                                    {% else %}
+                                    <span class="text-gray-400 italic">{% trans "미설정" %}</span>
+                                    {% endif %}
+                                </span>
+                                {% if config.is_secret %}
+                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                    {% trans "암호화" %}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="text-xs text-gray-500">{{ config.get_value_type_display }}</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button onclick="openEditModal({{ config.pk }}, '{{ config.category }}', '{{ config.key }}', '{{ config.display_name|escapejs }}', '{{ config.description|escapejs }}', {{ config.is_secret|yesno:'true,false' }}, '{{ config.value_type }}', '{% if not config.is_secret %}{{ config.value|escapejs }}{% endif %}')"
+                                        class="text-blue-600 hover:text-blue-800 text-sm mr-2">
+                                    {% trans "수정" %}
+                                </button>
+                                <form method="post" class="inline" onsubmit="return confirm('이 설정을 삭제하시겠습니까?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="config_id" value="{{ config.pk }}">
+                                    <input type="hidden" name="tab" value="{{ cat_value }}">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">
+                                        {% trans "삭제" %}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="px-6 py-12 text-center">
+                <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <p class="mt-2 text-sm text-gray-500">{% trans "등록된 설정이 없습니다." %}</p>
+                <button onclick="openAddModal('{{ cat_value }}')" class="mt-3 btn btn-primary text-sm">
+                    {% trans "설정 추가" %}
+                </button>
+            </div>
+            {% endif %}
+
+            {% if cat_value == 'SHIPPING' %}
+            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+                <div class="flex items-center gap-2 text-sm text-gray-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                    </svg>
+                    <span>{% trans "관련 기능" %}:</span>
+                    <a href="{% url 'sales:carrier_list' %}" class="text-blue-600 hover:text-blue-800 font-medium">
+                        {% trans "택배사 관리" %} &rarr;
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 설정 추가/수정 모달 -->
+<div id="config-modal" class="fixed inset-0 z-50 hidden" aria-modal="true">
+    <div class="fixed inset-0 bg-black bg-opacity-30" onclick="closeModal()"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg relative">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 id="modal-title" class="text-lg font-semibold text-gray-800">{% trans "설정 추가" %}</h3>
+            </div>
+            <form method="post" id="config-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save">
+                <input type="hidden" name="config_id" id="form-config-id">
+                <input type="hidden" name="tab" id="form-tab">
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "카테고리" %} <span class="text-red-500">*</span></label>
+                        <select name="category" id="form-category" class="form-input" required>
+                            {% for cat_value, cat_label in categories %}
+                            <option value="{{ cat_value }}">{{ cat_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "설정키" %} <span class="text-red-500">*</span></label>
+                        <input type="text" name="key" id="form-key" class="form-input" required placeholder="smtp_host">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "표시명" %} <span class="text-red-500">*</span></label>
+                        <input type="text" name="display_name" id="form-display-name" class="form-input" required placeholder="SMTP 호스트">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "설정값" %}</label>
+                        <input type="text" name="value" id="form-value" class="form-input" placeholder="{% trans '설정값을 입력하세요' %}">
+                        <p id="form-value-hint" class="mt-1 text-xs text-green-600 hidden">
+                            <svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {% trans "현재 값이 설정되어 있습니다. 비워두면 기존 값이 유지됩니다." %}
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "값 타입" %}</label>
+                            <select name="value_type" id="form-value-type" class="form-input">
+                                {% for vt_value, vt_label in value_types %}
+                                <option value="{{ vt_value }}">{{ vt_label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="flex items-end pb-1">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" name="is_secret" id="form-is-secret" class="form-checkbox">
+                                <span class="text-sm text-gray-700">{% trans "민감정보 (마스킹)" %}</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "설명" %}</label>
+                        <textarea name="description" id="form-description" class="form-input h-16" rows="2" placeholder="{% trans '설정에 대한 설명' %}"></textarea>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                    <button type="button" onclick="closeModal()" class="btn btn-secondary">{% trans "취소" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "저장" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 연결 테스트 결과 Toast -->
+<div id="test-toast" class="fixed bottom-4 right-4 z-50 hidden">
+    <div id="test-toast-content" class="rounded-lg shadow-lg px-6 py-4 text-sm max-w-md"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openAddModal(category) {
+    document.getElementById('modal-title').textContent = '설정 추가';
+    document.getElementById('form-config-id').value = '';
+    document.getElementById('form-category').value = category;
+    document.getElementById('form-tab').value = category;
+    document.getElementById('form-key').value = '';
+    document.getElementById('form-display-name').value = '';
+    document.getElementById('form-value').value = '';
+    document.getElementById('form-value').type = 'text';
+    document.getElementById('form-value').placeholder = '설정값을 입력하세요';
+    document.getElementById('form-value-type').value = 'text';
+    document.getElementById('form-is-secret').checked = false;
+    document.getElementById('form-description').value = '';
+    document.getElementById('form-key').readOnly = false;
+    document.getElementById('form-key').classList.remove('bg-gray-100', 'cursor-not-allowed');
+    document.getElementById('form-value-hint').classList.add('hidden');
+    document.getElementById('config-modal').classList.remove('hidden');
+}
+
+function openEditModal(id, category, key, displayName, description, isSecret, valueType, value) {
+    document.getElementById('modal-title').textContent = '설정 수정';
+    document.getElementById('form-config-id').value = id;
+    document.getElementById('form-category').value = category;
+    document.getElementById('form-tab').value = category;
+    document.getElementById('form-key').value = key;
+    document.getElementById('form-display-name').value = displayName;
+    document.getElementById('form-value-type').value = valueType;
+    document.getElementById('form-is-secret').checked = isSecret;
+    document.getElementById('form-description').value = description;
+
+    var valueInput = document.getElementById('form-value');
+    var hint = document.getElementById('form-value-hint');
+    if (isSecret) {
+        valueInput.value = '';
+        valueInput.placeholder = '변경하려면 새 값을 입력하세요';
+        valueInput.type = 'password';
+        hint.classList.remove('hidden');
+    } else {
+        valueInput.value = value;
+        valueInput.placeholder = '설정값을 입력하세요';
+        valueInput.type = 'text';
+        hint.classList.add('hidden');
+    }
+    document.getElementById('form-key').readOnly = true;
+    document.getElementById('form-key').classList.add('bg-gray-100', 'cursor-not-allowed');
+    document.getElementById('config-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('config-modal').classList.add('hidden');
+}
+
+function testConnection(category) {
+    var btn = document.getElementById('test-btn-' + category);
+    btn.disabled = true;
+    btn.textContent = '테스트 중...';
+
+    fetch('{% url "core:system_config_test" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'category=' + encodeURIComponent(category),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        showToast(data.success, data.message);
+    })
+    .catch(function() {
+        showToast(false, '연결 테스트 중 오류가 발생했습니다.');
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>연결 테스트';
+    });
+}
+
+function showToast(success, message) {
+    var toast = document.getElementById('test-toast');
+    var content = document.getElementById('test-toast-content');
+    content.className = 'rounded-lg shadow-lg px-6 py-4 text-sm max-w-md ' +
+        (success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200');
+    content.textContent = message;
+    toast.classList.remove('hidden');
+    setTimeout(function() { toast.classList.add('hidden'); }, 5000);
+}
+
+// ESC 키로 모달 닫기
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+});
+</script>
+{% endblock %}

@@ -41,7 +41,8 @@ ERP_Suite/
 │   │   ├── base.py          # 공통 설정 (비공개)
 │   │   ├── development.py   # 개발 환경 설정
 │   │   └── production.py    # 운영 환경 설정
-│   └── wsgi.py              # WSGI 엔트리포인트
+│   ├── asgi.py              # ASGI 엔트리포인트 (Daphne)
+│   └── wsgi.py              # WSGI 엔트리포인트 (폴백)
 ├── templates/               # 전역 템플릿
 │   ├── base.html            # 기본 레이아웃 (사이드바, 헤더)
 │   ├── 403.html / 404.html / 500.html  # 에러 페이지

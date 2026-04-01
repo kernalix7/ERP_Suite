@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% load phone_filters %}
 
 {% block title %}정품등록 상세 - {{ object.serial_number }} - ERP Suite{% endblock %}
 {% block page_title %}정품등록 상세{% endblock %}
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
-    <a href="{% url 'warranty:registration_update' object.pk %}" class="btn btn-primary">수정</a>
+    <a href="{% url 'warranty:registration_update' object.serial_number %}" class="btn btn-primary">수정</a>
     <a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">목록</a>
 </div>
 {% endblock %}
@@ -13,8 +14,8 @@
 {% block content %}
 <div class="space-y-6">
     <!-- 정품등록 정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between mb-4">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h2 class="text-lg font-semibold text-gray-800">정품등록 정보</h2>
             {% if object.is_verified %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">인증완료</span>
@@ -22,7 +23,7 @@
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">미인증</span>
             {% endif %}
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">시리얼번호</dt>
                 <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ object.serial_number }}</dd>
@@ -37,7 +38,7 @@
             </div>
             <div>
                 <dt class="text-sm text-gray-500">연락처</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ object.phone|default:"-" }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.phone|format_phone|default:"-" }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">이메일</dt>
@@ -46,6 +47,10 @@
             <div>
                 <dt class="text-sm text-gray-500">구매일</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ object.purchase_date|date:"Y-m-d" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">AS기간</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.warranty_days }}일</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">보증기간</dt>
@@ -66,9 +71,35 @@
         </div>
     </div>
 
+    <!-- 인증 정보 -->
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6 {% if not object.is_verified %}opacity-50{% endif %}">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+            <h2 class="text-lg font-semibold text-gray-800">인증 정보</h2>
+            {% if not object.is_verified %}
+            <span class="text-xs text-gray-400">인증 완료 후 활성화됩니다</span>
+            {% endif %}
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div>
+                <dt class="text-sm text-gray-500">인증 후 AS기간</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.verified_warranty_days }}일</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">인증 후 보증만료일</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    {% if object.is_verified %}
+                    {{ object.warranty_end|date:"Y-m-d" }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </dd>
+            </div>
+        </div>
+    </div>
+
     <!-- 사진 -->
     {% if object.photo %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">제품 사진</h2>
         <div class="max-w-md">
             <img src="{{ object.photo.url }}" alt="제품 사진" class="rounded-lg border border-gray-200 w-full">

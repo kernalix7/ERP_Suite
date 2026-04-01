@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
+from apps.core.storage import hashed_upload_path
+
 
 ALLOWED_EXTENSIONS = [
     'pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp',
@@ -63,7 +65,7 @@ class Attachment(models.Model):
     content_object = GenericForeignKey('content_type', 'object_id')
 
     file = models.FileField(
-        '파일', upload_to='attachments/%Y/%m/',
+        '파일', upload_to=hashed_upload_path('attachments'),
         validators=[
             FileExtensionValidator(ALLOWED_EXTENSIONS),
             validate_file_content_type,

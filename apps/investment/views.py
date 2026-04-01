@@ -19,12 +19,14 @@ class InvestmentDashboardView(ManagerRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
 
         # 총 투자금
-        ctx['total_invested'] = Investment.objects.aggregate(
+        ctx['total_invested'] = Investment.objects.filter(
+            is_active=True,
+        ).aggregate(
             total=Sum('amount')
         )['total'] or 0
 
         # 투자자 수
-        ctx['investor_count'] = Investor.objects.count()
+        ctx['investor_count'] = Investor.objects.filter(is_active=True).count()
 
         # 최근 기업가치
         latest_round = InvestmentRound.objects.first()
@@ -225,10 +227,10 @@ class DistributionListView(ManagerRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['total_paid'] = Distribution.objects.filter(
-            status='PAID'
+            is_active=True, status='PAID'
         ).aggregate(total=Sum('amount'))['total'] or 0
         ctx['total_scheduled'] = Distribution.objects.filter(
-            status__in=['SCHEDULED', 'PENDING']
+            is_active=True, status__in=['SCHEDULED', 'PENDING']
         ).aggregate(total=Sum('amount'))['total'] or 0
         return ctx
 
@@ -258,6 +260,7 @@ class InvestorImportView(BaseImportView):
     page_title = '투자자 일괄 가져오기'
     cancel_url = reverse_lazy('investment:investor_list')
     sample_url = reverse_lazy('investment:investor_import_sample')
+    export_filename = '투자자_데이터'
     field_hints = [
         '투자자명(name)이 동일하면 기존 투자자가 수정됩니다.',
     ]

@@ -5,7 +5,7 @@
 
 {% block header_actions %}
 {% if stock_count.status != 'ADJUSTED' %}
-<form method="post" action="{% url 'inventory:stockcount_adjust' stock_count.pk %}" class="inline"
+<form method="post" action="{% url 'inventory:stockcount_adjust' stock_count.count_number %}" class="inline"
       onsubmit="return confirm('차이가 있는 항목에 대해 재고조정을 실행합니다. 계속하시겠습니까?')">
     {% csrf_token %}
     <button type="submit" class="btn btn-primary">
@@ -21,16 +21,16 @@
 
 {% block content %}
 <!-- 요약 정보 -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">창고</p>
         <p class="text-lg font-semibold text-gray-900">{{ stock_count.warehouse.name }}</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">실사일</p>
         <p class="text-lg font-semibold text-gray-900">{{ stock_count.count_date|date:"Y-m-d" }}</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">상태</p>
         <p class="text-lg font-semibold
             {% if stock_count.status == 'ADJUSTED' %}text-green-600
@@ -39,7 +39,7 @@
             {{ stock_count.get_status_display }}
         </p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">차이 항목</p>
         <p class="text-lg font-semibold {% if diff_count > 0 %}text-red-600{% else %}text-green-600{% endif %}">
             {{ diff_count }}건
@@ -48,10 +48,10 @@
 </div>
 
 <!-- 실사 항목 테이블 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <form method="post" action="{% url 'inventory:stockcount_update' stock_count.pk %}">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <form method="post" action="{% url 'inventory:stockcount_update' stock_count.count_number %}">
         {% csrf_token %}
-        <div class="overflow-x-auto">
+        <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">

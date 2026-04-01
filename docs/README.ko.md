@@ -39,7 +39,7 @@
 |------|------|
 | **공통** | 대시보드, 알림, Excel/PDF 내보내기, 바코드 생성, 백업/복원, 감사추적, 접근 로그 |
 | **사용자** | 인증, RBAC(관리자/매니저/직원), 로그인 보호(django-axes) |
-| **API** | REST API(DRF ViewSets), JWT 인증(SimpleJWT) |
+| **API** | REST API(28 DRF ViewSets), JWT 인증(SimpleJWT) |
 | **Active Directory** | LDAP/AD 연동, 사용자/그룹 동기화, 그룹 정책 기반 역할 매핑 |
 
 ## 기술 스택
@@ -133,13 +133,13 @@ docker-compose up -d
 ## 테스트
 
 ```bash
-# 단위 테스트 (592 테스트, --parallel로 병렬 실행)
+# 단위 테스트 (877 테스트, --parallel로 병렬 실행)
 python manage.py test apps/ -v 2 --parallel
 
 # 검증 테스트 (보안/무결성/성능/워크플로/재해복구)
 python manage.py test tests.verification -v 2 --parallel
 
-# 전체 테스트 한번에 실행
+# 전체 테스트 한번에 실행 (988 테스트)
 python manage.py test apps/ tests.verification -v 0 --parallel
 
 # E2E 테스트 (Playwright)
@@ -149,9 +149,9 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**테스트 커버리지: 592 테스트 (단위 + 검증)**
+**테스트 커버리지: 988 테스트 (단위 + 검증)**
 
-검증 기준 152개 항목, 9개 카테고리:
+검증 기준 79개 항목, 7개 카테고리:
 - SEC-001~020: 보안 검증 (OWASP Top 10)
 - INT-001~015: 데이터 무결성 검증
 - PERF-001~007: 성능 검증
@@ -204,10 +204,10 @@ cd loadtest && locust -f locustfile.py --host http://localhost:8000
 
 ## 현재 규모
 
-- **22개 앱**, **106개 모델** (전체 이력 추적)
-- **300+ 뷰**, **250+ 템플릿**, **320+ URL 엔드포인트**
+- **22개 앱**, **110개 모델** (전체 이력 추적)
+- **300+ 뷰**, **260+ 템플릿**, **450+ URL 엔드포인트**
 - **~30,000줄** Python 코드 (마이그레이션 제외)
-- **592 테스트** (단위 + 검증)
+- **988 테스트** (단위 + 검증)
 - **110+ 마이그레이션**, **25+ 패키지**
 
 ## 라이선스

@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <!-- 필터 -->
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-wrap gap-3">
@@ -47,7 +47,7 @@
     </div>
 
     <!-- 테이블 -->
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -65,7 +65,7 @@
                 {% for voucher in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3 font-mono text-gray-900">
-                        <a href="{% url 'accounting:voucher_detail' voucher.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        <a href="{% url 'accounting:voucher_detail' voucher.voucher_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ voucher.voucher_number }}
                         </a>
                     </td>
@@ -94,9 +94,9 @@
                     <td class="px-4 py-3 text-right text-gray-900">{{ voucher.total_debit|intcomma }}원</td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ voucher.total_credit|intcomma }}원</td>
                     <td class="px-4 py-3 text-center">
-                        <a href="{% url 'accounting:voucher_detail' voucher.pk %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
+                        <a href="{% url 'accounting:voucher_detail' voucher.voucher_number %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
                         {% if voucher.approval_status == 'DRAFT' %}
-                        <a href="{% url 'accounting:voucher_update' voucher.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                        <a href="{% url 'accounting:voucher_update' voucher.voucher_number %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
                         {% endif %}
                     </td>
                 </tr>

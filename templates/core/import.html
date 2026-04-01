@@ -5,6 +5,14 @@
 
 {% block header_actions %}
 <div class="flex items-center gap-2">
+    {% if supports_export %}
+    <a href="?action=export" class="btn btn-primary">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        기존 데이터 저장
+    </a>
+    {% endif %}
     <a href="{{ sample_url }}" class="btn btn-secondary">
         <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -23,7 +31,7 @@
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <!-- 업로드 폼 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">
             <svg class="w-5 h-5 inline-block mr-1 -mt-0.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
@@ -60,7 +68,7 @@
 
     <!-- 에러 표시 -->
     {% if errors %}
-    <div class="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+    <div class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
         <h3 class="text-base font-semibold text-red-800 mb-3">
             <svg class="w-5 h-5 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -77,7 +85,7 @@
 
     <!-- 미리보기 결과 -->
     {% if preview %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
         <div class="p-4 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-900">
                 <svg class="w-5 h-5 inline-block mr-1 -mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +180,7 @@
     {% endif %}
 
     <!-- 안내 -->
-    <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h3 class="text-base font-semibold text-blue-800 mb-3">
             <svg class="w-5 h-5 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>

@@ -14,13 +14,13 @@ urlpatterns = [
     # 생산계획
     path('plans/', views.ProductionPlanListView.as_view(), name='plan_list'),
     path('plans/create/', views.ProductionPlanCreateView.as_view(), name='plan_create'),
-    path('plans/<int:pk>/', views.ProductionPlanDetailView.as_view(), name='plan_detail'),
-    path('plans/<int:pk>/edit/', views.ProductionPlanUpdateView.as_view(), name='plan_update'),
+    path('plans/<str:slug>/', views.ProductionPlanDetailView.as_view(), name='plan_detail'),
+    path('plans/<str:slug>/edit/', views.ProductionPlanUpdateView.as_view(), name='plan_update'),
     # 작업지시
     path('work-orders/', views.WorkOrderListView.as_view(), name='workorder_list'),
     path('work-orders/create/', views.WorkOrderCreateView.as_view(), name='workorder_create'),
-    path('work-orders/<int:pk>/', views.WorkOrderDetailView.as_view(), name='workorder_detail'),
-    path('work-orders/<int:pk>/edit/', views.WorkOrderUpdateView.as_view(), name='workorder_update'),
+    path('work-orders/<str:slug>/', views.WorkOrderDetailView.as_view(), name='workorder_detail'),
+    path('work-orders/<str:slug>/edit/', views.WorkOrderUpdateView.as_view(), name='workorder_update'),
     # 생산실적
     path('records/', views.ProductionRecordListView.as_view(), name='record_list'),
     path('records/create/', views.ProductionRecordCreateView.as_view(), name='record_create'),
@@ -33,8 +33,8 @@ urlpatterns = [
     # 품질검수
     path('qc/', views.QualityInspectionListView.as_view(), name='qc_list'),
     path('qc/create/', views.QualityInspectionCreateView.as_view(), name='qc_create'),
-    path('qc/<int:pk>/', views.QualityInspectionDetailView.as_view(), name='qc_detail'),
-    path('qc/<int:pk>/edit/', views.QualityInspectionUpdateView.as_view(), name='qc_update'),
+    path('qc/<str:slug>/', views.QualityInspectionDetailView.as_view(), name='qc_detail'),
+    path('qc/<str:slug>/edit/', views.QualityInspectionUpdateView.as_view(), name='qc_update'),
     # 표준원가
     path(
         'standard-cost/',

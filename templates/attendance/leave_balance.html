@@ -22,10 +22,10 @@
 {% block content %}
 <!-- 연차 잔여 카드 -->
 <div class="max-w-2xl mx-auto">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-6">{{ balance.year }}{% trans "년 연차 현황" %}</h3>
+    <div class="bg-white shadow rounded-lg p-4 sm:p-8 mb-4 sm:mb-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 sm:mb-6">{{ balance.year }}{% trans "년 연차 현황" %}</h3>
 
-        <div class="grid grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
             <div class="text-center">
                 <p class="text-sm text-gray-500 mb-1">{% trans "총 연차" %}</p>
                 <p class="text-3xl font-bold text-gray-900">{{ balance.total_days }}</p>
@@ -62,21 +62,21 @@
     </div>
 
     <!-- 올해 사용 내역 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white shadow rounded-lg">
         <div class="p-4 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-800">{% trans "올해 휴가 사용 내역" %}</h3>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-                <thead>
-                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                        <th class="px-4 py-3">{% trans "유형" %}</th>
-                        <th class="px-4 py-3">{% trans "기간" %}</th>
-                        <th class="px-4 py-3 text-right">{% trans "일수" %}</th>
-                        <th class="px-4 py-3">{% trans "사유" %}</th>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "유형" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "기간" %}</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "일수" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "사유" %}</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody class="bg-white divide-y divide-gray-200">
                     {% for leave in used_leaves %}
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3">

@@ -10,22 +10,30 @@ build/
 venv/
 
 # Django
-db.sqlite3
+*.sqlite3
 media/
 staticfiles/
 
 # Environment
 .env
 .env.*
+!.env.example
 
 # OS / Editor
 .DS_Store
 Thumbs.db
 .idea/
+*.swp
+*~
 node_modules/
 
 # Logs
 *.log
+
+# Testing / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Tailwind standalone CLI binary (temporary, downloaded by scripts/download_vendor.sh)
 tailwindcss-*
@@ -35,6 +43,10 @@ static/vendor/
 
 # Local (sensitive data, test DB, backups)
 local/
+
+# Backup toolkit temp files (scripts are tracked, only temp/output ignored)
+tmp-igbkp/.work/
+tmp-igbkp/output/
 
 # Temporary scripts
 backfill_purchases.py
@@ -46,3 +58,4 @@ CLAUDE.md
 .claude
 .vscode
 WORK_STATUS.md
+AI_PROJECT_SETUP.md

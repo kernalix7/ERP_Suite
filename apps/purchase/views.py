@@ -56,7 +56,7 @@ class PurchaseOrderListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class PurchaseOrderCreateView(LoginRequiredMixin, CreateView):
+class PurchaseOrderCreateView(ManagerRequiredMixin, CreateView):
     model = PurchaseOrder
     form_class = PurchaseOrderForm
     template_name = 'purchase/po_form.html'
@@ -98,6 +98,8 @@ class PurchaseOrderDetailView(LoginRequiredMixin, DetailView):
     model = PurchaseOrder
     template_name = 'purchase/po_detail.html'
     context_object_name = 'order'
+    slug_field = 'po_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -136,11 +138,11 @@ class PurchaseOrderDetailView(LoginRequiredMixin, DetailView):
 class PurchaseOrderDeleteView(ManagerRequiredMixin, View):
     """발주서 삭제 (soft delete, DRAFT만 가능)"""
 
-    def post(self, request, pk):
-        order = get_object_or_404(PurchaseOrder, pk=pk, is_active=True)
+    def post(self, request, slug):
+        order = get_object_or_404(PurchaseOrder, po_number=slug, is_active=True)
         if order.status != 'DRAFT':
             messages.error(request, '작성중 상태의 발주서만 삭제할 수 있습니다.')
-            return redirect('purchase:po_detail', pk=order.pk)
+            return redirect('purchase:po_detail', slug=order.po_number)
 
         order.is_active = False
         order.save(update_fields=['is_active', 'updated_at'])
@@ -150,11 +152,13 @@ class PurchaseOrderDeleteView(ManagerRequiredMixin, View):
         return redirect('purchase:po_list')
 
 
-class PurchaseOrderUpdateView(LoginRequiredMixin, UpdateView):
+class PurchaseOrderUpdateView(ManagerRequiredMixin, UpdateView):
     model = PurchaseOrder
     form_class = PurchaseOrderForm
     template_name = 'purchase/po_form.html'
     success_url = reverse_lazy('purchase:po_list')
+    slug_field = 'po_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -193,33 +197,33 @@ class PurchaseOrderUpdateView(LoginRequiredMixin, UpdateView):
 class PurchaseOrderStatusChangeView(ManagerRequiredMixin, View):
     """발주서 상태 전환 (POST only)"""
 
-    def post(self, request, pk):
-        order = get_object_or_404(PurchaseOrder, pk=pk, is_active=True)
+    def post(self, request, slug):
+        order = get_object_or_404(PurchaseOrder, po_number=slug, is_active=True)
         new_status = request.POST.get('status')
 
         allowed = PurchaseOrder.STATUS_TRANSITIONS.get(order.status, [])
         if new_status not in allowed:
             messages.error(request, '허용되지 않는 상태 전환입니다.')
-            return redirect('purchase:po_detail', pk=order.pk)
+            return redirect('purchase:po_detail', slug=order.po_number)
 
         order.status = new_status
         try:
             order.save(update_fields=['status', 'updated_at'])
         except Exception as e:
             messages.error(request, str(e))
-            return redirect('purchase:po_detail', pk=order.pk)
+            return redirect('purchase:po_detail', slug=order.po_number)
 
         messages.success(
             request,
             f'발주 상태가 "{order.get_status_display()}"(으)로 '
             f'변경되었습니다.',
         )
-        return redirect('purchase:po_detail', pk=order.pk)
+        return redirect('purchase:po_detail', slug=order.po_number)
 
 
 # ─── 입고 ────────────────────────────────────────────────
 
-class GoodsReceiptCreateView(LoginRequiredMixin, CreateView):
+class GoodsReceiptCreateView(ManagerRequiredMixin, CreateView):
     model = GoodsReceipt
     form_class = GoodsReceiptForm
     template_name = 'purchase/receipt_form.html'
@@ -231,7 +235,7 @@ class GoodsReceiptCreateView(LoginRequiredMixin, CreateView):
         return initial
 
     def dispatch(self, request, *args, **kwargs):
-        self.purchase_order = get_object_or_404(PurchaseOrder, pk=kwargs['pk'])
+        self.purchase_order = get_object_or_404(PurchaseOrder, po_number=kwargs['slug'])
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -265,7 +269,7 @@ class GoodsReceiptCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse('purchase:receipt_detail', kwargs={'pk': self.object.pk})
+        return reverse('purchase:receipt_detail', kwargs={'slug': self.object.receipt_number})
 
 
 class GoodsReceiptListView(LoginRequiredMixin, ListView):
@@ -290,6 +294,8 @@ class GoodsReceiptDetailView(LoginRequiredMixin, DetailView):
     model = GoodsReceipt
     template_name = 'purchase/receipt_detail.html'
     context_object_name = 'receipt'
+    slug_field = 'receipt_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -302,6 +308,13 @@ class GoodsReceiptDetailView(LoginRequiredMixin, DetailView):
 class PurchaseOrderImportView(ManagerRequiredMixin, TemplateView):
     template_name = 'core/import.html'
 
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('action') == 'export':
+            from apps.core.import_views import export_resource_data
+            from .resources import PurchaseOrderResource
+            return export_resource_data(PurchaseOrderResource(), '발주서_데이터')
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['page_title'] = '구매발주 일괄 가져오기'
@@ -312,6 +325,7 @@ class PurchaseOrderImportView(ManagerRequiredMixin, TemplateView):
             'partner_code: 거래처코드',
             'status: DRAFT(임시), CONFIRMED(확정)',
         ]
+        ctx['supports_export'] = True
         return ctx
 
     def post(self, request, *args, **kwargs):

@@ -4,126 +4,198 @@
 {% block audit_content %}
 <!-- 통계 카드 -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white rounded-xl shadow-sm border p-5">
+    <div class="bg-white rounded-lg shadow-sm border p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">오늘 접근 로그</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "오늘 접근 로그" %}</p>
                 <p class="text-2xl font-bold text-gray-900 mt-1">{{ today_access_count|default:"0" }}</p>
             </div>
             <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             </div>
         </div>
-        <a href="{% url 'core:audit_access_log' %}" class="text-xs text-blue-600 hover:underline mt-2 inline-block">상세보기 →</a>
+        <a href="{% url 'core:audit_access_log' %}" class="text-xs text-blue-600 hover:underline mt-2 inline-block">{% trans "상세보기" %} →</a>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border p-5">
+    <div class="bg-white rounded-lg shadow-sm border p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">7일간 데이터 변경</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "7일간 데이터 변경" %}</p>
                 <p class="text-2xl font-bold text-gray-900 mt-1">{{ week_changes|default:"0" }}</p>
             </div>
             <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                 <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
         </div>
-        <a href="{% url 'core:audit_data_changes' %}" class="text-xs text-green-600 hover:underline mt-2 inline-block">상세보기 →</a>
+        <a href="{% url 'core:audit_data_changes' %}" class="text-xs text-green-600 hover:underline mt-2 inline-block">{% trans "상세보기" %} →</a>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border p-5">
+    <div class="bg-white rounded-lg shadow-sm border p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">오늘 로그인 실패</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "오늘 로그인 실패" %}</p>
                 <p class="text-2xl font-bold {% if failed_logins_today > 0 %}text-red-600{% else %}text-gray-900{% endif %} mt-1">{{ failed_logins_today|default:"0" }}</p>
             </div>
             <div class="w-10 h-10 {% if failed_logins_today > 0 %}bg-red-100{% else %}bg-gray-100{% endif %} rounded-lg flex items-center justify-center">
                 <svg class="w-5 h-5 {% if failed_logins_today > 0 %}text-red-600{% else %}text-gray-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
             </div>
         </div>
-        <p class="text-xs text-gray-500 mt-2">잠긴 계정: {{ locked_accounts|default:"0" }}건</p>
+        <p class="text-xs text-gray-500 mt-2">{% trans "잠긴 계정" %}: {{ locked_accounts|default:"0" }}{% trans "건" %}</p>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border p-5">
+    <div class="bg-white rounded-lg shadow-sm border p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">감사권한 보유자</p>
-                <p class="text-2xl font-bold text-gray-900 mt-1">{{ auditor_count|default:"0" }}명</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "감사권한 보유자" %}</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ auditor_count|default:"0" }}{% trans "명" %}</p>
             </div>
             <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                 <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             </div>
         </div>
-        <a href="{% url 'core:audit_audit_log' %}" class="text-xs text-purple-600 hover:underline mt-2 inline-block">열람 기록 →</a>
+        <a href="{% url 'core:audit_audit_log' %}" class="text-xs text-purple-600 hover:underline mt-2 inline-block">{% trans "열람 기록" %} →</a>
     </div>
 </div>
 
-<!-- ISMS 증적 항목 -->
-<div class="bg-white rounded-xl shadow-sm border mb-8">
-    <div class="px-6 py-4 border-b">
-        <h3 class="text-sm font-semibold text-gray-900">ISMS 증적 관리 항목</h3>
+<!-- ISMS 자동 진단 -->
+<div class="bg-white rounded-lg shadow-sm border mb-8">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-gray-900">{% trans "ISMS 증적 자동 진단" %}</h3>
+        <a href="{% url 'core:audit_export' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            {% trans "증적 보고서 다운로드" %}
+        </a>
     </div>
     <div class="p-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
-                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                <div>
-                    <p class="text-sm font-medium text-gray-900">접근통제</p>
-                    <p class="text-xs text-gray-500">시스템 접근 로그, 비인가 접근 탐지</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for check in isms_checks %}
+            <div class="flex items-start space-x-3 p-3 rounded-lg {% if check.passed %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %}">
+                {% if check.passed %}
+                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </span>
+                {% else %}
+                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                {% endif %}
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <p class="text-sm font-medium {% if check.passed %}text-green-800{% else %}text-red-800{% endif %}">{{ check.name }}</p>
+                        <span class="px-1.5 py-0.5 rounded text-xs font-medium {% if check.passed %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                            {% if check.passed %}{% trans "통과" %}{% else %}{% trans "미통과" %}{% endif %}
+                        </span>
+                    </div>
+                    <p class="text-xs {% if check.passed %}text-green-600{% else %}text-red-600{% endif %} mt-0.5">{{ check.details }}</p>
                 </div>
             </div>
-            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
-                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                <div>
-                    <p class="text-sm font-medium text-gray-900">인증 및 권한관리</p>
-                    <p class="text-xs text-gray-500">로그인 이력, 실패 시도, 계정 잠금</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- 시계열 그래프 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white rounded-lg shadow-sm border p-5">
+        <h3 class="text-sm font-semibold text-gray-900 mb-4">{% trans "최근 7일 접근/변경 추이" %}</h3>
+        <canvas id="accessChangeChart" height="200"></canvas>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border p-5">
+        <h3 class="text-sm font-semibold text-gray-900 mb-4">{% trans "최근 7일 로그인 성공/실패" %}</h3>
+        <canvas id="loginChart" height="200"></canvas>
+    </div>
+</div>
+
+<!-- 결재 현황 + 권한 변경 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- 결재 현황 -->
+    <div class="bg-white rounded-lg shadow-sm border">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-sm font-semibold text-gray-900">{% trans "결재 현황" %}</h3>
+        </div>
+        <div class="p-4">
+            <div class="flex gap-3 mb-4">
+                <div class="flex-1 bg-blue-50 rounded-lg p-3 text-center">
+                    <p class="text-lg font-bold text-blue-700">{{ approval_pending }}</p>
+                    <p class="text-xs text-blue-600">{% trans "대기" %}</p>
+                </div>
+                <div class="flex-1 bg-green-50 rounded-lg p-3 text-center">
+                    <p class="text-lg font-bold text-green-700">{{ approval_approved }}</p>
+                    <p class="text-xs text-green-600">{% trans "승인" %}</p>
+                </div>
+                <div class="flex-1 bg-red-50 rounded-lg p-3 text-center">
+                    <p class="text-lg font-bold text-red-700">{{ approval_rejected }}</p>
+                    <p class="text-xs text-red-600">{% trans "반려" %}</p>
                 </div>
             </div>
-            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
-                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                <div>
-                    <p class="text-sm font-medium text-gray-900">개인정보 보호</p>
-                    <p class="text-xs text-gray-500">민감데이터 암호화, 접근 기록, 변경 이력</p>
+            <div class="space-y-2 max-h-48 overflow-y-auto">
+                {% for req in recent_approvals %}
+                <div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-100">
+                    <div class="flex-1 min-w-0 mr-2">
+                        <span class="font-medium text-gray-800 truncate block">{{ req.title|truncatechars:30 }}</span>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0
+                        {% if req.status == 'APPROVED' %}bg-green-100 text-green-700
+                        {% elif req.status == 'REJECTED' %}bg-red-100 text-red-700
+                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                        {{ req.get_status_display }}
+                    </span>
                 </div>
+                {% empty %}
+                <p class="text-xs text-gray-400 text-center py-4">{% trans "결재 내역이 없습니다." %}</p>
+                {% endfor %}
             </div>
-            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
-                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
-                <div>
-                    <p class="text-sm font-medium text-gray-900">감사 증적 보호</p>
-                    <p class="text-xs text-gray-500">증적 열람 기록(메타감사), 감사권한 분리</p>
-                </div>
-            </div>
-            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
-                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">5</span>
-                <div>
-                    <p class="text-sm font-medium text-gray-900">데이터 무결성</p>
-                    <p class="text-xs text-gray-500">전체 모델 변경이력(simple_history), 소프트삭제</p>
-                </div>
-            </div>
-            <div class="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
-                <span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">6</span>
-                <div>
-                    <p class="text-sm font-medium text-gray-900">암호화</p>
-                    <p class="text-xs text-gray-500">비밀번호 PBKDF2-SHA256 해시, 민감필드 Fernet 암호화</p>
-                </div>
-            </div>
+        </div>
+    </div>
+
+    <!-- 권한 변경 이력 -->
+    <div class="bg-white rounded-lg shadow-sm border">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-sm font-semibold text-gray-900">{% trans "최근 권한 변경" %}</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "사용자" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "변경" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "일시" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for change in recent_role_changes %}
+                    <tr>
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ change.name|default:change.username }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="text-gray-500">{{ change.old_role }}</span>
+                            <span class="text-gray-400 mx-1">→</span>
+                            <span class="font-medium text-gray-800">{{ change.new_role }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-gray-500">{{ change.changed_at|date:"m/d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="px-4 py-8 text-center text-sm text-gray-400">{% trans "권한 변경 이력이 없습니다." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
 <!-- 최근 감사 열람 기록 -->
-<div class="bg-white rounded-xl shadow-sm border">
+<div class="bg-white rounded-lg shadow-sm border">
     <div class="px-6 py-4 border-b flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-900">최근 감사 열람 기록</h3>
-        <a href="{% url 'core:audit_audit_log' %}" class="text-xs text-blue-600 hover:underline">전체보기 →</a>
+        <h3 class="text-sm font-semibold text-gray-900">{% trans "최근 감사 열람 기록" %}</h3>
+        <a href="{% url 'core:audit_audit_log' %}" class="text-xs text-blue-600 hover:underline">{% trans "전체보기" %} →</a>
     </div>
     <div class="table-responsive">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">열람자</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">섹션</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "열람자" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "섹션" %}</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">IP</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">일시</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{% trans "일시" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -135,10 +207,55 @@
                     <td class="px-4 py-3 text-sm text-gray-500">{{ log.accessed_at|date:"m/d H:i:s" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-400">열람 기록이 없습니다.</td></tr>
+                <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-400">{% trans "열람 기록이 없습니다." %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+(function() {
+    var labels = {{ chart_labels|safe }};
+    var accessData = {{ chart_access_data|safe }};
+    var changeData = {{ chart_change_data|safe }};
+    var loginSuccess = {{ chart_login_success|safe }};
+    var loginFail = {{ chart_login_fail|safe }};
+
+    // 접근/변경 추이
+    var ctx1 = document.getElementById('accessChangeChart');
+    if (ctx1) {
+        new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: '감사 열람', data: accessData, backgroundColor: 'rgba(59,130,246,0.6)' },
+                    { label: '데이터 변경', data: changeData, backgroundColor: 'rgba(34,197,94,0.6)' }
+                ]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+    }
+
+    // 로그인 성공/실패
+    var ctx2 = document.getElementById('loginChart');
+    if (ctx2) {
+        new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: '성공', data: loginSuccess, backgroundColor: 'rgba(34,197,94,0.6)' },
+                    { label: '실패', data: loginFail, backgroundColor: 'rgba(239,68,68,0.6)' }
+                ]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+    }
+})();
+</script>
 {% endblock %}

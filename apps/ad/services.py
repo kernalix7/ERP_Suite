@@ -25,10 +25,12 @@ class ADService:
         """LDAP 서버 연결 생성"""
         try:
             import ldap3
+            from ldap3.core.exceptions import LDAPException
             server = ldap3.Server(
                 self.domain.ldap_server,
                 use_ssl=self.domain.use_ssl,
                 get_info=ldap3.ALL,
+                connect_timeout=5,
             )
             conn = ldap3.Connection(
                 server,
@@ -43,6 +45,9 @@ class ADService:
             logger.warning('ldap3 라이브러리 미설치 - 시뮬레이션 모드')
             return None
         except (OSError, ConnectionError, ValueError) as e:
+            logger.error('LDAP 연결 실패: %s', str(e))
+            raise
+        except LDAPException as e:
             logger.error('LDAP 연결 실패: %s', str(e))
             raise
 

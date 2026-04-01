@@ -1,0 +1,148 @@
+{% comment %}
+주소 검색 필드 include 템플릿
+사용법: {% include "includes/address_field.html" with field=form.address field_type="domestic" %}
+field_type: "domestic" (국내), "international" (해외), "auto" (국가선택)
+
+UX: [주소 검색] → 도로명주소 표시 + 상세주소 입력
+저장: "도로명주소\n상세주소" (줄바꿈 구분)
+{% endcomment %}
+{% load i18n static %}
+<div class="space-y-2" id="addr-wrap-{{ field.id_for_label }}">
+
+    {# 라벨 #}
+    <label for="{{ field.id_for_label }}" class="form-label">
+        {{ field.label }}
+        {% if field.field.required %}<span class="form-required">*</span>{% endif %}
+    </label>
+
+    {# 주소 검색 버튼 #}
+    {% if field_type != "international" %}
+    <div>
+        <button type="button"
+                onclick="window.open('/juso-popup/', 'jusoPopup', 'width=570,height=420,scrollbars=yes,resizable=yes')"
+                class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            {% trans "주소 검색" %}
+        </button>
+    </div>
+    {% endif %}
+
+    {# 도로명주소 표시 (읽기 전용) #}
+    <div id="addr-road-{{ field.id_for_label }}" class="hidden">
+        <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm">
+            <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span id="addr-road-text-{{ field.id_for_label }}" class="flex-1 text-gray-700"></span>
+            <button type="button" onclick="clearJusoAddress('{{ field.id_for_label }}')" class="text-gray-400 hover:text-red-500">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    {# 상세주소 입력란 #}
+    <div id="addr-detail-wrap-{{ field.id_for_label }}" class="hidden">
+        <input type="text"
+               id="addr-detail-{{ field.id_for_label }}"
+               class="form-input"
+               placeholder="{% trans '상세주소 입력 (동/호수 등)' %}"
+               autocomplete="off">
+    </div>
+
+    {# 실제 Django 폼 필드 (hidden — 도로명\n상세 구분 저장) #}
+    <input type="hidden" id="{{ field.id_for_label }}" name="{{ field.html_name }}" value="{{ field.value|default_if_none:'' }}">
+
+    {# 도움말/에러 #}
+    {% if field.help_text %}
+    <p class="text-xs text-gray-500">{{ field.help_text }}</p>
+    {% endif %}
+    {% for error in field.errors %}
+    <p class="text-xs text-red-500">{{ error }}</p>
+    {% endfor %}
+</div>
+
+<script>
+(function() {
+    var fieldId = "{{ field.id_for_label }}";
+    var hiddenField = document.getElementById(fieldId);
+    var roadWrap = document.getElementById("addr-road-" + fieldId);
+    var roadText = document.getElementById("addr-road-text-" + fieldId);
+    var detailWrap = document.getElementById("addr-detail-wrap-" + fieldId);
+    var detailInput = document.getElementById("addr-detail-" + fieldId);
+
+    // 저장값에서 도로명/상세 분리 (줄바꿈 구분)
+    function parseAddress(val) {
+        if (!val) return { road: "", detail: "" };
+        var parts = val.split("\n");
+        return { road: parts[0] || "", detail: parts.slice(1).join("\n") || "" };
+    }
+
+    // hidden 필드 갱신
+    function updateHidden() {
+        var road = roadText.dataset.road || "";
+        var detail = detailInput.value.trim();
+        hiddenField.value = detail ? road + "\n" + detail : road;
+    }
+
+    // 기존 값이 있으면 도로명/상세 분리하여 표시
+    if (hiddenField && hiddenField.value) {
+        var parsed = parseAddress(hiddenField.value);
+        roadText.textContent = parsed.road;
+        roadText.dataset.road = parsed.road;
+        roadWrap.classList.remove("hidden");
+        detailWrap.classList.remove("hidden");
+        detailInput.value = parsed.detail;
+    }
+
+    // 상세주소 입력 시 hidden 필드 갱신
+    if (detailInput) {
+        detailInput.addEventListener("input", updateHidden);
+    }
+
+    // localStorage 이벤트로 팝업 결과 수신
+    window.addEventListener("storage", function(e) {
+        if (e.key === "juso_result" && e.newValue) {
+            try {
+                var data = JSON.parse(e.newValue);
+                if (data && data.road) {
+                    // 도로명주소 조합
+                    var displayAddr = data.road;
+                    if (data.bdNm) displayAddr += " (" + data.bdNm + ")";
+                    if (data.zipNo) displayAddr = "[" + data.zipNo + "] " + displayAddr;
+
+                    roadText.textContent = displayAddr;
+                    roadText.dataset.road = displayAddr;
+                    roadWrap.classList.remove("hidden");
+
+                    // 상세주소 입력란
+                    detailWrap.classList.remove("hidden");
+                    detailInput.value = data.detail || "";
+                    detailInput.focus();
+
+                    // hidden 필드 갱신
+                    updateHidden();
+                }
+            } catch (err) {}
+            localStorage.removeItem("juso_result");
+        }
+    });
+})();
+
+function clearJusoAddress(fId) {
+    var h = document.getElementById(fId);
+    if (h) h.value = "";
+    var r = document.getElementById("addr-road-" + fId);
+    if (r) r.classList.add("hidden");
+    var rt = document.getElementById("addr-road-text-" + fId);
+    if (rt) { rt.textContent = ""; rt.dataset.road = ""; }
+    var dw = document.getElementById("addr-detail-wrap-" + fId);
+    if (dw) dw.classList.add("hidden");
+    var di = document.getElementById("addr-detail-" + fId);
+    if (di) di.value = "";
+}
+</script>

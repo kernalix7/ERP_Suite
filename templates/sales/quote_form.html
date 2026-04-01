@@ -13,11 +13,11 @@
     {% csrf_token %}
 
     <!-- 견적 기본정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-        <div class="px-6 py-4 border-b border-gray-200">
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-4 sm:mb-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "견적 정보" %}</h2>
         </div>
-        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
             {% for field in form %}
             <div {% if field.name == 'notes' %}class="md:col-span-2"{% endif %}>
                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -37,8 +37,8 @@
     </div>
 
     <!-- 견적 항목 (Formset) -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-4 sm:mb-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "견적 항목" %}</h2>
             <button type="button" @click="addItem()" class="btn btn-primary text-sm">
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,10 +58,10 @@
         </div>
         {% endif %}
 
-        <div class="overflow-x-auto">
+        <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                         <th class="px-4 py-3 w-8">#</th>
                         <th class="px-4 py-3">{% trans "제품" %}</th>
                         <th class="px-4 py-3 w-24">{% trans "수량" %}</th>
@@ -73,7 +73,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100" id="formset-body">
                     {% for item_form in formset %}
-                    <tr class="formset-row {% if item_form.DELETE.value %}hidden{% endif %}"
+                    <tr class="formset-row hover:bg-gray-50 {% if item_form.DELETE.value %}hidden{% endif %}"
                         x-show="!isDeleted({{ forloop.counter0 }})">
                         <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
                         <td class="px-4 py-3">
@@ -166,6 +166,32 @@ function _autoFillCost(row) {
             costInput.value = cost;
         }
     }
+}
+function _priceLookup(row) {
+    const productSel = row.querySelector('select[name$="-product"]');
+    const qtyInput = row.querySelector('[name$="-quantity"]');
+    const priceInput = row.querySelector('[name$="-unit_price"]');
+    const supplyTotal = row.querySelector('.supply-total');
+    if (!productSel || !productSel.value || !priceInput) return;
+    const partnerId = document.getElementById('id_partner')?.value || '';
+    const customerId = document.getElementById('id_customer')?.value || '';
+    const qty = parseInt(qtyInput?.value) || 1;
+    const params = new URLSearchParams({
+        product_id: productSel.value, partner_id: partnerId,
+        customer_id: customerId, quantity: qty,
+    });
+    fetch('{% url "sales:price_lookup" %}?' + params)
+        .then(r => r.json())
+        .then(data => {
+            if (data.unit_price && data.source !== 'default') {
+                priceInput.value = data.unit_price;
+                if (supplyTotal && qty > 0) {
+                    supplyTotal.value = Math.round(qty * data.unit_price);
+                }
+                priceInput.dispatchEvent(new Event('input', {bubbles: true}));
+            }
+        })
+        .catch(() => {});
 }
 function _syncSupplyTotal(row) {
     const qty = parseFloat(row.querySelector('[name$="-quantity"]')?.value) || 0;
@@ -309,7 +335,15 @@ function quoteForm() {
                     const row = e.target.closest('.formset-row');
                     _updateRowUnits(row);
                     _autoFillCost(row);
+                    _priceLookup(row);
                     this.updateTotal();
+                }
+                if (e.target.name && e.target.name.includes('-quantity')) {
+                    const row = e.target.closest('.formset-row');
+                    if (row) _priceLookup(row);
+                }
+                if (e.target.id === 'id_partner' || e.target.id === 'id_customer') {
+                    document.querySelectorAll('.formset-row').forEach(row => _priceLookup(row));
                 }
             });
         }

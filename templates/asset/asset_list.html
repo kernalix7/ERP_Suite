@@ -14,7 +14,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <!-- 검색/필터 -->
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-wrap gap-3">
@@ -61,7 +61,7 @@
             <tbody class="divide-y divide-gray-100">
                 {% for asset in assets %}
                 <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onclick="location.href='{% url 'asset:asset_detail' asset.pk %}'">
+                    onclick="location.href='{% url 'asset:asset_detail' asset.asset_number %}'">
                     <td class="px-4 py-3 font-medium text-blue-600 hover:text-blue-800">{{ asset.asset_number }}</td>
                     <td class="px-4 py-3 text-gray-900">{{ asset.name }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ asset.category.name }}</td>

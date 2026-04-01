@@ -11,9 +11,20 @@ ERP_Suite/
 │   │   ├── views.py         # Dashboard view
 │   │   ├── utils.py         # Common utilities
 │   │   ├── excel.py         # Excel export (openpyxl)
+│   │   ├── excel_views.py   # Excel download views
+│   │   ├── import_views.py  # Excel import views (django-import-export)
+│   │   ├── pdf.py           # PDF generation (reportlab)
+│   │   ├── barcode.py       # Barcode/QR generation
 │   │   ├── backup.py        # Backup/restore
+│   │   ├── attachment.py    # Attachment model (GenericForeignKey)
+│   │   ├── audit.py         # Audit trail dashboard/views
 │   │   ├── notification.py  # Notification model
-│   │   └── urls.py          # Dashboard, backup URLs
+│   │   ├── middleware.py     # Access logging, security headers, maintenance mode
+│   │   ├── forms.py         # BaseForm with Tailwind class injection
+│   │   ├── fields.py        # Encrypted fields
+│   │   ├── tasks.py         # Celery tasks
+│   │   ├── email.py         # Email utilities
+│   │   └── urls.py          # Dashboard, backup, audit URLs
 │   ├── accounts/            # Authentication/user management
 │   ├── inventory/           # Inventory management
 │   ├── production/          # Production management
@@ -40,14 +51,24 @@ ERP_Suite/
 │   │   ├── __init__.py      # Environment-specific settings loader
 │   │   ├── base.py          # Common settings (private)
 │   │   ├── development.py   # Development environment settings
-│   │   └── production.py    # Production environment settings
+│   │   ├── production.py    # Production environment settings
+│   │   ├── beta.py          # Beta environment settings (db_beta.sqlite3)
+│   │   └── sandbox.py       # Sandbox environment settings (db_sandbox.sqlite3)
+│   ├── celery.py            # Celery configuration
+│   ├── asgi.py              # ASGI entry point (Daphne/Channels)
 │   └── wsgi.py              # WSGI entry point
 ├── templates/               # Global templates
 │   ├── base.html            # Base layout (sidebar, header)
 │   ├── 403.html / 404.html / 500.html  # Error pages
 │   └── {app_name}/          # Per-app template folders
-├── static/                  # Static files
-├── locale/                  # i18n translation files
+├── static/                  # Static files (CSS, JS, vendor/)
+├── locale/                  # i18n translation files (ko, en)
+├── tests/verification/      # Verification tests (security/integrity/performance/workflow/DR)
+├── e2e/                     # Playwright E2E tests
+├── loadtest/                # Locust load tests
+├── monitoring/              # Prometheus & Grafana configs
+├── docs/                    # Guides & verification criteria (English + Korean)
+├── scripts/                 # Utility scripts (download_vendor.sh, etc.)
 ├── requirements/            # Dependencies
 │   ├── base.txt             # Core dependencies
 │   ├── dev.txt              # Development dependencies

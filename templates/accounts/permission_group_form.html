@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load i18n permissions %}
+
+{% block title %}{% if object %}{% trans "권한 그룹 수정" %}{% else %}{% trans "권한 그룹 생성" %}{% endif %}{% endblock %}
+{% block page_title %}{% if object %}{% trans "권한 그룹 수정" %}: {{ object.name }}{% else %}{% trans "권한 그룹 생성" %}{% endif %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounts:permission_group_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" x-data="permGroupForm()">
+    {% csrf_token %}
+
+    <!-- 기본 정보 -->
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
+        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+            <h3 class="text-sm font-semibold text-gray-700">{% trans "기본 정보" %}</h3>
+        </div>
+        <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="id_name" class="block text-sm font-medium text-gray-700 mb-1">{% trans "그룹명" %} <span class="text-red-500" aria-hidden="true">*</span></label>
+                <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="{% trans '예: 영업팀장, 회계담당' %}"
+                       aria-required="true">
+                {% if form.name.errors %}<p class="text-red-500 text-xs mt-1" role="alert">{{ form.name.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="id_priority" class="block text-sm font-medium text-gray-700 mb-1">{% trans "우선순위" %}</label>
+                <input type="number" name="priority" id="id_priority" value="{{ form.priority.value|default:'0' }}" min="0"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <p class="text-xs text-gray-400 mt-1">{% trans "높을수록 우선 적용됩니다" %}</p>
+            </div>
+            <div class="md:col-span-2">
+                <label for="id_description" class="block text-sm font-medium text-gray-700 mb-1">{% trans "설명" %}</label>
+                <textarea name="description" id="id_description" rows="2"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="{% trans '그룹 설명을 입력하세요' %}">{{ form.description.value|default:'' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- 권한 매트릭스 -->
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
+        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-700">{% trans "모듈별 권한" %}</h3>
+            <div class="flex items-center gap-3 text-xs">
+                <button type="button" @click="selectAll()" class="text-blue-600 hover:text-blue-800">{% trans "전체 선택" %}</button>
+                <button type="button" @click="deselectAll()" class="text-red-600 hover:text-red-800">{% trans "전체 해제" %}</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <caption class="sr-only">{% trans "모듈별 권한 매트릭스" %}</caption>
+                <thead>
+                    <tr class="bg-gray-50 text-xs text-gray-500 uppercase font-medium">
+                        <th class="px-4 py-3 text-left sticky left-0 bg-gray-50 z-10" scope="col">{% trans "모듈" %}</th>
+                        {% for action_code, action_label in actions %}
+                        <th class="px-3 py-3 text-center min-w-[70px]" scope="col">
+                            <div>{{ action_label }}</div>
+                            <button type="button" @click="toggleColumn('{{ action_code }}')"
+                                    class="text-blue-500 hover:text-blue-700 font-normal normal-case mt-0.5"
+                                    aria-label="{% trans '열 전체 토글' %}: {{ action_label }}">{% trans "전체" %}</button>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for module_code, module_label in modules %}
+                    <tr class="hover:bg-blue-50/50 transition-colors">
+                        <td class="px-4 py-2.5 font-medium text-gray-700 sticky left-0 bg-white z-10 whitespace-nowrap">
+                            <div class="flex items-center gap-2">
+                                <button type="button" @click="toggleRow('{{ module_code }}')"
+                                        class="text-blue-500 hover:text-blue-700"
+                                        aria-label="{% trans '행 전체 토글' %}: {{ module_label }}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/></svg>
+                                </button>
+                                {{ module_label }}
+                            </div>
+                        </td>
+                        {% for action_code, action_label in actions %}
+                        <td class="px-3 py-2.5 text-center">
+                            {% perm_checked module_code action_code assigned_perms as is_checked %}
+                            <input type="checkbox" name="permissions" value="{{ module_code }}.{{ action_code }}"
+                                   class="perm-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                   data-module="{{ module_code }}" data-action="{{ action_code }}"
+                                   {{ is_checked }}>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 멤버 관리 -->
+    <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
+        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+            <h3 class="text-sm font-semibold text-gray-700">{% trans "멤버 관리" %}</h3>
+        </div>
+        <div class="p-4">
+            <div x-data="memberSelect()" class="space-y-3">
+                <div class="relative">
+                    <input type="text" x-model="search" placeholder="{% trans '사용자 검색...' %}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                <div class="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-100">
+                    {% for u in all_users %}
+                    <label class="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm"
+                           x-show="!search || '{{ u.name|default:u.username }}'.toLowerCase().includes(search.toLowerCase()) || '{{ u.username }}'.toLowerCase().includes(search.toLowerCase())">
+                        <input type="checkbox" name="members" value="{{ u.pk }}"
+                               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                               {% if u.pk in members %}checked{% endif %}>
+                        <span class="text-gray-700">{{ u.name|default:u.username }}</span>
+                        <span class="text-gray-400 text-xs ml-2">({{ u.username }})</span>
+                        <span class="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if u.role == 'admin' %}bg-purple-100 text-purple-700
+                            {% elif u.role == 'manager' %}bg-blue-100 text-blue-700
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ u.get_role_display }}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 저장 -->
+    <div class="flex justify-end gap-3">
+        <a href="{% url 'accounts:permission_group_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        <button type="submit" class="btn btn-primary">{% if object %}{% trans "수정" %}{% else %}{% trans "생성" %}{% endif %}</button>
+    </div>
+</form>
+
+<script>
+function permGroupForm() {
+    return {
+        selectAll() {
+            document.querySelectorAll('.perm-cb').forEach(cb => cb.checked = true);
+        },
+        deselectAll() {
+            document.querySelectorAll('.perm-cb').forEach(cb => cb.checked = false);
+        },
+        toggleRow(module) {
+            const cbs = document.querySelectorAll(`.perm-cb[data-module="${module}"]`);
+            const allChecked = [...cbs].every(cb => cb.checked);
+            cbs.forEach(cb => cb.checked = !allChecked);
+        },
+        toggleColumn(action) {
+            const cbs = document.querySelectorAll(`.perm-cb[data-action="${action}"]`);
+            const allChecked = [...cbs].every(cb => cb.checked);
+            cbs.forEach(cb => cb.checked = !allChecked);
+        }
+    };
+}
+
+function memberSelect() {
+    return { search: '' };
+}
+</script>
+{% endblock %}

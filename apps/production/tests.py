@@ -692,6 +692,30 @@ class ProductionCancelCascadeTest(TestCase):
         )
         self.assertEqual(active_movements.count(), 0)
 
+    def test_plan_cancel_cascades_workorder_status(self):
+        """ProductionPlan CANCELLED 시 관련 WorkOrder도 CANCELLED로 변경"""
+        # 작업지시가 IN_PROGRESS 상태
+        self.assertEqual(self.work_order.status, 'IN_PROGRESS')
+
+        # 두 번째 작업지시 추가
+        wo2 = WorkOrder.objects.create(
+            order_number='WO-CANCEL-002',
+            production_plan=self.plan,
+            quantity=50,
+            status='PENDING',
+            created_by=self.user,
+        )
+
+        # 생산계획 취소
+        self.plan.status = 'CANCELLED'
+        self.plan.save()
+
+        # 모든 작업지시가 CANCELLED로 변경되어야 함
+        self.work_order.refresh_from_db()
+        self.assertEqual(self.work_order.status, 'CANCELLED')
+        wo2.refresh_from_db()
+        self.assertEqual(wo2.status, 'CANCELLED')
+
     def test_workorder_cancel_restores_stock(self):
         """WorkOrder CANCELLED 시 동일하게 재고 복원"""
         # 생산실적 등록 → 완제품 +10, 원자재 -20
@@ -780,3 +804,147 @@ class MRPViewTest(TestCase):
         # 필요: 500, 가용: 10, 부족: 490
         self.assertEqual(shortage_item['total_required'], Decimal('500.000'))
         self.assertEqual(shortage_item['shortage'], Decimal('490'))
+
+
+class CostSyncTest(TestCase):
+    """BOM/StandardCost → Product.cost_price 자동 동기화 시그널 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='costsync_user', password='testpass123', role='staff',
+        )
+        self.finished = Product.objects.create(
+            code='CS-FP-001', name='원가동기화제품',
+            product_type='FINISHED', unit_price=50000,
+            cost_price=0, created_by=self.user,
+        )
+        self.raw1 = Product.objects.create(
+            code='CS-RM-001', name='원가동기화원자재1',
+            product_type='RAW', cost_price=5000,
+            created_by=self.user,
+        )
+        self.raw2 = Product.objects.create(
+            code='CS-RM-002', name='원가동기화원자재2',
+            product_type='RAW', cost_price=3000,
+            created_by=self.user,
+        )
+
+    def test_bom_item_save_syncs_cost_price(self):
+        """BOMItem 저장 시 Product.cost_price가 BOM 자재원가로 갱신"""
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        # BOMItem 추가: 2 * 5000 = 10000
+        BOMItem.objects.create(
+            bom=bom, material=self.raw1,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 10000)
+
+        # BOMItem 추가: 3 * 3000 = 9000, 합계 19000
+        BOMItem.objects.create(
+            bom=bom, material=self.raw2,
+            quantity=Decimal('3.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 19000)
+
+    def test_bom_item_delete_syncs_cost_price(self):
+        """BOMItem 삭제 시 cost_price 재계산"""
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        item1 = BOMItem.objects.create(
+            bom=bom, material=self.raw1,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=bom, material=self.raw2,
+            quantity=Decimal('3.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 19000)
+
+        # item1 삭제 → 남은 자재원가: 3 * 3000 = 9000
+        item1.delete()
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 9000)
+
+    def test_standard_cost_overrides_bom(self):
+        """StandardCost 등록 시 BOM보다 우선"""
+        from apps.production.models import StandardCost
+
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=bom, material=self.raw1,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 10000)
+
+        # StandardCost 등록 → BOM 원가(10000)보다 우선
+        StandardCost.objects.create(
+            product=self.finished,
+            version='1.0',
+            effective_date=date.today(),
+            material_cost=10000,
+            direct_labor_hours=Decimal('1.00'),
+            labor_rate_per_hour=5000,
+            overhead_rate=Decimal('20.00'),
+            is_current=True,
+            created_by=self.user,
+        )
+        # 합계: 10000 + 5000 + 1000 = 16000
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 16000)
+
+    def test_no_bom_no_stdcost_keeps_manual(self):
+        """BOM/StandardCost 없으면 기존 수동 설정값 유지"""
+        Product.objects.filter(pk=self.finished.pk).update(cost_price=25000)
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 25000)
+
+        # 기본이 아닌 BOM 생성 → cost_price 변경 없어야 함
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=False, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=bom, material=self.raw1,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 25000)
+
+    def test_bom_default_change_syncs(self):
+        """BOM is_default 변경 시 cost_price 동기화"""
+        bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=False, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=bom, material=self.raw1,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        # 기본BOM이 아니므로 cost_price 변경 없음
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 0)
+
+        # is_default를 True로 변경 → cost_price 동기화
+        bom.is_default = True
+        bom.save()
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 10000)

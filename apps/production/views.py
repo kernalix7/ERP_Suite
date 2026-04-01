@@ -41,7 +41,7 @@ class BOMListView(LoginRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True).select_related('product')
 
 
-class BOMCreateView(LoginRequiredMixin, CreateView):
+class BOMCreateView(ManagerRequiredMixin, CreateView):
     model = BOM
     form_class = BOMForm
     template_name = 'production/bom_form.html'
@@ -85,7 +85,7 @@ class BOMDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class BOMUpdateView(LoginRequiredMixin, UpdateView):
+class BOMUpdateView(ManagerRequiredMixin, UpdateView):
     model = BOM
     form_class = BOMForm
     template_name = 'production/bom_form.html'
@@ -136,7 +136,7 @@ def _bom_unit_costs_json():
     return result
 
 
-class ProductionPlanCreateView(LoginRequiredMixin, CreateView):
+class ProductionPlanCreateView(ManagerRequiredMixin, CreateView):
     model = ProductionPlan
     form_class = ProductionPlanForm
     template_name = 'production/plan_form.html'
@@ -166,6 +166,8 @@ class ProductionPlanCreateView(LoginRequiredMixin, CreateView):
 class ProductionPlanDetailView(LoginRequiredMixin, DetailView):
     model = ProductionPlan
     template_name = 'production/plan_detail.html'
+    slug_field = 'plan_number'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -214,11 +216,13 @@ class ProductionPlanDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class ProductionPlanUpdateView(LoginRequiredMixin, UpdateView):
+class ProductionPlanUpdateView(ManagerRequiredMixin, UpdateView):
     model = ProductionPlan
     form_class = ProductionPlanForm
     template_name = 'production/plan_form.html'
     success_url = reverse_lazy('production:plan_list')
+    slug_field = 'plan_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -243,7 +247,7 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class WorkOrderCreateView(LoginRequiredMixin, CreateView):
+class WorkOrderCreateView(ManagerRequiredMixin, CreateView):
     model = WorkOrder
     form_class = WorkOrderForm
     template_name = 'production/workorder_form.html'
@@ -263,6 +267,8 @@ class WorkOrderCreateView(LoginRequiredMixin, CreateView):
 class WorkOrderDetailView(LoginRequiredMixin, DetailView):
     model = WorkOrder
     template_name = 'production/workorder_detail.html'
+    slug_field = 'order_number'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -295,6 +301,8 @@ class WorkOrderUpdateView(ManagerRequiredMixin, UpdateView):
     form_class = WorkOrderForm
     template_name = 'production/workorder_form.html'
     success_url = reverse_lazy('production:workorder_list')
+    slug_field = 'order_number'
+    slug_url_kwarg = 'slug'
 
 
 class ProductionRecordListView(LoginRequiredMixin, ListView):
@@ -312,7 +320,7 @@ class ProductionRecordListView(LoginRequiredMixin, ListView):
         )
 
 
-class ProductionRecordCreateView(LoginRequiredMixin, CreateView):
+class ProductionRecordCreateView(ManagerRequiredMixin, CreateView):
     model = ProductionRecord
     form_class = ProductionRecordForm
     template_name = 'production/record_form.html'
@@ -323,7 +331,7 @@ class ProductionRecordCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ProductionRecordUpdateView(LoginRequiredMixin, UpdateView):
+class ProductionRecordUpdateView(ManagerRequiredMixin, UpdateView):
     model = ProductionRecord
     form_class = ProductionRecordForm
     template_name = 'production/record_form.html'
@@ -337,6 +345,7 @@ class BOMItemImportView(BaseImportView):
     page_title = 'BOM 자재 일괄 가져오기'
     cancel_url = reverse_lazy('production:bom_list')
     sample_url = reverse_lazy('production:bom_import_sample')
+    export_filename = 'BOM_데이터'
     field_hints = [
         'bom__product__code: 완제품 코드 (기본 BOM에 자재를 추가합니다)',
         'material__code: 원자재 코드',
@@ -384,7 +393,7 @@ class QualityInspectionListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class QualityInspectionCreateView(LoginRequiredMixin, CreateView):
+class QualityInspectionCreateView(ManagerRequiredMixin, CreateView):
     model = QualityInspection
     template_name = 'production/qc_form.html'
     fields = [
@@ -413,6 +422,8 @@ class QualityInspectionDetailView(LoginRequiredMixin, DetailView):
     model = QualityInspection
     template_name = 'production/qc_detail.html'
     context_object_name = 'inspection'
+    slug_field = 'inspection_number'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -421,9 +432,11 @@ class QualityInspectionDetailView(LoginRequiredMixin, DetailView):
         )
 
 
-class QualityInspectionUpdateView(LoginRequiredMixin, UpdateView):
+class QualityInspectionUpdateView(ManagerRequiredMixin, UpdateView):
     model = QualityInspection
     template_name = 'production/qc_form.html'
+    slug_field = 'inspection_number'
+    slug_url_kwarg = 'slug'
     fields = [
         'inspected_quantity', 'pass_quantity', 'fail_quantity',
         'result', 'defect_description', 'corrective_action',
@@ -441,7 +454,7 @@ class QualityInspectionUpdateView(LoginRequiredMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy(
             'production:qc_detail',
-            kwargs={'pk': self.object.pk},
+            kwargs={'slug': self.object.inspection_number},
         )
 
 
@@ -724,7 +737,7 @@ class StandardCostListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class StandardCostCreateView(LoginRequiredMixin, CreateView):
+class StandardCostCreateView(ManagerRequiredMixin, CreateView):
     model = StandardCost
     form_class = StandardCostForm
     template_name = 'production/stdcost_form.html'

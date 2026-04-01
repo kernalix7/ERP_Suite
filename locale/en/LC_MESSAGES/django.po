@@ -258,6 +258,351 @@ msgstr "Monthly Revenue"
 msgid "로그아웃"
 msgstr "Logout"
 
+# Navigation group headers
+msgid "영업관리"
+msgstr "Sales Management"
+
+msgid "공급망관리"
+msgstr "Supply Chain"
+
+msgid "회계/재무"
+msgstr "Accounting / Finance"
+
+msgid "마케팅/채널"
+msgstr "Marketing / Channel"
+
+msgid "인사/총무"
+msgstr "HR / Admin"
+
+# Sales sub-menu (additional)
+msgid "견적"
+msgstr "Quotations"
+
+msgid "가격규칙"
+msgstr "Price Rules"
+
+msgid "수수료 관리"
+msgstr "Commission"
+
+msgid "거래처 분석"
+msgstr "Partner Analysis"
+
+# Device management
+msgid "기기관리"
+msgstr "Device Management"
+
+msgid "판매기기 목록"
+msgstr "Sold Products"
+
+msgid "출하추적"
+msgstr "Shipment Tracking"
+
+msgid "정품인증"
+msgstr "Warranty Verify"
+
+# Inquiry sub-menu (additional)
+msgid "문의"
+msgstr "Inquiries"
+
+# Purchase sub-menu
+msgid "구매관리"
+msgstr "Purchasing"
+
+msgid "발주서"
+msgstr "Purchase Orders"
+
+msgid "입고확인"
+msgstr "Goods Receipt"
+
+# Accounting sub-menu (additional)
+msgid "전표/세무"
+msgstr "Vouchers / Tax"
+
+msgid "장부/분석"
+msgstr "Ledger / Analysis"
+
+msgid "계정별 원장"
+msgstr "Account Ledger"
+
+msgid "시산표"
+msgstr "Trial Balance"
+
+msgid "예산관리"
+msgstr "Budget Management"
+
+msgid "예산 보고서"
+msgstr "Budget Report"
+
+msgid "결산 마감"
+msgstr "Closing Period"
+
+msgid "은행 대사"
+msgstr "Bank Reconciliation"
+
+msgid "매출정산"
+msgstr "Sales Settlement"
+
+msgid "원가정산"
+msgstr "Cost Settlement"
+
+msgid "고정비"
+msgstr "Fixed Costs"
+
+msgid "계좌 현황"
+msgstr "Account Overview"
+
+msgid "결제계좌"
+msgstr "Bank Accounts"
+
+msgid "계좌이체"
+msgstr "Transfers"
+
+msgid "채권/채무"
+msgstr "AR / AP"
+
+msgid "미수금"
+msgstr "Accounts Receivable"
+
+msgid "미수금 경과분석"
+msgstr "AR Aging"
+
+msgid "미지급금"
+msgstr "Accounts Payable"
+
+msgid "미지급금 경과분석"
+msgstr "AP Aging"
+
+msgid "기본설정"
+msgstr "Settings"
+
+msgid "세율"
+msgstr "Tax Rates"
+
+msgid "통화관리"
+msgstr "Currencies"
+
+msgid "환율관리"
+msgstr "Exchange Rates"
+
+# Asset sub-menu
+msgid "고정자산"
+msgstr "Fixed Assets"
+
+msgid "자산 목록"
+msgstr "Asset List"
+
+msgid "자산 등록"
+msgstr "Register Asset"
+
+msgid "감가상각 실행"
+msgstr "Run Depreciation"
+
+msgid "자산 현황"
+msgstr "Asset Summary"
+
+msgid "자산 분류"
+msgstr "Asset Categories"
+
+# Advertising sub-menu
+msgid "광고"
+msgstr "Advertising"
+
+msgid "광고 현황"
+msgstr "Ad Dashboard"
+
+msgid "캠페인"
+msgstr "Campaigns"
+
+msgid "광고소재"
+msgstr "Creatives"
+
+msgid "성과분석"
+msgstr "Performance"
+
+msgid "광고예산"
+msgstr "Ad Budget"
+
+# Marketplace sub-menu (additional)
+msgid "스토어 현황"
+msgstr "Store Dashboard"
+
+# HR sub-menu
+msgid "인사/근태"
+msgstr "HR / Attendance"
+
+msgid "조직도"
+msgstr "Org Chart"
+
+msgid "부서"
+msgstr "Departments"
+
+msgid "직급"
+msgstr "Positions"
+
+msgid "직원"
+msgstr "Employees"
+
+msgid "인사발령"
+msgstr "Personnel Actions"
+
+msgid "입퇴사"
+msgstr "Onboarding / Offboarding"
+
+msgid "입사 처리"
+msgstr "Onboarding"
+
+msgid "퇴사 처리"
+msgstr "Offboarding"
+
+msgid "외부 협력업체"
+msgstr "External Companies"
+
+msgid "급여"
+msgstr "Payroll"
+
+msgid "급여 관리"
+msgstr "Payroll Management"
+
+msgid "급여 설정"
+msgstr "Payroll Config"
+
+msgid "근태"
+msgstr "Attendance"
+
+msgid "근태현황"
+msgstr "Attendance Dashboard"
+
+msgid "출퇴근기록"
+msgstr "Attendance Records"
+
+msgid "휴가"
+msgstr "Leave"
+
+# Approval
+msgid "결재"
+msgstr "Approvals"
+
+# Board
+msgid "게시판"
+msgstr "Board"
+
+# Calendar
+msgid "일정"
+msgstr "Calendar"
+
+# Messenger
+msgid "메신저"
+msgstr "Messenger"
+
+# Audit sub-menu
+msgid "감사 증적"
+msgstr "Audit Trail"
+
+msgid "감사 대시보드"
+msgstr "Audit Dashboard"
+
+msgid "접근 로그"
+msgstr "Access Log"
+
+msgid "데이터 변경 이력"
+msgstr "Data Change Log"
+
+msgid "로그인/보안"
+msgstr "Login / Security"
+
+msgid "열람 기록"
+msgstr "Audit Log"
+
+# System sub-menu (additional)
+msgid "권한관리"
+msgstr "Permissions"
+
+msgid "데이터 가이드"
+msgstr "Data Guide"
+
+msgid "시스템 설정"
+msgstr "System Settings"
+
+msgid "권한 신청"
+msgstr "Request Permission"
+
+# Production sub-menu (additional)
+msgid "품질검수"
+msgstr "Quality Inspection"
+
+msgid "MRP (소요량계획)"
+msgstr "MRP (Material Planning)"
+
+msgid "표준원가"
+msgstr "Standard Cost"
+
+msgid "원가차이 분석"
+msgstr "Cost Variance"
+
+# Inventory sub-menu (additional)
+msgid "창고별 재고"
+msgstr "Warehouse Stock"
+
+msgid "재고실사"
+msgstr "Stock Count"
+
+msgid "재고평가"
+msgstr "Inventory Valuation"
+
+# AD
+msgid "AD 연동"
+msgstr "AD Integration"
+
+# Shipping
+msgid "택배사 관리"
+msgstr "Shipping Carriers"
+
+# UI elements
+msgid "본문으로 건너뛰기"
+msgstr "Skip to content"
+
+msgid "주 메뉴"
+msgstr "Main menu"
+
+msgid "사이드바 토글"
+msgstr "Toggle sidebar"
+
+msgid "메뉴 열기"
+msgstr "Open menu"
+
+msgid "닫기"
+msgstr "Close"
+
+msgid "알림"
+msgstr "Notifications"
+
+msgid "새 알림이 없습니다"
+msgstr "No new notifications"
+
+msgid "모두 읽음"
+msgstr "Mark all as read"
+
+msgid "프로필"
+msgstr "Profile"
+
+msgid "비밀번호"
+msgstr "Password"
+
+msgid "관리자 뷰"
+msgstr "Admin view"
+
+msgid "매니저 뷰"
+msgstr "Manager view"
+
+msgid "사용자 뷰"
+msgstr "Staff view"
+
+msgid "뷰"
+msgstr "view"
+
+msgid "뷰 모드 활성"
+msgstr "View mode active"
+
 # Language names
 msgid "한국어"
 msgstr "Korean"

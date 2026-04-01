@@ -371,13 +371,14 @@ class Command(BaseCommand):
 
         customers = []
         finished = [p for p in products.values() if p.product_type == 'FINISHED']
-        for name, phone, email, address in customers_data:
+        for idx, (name, phone, email, address) in enumerate(customers_data, 1):
             prod = random.choice(finished) if finished else None
             pdate = date.today() - timedelta(days=random.randint(30, 365))
             wend = pdate + timedelta(days=365)
             cust, _ = Customer.objects.get_or_create(
                 name=name, phone=phone,
                 defaults={
+                    'code': f'CUST-{idx:03d}',
                     'email': email,
                     'address': address,
                     'product': prod,

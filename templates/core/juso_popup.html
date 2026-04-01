@@ -1,0 +1,44 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{% trans "주소 검색" %}</title>
+<script>
+function init() {
+    var inputYn = "{{ input_yn }}";
+    if (inputYn !== "Y") {
+        var form = document.getElementById('form');
+        form.confmKey.value = "{{ confm_key }}";
+        form.returnUrl.value = location.href;
+        form.resultType.value = "4";
+        form.action = "https://business.juso.go.kr/addrlink/addrLinkUrl.do";
+        form.submit();
+    } else {
+        // 도로명주소와 상세주소를 분리하여 전달
+        var road = "{{ road_addr_part1|escapejs }}" || "{{ road_full_addr|escapejs }}" || "";
+        var detail = "{{ addr_detail|escapejs }}";
+        var bdNm = "{{ bd_nm|escapejs }}";
+        var zipNo = "{{ zip_no|escapejs }}";
+
+        // localStorage로 폼 페이지에 전달 (storage 이벤트 발생)
+        localStorage.setItem("juso_result", JSON.stringify({
+            road: road,
+            detail: detail,
+            bdNm: bdNm,
+            zipNo: zipNo
+        }));
+        window.close();
+    }
+}
+</script>
+</head>
+<body onload="init();">
+<form id="form" name="form" method="post">
+    <input type="hidden" id="confmKey" name="confmKey" value="">
+    <input type="hidden" id="returnUrl" name="returnUrl" value="">
+    <input type="hidden" id="resultType" name="resultType" value="">
+</form>
+<p style="text-align:center;margin-top:40px;color:#888;">주소검색 페이지로 이동 중...</p>
+</body>
+</html>

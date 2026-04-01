@@ -92,7 +92,7 @@ def _auto_create_ap(po):
     # 이미 AP가 있으면 스킵
     if AccountPayable.objects.filter(
         partner=po.partner,
-        notes__contains=po.po_number,
+        notes=f'발주 {po.po_number} 입고완료',
         is_active=True,
     ).exists():
         return
@@ -128,7 +128,7 @@ def _auto_create_purchase_tax_invoice(po):
     # 이미 세금계산서가 있으면 스킵
     if TaxInvoice.objects.filter(
         partner=po.partner,
-        notes__contains=po.po_number,
+        description=f'발주 {po.po_number} 매입 세금계산서',
         invoice_type='PURCHASE',
         is_active=True,
     ).exists():
@@ -194,7 +194,7 @@ def handle_po_cancellation(sender, instance, **kwargs):
         from apps.accounting.models import AccountPayable
         cancelled_ap = AccountPayable.objects.filter(
             partner=instance.partner,
-            notes__contains=instance.po_number,
+            notes=f'발주 {instance.po_number} 입고완료',
             is_active=True,
         ).update(is_active=False)
         if cancelled_ap:
@@ -208,10 +208,8 @@ def handle_po_cancellation(sender, instance, **kwargs):
         cancelled_invoices = TaxInvoice.objects.filter(
             partner=instance.partner,
             invoice_type='PURCHASE',
+            description=f'발주 {instance.po_number} 매입 세금계산서',
             is_active=True,
-        ).filter(
-            Q(notes__contains=instance.po_number)
-            | Q(description__contains=instance.po_number)
         ).update(is_active=False)
         if cancelled_invoices:
             logger.info(

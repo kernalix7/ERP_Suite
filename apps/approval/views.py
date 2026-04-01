@@ -99,6 +99,8 @@ class ApprovalUpdateView(ManagerRequiredMixin, UpdateView):
     model = ApprovalRequest
     form_class = ApprovalRequestForm
     template_name = 'approval/approval_form.html'
+    slug_field = 'request_number'
+    slug_url_kwarg = 'slug'
     success_url = reverse_lazy('approval:approval_list')
 
     def get_queryset(self):
@@ -144,6 +146,8 @@ class ApprovalUpdateView(ManagerRequiredMixin, UpdateView):
 class ApprovalDetailView(ManagerRequiredMixin, DetailView):
     model = ApprovalRequest
     template_name = 'approval/approval_detail.html'
+    slug_field = 'request_number'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -183,10 +187,10 @@ class ApprovalDetailView(ManagerRequiredMixin, DetailView):
 
 
 class ApprovalSubmitView(ManagerRequiredMixin, View):
-    def post(self, request, pk):
+    def post(self, request, slug):
         from django.utils import timezone
         obj = get_object_or_404(
-            ApprovalRequest, pk=pk, requester=request.user,
+            ApprovalRequest, request_number=slug, requester=request.user,
         )
         if obj.status == 'DRAFT':
             obj.status = 'SUBMITTED'
@@ -194,21 +198,32 @@ class ApprovalSubmitView(ManagerRequiredMixin, View):
             obj.save(update_fields=[
                 'status', 'submitted_at', 'updated_at',
             ])
+            # Notification: 첫 결재자에게 알림
+            first_step = obj.steps.order_by('step_order').first()
+            if first_step:
+                from apps.core.notification import create_notification
+                create_notification(
+                    [first_step.approver],
+                    '결재 요청',
+                    f'{request.user.name or request.user.username}님이 [{obj.title}] 결재를 요청했습니다.',
+                    noti_type='SYSTEM',
+                    link=f'/approval/{obj.request_number}/',
+                )
         return HttpResponseRedirect(
-            reverse_lazy('approval:approval_detail', args=[pk])
+            reverse_lazy('approval:approval_detail', args=[slug])
         )
 
 
 class ApprovalActionView(ManagerRequiredMixin, View):
-    def post(self, request, pk):
+    def post(self, request, slug):
         from django.utils import timezone
         obj = get_object_or_404(
-            ApprovalRequest, pk=pk, approver=request.user,
+            ApprovalRequest, request_number=slug, approver=request.user,
         )
         if obj.status != 'SUBMITTED':
             return HttpResponseRedirect(
                 reverse_lazy(
-                    'approval:approval_detail', args=[pk],
+                    'approval:approval_detail', args=[slug],
                 )
             )
         action = request.POST.get('action')
@@ -222,74 +237,77 @@ class ApprovalActionView(ManagerRequiredMixin, View):
             )
         obj.save()
         return HttpResponseRedirect(
-            reverse_lazy('approval:approval_detail', args=[pk])
+            reverse_lazy('approval:approval_detail', args=[slug])
         )
 
 
 # === 다단계 결재 처리 ===
 class ApprovalStepActionView(ManagerRequiredMixin, View):
     """결재 단계별 승인/반려 처리"""
-    def post(self, request, pk, step_pk):
+    def post(self, request, slug, step_pk):
+        from django.db import transaction
         from django.utils import timezone
 
-        approval = get_object_or_404(ApprovalRequest, pk=pk)
-        step = get_object_or_404(
-            ApprovalStep,
-            pk=step_pk,
-            request=approval,
-            approver=request.user,
-        )
+        approval = get_object_or_404(ApprovalRequest, request_number=slug)
 
-        if (approval.status != 'SUBMITTED'
-                or step.status != 'PENDING'):
-            return HttpResponseRedirect(
-                reverse_lazy(
-                    'approval:approval_detail', args=[pk],
-                )
+        with transaction.atomic():
+            step = get_object_or_404(
+                ApprovalStep.objects.select_for_update(),
+                pk=step_pk,
+                request=approval,
+                approver=request.user,
             )
 
-        if step.step_order != approval.current_step:
-            return HttpResponseRedirect(
-                reverse_lazy(
-                    'approval:approval_detail', args=[pk],
+            if (approval.status != 'SUBMITTED'
+                    or step.status != 'PENDING'):
+                return HttpResponseRedirect(
+                    reverse_lazy(
+                        'approval:approval_detail', args=[slug],
+                    )
                 )
-            )
 
-        action = request.POST.get('action')
-        comment = request.POST.get('comment', '')
+            if step.step_order != approval.current_step:
+                return HttpResponseRedirect(
+                    reverse_lazy(
+                        'approval:approval_detail', args=[slug],
+                    )
+                )
 
-        step.comment = comment
-        step.acted_at = timezone.now()
+            action = request.POST.get('action')
+            comment = request.POST.get('comment', '')
 
+            step.comment = comment
+            step.acted_at = timezone.now()
+
+            if action == 'approve':
+                step.status = 'APPROVED'
+                step.save()
+            elif action == 'reject':
+                step.status = 'REJECTED'
+                step.save()
+
+        # Notification: 결재 완료/반려 시 기안자에게 알림
+        from apps.core.notification import create_notification
         if action == 'approve':
-            step.status = 'APPROVED'
-            step.save()
-            next_step = (
-                approval.steps
-                .filter(step_order__gt=step.step_order)
-                .order_by('step_order')
-                .first()
-            )
-            if next_step:
-                approval.current_step = next_step.step_order
-                approval.save(update_fields=[
-                    'current_step', 'updated_at',
-                ])
-            else:
-                approval.status = 'APPROVED'
-                approval.approved_at = timezone.now()
-                approval.save(update_fields=[
-                    'status', 'approved_at', 'updated_at',
-                ])
+            # 시그널이 최종 승인 처리했는지 확인
+            approval.refresh_from_db()
+            if approval.status == 'APPROVED':
+                create_notification(
+                    [approval.requester],
+                    '결재 최종 승인',
+                    f'결재 [{approval.title}]이(가) 최종 승인되었습니다.',
+                    noti_type='SYSTEM',
+                    link=f'/approval/{approval.request_number}/',
+                )
         elif action == 'reject':
-            step.status = 'REJECTED'
-            step.save()
-            approval.status = 'REJECTED'
-            approval.reject_reason = comment
-            approval.save(update_fields=[
-                'status', 'reject_reason', 'updated_at',
-            ])
+            create_notification(
+                [approval.requester],
+                '결재 반려',
+                f'결재 [{approval.title}]이(가) 반려되었습니다. 사유: {comment}',
+                noti_type='SYSTEM',
+                link=f'/approval/{approval.request_number}/',
+            )
 
         return HttpResponseRedirect(
-            reverse_lazy('approval:approval_detail', args=[pk])
+            reverse_lazy('approval:approval_detail', args=[slug])
         )

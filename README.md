@@ -15,12 +15,13 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | **Sales** | Partners, customers, orders, quotes (with one-click order conversion), ShipmentItem (partial shipments), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), commission management, partner analytics |
 | **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking, reverse cascade on PO cancellation |
 | **Service** | Service requests, repair history tracking, warranty period verification |
-| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, vouchers, account codes, withholding tax, multi-step approval workflow, ClosingPeriod (period closing), Budget (budget management), Currency/ExchangeRate (multi-currency), AR/AP Aging |
+| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management), Currency/ExchangeRate (multi-currency), AR/AP Aging, bank reconciliation, settlements |
 | **Investment** | Investors, funding rounds, equity tracking (donut charts), dividend/distribution records |
 | **Asset** | Fixed asset management, depreciation (straight-line / declining balance methods) |
 | **Marketplace** | Naver/Coupang store integration, order sync, sync history |
 | **Inquiry** | Multi-channel inquiry management, Claude AI auto-reply drafts, reply templates |
 | **Warranty** | Serial number authentication, warranty period management, QR verification |
+| **Approval** | Multi-step approval workflows, document categories (purchase/expense/budget/contract/leave/travel/IT), per-step approvers, file attachments |
 | **Advertising** | Ad platforms (Google/Naver/Kakao/Meta), campaigns, creatives, performance tracking (ROAS/CTR/CPC), budget management |
 
 ### Groupware Modules
@@ -39,7 +40,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 |--------|-------------|
 | **Core** | Dashboard, notifications, Excel/PDF export, barcode generation, backup/restore, audit trail, access logs |
 | **Accounts** | Authentication, RBAC (admin/manager/staff), login protection (django-axes) |
-| **API** | REST API (DRF ViewSets), JWT authentication (SimpleJWT) |
+| **API** | REST API (28 DRF ViewSets), JWT authentication (SimpleJWT), OpenAPI/Swagger docs |
 | **Active Directory** | LDAP/AD integration, user/group sync, group policy-based role mapping |
 
 ## Tech Stack
@@ -156,7 +157,7 @@ ERP_Suite/
 │   ├── advertising/     # Ad campaign/creative management, performance tracking, budgets
 │   ├── asset/           # Fixed asset management, depreciation (straight-line/declining balance)
 │   ├── approval/        # Standalone approval workflows
-│   └── api/             # REST API (DRF ViewSets, JWT auth)
+│   └── api/             # REST API (28 DRF ViewSets, JWT auth)
 ├── config/              # Django settings (base/dev/prod), celery, asgi, wsgi
 ├── templates/           # 250+ HTML templates (Tailwind CSS, responsive)
 ├── static/              # CSS, JS, PWA (manifest.json, sw.js)
@@ -178,7 +179,7 @@ ERP_Suite/
 ## Testing
 
 ```bash
-# Unit tests (592 tests across all apps, --parallel for speed)
+# Unit tests (878 tests across all apps, --parallel for speed)
 python manage.py test apps/ -v 2 --parallel
 
 # Verification tests (security/integrity/performance/workflow/disaster recovery)
@@ -194,16 +195,18 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**Test coverage: 592 tests (unit + verification)**
+**Test coverage: 988+ tests (unit + verification)**
 
-Verification criteria cover 152 items across 9 categories:
-- SEC-001~020: Security (OWASP Top 10)
-- INT-001~015: Data integrity
-- PERF-001~007: Performance
-- FUNC-001~015: Functional workflows
+Verification criteria cover 152 items across 10 categories:
+- SEC-001~035: Security (OWASP Top 10)
+- INT-001~030: Data integrity
+- PERF-001~015: Performance
+- FUNC-001~030: Functional workflows
 - AD-001~010: Active Directory integration
-- DR-001~007: Disaster recovery
-- DEPLOY-001~005: Deployment/integration
+- DR-001~012: Disaster recovery
+- DEPLOY-001~010: Deployment/integration
+- COMPAT-001~005: Compatibility
+- UX-001~005: User experience
 
 ## Key Data Flows
 
@@ -241,11 +244,11 @@ Verification criteria cover 152 items across 9 categories:
 
 ## Scale
 
-- **22 apps**, **106 models** (all with history tracking)
-- **300+ views**, **244 templates**, **320+ URL endpoints**
+- **22 apps**, **107+ models** (all with history tracking)
+- **420+ views**, **250+ templates**, **350+ URL endpoints**
 - **~30,000 lines** of Python (excluding migrations)
-- **592 tests** (unit + verification)
-- **110+ migrations**, **25+ packages**
+- **988+ tests** (unit + verification)
+- **120+ migrations**, **25+ packages**
 
 ## Contributing
 

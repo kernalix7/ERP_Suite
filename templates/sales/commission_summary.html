@@ -9,11 +9,11 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white shadow rounded-lg border border-gray-200">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                     <th class="px-4 py-3">거래처명</th>
                     <th class="px-4 py-3 text-right">총 건수</th>
                     <th class="px-4 py-3 text-right">총 수수료</th>
@@ -26,9 +26,9 @@
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3 text-gray-900 font-medium">{{ item.partner_name }}</td>
                     <td class="px-4 py-3 text-right text-gray-600">{{ item.total_count }}건</td>
-                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ item.total_commission|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right text-green-600 font-medium">{{ item.settled_amount|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right text-yellow-600 font-medium">{{ item.unsettled_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900 font-medium">{{ item.total_commission|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-green-600 font-medium">{{ item.settled_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-yellow-600 font-medium">{{ item.unsettled_amount|intcomma }}원</td>
                 </tr>
                 {% empty %}
                 <tr>

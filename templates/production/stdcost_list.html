@@ -15,8 +15,8 @@
 
 {% block content %}
 <!-- 필터 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-    <form method="get" class="flex flex-wrap items-end gap-4">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap items-end gap-3">
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">현행만</label>
             <select name="current" class="form-input text-sm" onchange="this.form.submit()">
@@ -28,8 +28,8 @@
     </form>
 </div>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <div class="overflow-x-auto">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -53,10 +53,10 @@
                     </td>
                     <td class="px-4 py-3 text-gray-700">{{ sc.version }}</td>
                     <td class="px-4 py-3 text-gray-500">{{ sc.effective_date|date:"Y-m-d" }}</td>
-                    <td class="px-4 py-3 text-right text-gray-700">{{ sc.material_cost|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right text-gray-700">{{ sc.labor_cost|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right text-gray-700">{{ sc.overhead_cost|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ sc.total_standard_cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.material_cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.labor_cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.overhead_cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold text-gray-900">{{ sc.total_standard_cost|intcomma }}원</td>
                     <td class="px-4 py-3 text-center">
                         {% if sc.is_current %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">현행</span>
@@ -68,6 +68,9 @@
                 {% empty %}
                 <tr>
                     <td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
                         등록된 표준원가가 없습니다.
                     </td>
                 </tr>
@@ -75,21 +78,22 @@
             </tbody>
         </table>
     </div>
-</div>
 
-{% if is_paginated %}
-<div class="mt-6 flex justify-center">
-    <nav class="flex flex-wrap items-center space-x-1">
-        {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-2 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
-        {% endif %}
-        {% for num in page_obj.paginator.page_range %}
-        <a href="?page={{ num }}" class="px-3 py-2 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
-        {% endfor %}
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-2 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
-        {% endif %}
-    </nav>
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 {% endblock %}

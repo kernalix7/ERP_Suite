@@ -14,7 +14,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white shadow rounded-lg border border-gray-200">
     <!-- 필터 & 검색 -->
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-col sm:flex-row flex-wrap gap-3">
@@ -47,7 +47,7 @@
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                     <th class="px-4 py-3">{% trans "주문번호" %}</th>
                     <th class="px-4 py-3">{% trans "주문일" %}</th>
                     <th class="px-4 py-3">{% trans "제품" %}</th>
@@ -64,7 +64,7 @@
                 {% for row in sold_items %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3 font-mono text-gray-900">
-                        <a href="{% url 'sales:order_detail' row.order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        <a href="{% url 'sales:order_detail' row.order.order_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ row.order.order_number }}
                         </a>
                     </td>

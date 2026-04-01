@@ -17,7 +17,7 @@
     </div>
 
     <!-- 도메인 정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
         <h2 class="font-semibold text-gray-900 mb-4">{% trans "도메인 정보" %}</h2>
         <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div><dt class="text-gray-500">{% trans "도메인" %}</dt><dd class="font-medium">{{ domain.domain }}</dd></div>
@@ -32,7 +32,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- OU 목록 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100">
             <div class="px-6 py-4 border-b border-gray-100">
                 <h2 class="font-semibold text-gray-900">{% trans "조직단위 (OU)" %} <span class="text-gray-400 text-sm">({{ ous.count }})</span></h2>
             </div>
@@ -50,7 +50,7 @@
         </div>
 
         <!-- 그룹 목록 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100">
             <div class="px-6 py-4 border-b border-gray-100">
                 <h2 class="font-semibold text-gray-900">{% trans "그룹" %} <span class="text-gray-400 text-sm">({{ groups.count }})</span></h2>
             </div>
@@ -73,7 +73,7 @@
     </div>
 
     <!-- 사용자 매핑 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100">
         <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
             <h2 class="font-semibold text-gray-900">{% trans "사용자 매핑" %}</h2>
             <a href="{% url 'ad:usermapping_list' %}?domain={{ domain.pk }}" class="text-sm text-blue-600 hover:underline">{% trans "전체보기" %}</a>
@@ -113,7 +113,7 @@
     </div>
 
     <!-- 동기화 로그 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100">
         <div class="px-6 py-4 border-b border-gray-100">
             <h2 class="font-semibold text-gray-900">{% trans "최근 동기화 로그" %}</h2>
         </div>

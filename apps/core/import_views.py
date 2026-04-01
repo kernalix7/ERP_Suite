@@ -13,7 +13,7 @@ import io
 
 import tablib
 from django.contrib import messages
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.views.generic import TemplateView
 from openpyxl import load_workbook
 
@@ -117,6 +117,20 @@ def collect_errors(result):
     return errors
 
 
+def export_resource_data(resource, filename='data_export'):
+    """Resource 인스턴스를 이용해 기존 데이터를 가져오기 양식과 동일한 형식으로 내보내기."""
+    qs = resource.get_queryset()
+    if hasattr(qs.model, 'is_active'):
+        qs = qs.filter(is_active=True)
+    dataset = resource.export(queryset=qs)
+    response = HttpResponse(
+        dataset.xlsx,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+    return response
+
+
 class BaseImportView(ManagerRequiredMixin, TemplateView):
     """범용 일괄 가져오기 뷰. 서브클래스에서 아래 속성을 지정하세요."""
     template_name = 'core/import.html'
@@ -126,6 +140,14 @@ class BaseImportView(ManagerRequiredMixin, TemplateView):
     sample_url = None
     field_hints = []
     success_message = '{count}건이 성공적으로 가져오기 되었습니다.'
+    export_filename = 'data_export'
+
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('action') == 'export':
+            resource = self.get_resource()
+            if resource:
+                return export_resource_data(resource, self.export_filename)
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -133,6 +155,7 @@ class BaseImportView(ManagerRequiredMixin, TemplateView):
         ctx['cancel_url'] = self.cancel_url
         ctx['sample_url'] = self.sample_url
         ctx['field_hints'] = self.field_hints
+        ctx['supports_export'] = True
         return ctx
 
     def get_resource(self):

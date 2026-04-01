@@ -118,7 +118,7 @@ class BankAccountForm(BaseForm):
         model = BankAccount
         fields = [
             'name', 'account_type', 'owner', 'bank', 'account_number',
-            'account_code', 'opening_balance', 'is_default', 'notes',
+            'account_code', 'opening_balance', 'is_default', 'show_on_dashboard', 'notes',
         ]
 
 

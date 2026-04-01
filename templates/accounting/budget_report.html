@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n humanize %}
 
 {% block title %}{% trans "예산 보고서" %} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "예산 vs 실적 보고서" %} ({{ year }}{% trans "년" %}){% endblock %}
 
 {% block content %}
 <!-- 연도 선택 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-    <form method="get" class="flex flex-wrap gap-4 items-end">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 sm:gap-4 items-end">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "연도" %}</label>
             <select name="year" class="form-input rounded-lg border-gray-300">
@@ -23,22 +23,22 @@
 </div>
 
 <!-- 요약 카드 -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">{% trans "연간 예산 합계" %}</p>
-        <p class="text-2xl font-bold text-gray-900">{{ total_budget|floatformat:0 }}{% trans "원" %}</p>
+        <p class="text-2xl font-bold text-gray-900">{{ total_budget|intcomma }}{% trans "원" %}</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">{% trans "연간 실적 합계" %}</p>
-        <p class="text-2xl font-bold text-blue-600">{{ total_actual|floatformat:0 }}{% trans "원" %}</p>
+        <p class="text-2xl font-bold text-blue-600">{{ total_actual|intcomma }}{% trans "원" %}</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">{% trans "잔여 예산" %}</p>
         <p class="text-2xl font-bold {% if total_variance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-            {{ total_variance|floatformat:0 }}{% trans "원" %}
+            {{ total_variance|intcomma }}{% trans "원" %}
         </p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">{% trans "연간 집행율" %}</p>
         <p class="text-2xl font-bold {% if total_rate > 100 %}text-red-600{% elif total_rate > 80 %}text-yellow-600{% else %}text-green-600{% endif %}">
             {{ total_rate }}%
@@ -47,19 +47,19 @@
 </div>
 
 <!-- 월별 예산 vs 실적 차트 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "월별 예산 vs 실적" %}</h3>
-    <div style="height: 400px;">
+    <div class="w-full" style="height: 300px;">
         <canvas id="budgetChart"></canvas>
     </div>
 </div>
 
 <!-- 계정별 상세 테이블 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <div class="px-6 py-4 border-b border-gray-200">
         <h3 class="text-lg font-semibold text-gray-900">{% trans "계정별 연간 예산 vs 실적" %}</h3>
     </div>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -78,10 +78,10 @@
                     <td class="px-4 py-3 font-mono text-gray-900">{{ row.code }}</td>
                     <td class="px-4 py-3 text-gray-900 font-medium">{{ row.name }}</td>
                     <td class="px-4 py-3 text-center text-gray-600">{{ row.account_type }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ row.budget|floatformat:0 }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ row.actual|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ row.budget|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ row.actual|intcomma }}</td>
                     <td class="px-4 py-3 text-right font-mono font-semibold {% if row.variance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        {{ row.variance|floatformat:0 }}
+                        {{ row.variance|intcomma }}
                     </td>
                     <td class="px-4 py-3 text-right">
                         <div class="flex items-center justify-end gap-2">
@@ -105,10 +105,10 @@
             <tfoot class="bg-gray-50 font-semibold">
                 <tr>
                     <td colspan="3" class="px-4 py-3 text-right text-gray-700">{% trans "합계" %}</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ total_budget|floatformat:0 }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ total_actual|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ total_budget|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ total_actual|intcomma }}</td>
                     <td class="px-4 py-3 text-right font-mono {% if total_variance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        {{ total_variance|floatformat:0 }}
+                        {{ total_variance|intcomma }}
                     </td>
                     <td class="px-4 py-3 text-right font-mono {% if total_rate > 100 %}text-red-600{% else %}text-gray-600{% endif %}">
                         {{ total_rate }}%

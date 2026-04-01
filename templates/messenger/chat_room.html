@@ -1,16 +1,17 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}{{ display_name }} - 사내 메신저 - ERP Suite{% endblock %}
-{% block page_title %}사내 메신저{% endblock %}
+{% block title %}{{ display_name }} - {% trans "사내 메신저" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "사내 메신저" %}{% endblock %}
 
 {% block content %}
-<div class="flex h-[calc(100vh-10rem)] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+<div class="flex h-[calc(100vh-10rem)] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
 
     <!-- 대화방 목록 사이드바 -->
     <div class="hidden lg:flex lg:w-80 flex-col border-r border-gray-200 flex-shrink-0">
         <!-- 상단 헤더 -->
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-            <h2 class="text-sm font-semibold text-gray-700">대화 목록</h2>
+            <h2 class="text-sm font-semibold text-gray-700">{% trans "대화 목록" %}</h2>
             <div x-data="{ open: false }" class="relative">
                 <button @click="open = !open"
                         class="btn btn-primary text-xs px-3 py-1.5">
@@ -20,10 +21,10 @@
                      class="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1">
                     <a href="{% url 'messenger:create_group' %}"
                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        그룹 대화 만들기
+                        {% trans "그룹 대화 만들기" %}
                     </a>
                     <div class="border-t border-gray-100 my-1"></div>
-                    <p class="px-4 py-1 text-xs text-gray-400 uppercase">1:1 대화 시작</p>
+                    <p class="px-4 py-1 text-xs text-gray-400 uppercase">{% trans "1:1 대화 시작" %}</p>
                     {% for u in users %}
                     <form method="post" action="{% url 'messenger:create_direct' u.pk %}" class="inline">
                         {% csrf_token %}
@@ -93,9 +94,9 @@
                 <p class="text-sm font-semibold text-gray-900 truncate">{{ display_name }}</p>
                 <p class="text-xs text-gray-500">
                     {% if room.room_type == 'group' %}
-                        참여자 {{ participants.count }}명
+                        {% trans "참여자" %} {{ participants.count }}{% trans "명" %}
                     {% else %}
-                        1:1 대화
+                        {% trans "1:1 대화" %}
                     {% endif %}
                 </p>
             </div>
@@ -162,7 +163,7 @@
                               x-ref="messageInput"
                               @keydown.enter.prevent="if (!$event.shiftKey) sendMessage()"
                               rows="1"
-                              placeholder="메시지를 입력하세요..."
+                              placeholder="{% trans '메시지를 입력하세요...' %}"
                               class="w-full px-4 py-2.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none max-h-32 overflow-y-auto"
                               style="min-height: 42px;"></textarea>
                 </div>

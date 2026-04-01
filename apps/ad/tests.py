@@ -1,3 +1,5 @@
+import unittest.mock
+
 from django.test import TestCase, RequestFactory
 from django.utils import timezone
 
@@ -207,17 +209,19 @@ class ADServiceTest(TestCase):
         )
 
     def test_connection_test_simulation(self):
-        """ldap3 미설치 시 시뮬레이션 모드 테스트"""
+        """LDAP 서버 미연결 시 시뮬레이션 모드 테스트"""
         service = ADService(self.domain)
-        success, message = service.test_connection()
+        with unittest.mock.patch.object(service, '_get_connection', return_value=None):
+            success, message = service.test_connection()
         self.assertTrue(success)
         self.assertIn('시뮬레이션', message)
 
     def test_sync_simulation(self):
-        """ldap3 미설치 시 동기화 시뮬레이션 테스트"""
+        """LDAP 서버 미연결 시 동기화 시뮬레이션 테스트"""
         user = User.objects.create_user(username='admin', password='pass123!')
         service = ADService(self.domain)
-        sync_log = service.sync(sync_type='FULL', triggered_by=user)
+        with unittest.mock.patch.object(service, '_get_connection', return_value=None):
+            sync_log = service.sync(sync_type='FULL', triggered_by=user)
         self.assertEqual(sync_log.status, 'SUCCESS')
         self.assertIsNotNone(sync_log.finished_at)
         # 도메인의 last_sync_at도 갱신 확인

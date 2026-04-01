@@ -14,7 +14,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
@@ -34,7 +34,7 @@
                 {% for s in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3">
-                        <a href="{% url 'accounting:sales_settlement_detail' s.pk %}" class="text-blue-600 hover:text-blue-800 font-mono font-medium">{{ s.settlement_number }}</a>
+                        <a href="{% url 'accounting:sales_settlement_detail' s.settlement_number %}" class="text-blue-600 hover:text-blue-800 font-mono font-medium">{{ s.settlement_number }}</a>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ s.settlement_date|date:"Y-m-d" }}</td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ s.order_count }}건</td>

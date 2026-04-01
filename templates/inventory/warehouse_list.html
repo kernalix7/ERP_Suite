@@ -4,6 +4,7 @@
 {% block page_title %}창고 관리{% endblock %}
 
 {% block header_actions %}
+{% if user.is_manager_role %}
 <a href="{% url 'inventory:warehouse_create' %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -16,11 +17,12 @@
     </svg>
     가져오기
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="overflow-x-auto">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">

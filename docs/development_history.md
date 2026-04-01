@@ -148,8 +148,8 @@ ERP로써 어느정도 구현이 되었는지 부족한건 뭔지 개선할 건 
 ```
 <!-- English: "Analyze everything thoroughly and check for improvements. Let's make deleted items viewable separately. Also handle evidence/audit trail management. Tell me how complete the ERP is, what's missing, and what to improve. Organize docs, check security, and create a report. Make a separate menu for auditing." -->
 
-**In Progress:**
-- Audit trail system (`/audit/`, `/audit/log/`, `/audit/logins/`)
+**Completed:**
+- Audit trail system (`/audit/`, `/audit/access-log/`, `/audit/data-changes/`, `/audit/login-history/`, `/audit/audit-log/`)
 - Security middleware (`SecurityHeadersMiddleware`, `RequestLoggingMiddleware`)
 - Notification system views/templates (`/notifications/`)
 - Added all missing sidebar menus
@@ -263,12 +263,17 @@ ERP_Suite/
 ├── requirements/
 │   ├── base.txt              # Django, common packages
 │   ├── dev.txt               # + debug-toolbar
-│   └── prod.txt              # + gunicorn, psycopg2
+│   ├── prod.txt              # + gunicorn, psycopg2
+│   └── test.txt              # Test dependencies
 ├── config/
 │   ├── settings/
 │   │   ├── base.py           # Common settings
 │   │   ├── development.py    # Dev settings (DEBUG=True, SQLite)
-│   │   └── production.py     # Prod settings (security headers, PostgreSQL)
+│   │   ├── production.py     # Prod settings (security headers, PostgreSQL)
+│   │   ├── beta.py           # Beta environment (db_beta.sqlite3)
+│   │   └── sandbox.py        # Sandbox environment (db_sandbox.sqlite3)
+│   ├── celery.py             # Celery configuration
+│   ├── asgi.py               # ASGI entry point (Daphne/Channels)
 │   ├── urls.py               # Root URL configuration
 │   └── wsgi.py
 ├── apps/
@@ -277,6 +282,7 @@ ERP_Suite/
 │   ├── inventory/            # Products, categories, warehouses, stock movements, LOT, valuation
 │   ├── production/           # BOM, production plans, work orders, records, MRP, standard cost, QC
 │   ├── sales/                # Partners, customers, orders, quotations, commissions, shipments
+│   ├── purchase/             # Purchase orders, goods receipts, auto stock-in
 │   ├── service/              # Service requests, repair history
 │   ├── accounting/           # Tax invoices, VAT, vouchers, AR/AP, payments, budgets, settlements, multi-currency
 │   ├── investment/           # Investors, rounds, equity, dividends
@@ -292,7 +298,7 @@ ERP_Suite/
 │   ├── advertising/          # Ad campaigns, creatives, performance, budgets
 │   ├── approval/             # Multi-step approval workflow
 │   ├── asset/                # Fixed asset management, depreciation
-│   └── api/                  # REST API (13 ViewSets, JWT auth)
+│   └── api/                  # REST API (28 ViewSets, JWT auth)
 ├── templates/
 │   ├── base.html             # Common layout (sidebar, header)
 │   ├── accounts/             # Login, user management
@@ -317,11 +323,18 @@ ERP_Suite/
 │   ├── asset/                # Fixed assets, depreciation
 │   └── audit/                # Audit trail
 ├── docs/
-│   ├── 사용자_가이드.md
-│   ├── 개발자_가이드.md
-│   ├── API_레퍼런스.md
-│   ├── 배포_가이드.md
-│   └── development_history.md  ← This file
+│   ├── user_guide.md           ← User guide (English)
+│   ├── developer_guide.md      ← Developer guide (English)
+│   ├── api_reference.md        ← API/URL reference (English)
+│   ├── deployment_guide.md     ← Deployment guide (English)
+│   ├── verification_criteria.md← Verification criteria (English)
+│   ├── development_history.md  ← This file (English)
+│   ├── *_ko.md                 ← Korean versions of all docs above
+│   ├── README.ko.md            ← Korean README
+│   ├── CHANGELOG.ko.md         ← Korean CHANGELOG
+│   ├── CONTRIBUTING.ko.md      ← Korean CONTRIBUTING
+│   ├── SECURITY.ko.md          ← Korean SECURITY
+│   └── CODE_OF_CONDUCT.ko.md   ← Korean CODE_OF_CONDUCT
 └── local/                    # gitignored — sensitive files
     ├── .env                  # Environment variables (create manually)
     ├── db.sqlite3            # Dev DB (created after migrate)
@@ -380,7 +393,7 @@ ERP_Suite/
 | Stock concurrency | F() expressions (race condition prevention) |
 | File upload | Extension whitelist + 10MB limit |
 | Soft delete | is_active=False (no physical deletion) |
-| Change history | simple_history (all 106 models) |
+| Change history | simple_history (all 107+ models) |
 | Production security | HSTS, SSL Redirect, HttpOnly cookies |
 | Audit trail | /audit/ — unified change history across all models |
 | Request logging | Automatic logging of sensitive path access |
@@ -391,20 +404,20 @@ ERP_Suite/
 
 ### High (Feature Completeness)
 1. **Real API Integration** — Naver Commerce API (Smart Store), Coupang Partners API
-2. **Barcode/QR Scanning** — Barcode scanner support for stock movements
-3. **Excel Import** — Bulk upload for products/orders/inventory
-4. **PDF Export** — Tax invoices, transaction statements, delivery notes
+2. ~~**Barcode/QR Scanning**~~ — Completed (barcode scan page, QR warranty verification)
+3. ~~**Excel Import**~~ — Completed (django-import-export integration)
+4. ~~**PDF Export**~~ — Completed (reportlab-based generation)
 
 ### Medium (UX Improvements)
 5. **Enhanced Dashboard KPIs** — Real-time stock alerts, approaching deadline alerts
-6. **Mobile Responsive** — Currently desktop-focused, needs mobile optimization
+6. ~~**Mobile Responsive**~~ — Completed (Tailwind CSS responsive design)
 7. **Dark Mode** — Apply Tailwind CSS dark: classes
 8. **Enhanced Search** — Global search functionality
 
 ### Low (Extensions)
 9. **Multi-Location** — Separate inventory/production management per branch
-10. **REST API** — DRF API for external integrations
-11. **PWA** — Offline support
+10. ~~**REST API**~~ — Completed (28 DRF ViewSets with JWT auth)
+11. ~~**PWA**~~ — Completed (manifest.json + service worker)
 
 ---
 
@@ -443,9 +456,9 @@ python manage.py shell -c "from apps.accounts.models import User; u=User.objects
 
 | Item | Status | Details |
 |------|--------|---------|
-| Audit menu | In progress | /audit/ path, sidebar integration in progress |
-| Notification read status | In progress | Top bar bell icon notification count integration |
+| Audit menu | Completed | /audit/ dashboard, access logs, data changes, login history, audit access log |
+| Notification read status | Completed | Top bar bell icon notification count integration |
 | Marketplace API | Not implemented | Real Naver/Coupang API integration needed |
-| PDF export | Not implemented | Need to adopt reportlab or weasyprint |
-| Excel import | Not implemented | Use django-import-export |
-| Unit tests | Not written | Need test code for core models/views |
+| PDF export | Completed | reportlab-based PDF generation |
+| Excel import | Completed | django-import-export integration |
+| Unit tests | Completed | 988+ tests (878 unit + 111 verification) across all 22 apps |

@@ -6,6 +6,7 @@ from apps.core.models import BaseModel
 
 
 class Investor(BaseModel):
+    code = models.CharField('투자자코드', max_length=30, unique=True)
     name = models.CharField('투자자명', max_length=100)
     company = models.CharField('소속회사', max_length=200, blank=True)
     contact_person = models.CharField('담당자', max_length=50, blank=True)
@@ -18,10 +19,10 @@ class Investor(BaseModel):
     class Meta:
         verbose_name = '투자자'
         verbose_name_plural = '투자자'
-        ordering = ['name']
+        ordering = ['code']
 
     def __str__(self):
-        return self.name
+        return f'[{self.code}] {self.name}'
 
     @property
     def total_invested(self):
@@ -54,6 +55,7 @@ class InvestmentRound(BaseModel):
         BRIDGE = 'BRIDGE', '브릿지'
         OTHER = 'OTHER', '기타'
 
+    code = models.CharField('라운드코드', max_length=30, unique=True)
     name = models.CharField('라운드명', max_length=100)
     round_type = models.CharField('라운드유형', max_length=20, choices=RoundType.choices)
     target_amount = models.DecimalField('목표금액', max_digits=15, decimal_places=0, default=0)
@@ -69,7 +71,7 @@ class InvestmentRound(BaseModel):
         ordering = ['-round_date']
 
     def __str__(self):
-        return f'{self.name} ({self.get_round_type_display()})'
+        return f'[{self.code}] {self.name}'
 
     @property
     def total_invested(self):

@@ -12,9 +12,9 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
         <!-- 헤더 -->
-        <div class="flex items-start justify-between mb-6 pb-6 border-b border-gray-200">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-gray-200 gap-3">
             <div>
                 <h2 class="text-xl font-bold text-gray-900 font-mono">{{ movement.movement_number }}</h2>
                 <p class="text-sm text-gray-500 mt-1">{{ movement.movement_date|date:"Y년 m월 d일" }}</p>
@@ -29,7 +29,7 @@
         </div>
 
         <!-- 상세 정보 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
             <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">제품</p>
                 <p class="text-sm font-medium text-gray-900">

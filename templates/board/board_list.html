@@ -8,7 +8,7 @@
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for board in boards %}
     <a href="{% url 'board:post_list' board.slug %}"
-       class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group">
+       class="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow group">
         <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-2">
                 {% if board.is_notice %}
@@ -39,7 +39,10 @@
     </a>
     {% empty %}
     <div class="col-span-full text-center py-12 text-gray-400">
-        {% trans "등록된 게시판이 없습니다." %}
+        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p class="mt-2">{% trans "등록된 게시판이 없습니다." %}</p>
     </div>
     {% endfor %}
 </div>

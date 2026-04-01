@@ -5,11 +5,13 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
+from apps.core.storage import hashed_upload_path
 from apps.core.utils import generate_document_number
 
 
 class ApprovalRequest(BaseModel):
     """결재/품의 요청 — 그룹웨어 공용"""
+    BUSINESS_KEY_FIELD = 'request_number'
 
     class DocCategory(models.TextChoices):
         PURCHASE = 'PURCHASE', '구매품의'
@@ -147,7 +149,7 @@ class ApprovalAttachment(BaseModel):
         ApprovalRequest, verbose_name='결재요청',
         on_delete=models.CASCADE, related_name='attachments',
     )
-    file = models.FileField('파일', upload_to='approval/attachments/%Y/%m/')
+    file = models.FileField('파일', upload_to=hashed_upload_path('approval/attachments'))
     original_name = models.CharField('원본파일명', max_length=255)
 
     class Meta:

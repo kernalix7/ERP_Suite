@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="max-w-2xl">
-    <form method="post" class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <form method="post" class="bg-white shadow rounded-lg border border-gray-200">
         {% csrf_token %}
         <div class="p-6 space-y-5">
             {% for field in form %}

@@ -3,6 +3,7 @@ from simple_history.models import HistoricalRecords
 
 from apps.core.fields import EncryptedCharField
 from apps.core.models import BaseModel
+from apps.core.storage import hashed_upload_path
 
 
 class AdPlatform(BaseModel):
@@ -139,7 +140,7 @@ class AdCreative(BaseModel):
     description = models.TextField('설명', blank=True)
     landing_url = models.URLField('랜딩 URL', blank=True)
     image = models.ImageField(
-        '이미지', upload_to='advertising/creatives/',
+        '이미지', upload_to=hashed_upload_path('advertising/creatives'),
         blank=True
     )
     status = models.CharField(

@@ -26,6 +26,8 @@ class AssetCategory(BaseModel):
 
 class FixedAsset(BaseModel):
     """고정자산 대장"""
+    BUSINESS_KEY_FIELD = 'asset_number'
+
     asset_number = models.CharField('자산번호', max_length=30, unique=True)
     name = models.CharField('자산명', max_length=200)
     category = models.ForeignKey(AssetCategory, on_delete=models.PROTECT, related_name='assets', verbose_name='분류')

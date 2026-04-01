@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}예산 관리 - ERP Suite{% endblock %}
 {% block page_title %}예산 vs 실적{% endblock %}
@@ -13,8 +14,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-    <form method="get" class="flex flex-wrap gap-4 items-end">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 sm:gap-4 items-end">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">연도</label>
             <select name="year" class="form-input rounded-lg border-gray-300">
@@ -38,25 +39,25 @@
 </div>
 
 <!-- 요약 카드 -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">예산 합계</p>
-        <p class="text-2xl font-bold text-gray-900">{{ total_budget|floatformat:0 }}원</p>
+        <p class="text-2xl font-bold text-gray-900">{{ total_budget|intcomma }}원</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">실적 합계</p>
-        <p class="text-2xl font-bold text-blue-600">{{ total_actual|floatformat:0 }}원</p>
+        <p class="text-2xl font-bold text-blue-600">{{ total_actual|intcomma }}원</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-sm text-gray-500">잔여 예산</p>
         <p class="text-2xl font-bold {% if total_variance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-            {{ total_variance|floatformat:0 }}원
+            {{ total_variance|intcomma }}원
         </p>
     </div>
 </div>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="overflow-x-auto">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -75,10 +76,10 @@
                     <td class="px-4 py-3 font-mono text-gray-900">{{ row.code }}</td>
                     <td class="px-4 py-3 text-gray-900 font-medium">{{ row.name }}</td>
                     <td class="px-4 py-3 text-center text-gray-600">{{ row.account_type }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ row.budget|floatformat:0 }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ row.actual|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ row.budget|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ row.actual|intcomma }}</td>
                     <td class="px-4 py-3 text-right font-mono font-semibold {% if row.variance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        {{ row.variance|floatformat:0 }}
+                        {{ row.variance|intcomma }}
                     </td>
                     <td class="px-4 py-3 text-right">
                         <div class="flex items-center justify-end gap-2">
@@ -102,10 +103,10 @@
             <tfoot class="bg-gray-50 font-semibold">
                 <tr>
                     <td colspan="3" class="px-4 py-3 text-right text-gray-700">합계</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ total_budget|floatformat:0 }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ total_actual|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ total_budget|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ total_actual|intcomma }}</td>
                     <td class="px-4 py-3 text-right font-mono {% if total_variance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        {{ total_variance|floatformat:0 }}
+                        {{ total_variance|intcomma }}
                     </td>
                     <td class="px-4 py-3"></td>
                 </tr>

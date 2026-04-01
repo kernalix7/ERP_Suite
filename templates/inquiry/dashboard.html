@@ -9,53 +9,53 @@
 
 {% block content %}
 <!-- 상태별 건수 카드 -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="bg-white shadow-sm rounded-xl p-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-8">
+    <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">접수</p>
                 <p class="mt-2 text-2xl font-bold text-blue-600">{{ received_count|default:0 }}</p>
             </div>
-            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
                 </svg>
             </div>
         </div>
     </div>
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">답변대기</p>
                 <p class="mt-2 text-2xl font-bold text-yellow-600">{{ waiting_count|default:0 }}</p>
             </div>
-            <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
             </div>
         </div>
     </div>
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">답변완료</p>
                 <p class="mt-2 text-2xl font-bold text-green-600">{{ answered_count|default:0 }}</p>
             </div>
-            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
             </div>
         </div>
     </div>
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">종료</p>
                 <p class="mt-2 text-2xl font-bold text-gray-600">{{ closed_count|default:0 }}</p>
             </div>
-            <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
@@ -65,15 +65,15 @@
 </div>
 
 <!-- 최근 문의 5건 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <h3 class="text-lg font-semibold text-gray-800">최근 문의</h3>
         <a href="{% url 'inquiry:inquiry_list' %}" class="text-sm text-blue-600 hover:text-blue-800">전체보기</a>
     </div>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                     <th class="px-4 py-3 text-center">채널</th>
                     <th class="px-4 py-3">제목</th>
                     <th class="px-4 py-3">고객명</th>
@@ -88,7 +88,7 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{{ inquiry.channel }}</span>
                     </td>
                     <td class="px-4 py-3 text-gray-900">
-                        <a href="{% url 'inquiry:inquiry_detail' inquiry.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        <a href="{% url 'inquiry:inquiry_detail' inquiry.inquiry_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ inquiry.title|truncatechars:40 }}
                         </a>
                     </td>
