@@ -14,9 +14,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
     <!-- 등록 폼 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow rounded-lg p-4 sm:p-6">
         <h3 class="text-base font-semibold text-gray-900 mb-4">{% trans "새 년도 설정 추가" %}</h3>
         <form method="post" novalidate>
             {% csrf_token %}
@@ -58,7 +58,7 @@
     </div>
 
     <!-- 기존 설정 목록 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white shadow rounded-lg">
         <div class="px-6 py-4 border-b border-gray-200">
             <h3 class="text-base font-semibold text-gray-900">{% trans "연도별 급여 설정" %}</h3>
         </div>

@@ -89,14 +89,14 @@ class EventAPIView(LoginRequiredMixin, View):
         """날짜/시간 문자열을 timezone-aware datetime으로 변환"""
         from datetime import datetime as dt_cls, time
         from django.utils.dateparse import parse_datetime, parse_date
+        # parse_date 우선: 날짜만 있는 문자열에 use_end_of_day 적용
+        d = parse_date(value)
+        if d:
+            t = time(23, 59, 59) if use_end_of_day else time(0, 0, 0)
+            return timezone.make_aware(dt_cls.combine(d, t))
         result = parse_datetime(value)
         if result and timezone.is_naive(result):
             result = timezone.make_aware(result)
-        if not result:
-            d = parse_date(value)
-            if d:
-                t = time(23, 59, 59) if use_end_of_day else time(0, 0, 0)
-                result = timezone.make_aware(dt_cls.combine(d, t))
         return result
 
     def get(self, request):

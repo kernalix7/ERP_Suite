@@ -256,15 +256,17 @@ ERP_Suite/
 ├── manage.py
 ├── requirements/
 │   ├── base.txt              # Django, 공통 패키지
-│   ├── dev.txt               # debug-toolbar 추가
-│   └── prod.txt              # gunicorn, psycopg2 추가
+│   ├── dev.txt               # 개발 의존성
+│   ├── prod.txt              # 운영 의존성
+│   └── test.txt              # 테스트 의존성
 ├── config/
 │   ├── settings/
 │   │   ├── base.py           # 공통 설정
 │   │   ├── development.py    # 개발 설정 (DEBUG=True, SQLite)
 │   │   └── production.py     # 운영 설정 (보안 헤더, PostgreSQL)
 │   ├── urls.py               # 루트 URL
-│   └── wsgi.py
+│   ├── asgi.py               # ASGI 엔트리포인트 (Daphne)
+│   └── wsgi.py               # WSGI 엔트리포인트 (폴백)
 ├── apps/
 │   ├── core/                 # BaseModel, 알림, 백업, 휴지통, 증빙, 감사
 │   ├── accounts/             # 사용자, 역할(admin/manager/staff)
@@ -284,9 +286,10 @@ ERP_Suite/
 │   ├── messenger/            # 실시간 채팅 (WebSocket)
 │   ├── ad/                   # Active Directory 연동
 │   ├── advertising/          # 광고 캠페인, 소재, 성과, 예산
+│   ├── purchase/             # 구매발주, 입고확인
 │   ├── approval/             # 다단계 결재/품의
 │   ├── asset/                # 고정자산, 감가상각
-│   └── api/                  # REST API (13 ViewSet, JWT 인증)
+│   └── api/                  # REST API (28 ViewSet, JWT 인증)
 ├── templates/
 │   ├── base.html             # 공통 레이아웃 (사이드바, 헤더)
 │   ├── accounts/             # 로그인, 사용자관리
@@ -300,6 +303,7 @@ ERP_Suite/
 │   ├── warranty/             # 정품등록
 │   ├── marketplace/          # 외부스토어
 │   ├── inquiry/              # 문의관리
+│   ├── purchase/             # 구매발주, 입고확인
 │   ├── hr/                   # 부서, 직원, 급여
 │   ├── attendance/           # 근태, 휴가
 │   ├── board/                # 게시판
@@ -311,11 +315,12 @@ ERP_Suite/
 │   ├── asset/                # 고정자산, 감가상각
 │   └── audit/                # 감사 증적
 ├── docs/
-│   ├── 사용자_가이드.md
-│   ├── 개발자_가이드.md
-│   ├── API_레퍼런스.md
-│   ├── 배포_가이드.md
-│   └── 개발이력_및_세션정리.md  ← 이 파일
+│   ├── user_guide_ko.md          # 사용자 가이드
+│   ├── developer_guide_ko.md     # 개발자 가이드
+│   ├── api_reference_ko.md       # API 레퍼런스
+│   ├── deployment_guide_ko.md    # 배포 가이드
+│   ├── verification_criteria_ko.md  # 검증 기준서
+│   └── development_history_ko.md # 개발이력 (이 파일)
 └── local/                    # gitignore — 민감 파일
     ├── .env                  # 환경변수 (직접 생성)
     ├── db.sqlite3            # 개발 DB (migrate 후 생성)
@@ -384,21 +389,21 @@ ERP_Suite/
 ## 8. 다음 개선 과제 (우선순위 순)
 
 ### 높음 (기능 완성도)
-1. **실제 API 연동** — 네이버 커머스 API (스마트스토어), 쿠팡 파트너스 API
-2. **바코드/QR 스캔** — 입출고 시 바코드 스캐너 지원
-3. **Excel 가져오기** — 제품/주문/재고 일괄 업로드
-4. **PDF 출력** — 세금계산서, 거래명세서, 납품서
+1. **실제 API 연동** -- 네이버 커머스 API (스마트스토어), 쿠팡 파트너스 API
+2. ~~**바코드/QR 스캔**~~ -- 완료 (바코드/QR 생성 및 스캔 구현)
+3. ~~**Excel 가져오기**~~ -- 완료 (django-import-export 기반)
+4. ~~**PDF 출력**~~ -- 완료 (reportlab 기반 세금계산서/바코드 PDF)
 
 ### 중간 (UX 개선)
-5. **대시보드 KPI 강화** — 실시간 재고 알림, 납기 임박 알림
-6. **모바일 반응형** — 현재 데스크톱 위주, 모바일 최적화
-7. **다크 모드** — Tailwind CSS dark: 클래스 적용
-8. **검색 강화** — 전체 검색 기능
+5. ~~**대시보드 KPI 강화**~~ -- 완료 (Chart.js 기반 대시보드, 재고 알림)
+6. ~~**모바일 반응형**~~ -- 완료 (Tailwind CSS 반응형 적용)
+7. **다크 모드** -- Tailwind CSS dark: 클래스 적용
+8. **검색 강화** -- 전체 검색 기능
 
 ### 낮음 (확장)
-9. **멀티 사업장** — 지점별 재고/생산 분리 관리
-10. **REST API** — 외부 연동용 DRF API
-11. **PWA** — 오프라인 지원
+9. **멀티 사업장** -- 지점별 재고/생산 분리 관리
+10. ~~**REST API**~~ -- 완료 (28 ViewSet, JWT 인증)
+11. ~~**PWA**~~ -- 완료 (manifest + 서비스 워커)
 
 ---
 
@@ -437,9 +442,9 @@ python manage.py shell -c "from apps.accounts.models import User; u=User.objects
 
 | 항목 | 상태 | 내용 |
 |------|------|------|
-| 감사 메뉴 | 구현중 | /audit/ 경로, 사이드바 추가 작업 중 |
-| 알림 읽음 처리 | 구현중 | 상단 벨 아이콘 알림 카운트 연동 |
+| 감사 메뉴 | 완료 | /audit/ 경로, 사이드바, 감사 대시보드 구현 완료 |
+| 알림 읽음 처리 | 완료 | 상단 벨 아이콘 알림 카운트 연동 완료 |
 | 마켓플레이스 API | 미구현 | 실제 네이버/쿠팡 API 연동 필요 |
-| PDF 출력 | 미구현 | reportlab 또는 weasyprint 도입 필요 |
-| Excel 가져오기 | 미구현 | django-import-export 활용 |
-| 단위 테스트 | 미작성 | 핵심 모델/뷰 테스트 코드 필요 |
+| PDF 출력 | 완료 | reportlab 기반 세금계산서/바코드 PDF 생성 |
+| Excel 가져오기 | 완료 | django-import-export 기반 가져오기/내보내기 |
+| 단위 테스트 | 완료 | 988개 테스트 (877 단위 + 111 검증) |

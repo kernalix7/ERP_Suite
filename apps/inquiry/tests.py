@@ -80,7 +80,7 @@ class InquiryModelTest(TestCase):
             created_by=self.user,
         )
         result = str(inquiry)
-        self.assertIn('접수', result)
+        self.assertIn('INQ', result)
         self.assertIn('배송 문의', result)
 
     def test_inquiry_status_choices(self):
@@ -234,6 +234,99 @@ class InquiryReplyModelTest(TestCase):
             replied_by=self.user, created_by=self.user,
         )
         self.assertEqual(self.inquiry.replies.count(), 2)
+
+
+class InquiryReplySignalTest(TestCase):
+    """답변 등록 시 문의 상태 자동 전환 시그널 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='siguser', password='testpass123',
+            role='manager', name='시그널테스트',
+        )
+        self.channel = InquiryChannel.objects.create(
+            name='테스트채널', created_by=self.user,
+        )
+
+    def test_reply_changes_received_to_replied(self):
+        """RECEIVED 상태 문의에 답변 → REPLIED 자동 전환"""
+        inquiry = Inquiry.objects.create(
+            channel=self.channel,
+            customer_name='고객A',
+            subject='시그널 테스트',
+            content='내용',
+            status=Inquiry.Status.RECEIVED,
+            received_date=timezone.now(),
+            created_by=self.user,
+        )
+        InquiryReply.objects.create(
+            inquiry=inquiry,
+            content='답변입니다.',
+            replied_by=self.user,
+            created_by=self.user,
+        )
+        inquiry.refresh_from_db()
+        self.assertEqual(inquiry.status, 'REPLIED')
+
+    def test_reply_changes_waiting_to_replied(self):
+        """WAITING 상태 문의에 답변 → REPLIED 자동 전환"""
+        inquiry = Inquiry.objects.create(
+            channel=self.channel,
+            customer_name='고객B',
+            subject='대기중 문의',
+            content='내용',
+            status=Inquiry.Status.WAITING,
+            received_date=timezone.now(),
+            created_by=self.user,
+        )
+        InquiryReply.objects.create(
+            inquiry=inquiry,
+            content='답변입니다.',
+            replied_by=self.user,
+            created_by=self.user,
+        )
+        inquiry.refresh_from_db()
+        self.assertEqual(inquiry.status, 'REPLIED')
+
+    def test_reply_on_closed_no_change(self):
+        """CLOSED 상태 문의에 답변 → 상태 변경 없음"""
+        inquiry = Inquiry.objects.create(
+            channel=self.channel,
+            customer_name='고객C',
+            subject='종료된 문의',
+            content='내용',
+            status=Inquiry.Status.CLOSED,
+            received_date=timezone.now(),
+            created_by=self.user,
+        )
+        InquiryReply.objects.create(
+            inquiry=inquiry,
+            content='추가 답변.',
+            replied_by=self.user,
+            created_by=self.user,
+        )
+        inquiry.refresh_from_db()
+        self.assertEqual(inquiry.status, 'CLOSED')
+
+    def test_reply_on_replied_no_change(self):
+        """이미 REPLIED 상태에서 추가 답변 → 상태 유지"""
+        inquiry = Inquiry.objects.create(
+            channel=self.channel,
+            customer_name='고객D',
+            subject='답변완료 문의',
+            content='내용',
+            status=Inquiry.Status.REPLIED,
+            received_date=timezone.now(),
+            created_by=self.user,
+        )
+        InquiryReply.objects.create(
+            inquiry=inquiry,
+            content='두번째 답변.',
+            replied_by=self.user,
+            created_by=self.user,
+        )
+        inquiry.refresh_from_db()
+        self.assertEqual(inquiry.status, 'REPLIED')
 
 
 class ReplyTemplateModelTest(TestCase):

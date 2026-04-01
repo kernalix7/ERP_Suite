@@ -6,9 +6,9 @@ from .models import Product, Category, Warehouse
 
 class ProductResource(resources.ModelResource):
     category = fields.Field(
-        column_name='category__name',
+        column_name='category__code',
         attribute='category',
-        widget=ForeignKeyWidget(Category, field='name'),
+        widget=ForeignKeyWidget(Category, field='code'),
     )
 
     class Meta:
@@ -22,23 +22,23 @@ class ProductResource(resources.ModelResource):
         report_skipped = True
 
     def before_import_row(self, row, **kwargs):
-        """카테고리명이 비어있으면 None 처리"""
-        cat_name = row.get('category__name', '')
-        if cat_name and not Category.objects.filter(name=cat_name).exists():
-            Category.objects.create(name=cat_name)
+        """카테고리코드가 비어있으면 None 처리"""
+        cat_code = row.get('category__code', '')
+        if cat_code and not Category.objects.filter(code=cat_code).exists():
+            Category.objects.create(code=cat_code, name=cat_code)
 
 
 class CategoryResource(resources.ModelResource):
     parent_name = fields.Field(
         column_name='parent_name',
         attribute='parent',
-        widget=ForeignKeyWidget(Category, field='name'),
+        widget=ForeignKeyWidget(Category, field='code'),
     )
 
     class Meta:
         model = Category
-        fields = ('name', 'parent_name')
-        import_id_fields = ('name',)
+        fields = ('code', 'name', 'parent_name')
+        import_id_fields = ('code',)
         skip_unchanged = True
         report_skipped = True
 

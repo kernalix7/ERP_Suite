@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize phone_filters %}
 
 {% block title %}고객 상세 - {{ customer.name }} - ERP Suite{% endblock %}
 {% block page_title %}고객 상세{% endblock %}
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
-    <a href="{% url 'sales:customer_update' customer.pk %}" class="btn btn-primary">수정</a>
-    <a href="{% url 'sales:customer_delete' customer.pk %}" class="btn btn-danger">삭제</a>
+    <a href="{% url 'sales:customer_update' customer.code %}" class="btn btn-primary">수정</a>
+    <a href="{% url 'sales:customer_delete' customer.code %}" class="btn btn-danger">삭제</a>
     <a href="{% url 'sales:customer_list' %}" class="btn btn-secondary">목록</a>
 </div>
 {% endblock %}
@@ -15,16 +15,16 @@
 {% block content %}
 <div class="space-y-6">
     <!-- 고객 정보 카드 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">고객 정보</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">고객명</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">{{ customer.name }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">연락처</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ customer.phone|default:"-" }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ customer.phone|format_phone|default:"-" }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">이메일</dt>
@@ -42,15 +42,15 @@
     </div>
 
     <!-- 구매내역 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white shadow rounded-lg border border-gray-200">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-800">구매내역</h2>
-            <a href="{% url 'sales:customer_update' customer.pk %}" class="text-sm text-blue-600 hover:text-blue-800">수정</a>
+            <a href="{% url 'sales:customer_update' customer.code %}" class="text-sm text-blue-600 hover:text-blue-800">수정</a>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                         <th class="px-4 py-3">제품</th>
                         <th class="px-4 py-3">시리얼번호</th>
                         <th class="px-4 py-3">구매일</th>
@@ -88,14 +88,14 @@
     </div>
 
     <!-- 정품등록 내역 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white shadow rounded-lg border border-gray-200">
         <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">정품등록 내역</h2>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                         <th class="px-4 py-3">시리얼번호</th>
                         <th class="px-4 py-3">제품</th>
                         <th class="px-4 py-3">구매일</th>
@@ -119,7 +119,7 @@
                             {% endif %}
                         </td>
                         <td class="px-4 py-3 text-center">
-                            <a href="{% url 'warranty:registration_update' reg.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                            <a href="{% url 'warranty:registration_update' reg.serial_number %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
                         </td>
                     </tr>
                     {% empty %}
@@ -133,7 +133,7 @@
     </div>
 
     <!-- 주문 내역 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white shadow rounded-lg border border-gray-200">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-800">주문 내역</h2>
             <a href="{% url 'sales:order_create' %}?customer={{ customer.pk }}" class="text-sm text-blue-600 hover:text-blue-800">
@@ -143,7 +143,7 @@
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                         <th class="px-4 py-3">주문번호</th>
                         <th class="px-4 py-3">주문일</th>
                         <th class="px-4 py-3">상태</th>
@@ -155,7 +155,7 @@
                     {% for order in orders %}
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3 font-mono text-gray-900">
-                            <a href="{% url 'sales:order_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            <a href="{% url 'sales:order_detail' order.order_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                                 {{ order.order_number }}
                             </a>
                         </td>
@@ -177,7 +177,7 @@
                         </td>
                         <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ order.total_amount|intcomma }}원</td>
                         <td class="px-4 py-3 text-center">
-                            <a href="{% url 'sales:order_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">상세</a>
+                            <a href="{% url 'sales:order_detail' order.order_number %}" class="text-blue-600 hover:text-blue-800 text-sm">상세</a>
                         </td>
                     </tr>
                     {% empty %}
@@ -191,7 +191,7 @@
     </div>
 
     <!-- AS 요청 내역 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white shadow rounded-lg border border-gray-200">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-800">AS 요청 내역</h2>
             <a href="{% url 'service:request_create' %}?customer={{ customer.pk }}" class="text-sm text-blue-600 hover:text-blue-800">
@@ -201,7 +201,7 @@
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                         <th class="px-4 py-3">AS번호</th>
                         <th class="px-4 py-3">제품</th>
                         <th class="px-4 py-3">요청유형</th>
@@ -214,7 +214,7 @@
                     {% for req in service_requests %}
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3 font-mono text-gray-900">
-                            <a href="{% url 'service:request_detail' req.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            <a href="{% url 'service:request_detail' req.request_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                                 {{ req.request_number }}
                             </a>
                         </td>
@@ -239,7 +239,7 @@
                         </td>
                         <td class="px-4 py-3 text-gray-600">{{ req.created_at|date:"Y-m-d" }}</td>
                         <td class="px-4 py-3 text-center">
-                            <a href="{% url 'service:request_detail' req.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">상세</a>
+                            <a href="{% url 'service:request_detail' req.request_number %}" class="text-blue-600 hover:text-blue-800 text-sm">상세</a>
                         </td>
                     </tr>
                     {% empty %}

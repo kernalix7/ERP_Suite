@@ -9,7 +9,7 @@
 <!-- Summary Cards -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <!-- 금일 주문 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">금일 주문</p>
@@ -25,7 +25,7 @@
     </div>
 
     <!-- 재고부족 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">재고부족</p>
@@ -41,7 +41,7 @@
     </div>
 
     <!-- 진행중 생산 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">진행중 생산</p>
@@ -57,7 +57,7 @@
     </div>
 
     <!-- 미처리 AS -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">미처리 AS</p>
@@ -77,7 +77,7 @@
 <!-- KPI Cards -->
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
     <!-- 재고 회전율 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">재고 회전율 (12개월)</p>
@@ -93,7 +93,7 @@
     </div>
 
     <!-- 납기 준수율 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">납기 준수율</p>
@@ -109,6 +109,54 @@
     </div>
 </div>
 
+<!-- 계좌 잔액 -->
+{% if dashboard_accounts %}
+<div x-data="{ showAll: false }" class="bg-white shadow-sm rounded-lg mb-6">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500">계좌 잔액 합계</p>
+                <p class="text-xl font-bold text-gray-900">{{ dashboard_accounts_total|intcomma }}원</p>
+            </div>
+        </div>
+        <a href="{% url 'accounting:bankaccount_list' %}" class="text-sm text-blue-600 hover:text-blue-800">전체 계좌 관리 &rarr;</a>
+    </div>
+    <div class="divide-y divide-gray-50">
+        {% for acct in dashboard_accounts %}
+        <div class="px-5 py-3 flex items-center justify-between {% if forloop.counter > 3 %}transition-all duration-200{% endif %}"
+             {% if forloop.counter > 3 %}x-show="showAll" x-cloak{% endif %}>
+            <div class="flex items-center gap-3">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                    {% if acct.account_type == 'BUSINESS' %}bg-blue-100 text-blue-700
+                    {% elif acct.account_type == 'PERSONAL' %}bg-purple-100 text-purple-700
+                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                    {{ acct.get_account_type_display }}
+                </span>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">{{ acct.name }}</p>
+                    <p class="text-xs text-gray-400">{{ acct.bank }} {{ acct.owner }}</p>
+                </div>
+            </div>
+            <p class="text-sm font-mono font-medium text-gray-900">{{ acct.balance|intcomma }}원</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% if dashboard_accounts|length > 3 %}
+    <div class="px-5 py-3 border-t border-gray-100 text-center">
+        <button @click="showAll = !showAll" class="text-sm text-gray-500 hover:text-blue-600 transition-colors">
+            <span x-show="!showAll">더보기 ({{ dashboard_accounts|length }}개)</span>
+            <span x-show="showAll">접기</span>
+        </button>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Charts Section -->
 {{ chart_revenue_labels|json_script:"chart-revenue-labels" }}
 {{ chart_revenue_data|json_script:"chart-revenue-data" }}
@@ -121,7 +169,7 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- 월별 매출 추이 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <h2 class="text-base font-semibold text-gray-900 mb-4">월별 매출 추이</h2>
         <div class="relative" style="height: 280px;">
             <canvas id="revenueChart" aria-label="월별 매출 추이 차트" role="img"></canvas>
@@ -129,7 +177,7 @@
     </div>
 
     <!-- 월별 생산량 추이 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <h2 class="text-base font-semibold text-gray-900 mb-4">월별 생산량 추이</h2>
         <div class="relative" style="height: 280px;">
             <canvas id="productionChart" aria-label="월별 생산량 추이 차트" role="img"></canvas>
@@ -137,7 +185,7 @@
     </div>
 
     <!-- 제품유형별 재고 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <h2 class="text-base font-semibold text-gray-900 mb-4">제품유형별 재고</h2>
         <div class="relative" style="height: 280px;">
             <canvas id="stockChart" aria-label="제품유형별 재고 차트" role="img"></canvas>
@@ -145,7 +193,7 @@
     </div>
 
     <!-- 주문 상태 분포 -->
-    <div class="bg-white shadow-sm rounded-xl p-5">
+    <div class="bg-white shadow-sm rounded-lg p-5">
         <h2 class="text-base font-semibold text-gray-900 mb-4">주문 상태 분포</h2>
         <div class="relative" style="height: 280px;">
             <canvas id="orderStatusChart" aria-label="주문 상태 분포 차트" role="img"></canvas>
@@ -156,7 +204,7 @@
 <!-- Content Grid -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- Recent Orders -->
-    <div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div class="bg-white shadow-sm rounded-lg overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="text-base font-semibold text-gray-900">최근 주문</h2>
             <a href="{% url 'sales:order_list' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">전체보기</a>
@@ -176,7 +224,7 @@
                     {% for order in recent_orders %}
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-5 py-3">
-                            <a href="{% url 'sales:order_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ order.order_number }}</a>
+                            <a href="{% url 'sales:order_detail' order.order_number %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ order.order_number }}</a>
                         </td>
                         <td class="px-5 py-3 text-gray-700">{{ order.customer }}</td>
                         <td class="px-5 py-3 text-right text-gray-700">{{ order.total_amount|intcomma }}원</td>
@@ -202,7 +250,7 @@
     </div>
 
     <!-- Recent Service Requests -->
-    <div class="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div class="bg-white shadow-sm rounded-lg overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="text-base font-semibold text-gray-900">최근 AS 접수</h2>
             <a href="{% url 'service:request_list' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">전체보기</a>
@@ -222,7 +270,7 @@
                     {% for svc in recent_services %}
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-5 py-3">
-                            <a href="{% url 'service:request_detail' svc.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ svc.request_number }}</a>
+                            <a href="{% url 'service:request_detail' svc.request_number %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ svc.request_number }}</a>
                         </td>
                         <td class="px-5 py-3 text-gray-700">{{ svc.customer }}</td>
                         <td class="px-5 py-3 text-gray-500">{{ svc.created_at|date:"Y-m-d" }}</td>
@@ -248,7 +296,7 @@
 </div>
 
 <!-- Low Stock Products Alert -->
-<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+<div class="bg-white shadow-sm rounded-lg overflow-hidden">
     <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
         <h2 class="text-base font-semibold text-gray-900">재고부족 품목</h2>
         <a href="{% url 'inventory:stock_status' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">재고현황 보기</a>

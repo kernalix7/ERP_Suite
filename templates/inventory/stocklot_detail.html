@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{{ lot.lot_number }} - {% trans "LOT 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "LOT 상세" %}{% endblock %}
+
+{% block header_actions %}
+<div class="flex flex-wrap items-center gap-2">
+    <a href="{% url 'inventory:stocklot_list' %}" class="btn btn-secondary">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        {% trans "목록" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <!-- LOT 정보 카드 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-gray-200 gap-3">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900 font-mono">{{ lot.lot_number }}</h2>
+                <p class="text-sm text-gray-500 mt-1">{% trans "입고일" %}: {{ lot.received_date|date:"Y-m-d" }}</p>
+            </div>
+            {% if lot.remaining_quantity == 0 %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">{% trans "소진" %}</span>
+            {% elif lot.remaining_quantity < lot.initial_quantity %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">{% trans "부분소진" %}</span>
+            {% else %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">{% trans "전량보유" %}</span>
+            {% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "제품" %}</p>
+                <p class="text-sm font-medium text-gray-900">
+                    <a href="{% url 'inventory:product_detail' lot.product.pk %}" class="text-blue-600 hover:text-blue-800">
+                        {{ lot.product.name }}
+                    </a>
+                </p>
+                <p class="text-xs text-gray-500 font-mono mt-0.5">{{ lot.product.code }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "창고" %}</p>
+                <p class="text-sm font-medium text-gray-900">{{ lot.warehouse.name }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "초기수량" %}</p>
+                <p class="text-lg font-bold text-gray-900">{{ lot.initial_quantity }}
+                    <span class="text-sm font-normal text-gray-500">{{ lot.product.unit|default:"EA" }}</span>
+                </p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "잔여수량" %}</p>
+                <p class="text-lg font-bold
+                    {% if lot.remaining_quantity == 0 %}text-gray-400
+                    {% elif lot.remaining_quantity < lot.initial_quantity %}text-yellow-600
+                    {% else %}text-green-600{% endif %}">
+                    {{ lot.remaining_quantity }}
+                    <span class="text-sm font-normal text-gray-500">{{ lot.product.unit|default:"EA" }}</span>
+                </p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "입고단가" %}</p>
+                <p class="text-sm font-medium text-gray-900">{{ lot.unit_cost|intcomma }}{% trans "원" %}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "평가금액" %}</p>
+                <p class="text-sm font-medium text-green-700">{{ lot.remaining_quantity|floatformat:0 }} x {{ lot.unit_cost|intcomma }}{% trans "원" %}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "유효기한" %}</p>
+                <p class="text-sm font-medium text-gray-900">{{ lot.expiry_date|date:"Y-m-d"|default:"-" }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "입고전표" %}</p>
+                {% if lot.stock_movement %}
+                <p class="text-sm font-medium">
+                    <a href="{% url 'inventory:movement_detail' lot.stock_movement.movement_number %}" class="text-blue-600 hover:text-blue-800 font-mono">
+                        {{ lot.stock_movement.movement_number }}
+                    </a>
+                </p>
+                {% else %}
+                <p class="text-sm text-gray-400">-</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mt-6 pt-6 border-t border-gray-200 text-xs text-gray-400">
+            <p>{% trans "등록일시" %}: {{ lot.created_at|date:"Y-m-d H:i" }}</p>
+        </div>
+    </div>
+
+    <!-- 연관 입출고 이력 -->
+    {% if movements %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="p-4 border-b border-gray-200">
+            <h3 class="text-base font-semibold text-gray-900">{% trans "연관 입출고 이력" %}</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="w-full text-sm text-left">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">{% trans "전표번호" %}</th>
+                        <th class="px-4 py-3">{% trans "유형" %}</th>
+                        <th class="px-4 py-3 text-right">{% trans "수량" %}</th>
+                        <th class="px-4 py-3">{% trans "일자" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for mv in movements %}
+                    <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
+                        onclick="location.href='{% url 'inventory:movement_detail' mv.movement_number %}'">
+                        <td class="px-4 py-3 font-mono text-blue-600 font-medium">{{ mv.movement_number }}</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if mv.movement_type == 'IN' or mv.movement_type == 'ADJ_PLUS' or mv.movement_type == 'PROD_IN' or mv.movement_type == 'RETURN' %}bg-green-100 text-green-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ mv.get_movement_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right font-medium
+                            {% if mv.movement_type == 'IN' or mv.movement_type == 'ADJ_PLUS' or mv.movement_type == 'PROD_IN' or mv.movement_type == 'RETURN' %}text-green-600{% else %}text-red-600{% endif %}">
+                            {% if mv.movement_type == 'IN' or mv.movement_type == 'ADJ_PLUS' or mv.movement_type == 'PROD_IN' or mv.movement_type == 'RETURN' %}+{% else %}-{% endif %}{{ mv.quantity }}
+                        </td>
+                        <td class="px-4 py-3 text-gray-500">{{ mv.movement_date|date:"Y-m-d" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

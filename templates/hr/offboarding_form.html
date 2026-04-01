@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "퇴사 처리" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">{% trans "퇴사 처리" %}</h1>
+    <p class="mt-1 text-sm text-gray-500">{% trans "퇴사 처리 시 해당 직원의 로그인 계정이 자동으로 비활성화됩니다." %}</p>
+  </div>
+
+  <div class="bg-white shadow rounded-lg p-6">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+        {{ form.non_field_errors }}
+      </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 gap-6">
+
+        <div>
+          <label for="{{ form.employee.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.employee.label }} <span class="text-red-500">*</span>
+          </label>
+          {{ form.employee }}
+          {% if form.employee.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.employee.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.resignation_date.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.resignation_date.label }} <span class="text-red-500">*</span>
+          </label>
+          {{ form.resignation_date }}
+          {% if form.resignation_date.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.resignation_date.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.reason.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.reason.label }}
+          </label>
+          {{ form.reason }}
+          {% if form.reason.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.reason.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+      </div>
+
+      <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">
+        <strong>{% trans "주의" %}</strong><br>
+        {% trans "퇴사 처리 후 해당 직원은 시스템에 로그인할 수 없습니다. 인사발령 이력에 기록됩니다." %}
+      </div>
+
+      <div class="mt-6 flex items-center justify-end gap-3">
+        <a href="{% url 'hr:employee_list' %}"
+           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+          {% trans "취소" %}
+        </a>
+        <button type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700">
+          {% trans "퇴사 처리" %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

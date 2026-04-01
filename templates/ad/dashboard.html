@@ -14,23 +14,23 @@
 
     <!-- KPI 카드 -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "등록 도메인" %}</p>
             <p class="text-2xl font-bold text-gray-900 mt-1">{{ domains.count }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "매핑된 사용자" %}</p>
             <p class="text-2xl font-bold text-blue-600 mt-1">{{ total_mappings }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "동기화 완료" %}</p>
             <p class="text-2xl font-bold text-green-600 mt-1">{{ synced_count }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "동기화 오류" %}</p>
             <p class="text-2xl font-bold {% if error_count > 0 %}text-red-600{% else %}text-gray-400{% endif %} mt-1">{{ error_count }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "AD 그룹" %}</p>
             <p class="text-2xl font-bold text-purple-600 mt-1">{{ total_groups }}</p>
         </div>
@@ -38,7 +38,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- 도메인 목록 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100">
             <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                 <h2 class="font-semibold text-gray-900">{% trans "도메인" %}</h2>
                 <a href="{% url 'ad:domain_list' %}" class="text-sm text-blue-600 hover:underline">{% trans "전체보기" %}</a>
@@ -70,7 +70,7 @@
         <!-- 수동 동기화 + 최근 로그 -->
         <div class="space-y-6">
             <!-- 수동 동기화 -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
                 <h2 class="font-semibold text-gray-900 mb-4">{% trans "수동 동기화" %}</h2>
                 <form method="post" action="{% url 'ad:manual_sync' %}">
                     {% csrf_token %}
@@ -89,7 +89,7 @@
             </div>
 
             <!-- 최근 동기화 로그 -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-100">
                 <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                     <h2 class="font-semibold text-gray-900">{% trans "최근 동기화 로그" %}</h2>
                     <a href="{% url 'ad:synclog_list' %}" class="text-sm text-blue-600 hover:underline">{% trans "전체보기" %}</a>
@@ -121,19 +121,19 @@
 
     <!-- 빠른 링크 -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <a href="{% url 'ad:group_list' %}" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:bg-gray-50 text-center">
+        <a href="{% url 'ad:group_list' %}" class="bg-white rounded-lg shadow-sm border border-gray-100 p-4 hover:bg-gray-50 text-center">
             <p class="text-sm font-medium text-gray-900">{% trans "AD 그룹 관리" %}</p>
             <p class="text-xs text-gray-500 mt-1">{{ total_groups }}{% trans "개" %}</p>
         </a>
-        <a href="{% url 'ad:usermapping_list' %}" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:bg-gray-50 text-center">
+        <a href="{% url 'ad:usermapping_list' %}" class="bg-white rounded-lg shadow-sm border border-gray-100 p-4 hover:bg-gray-50 text-center">
             <p class="text-sm font-medium text-gray-900">{% trans "사용자 매핑" %}</p>
             <p class="text-xs text-gray-500 mt-1">{{ total_mappings }}{% trans "건" %}</p>
         </a>
-        <a href="{% url 'ad:policy_list' %}" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:bg-gray-50 text-center">
+        <a href="{% url 'ad:policy_list' %}" class="bg-white rounded-lg shadow-sm border border-gray-100 p-4 hover:bg-gray-50 text-center">
             <p class="text-sm font-medium text-gray-900">{% trans "그룹 정책" %}</p>
             <p class="text-xs text-gray-500 mt-1">{{ total_policies }}{% trans "개" %}</p>
         </a>
-        <a href="{% url 'ad:synclog_list' %}" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:bg-gray-50 text-center">
+        <a href="{% url 'ad:synclog_list' %}" class="bg-white rounded-lg shadow-sm border border-gray-100 p-4 hover:bg-gray-50 text-center">
             <p class="text-sm font-medium text-gray-900">{% trans "동기화 로그" %}</p>
         </a>
     </div>

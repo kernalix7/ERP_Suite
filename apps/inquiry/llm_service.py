@@ -16,9 +16,16 @@ def generate_inquiry_reply(inquiry, templates=None):
     Returns:
         str: Generated reply text, or None if generation fails
     """
-    api_key = getattr(settings, 'ANTHROPIC_API_KEY', '')
+    # SystemConfig 우선, 없으면 settings fallback
+    try:
+        from apps.core.system_config import SystemConfig
+        api_key = SystemConfig.get_value('AI', 'anthropic_api_key')
+    except Exception:
+        api_key = ''
     if not api_key:
-        logger.warning("ANTHROPIC_API_KEY가 설정되지 않았습니다. AI 답변 생성을 건너뜁니다.")
+        api_key = getattr(settings, 'ANTHROPIC_API_KEY', '')
+    if not api_key:
+        logger.warning("Anthropic API 키가 설정되지 않았습니다. 시스템설정 > AI/자동화에서 설정하세요.")
         return None
 
     try:

@@ -14,7 +14,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
             <thead>
@@ -43,7 +43,7 @@
                     <td class="px-4 py-3 text-right font-medium text-gray-900">{{ s.total_inventory_value|intcomma }}원</td>
                     <td class="px-4 py-3 text-gray-500">{{ s.settled_at|date:"Y-m-d H:i" }}</td>
                     <td class="px-4 py-3 text-center">
-                        <a href="{% url 'accounting:settlement_detail' s.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">상세</a>
+                        <a href="{% url 'accounting:settlement_detail' s.settlement_number %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">상세</a>
                     </td>
                 </tr>
                 {% empty %}

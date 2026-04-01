@@ -16,7 +16,7 @@ from apps.core.import_views import BaseImportView
 from apps.core.mixins import ManagerRequiredMixin
 
 from .models import Category, Product, Warehouse, StockMovement, StockTransfer, StockCount, StockCountItem, StockLot
-from .forms import ProductForm, CategoryForm, WarehouseForm, StockMovementForm, StockTransferForm
+from .forms import ProductForm, CategoryForm, WarehouseForm, StockMovementForm, StockTransferForm, StockInForm, StockOutForm
 from .resources import ProductResource
 
 
@@ -36,12 +36,26 @@ class ProductListView(LoginRequiredMixin, ListView):
             qs = qs.filter(product_type=product_type)
         return qs
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['product_types'] = Product.ProductType.choices
+        return ctx
 
-class ProductCreateView(LoginRequiredMixin, CreateView):
+
+class ProductCreateView(ManagerRequiredMixin, CreateView):
     model = Product
     form_class = ProductForm
     template_name = 'inventory/product_form.html'
     success_url = reverse_lazy('inventory:product_list')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['next_codes'] = {
+            'FINISHED': Product.generate_next_code('FINISHED'),
+            'RAW': Product.generate_next_code('RAW'),
+            'SEMI': Product.generate_next_code('SEMI'),
+        }
+        return ctx
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
@@ -67,7 +81,7 @@ class ProductDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class ProductUpdateView(LoginRequiredMixin, UpdateView):
+class ProductUpdateView(ManagerRequiredMixin, UpdateView):
     model = Product
     form_class = ProductForm
     template_name = 'inventory/product_form.html'
@@ -85,7 +99,7 @@ class ProductBOMCostView(LoginRequiredMixin, View):
         if bom:
             return JsonResponse({
                 'bom_cost': int(bom.total_material_cost),
-                'bom_name': bom.name,
+                'bom_name': str(bom),
                 'items': [
                     {
                         'material': item.material.name,
@@ -105,13 +119,8 @@ class ProductDeleteView(ManagerRequiredMixin, DeleteView):
     template_name = 'inventory/product_confirm_delete.html'
 
     def form_valid(self, form):
-        self.object.soft_delete()
-        return self.get_success_url() and __import__('django.http', fromlist=['HttpResponseRedirect']).HttpResponseRedirect(self.get_success_url())
-
-    def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
         self.object.soft_delete()
-        from django.http import HttpResponseRedirect
         return HttpResponseRedirect(self.get_success_url())
 
 
@@ -122,14 +131,14 @@ class CategoryListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
 
-class CategoryCreateView(LoginRequiredMixin, CreateView):
+class CategoryCreateView(ManagerRequiredMixin, CreateView):
     model = Category
     form_class = CategoryForm
     template_name = 'inventory/category_form.html'
     success_url = reverse_lazy('inventory:category_list')
 
 
-class CategoryUpdateView(LoginRequiredMixin, UpdateView):
+class CategoryUpdateView(ManagerRequiredMixin, UpdateView):
     model = Category
     form_class = CategoryForm
     template_name = 'inventory/category_form.html'
@@ -143,14 +152,14 @@ class WarehouseListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
 
-class WarehouseCreateView(LoginRequiredMixin, CreateView):
+class WarehouseCreateView(ManagerRequiredMixin, CreateView):
     model = Warehouse
     form_class = WarehouseForm
     template_name = 'inventory/warehouse_form.html'
     success_url = reverse_lazy('inventory:warehouse_list')
 
 
-class WarehouseUpdateView(LoginRequiredMixin, UpdateView):
+class WarehouseUpdateView(ManagerRequiredMixin, UpdateView):
     model = Warehouse
     form_class = WarehouseForm
     template_name = 'inventory/warehouse_form.html'
@@ -171,7 +180,7 @@ class StockMovementListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class StockMovementCreateView(LoginRequiredMixin, CreateView):
+class StockMovementCreateView(ManagerRequiredMixin, CreateView):
     model = StockMovement
     form_class = StockMovementForm
     template_name = 'inventory/movement_form.html'
@@ -192,6 +201,113 @@ class StockMovementDetailView(LoginRequiredMixin, DetailView):
     model = StockMovement
     template_name = 'inventory/movement_detail.html'
     context_object_name = 'movement'
+    slug_field = 'movement_number'
+    slug_url_kwarg = 'slug'
+
+
+class StockInCreateView(ManagerRequiredMixin, CreateView):
+    """입고 전용 등록"""
+    model = StockMovement
+    form_class = StockInForm
+    template_name = 'inventory/movement_form.html'
+    success_url = reverse_lazy('inventory:movement_list')
+
+    def get_initial(self):
+        initial = super().get_initial()
+        from apps.core.utils import generate_document_number
+        initial['movement_number'] = generate_document_number(StockMovement, 'movement_number', 'SM')
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form_title'] = '입고 등록'
+        return context
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class StockOutCreateView(ManagerRequiredMixin, CreateView):
+    """출고 전용 등록"""
+    model = StockMovement
+    form_class = StockOutForm
+    template_name = 'inventory/movement_form.html'
+    success_url = reverse_lazy('inventory:movement_list')
+
+    def get_initial(self):
+        initial = super().get_initial()
+        from apps.core.utils import generate_document_number
+        initial['movement_number'] = generate_document_number(StockMovement, 'movement_number', 'SM')
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form_title'] = '출고 등록'
+        return context
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class StockLotListView(LoginRequiredMixin, ListView):
+    """StockLot 목록 — FIFO/LIFO 잔량 표시"""
+    model = StockLot
+    template_name = 'inventory/stocklot_list.html'
+    context_object_name = 'lots'
+    paginate_by = 30
+
+    def get_queryset(self):
+        qs = StockLot.objects.filter(
+            is_active=True,
+        ).select_related('product', 'warehouse', 'stock_movement')
+
+        q = self.request.GET.get('q', '')
+        warehouse_id = self.request.GET.get('warehouse', '')
+        show_empty = self.request.GET.get('show_empty', '')
+
+        if q:
+            qs = qs.filter(
+                models.Q(product__name__icontains=q)
+                | models.Q(product__code__icontains=q)
+                | models.Q(lot_number__icontains=q)
+            )
+        if warehouse_id:
+            qs = qs.filter(warehouse_id=warehouse_id)
+        if not show_empty:
+            qs = qs.filter(remaining_quantity__gt=0)
+
+        return qs.order_by('-received_date', '-pk')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['warehouses'] = Warehouse.objects.filter(is_active=True)
+        context['q'] = self.request.GET.get('q', '')
+        context['selected_warehouse'] = self.request.GET.get('warehouse', '')
+        context['show_empty'] = self.request.GET.get('show_empty', '')
+        return context
+
+
+class StockLotDetailView(LoginRequiredMixin, DetailView):
+    """StockLot 상세 — LOT 정보 + 연관 입출고 이력"""
+    model = StockLot
+    template_name = 'inventory/stocklot_detail.html'
+    context_object_name = 'lot'
+    slug_field = 'lot_number'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        return StockLot.objects.filter(
+            is_active=True,
+        ).select_related('product', 'warehouse', 'stock_movement')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['movements'] = self.object.movements.filter(
+            is_active=True,
+        ).select_related('product', 'warehouse').order_by('-movement_date', '-pk')[:20]
+        return context
 
 
 class StockStatusView(LoginRequiredMixin, ListView):
@@ -251,7 +367,7 @@ class StockTransferListView(LoginRequiredMixin, ListView):
         )
 
 
-class StockTransferCreateView(LoginRequiredMixin, CreateView):
+class StockTransferCreateView(ManagerRequiredMixin, CreateView):
     model = StockTransfer
     form_class = StockTransferForm
     template_name = 'inventory/transfer_form.html'
@@ -272,15 +388,22 @@ class StockTransferCreateView(LoginRequiredMixin, CreateView):
 class ProductImportView(ManagerRequiredMixin, TemplateView):
     template_name = 'core/import.html'
 
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('action') == 'export':
+            from apps.core.import_views import export_resource_data
+            return export_resource_data(ProductResource(), '제품_데이터')
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['page_title'] = '제품 일괄 가져오기'
         ctx['cancel_url'] = reverse_lazy('inventory:product_list')
         ctx['sample_url'] = reverse_lazy('inventory:product_import_sample')
+        ctx['supports_export'] = True
         ctx['field_hints'] = [
             '제품코드(code)가 동일하면 기존 제품이 수정됩니다.',
             '제품유형(product_type): RAW(원자재), SEMI(반제품), FINISHED(완제품)',
-            '카테고리명(category__name)이 존재하지 않으면 자동으로 생성됩니다.',
+            '카테고리코드(category__code)가 존재하지 않으면 자동으로 생성됩니다.',
         ]
         return ctx
 
@@ -326,12 +449,12 @@ class ProductImportSampleView(ManagerRequiredMixin, View):
         from apps.core.excel import export_to_excel
         headers = [
             ('code', 15), ('name', 25), ('product_type', 12),
-            ('category__name', 15), ('unit', 8),
+            ('category__code', 15), ('unit', 8),
             ('unit_price', 15), ('cost_price', 15), ('safety_stock', 12),
         ]
         rows = [
-            ['PRD-001', '샘플 제품', 'FINISHED', '전자제품', 'EA', 10000, 7000, 10],
-            ['PRD-002', '샘플 원자재', 'RAW', '원자재', 'KG', 5000, 3000, 50],
+            ['PRD-001', '샘플 제품', 'FINISHED', 'CAT-ELC', 'EA', 10000, 7000, 10],
+            ['PRD-002', '샘플 원자재', 'RAW', 'CAT-RAW', 'KG', 5000, 3000, 50],
         ]
         return export_to_excel(
             '제품_가져오기_양식', headers, rows,
@@ -454,9 +577,10 @@ class CategoryImportView(BaseImportView):
     page_title = '카테고리 일괄 가져오기'
     cancel_url = reverse_lazy('inventory:category_list')
     sample_url = reverse_lazy('inventory:category_import_sample')
+    export_filename = '카테고리_데이터'
     field_hints = [
-        '카테고리명(name)이 동일하면 기존 카테고리가 수정됩니다.',
-        'parent_name: 상위 카테고리명 (없으면 비워두세요)',
+        '카테고리코드(code)가 동일하면 기존 카테고리가 수정됩니다.',
+        'parent_name: 상위 카테고리코드 (없으면 비워두세요)',
     ]
 
     def get_resource(self):
@@ -467,16 +591,16 @@ class CategoryImportView(BaseImportView):
 class CategoryImportSampleView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.core.excel import export_to_excel
-        headers = [('name', 20), ('parent_name', 20)]
+        headers = [('code', 15), ('name', 20), ('parent_name', 15)]
         rows = [
-            ['전자제품', ''],
-            ['스마트폰', '전자제품'],
-            ['원자재', ''],
+            ['CAT-ELC', '전자제품', ''],
+            ['CAT-PHN', '스마트폰', 'CAT-ELC'],
+            ['CAT-RAW', '원자재', ''],
         ]
         return export_to_excel(
             '카테고리_가져오기_양식', headers, rows,
             filename='카테고리_가져오기_양식.xlsx',
-            required_columns=[0],  # name
+            required_columns=[0, 1],  # code, name
         )
 
 
@@ -485,6 +609,7 @@ class WarehouseImportView(BaseImportView):
     page_title = '창고 일괄 가져오기'
     cancel_url = reverse_lazy('inventory:warehouse_list')
     sample_url = reverse_lazy('inventory:warehouse_import_sample')
+    export_filename = '창고_데이터'
     field_hints = [
         '창고코드(code)가 동일하면 기존 창고가 수정됩니다.',
     ]
@@ -563,13 +688,15 @@ class StockCountCreateView(ManagerRequiredMixin, TemplateView):
             StockCountItem.objects.bulk_create(items)
 
         messages.success(request, f'재고실사 {sc.count_number} 생성 ({len(items)}개 제품)')
-        return redirect('inventory:stockcount_detail', pk=sc.pk)
+        return redirect('inventory:stockcount_detail', slug=sc.count_number)
 
 
 class StockCountDetailView(LoginRequiredMixin, DetailView):
     model = StockCount
     template_name = 'inventory/stockcount_detail.html'
     context_object_name = 'stock_count'
+    slug_field = 'count_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -580,11 +707,11 @@ class StockCountDetailView(LoginRequiredMixin, DetailView):
 
 class StockCountUpdateView(ManagerRequiredMixin, View):
     """재고실사 항목 수량 업데이트 (POST)"""
-    def post(self, request, pk):
-        sc = get_object_or_404(StockCount, pk=pk)
+    def post(self, request, slug):
+        sc = get_object_or_404(StockCount, count_number=slug)
         if sc.status in ('COMPLETED', 'ADJUSTED'):
             messages.error(request, '이미 완료된 실사는 수정할 수 없습니다.')
-            return redirect('inventory:stockcount_detail', pk=pk)
+            return redirect('inventory:stockcount_detail', slug=slug)
 
         with transaction.atomic():
             for item in sc.items.all():
@@ -601,23 +728,23 @@ class StockCountUpdateView(ManagerRequiredMixin, View):
             sc.save(update_fields=['status', 'updated_at'])
 
         messages.success(request, '실사 수량이 저장되었습니다.')
-        return redirect('inventory:stockcount_detail', pk=pk)
+        return redirect('inventory:stockcount_detail', slug=slug)
 
 
 class StockCountAdjustView(ManagerRequiredMixin, View):
     """재고실사 차이 조정 — 차이가 있는 항목에 대해 재고조정 StockMovement 생성"""
-    def post(self, request, pk):
-        sc = get_object_or_404(StockCount, pk=pk)
+    def post(self, request, slug):
+        sc = get_object_or_404(StockCount, count_number=slug)
         if sc.status == 'ADJUSTED':
             messages.error(request, '이미 조정이 완료된 실사입니다.')
-            return redirect('inventory:stockcount_detail', pk=pk)
+            return redirect('inventory:stockcount_detail', slug=slug)
 
         diff_items = sc.items.exclude(difference=0).filter(adjusted=False)
         if not diff_items.exists():
             messages.info(request, '조정할 차이가 없습니다.')
             sc.status = 'COMPLETED'
             sc.save(update_fields=['status', 'updated_at'])
-            return redirect('inventory:stockcount_detail', pk=pk)
+            return redirect('inventory:stockcount_detail', slug=slug)
 
         adjusted_count = 0
         with transaction.atomic():
@@ -648,7 +775,7 @@ class StockCountAdjustView(ManagerRequiredMixin, View):
             sc.save(update_fields=['status', 'updated_at'])
 
         messages.success(request, f'재고 조정 완료 ({adjusted_count}건)')
-        return redirect('inventory:stockcount_detail', pk=pk)
+        return redirect('inventory:stockcount_detail', slug=slug)
 
 
 class WarehouseStockView(LoginRequiredMixin, TemplateView):
@@ -703,25 +830,35 @@ class InventoryValuationView(LoginRequiredMixin, TemplateView):
         if valuation_filter:
             products = products.filter(valuation_method=valuation_filter)
 
+        # LOT 집계를 일괄 조회 (N+1 방지)
+        from django.db.models import Count
+        lot_stats = (
+            StockLot.objects
+            .filter(remaining_quantity__gt=0, is_active=True)
+            .values('product_id')
+            .annotate(
+                lot_count=Count('pk'),
+                lot_valuation=Sum(F('remaining_quantity') * F('unit_cost')),
+            )
+        )
+        lot_stats_map = {
+            row['product_id']: {
+                'lot_count': row['lot_count'],
+                'lot_valuation': row['lot_valuation'] or Decimal('0'),
+            }
+            for row in lot_stats
+        }
+
         rows = []
         total_valuation = Decimal('0')
         total_stock_value_avg = Decimal('0')
 
         for product in products:
+            stats = lot_stats_map.get(product.pk, {'lot_count': 0, 'lot_valuation': Decimal('0')})
+
             if product.valuation_method in ('FIFO', 'LIFO'):
                 # FIFO/LIFO: 잔여 LOT들의 (remaining_quantity * unit_cost) 합계
-                lot_valuation = (
-                    StockLot.objects
-                    .filter(
-                        product=product,
-                        remaining_quantity__gt=0,
-                        is_active=True,
-                    )
-                    .aggregate(
-                        total=Sum(F('remaining_quantity') * F('unit_cost'))
-                    )['total'] or Decimal('0')
-                )
-                valuation_amount = lot_valuation.quantize(Decimal('1'))
+                valuation_amount = stats['lot_valuation'].quantize(Decimal('1'))
             else:
                 # AVG: current_stock * cost_price
                 valuation_amount = (
@@ -733,18 +870,11 @@ class InventoryValuationView(LoginRequiredMixin, TemplateView):
                 product.current_stock * product.cost_price
             ).quantize(Decimal('1'))
 
-            # 잔여 LOT 수 조회
-            lot_count = StockLot.objects.filter(
-                product=product,
-                remaining_quantity__gt=0,
-                is_active=True,
-            ).count()
-
             rows.append({
                 'product': product,
                 'valuation_method_display': product.get_valuation_method_display(),
                 'valuation_amount': valuation_amount,
-                'lot_count': lot_count,
+                'lot_count': stats['lot_count'],
             })
 
         context['rows'] = rows

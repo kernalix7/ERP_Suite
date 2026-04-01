@@ -288,39 +288,40 @@ class CategoryModelTest(TestCase):
     def test_category_creation(self):
         """카테고리 생성"""
         cat = Category.objects.create(
-            name='전자부품', created_by=self.user,
+            code='CAT-ELC', name='전자부품', created_by=self.user,
         )
         self.assertEqual(cat.name, '전자부품')
+        self.assertEqual(cat.code, 'CAT-ELC')
 
     def test_category_str(self):
         """카테고리 문자열 표현"""
         cat = Category.objects.create(
-            name='기계부품', created_by=self.user,
+            code='CAT-MCH', name='기계부품', created_by=self.user,
         )
-        self.assertEqual(str(cat), '기계부품')
+        self.assertEqual(str(cat), '[CAT-MCH] 기계부품')
 
     def test_category_hierarchy(self):
         """카테고리 상하위 관계"""
         parent = Category.objects.create(
-            name='원자재', created_by=self.user,
+            code='CAT-RAW', name='원자재', created_by=self.user,
         )
         child = Category.objects.create(
-            name='금속', parent=parent, created_by=self.user,
+            code='CAT-MTL', name='금속', parent=parent, created_by=self.user,
         )
         self.assertEqual(child.parent, parent)
         self.assertIn(child, parent.children.all())
 
     def test_category_ordering(self):
-        """카테고리는 이름순 정렬"""
-        Category.objects.create(name='ZZZ', created_by=self.user)
-        Category.objects.create(name='AAA', created_by=self.user)
+        """카테고리는 코드순 정렬"""
+        Category.objects.create(code='CAT-ZZZ', name='ZZZ', created_by=self.user)
+        Category.objects.create(code='CAT-AAA', name='AAA', created_by=self.user)
         cats = list(Category.objects.all())
-        self.assertEqual(cats[0].name, 'AAA')
+        self.assertEqual(cats[0].code, 'CAT-AAA')
 
     def test_category_soft_delete(self):
         """카테고리 soft delete"""
         cat = Category.objects.create(
-            name='삭제테스트', created_by=self.user,
+            code='CAT-DEL', name='삭제테스트', created_by=self.user,
         )
         cat.soft_delete()
         self.assertFalse(Category.objects.filter(pk=cat.pk).exists())
@@ -651,6 +652,110 @@ class StockLotTest(TestCase):
         self.assertEqual(lots_after[1].remaining_quantity, 30)
 
 
+class StockLotSoftDeleteTest(TestCase):
+    """StockMovement soft delete 시 StockLot 복원 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='lotsduser', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-LOTSD', name='LOT삭제테스트창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='LOTSD-001',
+            name='LOT삭제테스트제품',
+            product_type='FINISHED',
+            unit_price=10000,
+            cost_price=5000,
+            current_stock=0,
+            valuation_method='FIFO',
+            created_by=self.user,
+        )
+        self._movement_seq = 0
+
+    def _create_movement(self, movement_type, quantity, unit_price=1000,
+                         movement_date=None):
+        self._movement_seq += 1
+        return StockMovement.objects.create(
+            movement_number=f'LOTSD-{self._movement_seq:04d}',
+            movement_type=movement_type,
+            product=self.product,
+            warehouse=self.warehouse,
+            quantity=quantity,
+            unit_price=unit_price,
+            movement_date=movement_date or date.today(),
+            created_by=self.user,
+        )
+
+    def test_inbound_soft_delete_removes_lot(self):
+        """입고 soft delete 시 연결된 StockLot도 soft delete"""
+        from apps.inventory.models import StockLot
+        mv = self._create_movement('IN', 50, unit_price=3000)
+        self.assertEqual(StockLot.objects.filter(product=self.product).count(), 1)
+
+        # soft delete
+        mv.is_active = False
+        mv.save()
+
+        # LOT도 soft delete됨
+        self.assertEqual(
+            StockLot.objects.filter(product=self.product).count(), 0,
+        )
+        self.assertEqual(
+            StockLot.all_objects.filter(product=self.product).count(), 1,
+        )
+
+    def test_outbound_soft_delete_restores_lot(self):
+        """출고 soft delete 시 소진된 StockLot remaining_quantity 복원"""
+        from apps.inventory.models import StockLot
+        # 입고 50개
+        self._create_movement('IN', 50, unit_price=3000)
+        # 출고 20개 → LOT remaining: 50 - 20 = 30
+        out_mv = self._create_movement('OUT', 20)
+
+        lot = StockLot.objects.get(product=self.product)
+        self.assertEqual(lot.remaining_quantity, 30)
+
+        # 출고 soft delete → LOT remaining 복원
+        out_mv.is_active = False
+        out_mv.save()
+
+        lot.refresh_from_db()
+        self.assertEqual(lot.remaining_quantity, 50)
+
+    def test_outbound_soft_delete_restores_multiple_lots_fifo(self):
+        """FIFO 출고 soft delete 시 여러 LOT 복원"""
+        from apps.inventory.models import StockLot
+        # 입고 2건: 30개씩
+        self._create_movement(
+            'IN', 30, unit_price=1000,
+            movement_date=date.today() - timedelta(days=5),
+        )
+        self._create_movement(
+            'IN', 30, unit_price=2000,
+            movement_date=date.today(),
+        )
+        # 출고 40개 → LOT1: 0잔여, LOT2: 20잔여
+        out_mv = self._create_movement('OUT', 40)
+
+        lots = StockLot.objects.filter(
+            product=self.product,
+        ).order_by('received_date', 'pk')
+        self.assertEqual(lots[0].remaining_quantity, 0)
+        self.assertEqual(lots[1].remaining_quantity, 20)
+
+        # 출고 soft delete → LOT 복원
+        out_mv.is_active = False
+        out_mv.save()
+
+        lots = StockLot.objects.filter(
+            product=self.product,
+        ).order_by('received_date', 'pk')
+        self.assertEqual(lots[0].remaining_quantity, 30)
+        self.assertEqual(lots[1].remaining_quantity, 30)
+
+
 class ReservedStockTest(TestCase):
     """재고 예약 테스트"""
 
@@ -688,6 +793,253 @@ class ReservedStockTest(TestCase):
                 cost_price=500, reserved_stock=-1,
                 created_by=self.user,
             )
+
+
+class StockLotViewTest(TestCase):
+    """StockLot 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='lotviewuser', password='testpass123', role='staff',
+        )
+        self.client.force_login(self.user)
+        self.warehouse = Warehouse.objects.create(
+            code='WH-LV', name='LOT뷰창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='LV-PRD-001', name='LOT뷰제품',
+            product_type='FINISHED', unit_price=10000, cost_price=5000,
+            current_stock=0, valuation_method='FIFO',
+            created_by=self.user,
+        )
+        self._movement_seq = 0
+
+    def _create_movement(self, movement_type, quantity, unit_price=1000):
+        self._movement_seq += 1
+        return StockMovement.objects.create(
+            movement_number=f'LV-MOV-{self._movement_seq:04d}',
+            movement_type=movement_type,
+            product=self.product,
+            warehouse=self.warehouse,
+            quantity=quantity,
+            unit_price=unit_price,
+            movement_date=date.today(),
+            created_by=self.user,
+        )
+
+    def test_stocklot_list_page_loads(self):
+        """StockLot 목록 페이지 접근 가능"""
+        response = self.client.get('/inventory/stock-lots/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_stocklot_list_shows_lots(self):
+        """입고 시 생성된 LOT가 목록에 표시"""
+        from apps.inventory.models import StockLot
+        self._create_movement('IN', 50, unit_price=3000)
+        response = self.client.get('/inventory/stock-lots/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['lots']), 1)
+
+    def test_stocklot_list_hides_empty_by_default(self):
+        """기본적으로 잔량 0인 LOT는 숨김"""
+        from apps.inventory.models import StockLot
+        self._create_movement('IN', 10, unit_price=1000)
+        self._create_movement('OUT', 10)  # 전량 소진
+        response = self.client.get('/inventory/stock-lots/')
+        self.assertEqual(len(response.context['lots']), 0)
+
+    def test_stocklot_list_show_empty_filter(self):
+        """show_empty=1이면 소진 LOT도 표시"""
+        from apps.inventory.models import StockLot
+        self._create_movement('IN', 10, unit_price=1000)
+        self._create_movement('OUT', 10)
+        response = self.client.get('/inventory/stock-lots/?show_empty=1')
+        self.assertEqual(len(response.context['lots']), 1)
+
+    def test_stocklot_list_search(self):
+        """제품명으로 LOT 검색"""
+        self._create_movement('IN', 50, unit_price=3000)
+        response = self.client.get('/inventory/stock-lots/?q=LOT뷰제품')
+        self.assertEqual(len(response.context['lots']), 1)
+        response = self.client.get('/inventory/stock-lots/?q=없는제품')
+        self.assertEqual(len(response.context['lots']), 0)
+
+    def test_stocklot_list_warehouse_filter(self):
+        """창고 필터"""
+        self._create_movement('IN', 50, unit_price=3000)
+        response = self.client.get(f'/inventory/stock-lots/?warehouse={self.warehouse.pk}')
+        self.assertEqual(len(response.context['lots']), 1)
+        # 존재하지 않는 창고 ID
+        response = self.client.get('/inventory/stock-lots/?warehouse=99999')
+        self.assertEqual(len(response.context['lots']), 0)
+
+    def test_stocklot_detail_page_loads(self):
+        """StockLot 상세 페이지 접근 가능"""
+        from apps.inventory.models import StockLot
+        self._create_movement('IN', 50, unit_price=3000)
+        lot = StockLot.objects.filter(product=self.product).first()
+        response = self.client.get(f'/inventory/stock-lots/{lot.lot_number}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['lot'], lot)
+
+    def test_stocklot_detail_shows_movements(self):
+        """LOT 상세에서 연관 입출고 이력 표시"""
+        from apps.inventory.models import StockLot
+        self._create_movement('IN', 50, unit_price=3000)
+        lot = StockLot.objects.filter(product=self.product).first()
+        response = self.client.get(f'/inventory/stock-lots/{lot.lot_number}/')
+        self.assertIn('movements', response.context)
+
+
+class StockFormTest(TestCase):
+    """StockInForm / StockOutForm 폼 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='formuser', password='testpass123', role='manager',
+        )
+        self.client.force_login(self.user)
+        self.warehouse = Warehouse.objects.create(
+            code='WH-FM', name='폼테스트창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='FM-PRD-001', name='폼테스트제품',
+            product_type='FINISHED', unit_price=10000, cost_price=5000,
+            current_stock=100, created_by=self.user,
+        )
+
+    def test_stock_in_form_valid(self):
+        """StockInForm 유효한 데이터"""
+        from apps.inventory.forms import StockInForm
+        data = {
+            'movement_type': 'IN',
+            'product': self.product.pk,
+            'warehouse': self.warehouse.pk,
+            'quantity': '50',
+            'unit_price': '3000',
+            'movement_date': date.today().isoformat(),
+            'reference': '테스트 입고',
+            'notes': '',
+        }
+        form = StockInForm(data=data)
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_stock_in_form_rejects_outbound_type(self):
+        """StockInForm은 출고 유형 거부"""
+        from apps.inventory.forms import StockInForm
+        data = {
+            'movement_type': 'OUT',
+            'product': self.product.pk,
+            'warehouse': self.warehouse.pk,
+            'quantity': '50',
+            'unit_price': '3000',
+            'movement_date': date.today().isoformat(),
+        }
+        form = StockInForm(data=data)
+        self.assertFalse(form.is_valid())
+        self.assertIn('movement_type', form.errors)
+
+    def test_stock_in_form_choices(self):
+        """StockInForm의 movement_type 선택지 확인"""
+        from apps.inventory.forms import StockInForm
+        form = StockInForm()
+        choice_values = [c[0] for c in form.fields['movement_type'].choices]
+        self.assertIn('IN', choice_values)
+        self.assertIn('ADJ_PLUS', choice_values)
+        self.assertIn('PROD_IN', choice_values)
+        self.assertIn('RETURN', choice_values)
+        self.assertNotIn('OUT', choice_values)
+
+    def test_stock_out_form_valid(self):
+        """StockOutForm 유효한 데이터"""
+        from apps.inventory.forms import StockOutForm
+        data = {
+            'movement_type': 'OUT',
+            'product': self.product.pk,
+            'warehouse': self.warehouse.pk,
+            'quantity': '30',
+            'unit_price': '5000',
+            'movement_date': date.today().isoformat(),
+            'reference': '테스트 출고',
+            'notes': '',
+        }
+        form = StockOutForm(data=data)
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_stock_out_form_rejects_inbound_type(self):
+        """StockOutForm은 입고 유형 거부"""
+        from apps.inventory.forms import StockOutForm
+        data = {
+            'movement_type': 'IN',
+            'product': self.product.pk,
+            'warehouse': self.warehouse.pk,
+            'quantity': '30',
+            'unit_price': '5000',
+            'movement_date': date.today().isoformat(),
+        }
+        form = StockOutForm(data=data)
+        self.assertFalse(form.is_valid())
+        self.assertIn('movement_type', form.errors)
+
+    def test_stock_out_form_choices(self):
+        """StockOutForm의 movement_type 선택지 확인"""
+        from apps.inventory.forms import StockOutForm
+        form = StockOutForm()
+        choice_values = [c[0] for c in form.fields['movement_type'].choices]
+        self.assertIn('OUT', choice_values)
+        self.assertIn('ADJ_MINUS', choice_values)
+        self.assertIn('PROD_OUT', choice_values)
+        self.assertNotIn('IN', choice_values)
+
+    def test_stock_in_view_loads(self):
+        """입고 전용 등록 페이지 접근 가능"""
+        response = self.client.get('/inventory/movements/stock-in/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_stock_out_view_loads(self):
+        """출고 전용 등록 페이지 접근 가능"""
+        response = self.client.get('/inventory/movements/stock-out/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_stock_in_creates_movement(self):
+        """입고 전용 폼으로 StockMovement 생성"""
+        data = {
+            'movement_type': 'IN',
+            'product': self.product.pk,
+            'warehouse': self.warehouse.pk,
+            'quantity': '25',
+            'unit_price': '4000',
+            'movement_date': date.today().isoformat(),
+            'reference': '',
+            'notes': '',
+        }
+        response = self.client.post('/inventory/movements/stock-in/', data)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            StockMovement.objects.filter(
+                product=self.product, movement_type='IN', quantity=25,
+            ).exists()
+        )
+
+    def test_stock_out_creates_movement(self):
+        """출고 전용 폼으로 StockMovement 생성"""
+        data = {
+            'movement_type': 'OUT',
+            'product': self.product.pk,
+            'warehouse': self.warehouse.pk,
+            'quantity': '10',
+            'unit_price': '5000',
+            'movement_date': date.today().isoformat(),
+            'reference': '',
+            'notes': '',
+        }
+        response = self.client.post('/inventory/movements/stock-out/', data)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            StockMovement.objects.filter(
+                product=self.product, movement_type='OUT', quantity=10,
+            ).exists()
+        )
 
 
 class InventoryValuationViewTest(TestCase):

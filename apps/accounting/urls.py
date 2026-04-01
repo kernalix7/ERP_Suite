@@ -19,8 +19,8 @@ urlpatterns = [
     path('tax-rates/<int:pk>/edit/', views.TaxRateUpdateView.as_view(), name='taxrate_update'),
     path('invoices/', views.TaxInvoiceListView.as_view(), name='taxinvoice_list'),
     path('invoices/create/', views.TaxInvoiceCreateView.as_view(), name='taxinvoice_create'),
-    path('invoices/<int:pk>/', views.TaxInvoiceDetailView.as_view(), name='taxinvoice_detail'),
-    path('invoices/<int:pk>/edit/', views.TaxInvoiceUpdateView.as_view(), name='taxinvoice_update'),
+    path('invoices/<str:slug>/', views.TaxInvoiceDetailView.as_view(), name='taxinvoice_detail'),
+    path('invoices/<str:slug>/edit/', views.TaxInvoiceUpdateView.as_view(), name='taxinvoice_update'),
     path('vat-summary/', views.VATSummaryView.as_view(), name='vat_summary'),
     path('fixed-costs/', views.FixedCostListView.as_view(), name='fixedcost_list'),
     path('fixed-costs/create/', views.FixedCostCreateView.as_view(), name='fixedcost_create'),
@@ -35,18 +35,19 @@ urlpatterns = [
     path('transfers/', views.AccountTransferListView.as_view(), name='transfer_list'),
     path('transfers/create/', views.AccountTransferCreateView.as_view(), name='transfer_create'),
     # 결제분배
-    path('payments/<int:pk>/distribute/', views.PaymentDistributeView.as_view(), name='payment_distribute'),
+    path('payments/<str:slug>/distribute/', views.PaymentDistributeView.as_view(), name='payment_distribute'),
     # 원가정산
     path('settlements/', views.CostSettlementListView.as_view(), name='settlement_list'),
     path('settlements/create/', views.CostSettlementCreateView.as_view(), name='settlement_create'),
-    path('settlements/<int:pk>/', views.CostSettlementDetailView.as_view(), name='settlement_detail'),
+    path('settlements/<str:slug>/', views.CostSettlementDetailView.as_view(), name='settlement_detail'),
+    path('settlements/<str:slug>/recalc/', views.CostSettlementRecalcView.as_view(), name='settlement_recalc'),
     # 매출정산
     path('sales-settlements/', views.SalesSettlementListView.as_view(), name='sales_settlement_list'),
     path('sales-settlements/create/', views.SalesSettlementCreateView.as_view(), name='sales_settlement_create'),
-    path('sales-settlements/<int:pk>/', views.SalesSettlementDetailView.as_view(), name='sales_settlement_detail'),
-    path('sales-settlements/<int:pk>/payment/', views.SalesSettlementPaymentView.as_view(), name='sales_settlement_payment'),
-    path('sales-settlements/<int:pk>/commission-pay/', views.SalesSettlementCommissionPayView.as_view(), name='sales_settlement_commission_pay'),
-    path('sales-settlements/<int:pk>/commission-manual/', views.SalesSettlementCommissionManualView.as_view(), name='sales_settlement_commission_manual'),
+    path('sales-settlements/<str:slug>/', views.SalesSettlementDetailView.as_view(), name='sales_settlement_detail'),
+    path('sales-settlements/<str:slug>/payment/', views.SalesSettlementPaymentView.as_view(), name='sales_settlement_payment'),
+    path('sales-settlements/<str:slug>/commission-pay/', views.SalesSettlementCommissionPayView.as_view(), name='sales_settlement_commission_pay'),
+    path('sales-settlements/<str:slug>/commission-manual/', views.SalesSettlementCommissionManualView.as_view(), name='sales_settlement_commission_manual'),
     path('breakeven/', views.BreakEvenView.as_view(), name='breakeven'),
     path('monthly-pl/', views.MonthlyPLView.as_view(), name='monthly_pl'),
     path('withholding/', views.WithholdingTaxListView.as_view(), name='withholding_list'),
@@ -70,8 +71,8 @@ urlpatterns = [
     # 전표
     path('vouchers/', views.VoucherListView.as_view(), name='voucher_list'),
     path('vouchers/create/', views.VoucherCreateView.as_view(), name='voucher_create'),
-    path('vouchers/<int:pk>/', views.VoucherDetailView.as_view(), name='voucher_detail'),
-    path('vouchers/<int:pk>/edit/', views.VoucherUpdateView.as_view(), name='voucher_update'),
+    path('vouchers/<str:slug>/', views.VoucherDetailView.as_view(), name='voucher_detail'),
+    path('vouchers/<str:slug>/edit/', views.VoucherUpdateView.as_view(), name='voucher_update'),
     # 결재 → apps/approval/ 앱으로 이동
     # 미수금
     path('receivables/', views.ARListView.as_view(), name='ar_list'),
@@ -86,7 +87,12 @@ urlpatterns = [
     path('payables/<int:pk>/disbursement/', views.DisbursementCreateView.as_view(), name='disbursement_create'),
     path('ap-aging/', views.APAgingView.as_view(), name='ap_aging'),
     # PDF
-    path('invoices/<int:pk>/pdf/', views.TaxInvoicePDFView.as_view(), name='taxinvoice_pdf'),
+    path('invoices/<str:slug>/pdf/', views.TaxInvoicePDFView.as_view(), name='taxinvoice_pdf'),
+    # 전자세금계산서
+    path('invoices/<str:slug>/electronic/issue/', views.ElectronicInvoiceIssueView.as_view(), name='electronic_invoice_issue'),
+    path('invoices/<str:slug>/electronic/status/', views.ElectronicInvoiceStatusView.as_view(), name='electronic_invoice_status'),
+    path('invoices/<str:slug>/electronic/cancel/', views.ElectronicInvoiceCancelView.as_view(), name='electronic_invoice_cancel'),
+    path('invoices/electronic/batch-issue/', views.ElectronicInvoiceBatchIssueView.as_view(), name='electronic_invoice_batch_issue'),
     # 일괄 가져오기
     path('fixed-costs/import/', views.FixedCostImportView.as_view(), name='fixedcost_import'),
     path('fixed-costs/import/sample/', views.FixedCostImportSampleView.as_view(), name='fixedcost_import_sample'),

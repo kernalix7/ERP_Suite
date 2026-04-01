@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ERP Suite{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232563eb'/><text x='16' y='22' font-size='18' font-weight='bold' fill='white' text-anchor='middle' font-family='sans-serif'>E</text></svg>">
     <link rel="stylesheet" href="{% static 'vendor/css/tailwind.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/erp-standards.css' %}">
     <script src="{% static 'vendor/js/htmx.min.js' %}"></script>
     <script defer src="{% static 'vendor/js/alpine.min.js' %}"></script>
     <script src="{% static 'vendor/js/chart.umd.min.js' %}"></script>
@@ -29,9 +31,6 @@
             /* 모바일 폰트 축소 */
             .font-mono { font-size: 0.7rem; }
         }
-        @media (max-width: 768px) {
-            table { min-width: 600px; }
-        }
         /* 인쇄 시 사이드바 숨김 */
         @media print {
             aside, header, #toast-container { display: none !important; }
@@ -39,8 +38,25 @@
             .no-print { display: none !important; }
         }
     </style>
+    {% block extra_css %}{% endblock %}
 </head>
-<body class="h-full" x-data="{ sidebarOpen: true, mobileSidebar: false }">
+<body class="h-full" x-data="{
+    sidebarOpen: localStorage.getItem('sidebarOpen') !== 'false',
+    mobileSidebar: false,
+    get isDesktop() { return window.innerWidth >= 1024 },
+    toggleSidebar() {
+        if (this.isDesktop) {
+            this.sidebarOpen = !this.sidebarOpen;
+            localStorage.setItem('sidebarOpen', this.sidebarOpen);
+        } else {
+            this.mobileSidebar = !this.mobileSidebar;
+        }
+    },
+    closeMobile() { if (!this.isDesktop) this.mobileSidebar = false; }
+}" x-init="
+    $watch('sidebarOpen', v => { if(isDesktop) localStorage.setItem('sidebarOpen', v) });
+    window.addEventListener('resize', () => { if(isDesktop) mobileSidebar = false });
+">
     {% if user.is_authenticated %}
     <!-- Skip navigation -->
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium">
@@ -53,11 +69,14 @@
              @click="mobileSidebar = false"></div>
 
         <!-- Sidebar -->
-        <aside :class="sidebarOpen ? 'w-64' : 'w-16'"
-               class="fixed inset-y-0 left-0 z-50 bg-slate-800 text-white transition-all duration-300 flex flex-col
-                      lg:relative lg:translate-x-0"
-               :class="{ '-translate-x-full': !mobileSidebar, 'translate-x-0': mobileSidebar }"
-               x-init="if(window.innerWidth < 1024) sidebarOpen = true">
+        <aside class="fixed inset-y-0 left-0 z-50 bg-slate-800 text-white transition-all duration-300 flex flex-col
+                      w-64 lg:relative lg:translate-x-0"
+               :class="{
+                   'lg:w-64': sidebarOpen,
+                   'lg:w-16': !sidebarOpen,
+                   '-translate-x-full': !mobileSidebar && !isDesktop,
+                   'translate-x-0': mobileSidebar || isDesktop
+               }"
 
             <!-- Logo -->
             <div class="flex items-center h-16 px-4 bg-slate-900">
@@ -65,14 +84,37 @@
                 <span class="text-xl font-bold mx-auto" x-show="!sidebarOpen">E</span>
             </div>
 
+            {% if user.is_admin_role %}
+            <!-- 뷰 모드 전환 (관리자 전용) -->
+            <div class="px-3 py-2 border-b border-slate-700" x-show="sidebarOpen">
+                <form method="post" action="{% url 'core:role_switch' %}" class="flex items-center gap-2">
+                    {% csrf_token %}
+                    <select name="view_mode" onchange="this.form.submit()"
+                            class="flex-1 bg-slate-700 text-white text-xs rounded px-2 py-1.5 border border-slate-600 focus:border-blue-400 focus:outline-none">
+                        <option value="admin" {% if effective_role == 'admin' %}selected{% endif %}>{% trans "관리자 뷰" %}</option>
+                        <option value="manager" {% if effective_role == 'manager' %}selected{% endif %}>{% trans "매니저 뷰" %}</option>
+                        <option value="staff" {% if effective_role == 'staff' %}selected{% endif %}>{% trans "사용자 뷰" %}</option>
+                    </select>
+                    {% if is_view_mode_active %}
+                    <span class="flex-shrink-0 w-2 h-2 bg-amber-400 rounded-full" title="{% trans '뷰 모드 활성' %}"></span>
+                    {% endif %}
+                </form>
+            </div>
+            {% elif user.is_authenticated %}
+            <!-- 현재 역할 표시 (비관리자) -->
+            <div class="px-3 py-2 border-b border-slate-700" x-show="sidebarOpen">
+                <span class="text-xs text-slate-400">{{ user.get_role_display }} {% trans "뷰" %}</span>
+            </div>
+            {% endif %}
+
             <!-- Navigation -->
             <nav class="flex-1 py-4 overflow-y-auto" aria-label="{% trans '주 메뉴' %}">
                 <ul class="space-y-1 px-3">
-                    <!-- 대시보드 -->
+                    <!-- ===== 대시보드 ===== -->
                     <li>
-                        <a href="{% url 'core:dashboard' %}"
+                        <a href="{% url 'core:dashboard' %}" @click="closeMobile()"
                            class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
-                                  {% if request.resolver_match.app_name == 'core' %}bg-slate-700{% endif %}">
+                                  {% if request.resolver_match.app_name == 'core' and request.resolver_match.url_name == 'dashboard' %}bg-slate-700{% endif %}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                             </svg>
@@ -80,56 +122,12 @@
                         </a>
                     </li>
 
-                    <!-- 재고관리 -->
-                    <li x-data="{ open: {% if request.resolver_match.app_name == 'inventory' %}true{% else %}false{% endif %} }">
-                        <button @click="open = !open" :aria-expanded="open"
-                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
-                                       {% if request.resolver_match.app_name == 'inventory' %}bg-slate-700{% endif %}">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                            </svg>
-                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "재고관리" %}</span>
-                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
-                            </svg>
-                        </button>
-                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'inventory:product_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "제품 관리" %}</a></li>
-                            <li><a href="{% url 'inventory:category_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "카테고리" %}</a></li>
-                            <li><a href="{% url 'inventory:warehouse_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "창고 관리" %}</a></li>
-                            <li><a href="{% url 'inventory:movement_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "입출고" %}</a></li>
-                            <li><a href="{% url 'inventory:transfer_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "창고간이동" %}</a></li>
-                            <li><a href="{% url 'inventory:stock_status' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "재고현황" %}</a></li>
-                            <li><a href="{% url 'inventory:barcode_scan' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "바코드 스캔" %}</a></li>
-                            <li><a href="{% url 'inventory:warehouse_stock' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "창고별 재고" %}</a></li>
-                            <li><a href="{% url 'inventory:stockcount_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "재고실사" %}</a></li>
-                            <li><a href="{% url 'inventory:valuation' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "재고평가" %}</a></li>
-                        </ul>
-                    </li>
-
-                    <!-- 생산관리 -->
-                    <li x-data="{ open: {% if request.resolver_match.app_name == 'production' %}true{% else %}false{% endif %} }">
-                        <button @click="open = !open" :aria-expanded="open"
-                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
-                                       {% if request.resolver_match.app_name == 'production' %}bg-slate-700{% endif %}">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
-                            </svg>
-                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "생산관리" %}</span>
-                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
-                            </svg>
-                        </button>
-                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'production:bom_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "BOM 관리" %}</a></li>
-                            <li><a href="{% url 'production:plan_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "생산계획" %}</a></li>
-                            <li><a href="{% url 'production:workorder_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "작업지시" %}</a></li>
-                            <li><a href="{% url 'production:record_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "생산실적" %}</a></li>
-                            <li><a href="{% url 'production:qc_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "품질검수" %}</a></li>
-                            <li><a href="{% url 'production:mrp' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "MRP (소요량계획)" %}</a></li>
-                            <li><a href="{% url 'production:stdcost_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "표준원가" %}</a></li>
-                            <li><a href="{% url 'production:cost_variance' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "원가차이 분석" %}</a></li>
-                        </ul>
+                    {% if effective_role == 'manager' or effective_role == 'admin' %}
+                    <!-- ========================================= -->
+                    <!-- 영업관리 그룹                              -->
+                    <!-- ========================================= -->
+                    <li class="mt-4 pt-4 border-t border-slate-700">
+                        <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider" x-show="sidebarOpen">{% trans "영업관리" %}</span>
                     </li>
 
                     <!-- 판매관리 -->
@@ -146,32 +144,13 @@
                             </svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'sales:partner_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "거래처" %}</a></li>
-                            <li><a href="{% url 'sales:customer_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "고객" %}</a></li>
-                            <li><a href="{% url 'sales:order_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "주문" %}</a></li>
-                            <li><a href="{% url 'sales:quote_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "견적" %}</a></li>
-                            <li><a href="{% url 'sales:commission_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "수수료 관리" %}</a></li>
-                            <li><a href="{% url 'sales:partner_analysis' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "거래처 분석" %}</a></li>
-                            <li><a href="{% url 'sales:carrier_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "택배사 관리" %}</a></li>
-                        </ul>
-                    </li>
-
-                    <!-- 구매관리 -->
-                    <li x-data="{ open: {% if request.resolver_match.app_name == 'purchase' %}true{% else %}false{% endif %} }">
-                        <button @click="open = !open" :aria-expanded="open"
-                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
-                                       {% if request.resolver_match.app_name == 'purchase' %}bg-slate-700{% endif %}">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                            </svg>
-                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "구매관리" %}</span>
-                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
-                            </svg>
-                        </button>
-                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'purchase:po_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "발주서" %}</a></li>
-                            <li><a href="{% url 'purchase:receipt_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "입고확인" %}</a></li>
+                            <li><a href="{% url 'sales:partner_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'partner_list' %}text-white bg-slate-600{% endif %}">{% trans "거래처" %}</a></li>
+                            <li><a href="{% url 'sales:customer_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'customer_list' %}text-white bg-slate-600{% endif %}">{% trans "고객" %}</a></li>
+                            <li><a href="{% url 'sales:order_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'order_list' %}text-white bg-slate-600{% endif %}">{% trans "주문" %}</a></li>
+                            <li><a href="{% url 'sales:quote_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'quote_list' %}text-white bg-slate-600{% endif %}">{% trans "견적" %}</a></li>
+                            <li><a href="{% url 'sales:price_rule_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'price_rule_list' %}text-white bg-slate-600{% endif %}">{% trans "가격규칙" %}</a></li>
+                            <li><a href="{% url 'sales:commission_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'commission_list' %}text-white bg-slate-600{% endif %}">{% trans "수수료 관리" %}</a></li>
+                            <li><a href="{% url 'sales:partner_analysis' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'partner_analysis' %}text-white bg-slate-600{% endif %}">{% trans "거래처 분석" %}</a></li>
                         </ul>
                     </li>
 
@@ -189,12 +168,111 @@
                             </svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'sales:sold_product_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'sold_product_list' %}text-white bg-slate-600{% endif %}">{% trans "판매기기 목록" %}</a></li>
-                            <li><a href="{% url 'sales:shipment_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'shipment_list' %}text-white bg-slate-600{% endif %}">{% trans "출하추적" %}</a></li>
-                            <li><a href="{% url 'service:request_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "AS 접수" %}</a></li>
-                            <li><a href="{% url 'warranty:registration_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "정품등록" %}</a></li>
-                            <li><a href="{% url 'warranty:warranty_verify' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "정품인증" %}</a></li>
+                            <li><a href="{% url 'sales:sold_product_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'sold_product_list' %}text-white bg-slate-600{% endif %}">{% trans "판매기기 목록" %}</a></li>
+                            <li><a href="{% url 'sales:shipment_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'shipment_list' %}text-white bg-slate-600{% endif %}">{% trans "출하추적" %}</a></li>
+                            <li><a href="{% url 'service:request_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'request_list' and request.resolver_match.app_name == 'service' %}text-white bg-slate-600{% endif %}">{% trans "AS 접수" %}</a></li>
+                            <li><a href="{% url 'warranty:registration_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'registration_list' %}text-white bg-slate-600{% endif %}">{% trans "정품등록" %}</a></li>
+                            <li><a href="{% url 'warranty:warranty_verify' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'warranty_verify' %}text-white bg-slate-600{% endif %}">{% trans "정품인증" %}</a></li>
                         </ul>
+                    </li>
+
+                    <!-- 문의관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'inquiry' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" :aria-expanded="open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'inquiry' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "문의" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'inquiry:inquiry_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'inquiry_list' %}text-white bg-slate-600{% endif %}">{% trans "문의 목록" %}</a></li>
+                            <li><a href="{% url 'inquiry:template_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'template_list' %}text-white bg-slate-600{% endif %}">{% trans "답변 템플릿" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- ========================================= -->
+                    <!-- SCM 그룹                                   -->
+                    <!-- ========================================= -->
+                    <li class="mt-4 pt-4 border-t border-slate-700">
+                        <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider" x-show="sidebarOpen">{% trans "공급망관리" %}</span>
+                    </li>
+
+                    <!-- 재고관리 -->
+
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'inventory' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" :aria-expanded="open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'inventory' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "재고관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'inventory:product_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'product_list' %}text-white bg-slate-600{% endif %}">{% trans "제품 관리" %}</a></li>
+                            <li><a href="{% url 'inventory:category_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'category_list' and request.resolver_match.app_name == 'inventory' %}text-white bg-slate-600{% endif %}">{% trans "카테고리" %}</a></li>
+                            <li><a href="{% url 'inventory:warehouse_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'warehouse_list' %}text-white bg-slate-600{% endif %}">{% trans "창고 관리" %}</a></li>
+                            <li><a href="{% url 'inventory:movement_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'movement_list' %}text-white bg-slate-600{% endif %}">{% trans "입출고" %}</a></li>
+                            <li><a href="{% url 'inventory:transfer_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'transfer_list' and request.resolver_match.app_name == 'inventory' %}text-white bg-slate-600{% endif %}">{% trans "창고간이동" %}</a></li>
+                            <li><a href="{% url 'inventory:stock_status' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'stock_status' %}text-white bg-slate-600{% endif %}">{% trans "재고현황" %}</a></li>
+                            <li><a href="{% url 'inventory:barcode_scan' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'barcode_scan' %}text-white bg-slate-600{% endif %}">{% trans "바코드 스캔" %}</a></li>
+                            <li><a href="{% url 'inventory:warehouse_stock' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'warehouse_stock' %}text-white bg-slate-600{% endif %}">{% trans "창고별 재고" %}</a></li>
+                            <li><a href="{% url 'inventory:stockcount_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'stockcount_list' %}text-white bg-slate-600{% endif %}">{% trans "재고실사" %}</a></li>
+                            <li><a href="{% url 'inventory:valuation' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'valuation' %}text-white bg-slate-600{% endif %}">{% trans "재고평가" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 생산관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'production' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" :aria-expanded="open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'production' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "생산관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'production:bom_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'bom_list' %}text-white bg-slate-600{% endif %}">{% trans "BOM 관리" %}</a></li>
+                            <li><a href="{% url 'production:plan_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'plan_list' %}text-white bg-slate-600{% endif %}">{% trans "생산계획" %}</a></li>
+                            <li><a href="{% url 'production:workorder_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'workorder_list' %}text-white bg-slate-600{% endif %}">{% trans "작업지시" %}</a></li>
+                            <li><a href="{% url 'production:record_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'record_list' %}text-white bg-slate-600{% endif %}">{% trans "생산실적" %}</a></li>
+                            <li><a href="{% url 'production:qc_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'qc_list' %}text-white bg-slate-600{% endif %}">{% trans "품질검수" %}</a></li>
+                            <li><a href="{% url 'production:mrp' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'mrp' %}text-white bg-slate-600{% endif %}">{% trans "MRP (소요량계획)" %}</a></li>
+                            <li><a href="{% url 'production:stdcost_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'stdcost_list' %}text-white bg-slate-600{% endif %}">{% trans "표준원가" %}</a></li>
+                            <li><a href="{% url 'production:cost_variance' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'cost_variance' %}text-white bg-slate-600{% endif %}">{% trans "원가차이 분석" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 구매관리 -->
+                    <li x-data="{ open: {% if request.resolver_match.app_name == 'purchase' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open" :aria-expanded="open"
+                                class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
+                                       {% if request.resolver_match.app_name == 'purchase' %}bg-slate-700{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                            </svg>
+                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "구매관리" %}</span>
+                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                            </svg>
+                        </button>
+                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
+                            <li><a href="{% url 'purchase:po_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'po_list' %}text-white bg-slate-600{% endif %}">{% trans "발주서" %}</a></li>
+                            <li><a href="{% url 'purchase:receipt_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'receipt_list' %}text-white bg-slate-600{% endif %}">{% trans "입고확인" %}</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- ========================================= -->
+                    <!-- 회계/재무 그룹                             -->
+                    <!-- ========================================= -->
+                    <li class="mt-4 pt-4 border-t border-slate-700">
+                        <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider" x-show="sidebarOpen">{% trans "회계/재무" %}</span>
                     </li>
 
                     <!-- 회계관리 -->
@@ -211,41 +289,42 @@
                             </svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'accounting:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "재무 대시보드" %}</a></li>
+                            <li><a href="{% url 'accounting:dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'accounting' %}text-white bg-slate-600{% endif %}">{% trans "재무 대시보드" %}</a></li>
                             <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "전표/세무" %}</span></li>
-                            <li><a href="{% url 'accounting:voucher_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "전표" %}</a></li>
-                            <li><a href="{% url 'accounting:taxinvoice_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세금계산서" %}</a></li>
-                            <li><a href="{% url 'accounting:vat_summary' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "부가세 집계" %}</a></li>
-                            <li><a href="{% url 'accounting:withholding_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "원천징수" %}</a></li>
+                            <li><a href="{% url 'accounting:voucher_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "전표" %}</a></li>
+                            <li><a href="{% url 'accounting:taxinvoice_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세금계산서" %}</a></li>
+                            <li><a href="{% url 'accounting:vat_summary' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "부가세 집계" %}</a></li>
+                            <li><a href="{% url 'accounting:withholding_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "원천징수" %}</a></li>
                             <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "장부/분석" %}</span></li>
-                            <li><a href="{% url 'accounting:account_ledger' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계정별 원장" %}</a></li>
-                            <li><a href="{% url 'accounting:trial_balance' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "시산표" %}</a></li>
-                            <li><a href="{% url 'accounting:budget_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "예산관리" %}</a></li>
-                            <li><a href="{% url 'accounting:budget_report' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "예산 보고서" %}</a></li>
-                            <li><a href="{% url 'accounting:closing_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결산 마감" %}</a></li>
-                            <li><a href="{% url 'accounting:bank_reconciliation' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "은행 대사" %}</a></li>
-                            <li><a href="{% url 'accounting:monthly_pl' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "월별 손익" %}</a></li>
-                            <li><a href="{% url 'accounting:breakeven' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "손익분기점" %}</a></li>
-                            <li><a href="{% url 'accounting:settlement_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "원가정산" %}</a></li>
-                            <li><a href="{% url 'accounting:sales_settlement_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "매출정산" %}</a></li>
-                            <li><a href="{% url 'accounting:fixedcost_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "고정비" %}</a></li>
-                            <li><a href="{% url 'accounting:bankaccount_dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계좌 현황" %}</a></li>
-                            <li><a href="{% url 'accounting:bankaccount_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결제계좌" %}</a></li>
-                            <li><a href="{% url 'accounting:transfer_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계좌이체" %}</a></li>
+                            <li><a href="{% url 'accounting:account_ledger' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계정별 원장" %}</a></li>
+                            <li><a href="{% url 'accounting:trial_balance' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "시산표" %}</a></li>
+                            <li><a href="{% url 'accounting:budget_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "예산관리" %}</a></li>
+                            <li><a href="{% url 'accounting:budget_report' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "예산 보고서" %}</a></li>
+                            <li><a href="{% url 'accounting:closing_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결산 마감" %}</a></li>
+                            <li><a href="{% url 'accounting:bank_reconciliation' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "은행 대사" %}</a></li>
+                            <li><a href="{% url 'accounting:monthly_pl' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "월별 손익" %}</a></li>
+                            <li><a href="{% url 'accounting:breakeven' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "손익분기점" %}</a></li>
+                            <li><a href="{% url 'accounting:settlement_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "원가정산" %}</a></li>
+                            <li><a href="{% url 'accounting:sales_settlement_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "매출정산" %}</a></li>
+                            <li><a href="{% url 'accounting:fixedcost_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "고정비" %}</a></li>
+                            <li><a href="{% url 'accounting:bankaccount_dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계좌 현황" %}</a></li>
+                            <li><a href="{% url 'accounting:bankaccount_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결제계좌" %}</a></li>
+                            <li><a href="{% url 'accounting:transfer_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계좌이체" %}</a></li>
                             <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "채권/채무" %}</span></li>
-                            <li><a href="{% url 'accounting:ar_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "미수금" %}</a></li>
-                            <li><a href="{% url 'accounting:ar_aging' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "AR Aging" %}</a></li>
-                            <li><a href="{% url 'accounting:ap_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "미지급금" %}</a></li>
-                            <li><a href="{% url 'accounting:ap_aging' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "AP Aging" %}</a></li>
+                            <li><a href="{% url 'accounting:ar_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "미수금" %}</a></li>
+                            <li><a href="{% url 'accounting:ar_aging' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "미수금 경과분석" %}</a></li>
+                            <li><a href="{% url 'accounting:ap_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "미지급금" %}</a></li>
+                            <li><a href="{% url 'accounting:ap_aging' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "미지급금 경과분석" %}</a></li>
                             <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "기본설정" %}</span></li>
-                            <li><a href="{% url 'accounting:accountcode_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계정과목" %}</a></li>
-                            <li><a href="{% url 'accounting:taxrate_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세율" %}</a></li>
-                            <li><a href="{% url 'accounting:currency_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "통화관리" %}</a></li>
-                            <li><a href="{% url 'accounting:exchangerate_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "환율관리" %}</a></li>
+                            <li><a href="{% url 'accounting:accountcode_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계정과목" %}</a></li>
+                            <li><a href="{% url 'accounting:taxrate_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "세율" %}</a></li>
+                            <li><a href="{% url 'accounting:currency_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "통화관리" %}</a></li>
+                            <li><a href="{% url 'accounting:exchangerate_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "환율관리" %}</a></li>
                         </ul>
                     </li>
 
                     <!-- 투자관리 -->
+                    {% if effective_role == 'manager' or effective_role == 'admin' %}
                     <li x-data="{ open: {% if request.resolver_match.app_name == 'investment' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open" :aria-expanded="open"
                                 class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
@@ -259,15 +338,17 @@
                             </svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'investment:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자 대시보드" %}</a></li>
-                            <li><a href="{% url 'investment:investor_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자자 관리" %}</a></li>
-                            <li><a href="{% url 'investment:round_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자 라운드" %}</a></li>
-                            <li><a href="{% url 'investment:equity_overview' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "지분 현황" %}</a></li>
-                            <li><a href="{% url 'investment:distribution_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "배당/분배" %}</a></li>
+                            <li><a href="{% url 'investment:dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자 대시보드" %}</a></li>
+                            <li><a href="{% url 'investment:investor_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자자 관리" %}</a></li>
+                            <li><a href="{% url 'investment:round_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "투자 라운드" %}</a></li>
+                            <li><a href="{% url 'investment:equity_overview' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "지분 현황" %}</a></li>
+                            <li><a href="{% url 'investment:distribution_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "배당/분배" %}</a></li>
                         </ul>
                     </li>
+                    {% endif %}
 
                     <!-- 고정자산 -->
+                    {% if effective_role == 'manager' or effective_role == 'admin' %}
                     <li x-data="{ open: {% if request.resolver_match.app_name == 'asset' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open" :aria-expanded="open"
                                 class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors
@@ -281,20 +362,26 @@
                             </svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'asset:asset_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 목록" %}</a></li>
-                            <li><a href="{% url 'asset:asset_create' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 등록" %}</a></li>
-                            <li><a href="{% url 'asset:depreciation_run' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "감가상각 실행" %}</a></li>
-                            <li><a href="{% url 'asset:summary' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 현황" %}</a></li>
-                            <li><a href="{% url 'asset:category_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 분류" %}</a></li>
+                            <li><a href="{% url 'asset:asset_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 목록" %}</a></li>
+                            <li><a href="{% url 'asset:asset_create' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 등록" %}</a></li>
+                            <li><a href="{% url 'asset:depreciation_run' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "감가상각 실행" %}</a></li>
+                            <li><a href="{% url 'asset:summary' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 현황" %}</a></li>
+                            <li><a href="{% url 'asset:category_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 분류" %}</a></li>
                         </ul>
                     </li>
+                    {% endif %}
+                    {% endif %}{# end effective_role manager/admin for 영업/SCM/회계 #}
 
-                    <!-- 마케팅/채널 구분선 -->
+                    {% if effective_role == 'manager' or effective_role == 'admin' %}
+                    <!-- ========================================= -->
+                    <!-- 마케팅/채널 그룹                           -->
+                    <!-- ========================================= -->
                     <li class="mt-4 pt-4 border-t border-slate-700">
                         <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider" x-show="sidebarOpen">{% trans "마케팅/채널" %}</span>
                     </li>
 
                     <!-- 광고관리 -->
+                    {% if effective_role == 'manager' or effective_role == 'admin' %}
                     <li x-data="{ open: {% if request.resolver_match.app_name == 'advertising' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open" :aria-expanded="open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'advertising' %}bg-slate-700{% endif %}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
@@ -302,13 +389,14 @@
                             <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'advertising:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고 현황" %}</a></li>
-                            <li><a href="{% url 'advertising:campaign_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "캠페인" %}</a></li>
-                            <li><a href="{% url 'advertising:creative_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고소재" %}</a></li>
-                            <li><a href="{% url 'advertising:performance_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "성과분석" %}</a></li>
-                            <li><a href="{% url 'advertising:budget_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고예산" %}</a></li>
+                            <li><a href="{% url 'advertising:dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고 현황" %}</a></li>
+                            <li><a href="{% url 'advertising:campaign_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "캠페인" %}</a></li>
+                            <li><a href="{% url 'advertising:creative_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고소재" %}</a></li>
+                            <li><a href="{% url 'advertising:performance_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "성과분석" %}</a></li>
+                            <li><a href="{% url 'advertising:budget_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "광고예산" %}</a></li>
                         </ul>
                     </li>
+                    {% endif %}
 
                     <!-- 외부스토어 -->
                     <li x-data="{ open: {% if request.resolver_match.app_name == 'marketplace' %}true{% else %}false{% endif %} }">
@@ -318,28 +406,20 @@
                             <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'marketplace:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 현황" %}</a></li>
-                            <li><a href="{% url 'marketplace:order_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 주문" %}</a></li>
-                            <li><a href="{% url 'marketplace:config' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 설정" %}</a></li>
+                            <li><a href="{% url 'marketplace:dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 현황" %}</a></li>
+                            <li><a href="{% url 'marketplace:order_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 주문" %}</a></li>
+                            {% if effective_role == 'manager' or effective_role == 'admin' %}
+                            <li><a href="{% url 'marketplace:config' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 설정" %}</a></li>
+                            {% endif %}
                         </ul>
                     </li>
+                    {% endif %}{# end effective_role manager/admin for 마케팅/채널 #}
 
-                    <!-- 문의관리 -->
-                    <li x-data="{ open: {% if request.resolver_match.app_name == 'inquiry' %}true{% else %}false{% endif %} }">
-                        <button @click="open = !open" :aria-expanded="open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'inquiry' %}bg-slate-700{% endif %}">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                            <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "문의" %}</span>
-                            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
-                        </button>
-                        <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'inquiry:inquiry_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "문의 목록" %}</a></li>
-                            <li><a href="{% url 'inquiry:template_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "답변 템플릿" %}</a></li>
-                        </ul>
-                    </li>
-
-                    <!-- 그룹웨어 구분선 -->
+                    <!-- ========================================= -->
+                    <!-- 인사/총무 그룹                             -->
+                    <!-- ========================================= -->
                     <li class="mt-4 pt-4 border-t border-slate-700">
-                        <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider" x-show="sidebarOpen">{% trans "그룹웨어" %}</span>
+                        <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider" x-show="sidebarOpen">{% trans "인사/총무" %}</span>
                     </li>
 
                     <!-- 인사/근태 -->
@@ -350,24 +430,30 @@
                             <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'hr:org_chart' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "조직도" %}</a></li>
-                            <li><a href="{% url 'hr:department_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "부서" %}</a></li>
-                            <li><a href="{% url 'hr:position_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "직급" %}</a></li>
-                            <li><a href="{% url 'hr:employee_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "직원" %}</a></li>
-                            <li><a href="{% url 'hr:action_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "인사발령" %}</a></li>
+                            <li><a href="{% url 'hr:org_chart' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "조직도" %}</a></li>
+                            {% if effective_role == 'manager' or effective_role == 'admin' %}
+                            <li><a href="{% url 'hr:department_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "부서" %}</a></li>
+                            <li><a href="{% url 'hr:position_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "직급" %}</a></li>
+                            <li><a href="{% url 'hr:employee_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "직원" %}</a></li>
+                            <li><a href="{% url 'hr:action_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "인사발령" %}</a></li>
+                            <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "입퇴사" %}</span></li>
+                            <li><a href="{% url 'hr:onboarding' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'onboarding' %}text-white bg-slate-600{% endif %}">{% trans "입사 처리" %}</a></li>
+                            <li><a href="{% url 'hr:offboarding' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'offboarding' %}text-white bg-slate-600{% endif %}">{% trans "퇴사 처리" %}</a></li>
+                            <li><a href="{% url 'hr:external_company_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "외부 협력업체" %}</a></li>
                             <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "급여" %}</span></li>
-                            <li><a href="{% url 'hr:payroll_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "급여 관리" %}</a></li>
-                            <li><a href="{% url 'hr:payroll_config' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "급여 설정" %}</a></li>
+                            <li><a href="{% url 'hr:payroll_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "급여 관리" %}</a></li>
+                            <li><a href="{% url 'hr:payroll_config' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "급여 설정" %}</a></li>
+                            {% endif %}
                             <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "근태" %}</span></li>
-                            <li><a href="{% url 'attendance:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "근태현황" %}</a></li>
-                            <li><a href="{% url 'attendance:record_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "출퇴근기록" %}</a></li>
-                            <li><a href="{% url 'attendance:leave_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "휴가" %}</a></li>
+                            <li><a href="{% url 'attendance:dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "근태현황" %}</a></li>
+                            <li><a href="{% url 'attendance:record_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "출퇴근기록" %}</a></li>
+                            <li><a href="{% url 'attendance:leave_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "휴가" %}</a></li>
                         </ul>
                     </li>
 
                     <!-- 결재 -->
                     <li>
-                        <a href="{% url 'approval:approval_list' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'approval' %}bg-slate-700{% endif %}">
+                        <a href="{% url 'approval:approval_list' %}" @click="closeMobile()" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'approval' %}bg-slate-700{% endif %}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             <span class="ml-3" x-show="sidebarOpen">{% trans "결재" %}</span>
                         </a>
@@ -375,7 +461,7 @@
 
                     <!-- 게시판 -->
                     <li>
-                        <a href="{% url 'board:board_list' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'board' %}bg-slate-700{% endif %}">
+                        <a href="{% url 'board:board_list' %}" @click="closeMobile()" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'board' %}bg-slate-700{% endif %}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
                             <span class="ml-3" x-show="sidebarOpen">{% trans "게시판" %}</span>
                         </a>
@@ -383,7 +469,7 @@
 
                     <!-- 일정 -->
                     <li>
-                        <a href="{% url 'calendar_app:calendar_view' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'calendar_app' %}bg-slate-700{% endif %}">
+                        <a href="{% url 'calendar_app:calendar_view' %}" @click="closeMobile()" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'calendar_app' %}bg-slate-700{% endif %}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             <span class="ml-3" x-show="sidebarOpen">{% trans "일정" %}</span>
                         </a>
@@ -391,12 +477,15 @@
 
                     <!-- 메신저 -->
                     <li>
-                        <a href="{% url 'messenger:chat_list' %}" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'messenger' %}bg-slate-700{% endif %}">
+                        <a href="{% url 'messenger:chat_list' %}" @click="closeMobile()" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors {% if request.resolver_match.app_name == 'messenger' %}bg-slate-700{% endif %}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/></svg>
                             <span class="ml-3" x-show="sidebarOpen">{% trans "메신저" %}</span>
                         </a>
                     </li>
 
+                    <!-- ========================================= -->
+                    <!-- 시스템관리 그룹 (admin/auditor 전용)       -->
+                    <!-- ========================================= -->
                     {% if user.is_auditor %}
                     <!-- 감사 증적 -->
                     <li x-data="{ open: {% if 'audit' in request.path %}true{% else %}false{% endif %} }" class="mt-4 pt-4 border-t border-slate-700">
@@ -406,30 +495,33 @@
                             <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'core:audit_dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "감사 대시보드" %}</a></li>
-                            <li><a href="{% url 'core:audit_access_log' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "접근 로그" %}</a></li>
-                            <li><a href="{% url 'core:audit_data_changes' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "데이터 변경 이력" %}</a></li>
-                            <li><a href="{% url 'core:audit_login_history' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "로그인/보안" %}</a></li>
-                            <li><a href="{% url 'core:audit_audit_log' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "열람 기록" %}</a></li>
+                            <li><a href="{% url 'core:audit_dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "감사 대시보드" %}</a></li>
+                            <li><a href="{% url 'core:audit_access_log' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "접근 로그" %}</a></li>
+                            <li><a href="{% url 'core:audit_data_changes' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "데이터 변경 이력" %}</a></li>
+                            <li><a href="{% url 'core:audit_login_history' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "로그인/보안" %}</a></li>
+                            <li><a href="{% url 'core:audit_audit_log' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "열람 기록" %}</a></li>
                         </ul>
                     </li>
                     {% endif %}
 
-                    {% if user.is_admin_role %}
+                    {% if effective_role == 'admin' %}
                     <!-- 시스템관리 -->
-                    <li x-data="{ open: false }" class="mt-4 pt-4 border-t border-slate-700">
+                    <li x-data="{ open: false }" class="{% if not user.is_auditor %}mt-4 pt-4 border-t border-slate-700{% endif %}">
                         <button @click="open = !open" :aria-expanded="open" class="flex items-center w-full px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             <span class="ml-3 flex-1 text-left" x-show="sidebarOpen">{% trans "시스템관리" %}</span>
                             <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
                         </button>
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
-                            <li><a href="{% url 'accounts:user_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "사용자관리" %}</a></li>
-                            <li><a href="{% url 'core:data_report' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "데이터 가이드" %}</a></li>
-                            <li><a href="{% url 'core:backup' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "백업/복원" %}</a></li>
-                            <li><a href="{% url 'core:trash' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "휴지통" %}</a></li>
-                            <li><a href="{% url 'core:attachment_list' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "증빙관리" %}</a></li>
-                            <li><a href="{% url 'ad:dashboard' %}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.app_name == 'ad' %}text-white bg-slate-600{% endif %}">{% trans "AD 연동" %}</a></li>
+                            <li><a href="{% url 'accounts:user_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "사용자관리" %}</a></li>
+                            <li><a href="{% url 'accounts:permission_group_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "권한관리" %}</a></li>
+                            <li><a href="{% url 'core:data_report' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "데이터 가이드" %}</a></li>
+                            <li><a href="{% url 'core:backup' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "백업/복원" %}</a></li>
+                            <li><a href="{% url 'core:trash' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "휴지통" %}</a></li>
+                            <li><a href="{% url 'core:attachment_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "증빙관리" %}</a></li>
+                            <li><a href="{% url 'ad:dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "AD 연동" %}</a></li>
+                            <li><a href="{% url 'sales:carrier_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'carrier_list' %}text-white bg-slate-600{% endif %}">{% trans "택배사 관리" %}</a></li>
+                            <li><a href="{% url 'core:system_settings' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "시스템 설정" %}</a></li>
                         </ul>
                     </li>
                     {% endif %}
@@ -447,10 +539,14 @@
                         <p class="text-xs text-slate-400">{{ user.get_role_display }}</p>
                     </div>
                 </a>
-                <div class="mt-2 flex items-center gap-2 text-xs">
+                <div class="mt-2 flex items-center gap-2 text-xs flex-wrap">
                     <a href="{% url 'accounts:profile' %}" class="text-slate-400 hover:text-white transition-colors">{% trans "프로필" %}</a>
                     <span class="text-slate-600">·</span>
                     <a href="{% url 'accounts:password_change' %}" class="text-slate-400 hover:text-white transition-colors">{% trans "비밀번호" %}</a>
+                    {% if user.role != 'admin' %}
+                    <span class="text-slate-600">·</span>
+                    <a href="{% url 'accounts:permission_request' %}" class="text-slate-400 hover:text-white transition-colors">{% trans "권한 신청" %}</a>
+                    {% endif %}
                     <span class="text-slate-600">·</span>
                     <form method="post" action="{% url 'accounts:logout' %}" class="inline">{% csrf_token %}<button type="submit" class="text-slate-400 hover:text-white transition-colors">{% trans "로그아웃" %}</button></form>
                 </div>
@@ -461,12 +557,12 @@
         <div class="flex-1 flex flex-col min-w-0" :class="sidebarOpen ? 'lg:ml-0' : 'lg:ml-0'">
             <!-- Top bar -->
             <header class="header-bar h-16 bg-white border-b border-gray-200 flex items-center px-4 gap-4">
-                <button @click="sidebarOpen = !sidebarOpen" class="hidden lg:block text-gray-500 hover:text-gray-700 flex-shrink-0" aria-label="{% trans '사이드바 토글' %}">
+                <button @click="toggleSidebar()" class="hidden lg:block text-gray-500 hover:text-gray-700 flex-shrink-0" aria-label="{% trans '사이드바 토글' %}">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                     </svg>
                 </button>
-                <button @click="mobileSidebar = !mobileSidebar" class="lg:hidden text-gray-500 hover:text-gray-700 flex-shrink-0" aria-label="{% trans '메뉴 열기' %}">
+                <button @click="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700 flex-shrink-0" aria-label="{% trans '메뉴 열기' %}">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                     </svg>
@@ -509,14 +605,14 @@
                     </button>
                     <!-- 알림 드롭다운 -->
                     <div x-show="open" x-cloak @click.outside="open = false"
-                         class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                         class="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
                         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                            <span class="text-sm font-semibold text-gray-700">알림</span>
+                            <span class="text-sm font-semibold text-gray-700">{% trans "알림" %}</span>
                             <button x-show="unreadCount > 0" @click="markAllRead()"
-                                    class="text-xs text-blue-600 hover:text-blue-800">모두 읽음</button>
+                                    class="text-xs text-blue-600 hover:text-blue-800">{% trans "모두 읽음" %}</button>
                         </div>
                         <template x-if="notifications.length === 0">
-                            <div class="px-4 py-6 text-center text-sm text-gray-400">새 알림이 없습니다</div>
+                            <div class="px-4 py-6 text-center text-sm text-gray-400">{% trans "새 알림이 없습니다" %}</div>
                         </template>
                         <template x-for="noti in notifications" :key="noti.id || noti.title + noti.timestamp">
                             <a :href="noti.link || '#'" @click="markRead(noti)"
@@ -539,29 +635,17 @@
             </header>
 
             <!-- Messages -->
-            {% if messages %}
-            <div class="px-4 pt-4">
-                {% for message in messages %}
-                <div class="mb-2 px-4 py-3 rounded-lg text-sm
-                    {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200
-                    {% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200
-                    {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200
-                    {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
-                    {{ message }}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
+            {% include "includes/messages.html" %}
 
             <!-- Page content -->
-            <main id="main-content" class="flex-1 p-6 overflow-auto" role="main">
+            <main id="main-content" class="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto" role="main">
                 {% block content %}{% endblock %}
             </main>
         </div>
     </div>
     <!-- 토스트 알림 컨테이너 -->
     <div id="toast-container" x-data="toastNotifications()" x-init="init()"
-         class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
+         class="fixed bottom-4 right-4 sm:top-4 sm:bottom-auto z-[9999] flex flex-col gap-2 pointer-events-none"
          role="status" aria-live="polite" aria-atomic="true">
         <template x-for="toast in toasts" :key="toast.id">
             <div x-show="toast.show"
@@ -571,7 +655,7 @@
                  x-transition:leave="transition ease-in duration-200"
                  x-transition:leave-start="opacity-100 translate-x-0"
                  x-transition:leave-end="opacity-0 translate-x-8"
-                 class="pointer-events-auto bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm w-80">
+                 class="pointer-events-auto bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm w-[calc(100vw-2rem)] sm:w-80">
                 <div class="flex items-start gap-3">
                     <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
                          :class="{
@@ -729,6 +813,8 @@
         };
     })();
     </script>
+    <script src="{% static 'js/address-search.js' %}"></script>
+    <script src="{% static 'js/phone-input.js' %}"></script>
     {% block extra_js %}{% endblock %}
     {% else %}
     {% block public_content %}{% endblock %}

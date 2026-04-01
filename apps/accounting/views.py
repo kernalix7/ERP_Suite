@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 from django.views import View
 
 from apps.core.import_views import BaseImportView
@@ -52,28 +53,46 @@ class AccountingDashboardView(ManagerRequiredMixin, TemplateView):
         # 월별 매출 (올해)
         monthly_revenue = []
         monthly_costs = []
+        monthly_fixed = []
+        monthly_variable = []
         months = []
         for m in range(1, 13):
             months.append(f'{m}월')
             revenue = Order.objects.filter(
+                is_active=True,
                 order_date__year=year, order_date__month=m,
                 status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED'],
             ).aggregate(total=Sum('total_amount'))['total'] or 0
             monthly_revenue.append(int(revenue))
 
-            costs = FixedCost.objects.filter(
+            # 고정비: FixedCost
+            fixed = FixedCost.objects.filter(
+                is_active=True,
                 month__year=year, month__month=m,
             ).aggregate(total=Sum('amount'))['total'] or 0
-            monthly_costs.append(int(costs))
+
+            # 변동비: AP (미지급금 — 구매/발주 비용)
+            variable = AccountPayable.objects.filter(
+                is_active=True,
+                created_at__year=year, created_at__month=m,
+            ).aggregate(total=Sum('amount'))['total'] or 0
+
+            monthly_fixed.append(int(fixed))
+            monthly_variable.append(int(variable))
+            monthly_costs.append(int(fixed) + int(variable))
 
         ctx['months_json'] = months
         ctx['revenue_json'] = monthly_revenue
         ctx['costs_json'] = monthly_costs
+        ctx['fixed_costs_json'] = monthly_fixed
+        ctx['variable_costs_json'] = monthly_variable
 
         # 올해 총 매출/비용/이익
         ctx['year_revenue'] = sum(monthly_revenue)
         ctx['year_costs'] = sum(monthly_costs)
         ctx['year_profit'] = ctx['year_revenue'] - ctx['year_costs']
+        ctx['year_fixed'] = sum(monthly_fixed)
+        ctx['year_variable'] = sum(monthly_variable)
 
         # 제품별 이익률
         products = Product.objects.filter(product_type='FINISHED', unit_price__gt=0)
@@ -174,6 +193,8 @@ class TaxInvoiceCreateView(ManagerRequiredMixin, CreateView):
 class TaxInvoiceDetailView(ManagerRequiredMixin, DetailView):
     model = TaxInvoice
     template_name = 'accounting/taxinvoice_detail.html'
+    slug_field = 'invoice_number'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -185,6 +206,8 @@ class TaxInvoiceUpdateView(ManagerRequiredMixin, UpdateView):
     model = TaxInvoice
     form_class = TaxInvoiceForm
     template_name = 'accounting/taxinvoice_form.html'
+    slug_field = 'invoice_number'
+    slug_url_kwarg = 'slug'
     success_url = reverse_lazy('accounting:taxinvoice_list')
 
 
@@ -203,12 +226,14 @@ class VATSummaryView(ManagerRequiredMixin, TemplateView):
             m_start = (q - 1) * 3 + 1
             m_end = m_start + 2
             sales = TaxInvoice.objects.filter(
+                is_active=True,
                 invoice_type='SALES', issue_date__year=year,
                 issue_date__month__gte=m_start, issue_date__month__lte=m_end,
             ).aggregate(
                 supply=Sum('supply_amount'), tax=Sum('tax_amount'),
             )
             purchase = TaxInvoice.objects.filter(
+                is_active=True,
                 invoice_type='PURCHASE', issue_date__year=year,
                 issue_date__month__gte=m_start, issue_date__month__lte=m_end,
             ).aggregate(
@@ -550,11 +575,42 @@ class VoucherCreateView(ManagerRequiredMixin, CreateView):
         ctx = self.get_context_data()
         formset = ctx['formset']
         if formset.is_valid():
-            self.object = form.save(commit=False)
-            self.object.created_by = self.request.user
-            self.object.save()
-            formset.instance = self.object
-            formset.save()
+            try:
+                with transaction.atomic():
+                    self.object = form.save(commit=False)
+                    self.object.created_by = self.request.user
+                    self.object.save()
+                    formset.instance = self.object
+                    formset.save()
+                    if not self.object.is_balanced:
+                        raise ValueError('unbalanced')
+            except ValueError:
+                messages.error(
+                    self.request,
+                    '차변 합계와 대변 합계가 일치하지 않습니다.',
+                )
+                return self.form_invalid(form)
+
+            # 예산 초과 경고 (차단하지 않음)
+            voucher_date = self.object.voucher_date
+            if voucher_date:
+                for line in self.object.lines.select_related('account').all():
+                    if line.account.account_type == 'EXPENSE' and line.debit > 0:
+                        budget = Budget.objects.filter(
+                            account=line.account,
+                            year=voucher_date.year,
+                            month=voucher_date.month,
+                            is_active=True,
+                        ).first()
+                        if budget and budget.actual_amount > int(budget.budget_amount):
+                            messages.warning(
+                                self.request,
+                                f'{line.account.name} 예산 초과: '
+                                f'예산 {int(budget.budget_amount):,}원 / '
+                                f'실적 {budget.actual_amount:,}원 '
+                                f'(집행률 {budget.execution_rate}%)',
+                            )
+
             return redirect(self.get_success_url())
         return self.form_invalid(form)
 
@@ -562,6 +618,8 @@ class VoucherCreateView(ManagerRequiredMixin, CreateView):
 class VoucherDetailView(ManagerRequiredMixin, DetailView):
     model = Voucher
     template_name = 'accounting/voucher_detail.html'
+    slug_field = 'voucher_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -575,6 +633,8 @@ class VoucherUpdateView(ManagerRequiredMixin, UpdateView):
     model = Voucher
     form_class = VoucherForm
     template_name = 'accounting/voucher_form.html'
+    slug_field = 'voucher_number'
+    slug_url_kwarg = 'slug'
     success_url = reverse_lazy('accounting:voucher_list')
 
     def get_context_data(self, **kwargs):
@@ -604,16 +664,28 @@ class VoucherUpdateView(ManagerRequiredMixin, UpdateView):
         ctx = self.get_context_data()
         formset = ctx['formset']
         if formset.is_valid():
-            self.object = form.save()
-            formset.instance = self.object
-            formset.save()
-            return super().form_valid(form)
+            try:
+                with transaction.atomic():
+                    self.object = form.save()
+                    formset.instance = self.object
+                    formset.save()
+                    if not self.object.is_balanced:
+                        raise ValueError('unbalanced')
+            except ValueError:
+                messages.error(
+                    self.request,
+                    '차변 합계와 대변 합계가 일치하지 않습니다.',
+                )
+                return self.form_invalid(form)
+            return redirect(self.get_success_url())
         return self.form_invalid(form)
 
 
 # === 세금계산서 PDF ===
 class TaxInvoicePDFView(ManagerRequiredMixin, DetailView):
     model = TaxInvoice
+    slug_field = 'invoice_number'
+    slug_url_kwarg = 'slug'
 
     def get(self, request, *args, **kwargs):
         invoice = self.get_object()
@@ -629,12 +701,13 @@ class ARListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        # 자동 연체 전환: due_date가 지난 미완납 AR을 OVERDUE로 갱신
+        # 자동 연체 전환: due_date가 지난 미납 AR만 OVERDUE로 (PARTIAL은 유지)
         today = date.today()
         AccountReceivable.objects.filter(
             is_active=True,
             due_date__lt=today,
-            status__in=['PENDING', 'PARTIAL'],
+            status='PENDING',
+            paid_amount=0,
         ).update(status='OVERDUE')
 
         qs = super().get_queryset().filter(is_active=True).select_related('partner', 'order')
@@ -655,6 +728,7 @@ class ARListView(ManagerRequiredMixin, ListView):
         from apps.sales.models import Partner
         ctx['partners'] = Partner.objects.filter(is_active=True)
         total = AccountReceivable.objects.filter(
+            is_active=True,
             status__in=['PENDING', 'PARTIAL', 'OVERDUE']
         ).aggregate(total=Sum('amount'), paid=Sum('paid_amount'))
         ctx['total_remaining'] = (total['total'] or 0) - (total['paid'] or 0)
@@ -780,6 +854,7 @@ class APListView(ManagerRequiredMixin, ListView):
         from apps.sales.models import Partner
         ctx['partners'] = Partner.objects.filter(is_active=True)
         total = AccountPayable.objects.filter(
+            is_active=True,
             status__in=['PENDING', 'PARTIAL', 'OVERDUE']
         ).aggregate(total=Sum('amount'), paid=Sum('paid_amount'))
         ctx['total_remaining'] = (total['total'] or 0) - (total['paid'] or 0)
@@ -946,6 +1021,8 @@ class AccountTransferCreateView(ManagerRequiredMixin, CreateView):
 class PaymentDistributeView(ManagerRequiredMixin, DetailView):
     model = Payment
     template_name = 'accounting/payment_distribute.html'
+    slug_field = 'payment_number'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return super().get_queryset().select_related('partner', 'bank_account')
@@ -973,7 +1050,7 @@ class PaymentDistributeView(ManagerRequiredMixin, DetailView):
                 for obj in formset.deleted_objects:
                     obj.delete()
             messages.success(request, '결제 분배가 저장되었습니다.')
-            return redirect('accounting:payment_distribute', pk=self.object.pk)
+            return redirect('accounting:payment_distribute', slug=self.object.payment_number)
         return self.render_to_response(ctx)
 
 
@@ -981,6 +1058,13 @@ class PaymentDistributeView(ManagerRequiredMixin, DetailView):
 
 class FixedCostImportView(ManagerRequiredMixin, TemplateView):
     template_name = 'core/import.html'
+
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('action') == 'export':
+            from apps.core.import_views import export_resource_data
+            from .resources import FixedCostResource
+            return export_resource_data(FixedCostResource(), '고정비_데이터')
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -993,6 +1077,7 @@ class FixedCostImportView(ManagerRequiredMixin, TemplateView):
             'month: YYYY-MM-DD 형식 (해당월 1일)',
             '동일 (name, month) 조합이 있으면 금액이 수정됩니다.',
         ]
+        ctx['supports_export'] = True
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -1054,6 +1139,13 @@ class FixedCostImportSampleView(ManagerRequiredMixin, View):
 class AccountCodeImportView(ManagerRequiredMixin, TemplateView):
     template_name = 'core/import.html'
 
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('action') == 'export':
+            from apps.core.import_views import export_resource_data
+            from .resources import AccountCodeResource
+            return export_resource_data(AccountCodeResource(), '계정과목_데이터')
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['page_title'] = '계정과목 일괄 가져오기'
@@ -1067,6 +1159,7 @@ class AccountCodeImportView(ManagerRequiredMixin, TemplateView):
             'EQUITY(자본), REVENUE(수익), EXPENSE(비용)',
             'parent_code: 상위 계정코드 (없으면 비워두기)',
         ]
+        ctx['supports_export'] = True
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -1135,6 +1228,13 @@ class AccountCodeImportSampleView(ManagerRequiredMixin, View):
 class TaxInvoiceImportView(ManagerRequiredMixin, TemplateView):
     template_name = 'core/import.html'
 
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('action') == 'export':
+            from apps.core.import_views import export_resource_data
+            from .resources import TaxInvoiceResource
+            return export_resource_data(TaxInvoiceResource(), '세금계산서_데이터')
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['page_title'] = '세금계산서 일괄 가져오기'
@@ -1148,6 +1248,7 @@ class TaxInvoiceImportView(ManagerRequiredMixin, TemplateView):
             'partner_code: 거래처코드',
             '금액: 숫자만 입력 (원 단위)',
         ]
+        ctx['supports_export'] = True
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -1222,6 +1323,7 @@ class VoucherImportView(BaseImportView):
     page_title = '전표 일괄 가져오기'
     cancel_url = reverse_lazy('accounting:voucher_list')
     sample_url = reverse_lazy('accounting:voucher_import_sample')
+    export_filename = '전표_데이터'
     field_hints = [
         '전표번호(voucher_number)가 동일하면 기존 전표가 수정됩니다.',
         'voucher_type: RECEIPT(입금), PAYMENT(출금), TRANSFER(대체)',
@@ -1257,6 +1359,7 @@ class WithholdingImportView(BaseImportView):
     page_title = '원천징수 일괄 가져오기'
     cancel_url = reverse_lazy('accounting:withholding_list')
     sample_url = reverse_lazy('accounting:withholding_import_sample')
+    export_filename = '원천징수_데이터'
     field_hints = [
         '소득자명(payee_name) + 지급일(payment_date) 조합이 동일하면 수정됩니다.',
         'tax_type: INCOME(소득세), CORPORATE(법인세), RESIDENT(주민세)',
@@ -1303,6 +1406,8 @@ class CostSettlementDetailView(ManagerRequiredMixin, DetailView):
     model = CostSettlement
     template_name = 'accounting/settlement_detail.html'
     context_object_name = 'settlement'
+    slug_field = 'settlement_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -1375,6 +1480,17 @@ class CostSettlementCreateView(ManagerRequiredMixin, TemplateView):
                 created_by=request.user,
             )
 
+            # 표준원가 자동 재계산: BOM 자재원가 → 노무비/간접비 → Product.cost_price 갱신
+            from apps.production.models import StandardCost
+            updated_count = 0
+            for sc in StandardCost.objects.filter(is_current=True, is_active=True).select_related('product'):
+                sc.calculate_material_cost()
+                sc.save()  # labor_cost, overhead_cost, total 자동 재계산
+                if sc.product.cost_price != sc.total_standard_cost:
+                    sc.product.cost_price = sc.total_standard_cost
+                    sc.product.save(update_fields=['cost_price', 'updated_at'])
+                    updated_count += 1
+
             products = Product.objects.filter(is_active=True)
             total_value = 0
             items = []
@@ -1398,10 +1514,61 @@ class CostSettlementCreateView(ManagerRequiredMixin, TemplateView):
         messages.success(
             request,
             f'{period_start}~{period_end} 원가정산 완료 '
-            f'(총 재고자산: {total_value:,}원)',
+            f'(총 재고자산: {total_value:,}원, '
+            f'표준원가 갱신: {updated_count}건)',
         )
         return redirect(
             'accounting:settlement_detail', pk=settlement.pk,
+        )
+
+
+class CostSettlementRecalcView(ManagerRequiredMixin, View):
+    """기존 정산 건의 표준원가 재계산 + 스냅샷 갱신"""
+
+    def post(self, request, slug):
+        settlement = get_object_or_404(
+            CostSettlement, settlement_number=slug, is_active=True,
+        )
+        from apps.production.models import StandardCost
+
+        with transaction.atomic():
+            # 표준원가 재계산
+            updated_count = 0
+            for sc in StandardCost.objects.filter(
+                is_current=True, is_active=True,
+            ).select_related('product'):
+                sc.calculate_material_cost()
+                sc.save()
+                if sc.product.cost_price != sc.total_standard_cost:
+                    sc.product.cost_price = sc.total_standard_cost
+                    sc.product.save(update_fields=['cost_price', 'updated_at'])
+                    updated_count += 1
+
+            # 정산 항목 스냅샷 갱신
+            total_value = 0
+            for item in settlement.items.select_related('product').all():
+                item.cost_price = item.product.cost_price or 0
+                item.stock_quantity = item.product.current_stock
+                item.inventory_value = item.stock_quantity * item.cost_price
+                item.save(update_fields=[
+                    'cost_price', 'stock_quantity',
+                    'inventory_value', 'updated_at',
+                ])
+                total_value += item.inventory_value
+
+            settlement.total_inventory_value = total_value
+            settlement.save(
+                update_fields=['total_inventory_value', 'updated_at'],
+            )
+
+        messages.success(
+            request,
+            f'{settlement.settlement_number} 원가 재계산 완료 '
+            f'(총 재고자산: {total_value:,}원, '
+            f'표준원가 갱신: {updated_count}건)',
+        )
+        return redirect(
+            'accounting:settlement_detail', slug=settlement.settlement_number,
         )
 
 
@@ -1419,10 +1586,12 @@ class SalesSettlementListView(ManagerRequiredMixin, ListView):
 class SalesSettlementDetailView(ManagerRequiredMixin, DetailView):
     model = SalesSettlement
     template_name = 'accounting/sales_settlement_detail.html'
+    slug_field = 'settlement_number'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return super().get_queryset().select_related(
-            'commission_bank_account',
+            'commission_bank_account', 'commission_deposit_account',
         )
 
     def get_context_data(self, **kwargs):
@@ -1438,7 +1607,7 @@ class SalesSettlementDetailView(ManagerRequiredMixin, DetailView):
         orders = Order.objects.filter(pk__in=order_ids)
         ctx['paid_count'] = orders.filter(is_paid=True).count()
         ctx['unpaid_count'] = orders.filter(is_paid=False).count()
-        # 수수료 지급 계좌 목록
+        # 계좌 목록 (출금/입금 공용)
         ctx['bank_accounts'] = BankAccount.objects.filter(
             is_active=True,
         )
@@ -1452,9 +1621,9 @@ class SalesSettlementDetailView(ManagerRequiredMixin, DetailView):
 class SalesSettlementPaymentView(ManagerRequiredMixin, View):
     """정산 내 미입금 주문 일괄 입금 처리"""
 
-    def post(self, request, pk):
+    def post(self, request, slug):
         settlement = get_object_or_404(
-            SalesSettlement, pk=pk, is_active=True,
+            SalesSettlement, settlement_number=slug, is_active=True,
         )
         from apps.sales.signals import _auto_create_payment
 
@@ -1479,21 +1648,21 @@ class SalesSettlementPaymentView(ManagerRequiredMixin, View):
         else:
             messages.info(request, '처리할 미입금 주문이 없습니다.')
         return redirect(
-            'accounting:sales_settlement_detail', pk=pk,
+            'accounting:sales_settlement_detail', slug=settlement.settlement_number,
         )
 
 
 class SalesSettlementCommissionPayView(ManagerRequiredMixin, View):
     """정산 수수료 지급 처리"""
 
-    def post(self, request, pk):
+    def post(self, request, slug):
         settlement = get_object_or_404(
-            SalesSettlement, pk=pk, is_active=True,
+            SalesSettlement, settlement_number=slug, is_active=True,
         )
         if settlement.commission_paid:
             messages.warning(request, '이미 수수료 지급 완료된 정산입니다.')
             return redirect(
-                'accounting:sales_settlement_detail', pk=pk,
+                'accounting:sales_settlement_detail', slug=settlement.settlement_number,
             )
 
         bank_id = request.POST.get('commission_bank_account')
@@ -1503,11 +1672,18 @@ class SalesSettlementCommissionPayView(ManagerRequiredMixin, View):
                 pk=bank_id, is_active=True,
             ).first()
 
+        deposit_bank_id = request.POST.get('commission_deposit_account')
+        deposit_bank = None
+        if deposit_bank_id:
+            deposit_bank = BankAccount.objects.filter(
+                pk=deposit_bank_id, is_active=True,
+            ).first()
+
         commission_total = int(settlement.total_commission)
         if commission_total <= 0:
             messages.info(request, '지급할 수수료가 없습니다.')
             return redirect(
-                'accounting:sales_settlement_detail', pk=pk,
+                'accounting:sales_settlement_detail', slug=settlement.settlement_number,
             )
 
         with transaction.atomic():
@@ -1536,6 +1712,7 @@ class SalesSettlementCommissionPayView(ManagerRequiredMixin, View):
             ).first()  # 보통예금
 
             # 차변: 미지급금 (부채 감소)
+            deposit_desc = f' → {deposit_bank.name}' if deposit_bank else ''
             if acct_payable:
                 VoucherLine.objects.create(
                     voucher=voucher,
@@ -1543,7 +1720,7 @@ class SalesSettlementCommissionPayView(ManagerRequiredMixin, View):
                     debit=commission_total,
                     credit=0,
                     description=(
-                        f'{settlement.settlement_number} 수수료'
+                        f'{settlement.settlement_number} 수수료{deposit_desc}'
                     ),
                 )
             # 대변: 보통예금 (자산 감소)
@@ -1592,8 +1769,15 @@ class SalesSettlementCommissionPayView(ManagerRequiredMixin, View):
                     ap.status = AccountPayable.Status.PAID
                     ap.save()
 
+            # 입금계좌 잔액 증가 (선택된 경우)
+            if deposit_bank:
+                BankAccount.objects.filter(pk=deposit_bank.pk).update(
+                    balance=F('balance') + commission_total,
+                )
+
             # 정산 수수료 지급 상태 업데이트
             settlement.commission_bank_account = bank
+            settlement.commission_deposit_account = deposit_bank
             settlement.commission_paid = True
             settlement.commission_paid_date = date.today()
             settlement.commission_paid_amount = commission_total
@@ -1605,21 +1789,21 @@ class SalesSettlementCommissionPayView(ManagerRequiredMixin, View):
             f'수수료 {commission_total:,}원 지급 완료',
         )
         return redirect(
-            'accounting:sales_settlement_detail', pk=pk,
+            'accounting:sales_settlement_detail', slug=settlement.settlement_number,
         )
 
 
 class SalesSettlementCommissionManualView(ManagerRequiredMixin, View):
     """수수료 수동 지급완료 처리 (전표/출금 없이 상태만 변경)"""
 
-    def post(self, request, pk):
+    def post(self, request, slug):
         settlement = get_object_or_404(
-            SalesSettlement, pk=pk, is_active=True,
+            SalesSettlement, settlement_number=slug, is_active=True,
         )
         if settlement.commission_paid:
             messages.warning(request, '이미 수수료 지급 완료된 정산입니다.')
             return redirect(
-                'accounting:sales_settlement_detail', pk=pk,
+                'accounting:sales_settlement_detail', slug=settlement.settlement_number,
             )
 
         commission_total = int(settlement.total_commission)
@@ -1642,7 +1826,7 @@ class SalesSettlementCommissionManualView(ManagerRequiredMixin, View):
             + (f' ({memo})' if memo else ''),
         )
         return redirect(
-            'accounting:sales_settlement_detail', pk=pk,
+            'accounting:sales_settlement_detail', slug=settlement.settlement_number,
         )
 
 
@@ -1683,6 +1867,7 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
         ctx['orders'] = orders
         ctx['order_costs'] = json.dumps({str(k): v for k, v in order_costs.items()})
         ctx['commission_rates'] = json.dumps(rates)
+        ctx['bank_accounts'] = BankAccount.objects.filter(is_active=True)
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -1713,6 +1898,7 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
             total_shipping = 0
             total_commission = 0
             total_profit = 0
+            total_cost_variance = 0
 
             orders = Order.objects.filter(
                 pk__in=order_ids, is_settled=False,
@@ -1722,11 +1908,19 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
                 revenue = int(order.total_amount)
                 tax = int(order.tax_total)
                 shipping = int(order.shipping_cost or 0)
-                # 원가 계산
+                # 원가 계산: 주문시점 + 정산시점(현재)
                 items = order.items.select_related('product').all()
                 cost = sum(
                     int(i.cost_price or 0) * int(i.quantity)
                     for i in items
+                )
+                current_cost = sum(
+                    int(i.product.cost_price or 0) * int(i.quantity)
+                    for i in items
+                )
+                cost_variance = current_cost - cost
+                cost_variance_rate = (
+                    round(cost_variance / cost * 100, 2) if cost else 0
                 )
                 # 수수료율: POST에서 개별 입력값 우선, 없으면 기본율
                 rate_key = f'rate_{order.pk}'
@@ -1740,16 +1934,23 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
                     comm_rate = rates_map.get(
                         order.partner_id, Decimal('0'),
                     )
-                # 수수료 = (공급가액 - 원가) × 수수료율
-                margin = revenue - cost
-                commission = round(margin * comm_rate / 100)
-                profit = margin - shipping - commission
+                # 수수료 기준: revenue(공급가액) 또는 profit(순이익=공급가액-원가-배송비)
+                comm_base_type = request.POST.get('commission_base', 'revenue')
+                if comm_base_type == 'profit':
+                    comm_base = max(revenue - cost - shipping, 0)
+                else:
+                    comm_base = revenue
+                commission = round(comm_base * comm_rate / 100)
+                profit = revenue - cost - shipping - commission
 
                 SalesSettlementOrder.objects.create(
                     settlement=settlement,
                     order=order,
                     revenue=revenue,
                     cost=cost,
+                    current_cost=current_cost,
+                    cost_variance=cost_variance,
+                    cost_variance_rate=cost_variance_rate,
                     tax=tax,
                     shipping=shipping,
                     commission_rate=comm_rate,
@@ -1764,6 +1965,7 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
                 total_shipping += shipping
                 total_commission += commission
                 total_profit += profit
+                total_cost_variance += cost_variance
 
             settlement.total_revenue = total_revenue
             settlement.total_cost = total_cost
@@ -1771,14 +1973,100 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
             settlement.total_shipping = total_shipping
             settlement.total_commission = total_commission
             settlement.total_profit = total_profit
+            settlement.total_cost_variance = total_cost_variance
             settlement.save(update_fields=[
                 'total_revenue', 'total_cost', 'total_tax',
                 'total_shipping', 'total_commission',
-                'total_profit', 'updated_at',
+                'total_profit', 'total_cost_variance', 'updated_at',
             ])
 
             # 주문 정산완료 마킹
             orders.update(is_settled=True)
+
+            # 정산 계좌 처리
+            first_order = orders.first()
+            partner = first_order.partner if first_order else None
+
+            # 수수료 출금 (주문 배송완료 시그널에서 이미 출금된 건 제외)
+            comm_bank_id = request.POST.get('commission_bank')
+            if comm_bank_id and total_commission > 0 and partner:
+                # 시그널에서 이미 처리된 수수료 출금 금액 합산
+                already_paid = Payment.objects.filter(
+                    partner=partner,
+                    payment_type='DISBURSEMENT',
+                    is_active=True,
+                    reference__in=[
+                        f'주문 {o.order_number} 수수료'
+                        for o in orders
+                    ],
+                ).aggregate(total=Sum('amount'))['total'] or 0
+                remaining_commission = total_commission - int(already_paid)
+
+                comm_bank = BankAccount.objects.filter(
+                    pk=comm_bank_id, is_active=True,
+                ).first()
+                if comm_bank and remaining_commission > 0:
+                    Payment.objects.create(
+                        payment_type='DISBURSEMENT',
+                        partner=partner,
+                        bank_account=comm_bank,
+                        amount=remaining_commission,
+                        payment_date=date.today(),
+                        payment_method='BANK_TRANSFER',
+                        reference=f'정산 {settlement.settlement_number} 수수료',
+                        notes=f'매출정산 수수료 {remaining_commission:,}원',
+                        created_by=request.user,
+                    )
+                settlement.commission_bank_account = comm_bank
+                settlement.commission_paid = True
+                settlement.commission_paid_date = date.today()
+                settlement.commission_paid_amount = total_commission
+                settlement.save()
+
+            # 시그널에서 이미 수수료 전액 출금된 경우 자동 정산완료
+            if (
+                total_commission > 0
+                and not settlement.commission_paid
+                and partner
+            ):
+                already_paid = Payment.objects.filter(
+                    partner=partner,
+                    payment_type='DISBURSEMENT',
+                    is_active=True,
+                    reference__in=[
+                        f'주문 {o.order_number} 수수료'
+                        for o in orders
+                    ],
+                ).aggregate(total=Sum('amount'))['total'] or 0
+                if int(already_paid) >= total_commission:
+                    settlement.commission_paid = True
+                    settlement.commission_paid_date = date.today()
+                    settlement.commission_paid_amount = total_commission
+                    settlement.save(update_fields=[
+                        'commission_paid', 'commission_paid_date',
+                        'commission_paid_amount', 'updated_at',
+                    ])
+
+            # 정산금 입금 (매출 - 수수료)
+            settle_bank_id = request.POST.get('settlement_bank')
+            if settle_bank_id and partner:
+                settle_bank = BankAccount.objects.filter(
+                    pk=settle_bank_id, is_active=True,
+                ).first()
+                if settle_bank:
+                    net_amount = total_revenue + total_tax - total_commission
+                    if net_amount > 0:
+                        Payment.objects.create(
+                            payment_type='RECEIPT',
+                            partner=partner,
+                            bank_account=settle_bank,
+                            amount=net_amount,
+                            payment_date=date.today(),
+                            payment_method='BANK_TRANSFER',
+                            reference=f'정산 {settlement.settlement_number} 입금',
+                            notes=f'매출정산 입금 {net_amount:,}원 (매출 {total_revenue + total_tax:,} - 수수료 {total_commission:,})',
+                            created_by=request.user,
+                        )
 
         messages.success(
             request,
@@ -1787,7 +2075,7 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
         )
         return redirect(
             'accounting:sales_settlement_detail',
-            pk=settlement.pk,
+            slug=settlement.settlement_number,
         )
 
 
@@ -2514,3 +2802,164 @@ class ExchangeRateCreateView(ManagerRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         return super().form_valid(form)
+
+
+# === 전자세금계산서 ===
+class ElectronicInvoiceIssueView(ManagerRequiredMixin, View):
+    """단건 전자세금계산서 발행"""
+
+    def post(self, request, slug):
+        invoice = get_object_or_404(TaxInvoice, invoice_number=slug, is_active=True)
+
+        if invoice.electronic_status not in ('NONE', 'DRAFT', 'REJECTED'):
+            messages.error(
+                request,
+                f'현재 상태({invoice.get_electronic_status_display()})에서는 발행할 수 없습니다.',
+            )
+            return redirect('accounting:taxinvoice_detail', slug=invoice.invoice_number)
+
+        from .nts_client import NTSClient, NTSAPIError
+
+        try:
+            client = NTSClient()
+            result = client.issue(invoice)
+
+            with transaction.atomic():
+                invoice.electronic_status = TaxInvoice.ElectronicStatus.ISSUED
+                invoice.issue_id = result.get('issue_id', '')
+                invoice.nts_confirmation_number = result.get('confirmation_number', '')
+                invoice.sent_at = timezone.now()
+                invoice.nts_response = result.get('raw_response', {})
+                invoice.save(update_fields=[
+                    'electronic_status', 'issue_id', 'nts_confirmation_number',
+                    'sent_at', 'nts_response', 'updated_at',
+                ])
+
+            messages.success(request, f'전자세금계산서 발행 완료 ({invoice.invoice_number})')
+        except NTSAPIError as e:
+            messages.error(request, f'전자세금계산서 발행 실패: {e}')
+
+        return redirect('accounting:taxinvoice_detail', slug=invoice.invoice_number)
+
+
+class ElectronicInvoiceBatchIssueView(ManagerRequiredMixin, View):
+    """선택 건 일괄 전자발행"""
+
+    def post(self, request):
+        invoice_ids = request.POST.getlist('invoice_ids')
+        if not invoice_ids:
+            messages.warning(request, '발행할 세금계산서를 선택해주세요.')
+            return redirect('accounting:taxinvoice_list')
+
+        invoices = TaxInvoice.objects.filter(
+            pk__in=invoice_ids,
+            is_active=True,
+            electronic_status__in=['NONE', 'DRAFT', 'REJECTED'],
+        )
+
+        if not invoices.exists():
+            messages.warning(request, '발행 가능한 세금계산서가 없습니다.')
+            return redirect('accounting:taxinvoice_list')
+
+        from .nts_client import NTSClient, NTSAPIError
+
+        client = NTSClient()
+        success_count = 0
+        fail_count = 0
+
+        for invoice in invoices:
+            try:
+                result = client.issue(invoice)
+                with transaction.atomic():
+                    invoice.electronic_status = TaxInvoice.ElectronicStatus.ISSUED
+                    invoice.issue_id = result.get('issue_id', '')
+                    invoice.nts_confirmation_number = result.get('confirmation_number', '')
+                    invoice.sent_at = timezone.now()
+                    invoice.nts_response = result.get('raw_response', {})
+                    invoice.save(update_fields=[
+                        'electronic_status', 'issue_id', 'nts_confirmation_number',
+                        'sent_at', 'nts_response', 'updated_at',
+                    ])
+                success_count += 1
+            except NTSAPIError:
+                fail_count += 1
+
+        if success_count:
+            messages.success(request, f'{success_count}건 전자발행 완료')
+        if fail_count:
+            messages.error(request, f'{fail_count}건 전자발행 실패')
+
+        return redirect('accounting:taxinvoice_list')
+
+
+class ElectronicInvoiceStatusView(ManagerRequiredMixin, View):
+    """국세청 전송상태 조회"""
+
+    def get(self, request, slug):
+        invoice = get_object_or_404(TaxInvoice, invoice_number=slug, is_active=True)
+
+        if not invoice.issue_id:
+            messages.warning(request, '전자발행되지 않은 세금계산서입니다.')
+            return redirect('accounting:taxinvoice_detail', slug=invoice.invoice_number)
+
+        from .nts_client import NTSClient, NTSAPIError
+
+        try:
+            client = NTSClient()
+            result = client.query(invoice)
+
+            status_value = result.get('status', '')
+            if status_value and hasattr(TaxInvoice.ElectronicStatus, status_value):
+                with transaction.atomic():
+                    invoice.electronic_status = status_value
+                    invoice.nts_confirmation_number = result.get(
+                        'confirmation_number', invoice.nts_confirmation_number,
+                    )
+                    invoice.nts_response = result
+                    invoice.save(update_fields=[
+                        'electronic_status', 'nts_confirmation_number',
+                        'nts_response', 'updated_at',
+                    ])
+
+            messages.success(
+                request,
+                f'상태 조회 완료: {invoice.get_electronic_status_display()}',
+            )
+        except NTSAPIError as e:
+            messages.error(request, f'상태 조회 실패: {e}')
+
+        return redirect('accounting:taxinvoice_detail', slug=invoice.invoice_number)
+
+
+class ElectronicInvoiceCancelView(ManagerRequiredMixin, View):
+    """전자세금계산서 취소"""
+
+    def post(self, request, slug):
+        invoice = get_object_or_404(TaxInvoice, invoice_number=slug, is_active=True)
+        reason = request.POST.get('cancel_reason', '')
+
+        if invoice.electronic_status not in ('ISSUED', 'SENT', 'ACCEPTED'):
+            messages.error(
+                request,
+                f'현재 상태({invoice.get_electronic_status_display()})에서는 취소할 수 없습니다.',
+            )
+            return redirect('accounting:taxinvoice_detail', slug=invoice.invoice_number)
+
+        from .nts_client import NTSClient, NTSAPIError
+
+        try:
+            client = NTSClient()
+            result = client.cancel(invoice, reason=reason)
+
+            with transaction.atomic():
+                invoice.electronic_status = TaxInvoice.ElectronicStatus.CANCELLED
+                invoice.nts_response = result.get('raw_response', {})
+                invoice.save(update_fields=[
+                    'electronic_status', 'nts_response', 'updated_at',
+                ])
+
+            messages.success(request, f'전자세금계산서 취소 완료 ({invoice.invoice_number})')
+        except NTSAPIError as e:
+            messages.error(request, f'전자세금계산서 취소 실패: {e}')
+
+        return redirect('accounting:taxinvoice_detail', slug=invoice.invoice_number)

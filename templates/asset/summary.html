@@ -11,8 +11,8 @@
 
 {% block content %}
 <!-- 상태별 카드 -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white rounded-xl shadow-sm p-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-8">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">사용중</p>
@@ -25,7 +25,7 @@
             </div>
         </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">처분</p>
@@ -38,7 +38,7 @@
             </div>
         </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">폐기</p>
@@ -54,23 +54,23 @@
 </div>
 
 <!-- 금액 합계 카드 -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white rounded-xl shadow-sm p-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-8">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <p class="text-sm font-medium text-gray-500">총 취득원가</p>
         <p class="mt-1 text-2xl font-bold text-gray-900">{{ total_acquisition|intcomma }}원</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <p class="text-sm font-medium text-gray-500">총 감가상각 누계액</p>
         <p class="mt-1 text-2xl font-bold text-red-600">{{ total_accumulated|intcomma }}원</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <p class="text-sm font-medium text-gray-500">총 장부가액</p>
         <p class="mt-1 text-2xl font-bold text-blue-600">{{ total_book_value|intcomma }}원</p>
     </div>
 </div>
 
 <!-- 분류별 현황 테이블 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <div class="p-4 border-b border-gray-200">
         <h3 class="text-lg font-semibold text-gray-900">분류별 현황 (사용중 자산 기준)</h3>
     </div>

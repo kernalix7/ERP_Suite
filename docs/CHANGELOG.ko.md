@@ -11,14 +11,14 @@
 
 ### 추가됨
 - Django 앱 22개 (accounting, accounts, ad, advertising, api, approval, asset, attendance, board, calendar_app, core, hr, inquiry, inventory, investment, marketplace, messenger, production, purchase, sales, service, warranty)
-- 106개 모델 (django-simple-history 감사 추적 포함)
-- 244개 반응형 HTML 템플릿 (Tailwind CSS 로컬 빌드 + HTMX + Alpine.js)
-- REST API (13 ViewSet, JWT 인증 SimpleJWT)
+- 110개 모델 (django-simple-history 감사 추적 포함)
+- 260개 반응형 HTML 템플릿 (Tailwind CSS 로컬 빌드 + HTMX + Alpine.js)
+- REST API (28 ViewSet, JWT 인증 SimpleJWT)
 - 실시간 메신저 (Django Channels + WebSocket)
 - Celery 비동기 작업 처리 (Redis 브로커)
 - Docker Compose 배포 (7개 컨테이너: web, db, redis, celery_worker, celery_beat, prometheus, grafana)
 - GitHub Actions CI 파이프라인 (test + lint + docker build)
-- 592개 테스트 (481 단위 + 111 검증) — 보안, 무결성, 성능, 워크플로, 재해복구
+- 988개 테스트 (877 단위 + 111 검증) -- 보안, 무결성, 성능, 워크플로, 재해복구
 - E2E 테스트 (Playwright) 및 부하 테스트 (Locust)
 - 한국어/영어 다국어 지원
 - PWA manifest 및 서비스 워커

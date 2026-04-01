@@ -28,7 +28,7 @@ class RegistrationListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class RegistrationCreateView(LoginRequiredMixin, CreateView):
+class RegistrationCreateView(ManagerRequiredMixin, CreateView):
     model = ProductRegistration
     form_class = ProductRegistrationForm
     template_name = 'warranty/registration_form.html'
@@ -51,13 +51,17 @@ class RegistrationCreateView(LoginRequiredMixin, CreateView):
 class RegistrationDetailView(LoginRequiredMixin, DetailView):
     model = ProductRegistration
     template_name = 'warranty/registration_detail.html'
+    slug_field = 'serial_number'
+    slug_url_kwarg = 'slug'
 
 
-class RegistrationUpdateView(LoginRequiredMixin, UpdateView):
+class RegistrationUpdateView(ManagerRequiredMixin, UpdateView):
     model = ProductRegistration
     form_class = ProductRegistrationForm
     template_name = 'warranty/registration_form.html'
     success_url = reverse_lazy('warranty:registration_list')
+    slug_field = 'serial_number'
+    slug_url_kwarg = 'slug'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -117,6 +121,7 @@ class RegistrationImportView(BaseImportView):
     page_title = '제품등록(보증) 일괄 가져오기'
     cancel_url = reverse_lazy('warranty:registration_list')
     sample_url = reverse_lazy('warranty:registration_import_sample')
+    export_filename = '정품등록_데이터'
     field_hints = [
         '시리얼번호(serial_number)가 동일하면 기존 등록이 수정됩니다.',
         'product_code: 제품코드',

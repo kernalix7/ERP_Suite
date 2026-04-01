@@ -204,7 +204,7 @@ class CustomerPurchaseWarrantyTest(TestCase):
             username='warranty_user', password='testpass123',
         )
         self.customer = Customer.objects.create(
-            name='테스트고객', phone='010-1234-5678',
+            code='CUST-TEST', name='테스트고객', phone='010-1234-5678',
             created_by=self.user,
         )
         self.product = Product.objects.create(
@@ -694,3 +694,221 @@ class ShippingCarrierTest(TestCase):
         self.assertEqual(
             ShippingCarrier.objects.filter(is_default=True).count(), 1,
         )
+
+
+class PartnerBankSyncTest(TestCase):
+    """거래처 계좌 → 회계 BankAccount 연동 테스트"""
+
+    def test_partner_bank_creates_account(self):
+        """거래처 계좌정보 입력 시 BankAccount(BUSINESS) 자동 생성"""
+        from apps.accounting.models import BankAccount
+        partner = Partner.objects.create(
+            code='BP-001', name='테스트거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            bank_name='기업은행', bank_account='100-200-300',
+            bank_holder='테스트거래처 대표',
+        )
+        acct = BankAccount.objects.filter(partner=partner).first()
+        self.assertIsNotNone(acct)
+        self.assertEqual(acct.account_type, 'BUSINESS')
+        self.assertEqual(acct.bank, '기업은행')
+        self.assertEqual(acct.account_number, '100-200-300')
+        self.assertEqual(acct.owner, '테스트거래처 대표')
+        self.assertIn('거래계좌', acct.name)
+
+    def test_partner_bank_update_syncs(self):
+        """거래처 계좌정보 변경 시 BankAccount도 갱신"""
+        from apps.accounting.models import BankAccount
+        partner = Partner.objects.create(
+            code='BP-002', name='갱신거래처',
+            partner_type=Partner.PartnerType.SUPPLIER,
+            bank_name='국민은행', bank_account='111-222-333',
+            bank_holder='원래 대표',
+        )
+        partner.bank_name = '하나은행'
+        partner.bank_account = '999-888-777'
+        partner.bank_holder = '새 대표'
+        partner.save()
+        acct = BankAccount.objects.get(partner=partner)
+        self.assertEqual(acct.bank, '하나은행')
+        self.assertEqual(acct.account_number, '999-888-777')
+        self.assertEqual(acct.owner, '새 대표')
+
+    def test_partner_no_bank_skips(self):
+        """계좌정보 미입력 시 BankAccount 생성 안 됨"""
+        from apps.accounting.models import BankAccount
+        partner = Partner.objects.create(
+            code='BP-003', name='계좌없는거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.assertFalse(BankAccount.objects.filter(partner=partner).exists())
+
+    def test_partner_no_holder_uses_name(self):
+        """예금주 미입력 시 거래처명이 owner로 설정"""
+        from apps.accounting.models import BankAccount
+        partner = Partner.objects.create(
+            code='BP-004', name='예금주없는거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            bank_name='신한은행', bank_account='444-555-666',
+        )
+        acct = BankAccount.objects.get(partner=partner)
+        self.assertEqual(acct.owner, '예금주없는거래처')
+
+    def test_partner_bank_no_duplicate(self):
+        """동일 거래처 반복 저장해도 BankAccount 1개만 유지"""
+        from apps.accounting.models import BankAccount
+        partner = Partner.objects.create(
+            code='BP-005', name='중복테스트',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            bank_name='우리은행', bank_account='777-888-999',
+        )
+        partner.save()
+        partner.save()
+        self.assertEqual(BankAccount.objects.filter(partner=partner).count(), 1)
+
+
+class PriceRuleTest(TestCase):
+    """가격규칙 모델 + 가격조회 로직 테스트"""
+
+    def setUp(self):
+        from apps.inventory.models import Category
+        self.cat = Category.objects.create(name='테스트')
+        self.product = Product.objects.create(
+            code='PR-001', name='테스트제품', unit_price=10000, cost_price=5000,
+            category=self.cat,
+        )
+        self.partner = Partner.objects.create(
+            code='PRT-001', name='테스트거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.customer = Customer.objects.create(
+            code='CST-001', name='테스트고객', phone='010-1234-5678',
+        )
+
+    def test_no_rule_returns_default_price(self):
+        """규칙 없으면 제품 기본 판매단가"""
+        from apps.sales.pricing import get_applicable_price
+        result = get_applicable_price(self.product)
+        self.assertEqual(result['unit_price'], 10000)
+        self.assertEqual(result['source'], 'default')
+
+    def test_fixed_price_rule(self):
+        """고정단가 규칙 적용"""
+        from apps.sales.pricing import get_applicable_price
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            unit_price=8000,
+        )
+        result = get_applicable_price(self.product, partner=self.partner)
+        self.assertEqual(result['unit_price'], 8000)
+        self.assertEqual(result['source'], 'fixed')
+
+    def test_discount_rate_rule(self):
+        """할인율 규칙 적용"""
+        from apps.sales.pricing import get_applicable_price
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            discount_rate=10,
+        )
+        result = get_applicable_price(self.product, partner=self.partner)
+        self.assertEqual(result['unit_price'], 9000)  # 10000 * 0.9
+        self.assertEqual(result['discount_rate'], 10.0)
+        self.assertEqual(result['source'], 'discount')
+
+    def test_quantity_tier_rule(self):
+        """수량 구간별 할인"""
+        from apps.sales.pricing import get_applicable_price
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, min_quantity=100,
+            discount_rate=5,
+        )
+        PriceRule.objects.create(
+            product=self.product, min_quantity=500,
+            discount_rate=10,
+        )
+        # 50개 → 규칙 없음
+        result = get_applicable_price(self.product, quantity=50)
+        self.assertEqual(result['unit_price'], 10000)
+        # 100개 → 5% 할인
+        result = get_applicable_price(self.product, quantity=100)
+        self.assertEqual(result['unit_price'], 9500)
+        # 500개 → 10% 할인 (더 큰 구간 우선)
+        result = get_applicable_price(self.product, quantity=500)
+        self.assertEqual(result['unit_price'], 9000)
+
+    def test_partner_specific_overrides_general(self):
+        """거래처별 규칙이 일반 규칙보다 우선"""
+        from apps.sales.pricing import get_applicable_price
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, min_quantity=1,
+            discount_rate=5,
+        )
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            min_quantity=1, unit_price=7000,
+        )
+        result = get_applicable_price(self.product, partner=self.partner)
+        self.assertEqual(result['unit_price'], 7000)
+
+    def test_priority_ordering(self):
+        """우선순위 높은 규칙이 먼저 적용"""
+        from apps.sales.pricing import get_applicable_price
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            unit_price=8000, priority=1,
+        )
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            unit_price=7000, priority=10,
+        )
+        result = get_applicable_price(self.product, partner=self.partner)
+        self.assertEqual(result['unit_price'], 7000)
+
+    def test_valid_date_filter(self):
+        """유효기간 외 규칙은 무시"""
+        from datetime import date
+        from apps.sales.pricing import get_applicable_price
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            unit_price=5000,
+            valid_from=date(2020, 1, 1), valid_to=date(2020, 12, 31),
+        )
+        result = get_applicable_price(self.product, partner=self.partner)
+        self.assertEqual(result['unit_price'], 10000)  # 만료된 규칙 무시
+
+    def test_customer_specific_rule(self):
+        """고객별 규칙 적용"""
+        from apps.sales.pricing import get_applicable_price
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, customer=self.customer,
+            discount_rate=15,
+        )
+        result = get_applicable_price(self.product, customer=self.customer)
+        self.assertEqual(result['unit_price'], 8500)  # 10000 * 0.85
+
+    def test_inactive_rule_ignored(self):
+        """비활성 규칙은 무시"""
+        from apps.sales.pricing import get_applicable_price
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            unit_price=1000, is_active=False,
+        )
+        result = get_applicable_price(self.product, partner=self.partner)
+        self.assertEqual(result['unit_price'], 10000)
+
+    def test_model_str(self):
+        """PriceRule __str__ 확인"""
+        from apps.sales.models import PriceRule
+        rule = PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            min_quantity=10, unit_price=9000,
+        )
+        self.assertIn('Q>=10', str(rule))

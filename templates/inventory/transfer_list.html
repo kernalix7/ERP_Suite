@@ -4,12 +4,14 @@
 {% block page_title %}창고간이동 관리{% endblock %}
 
 {% block header_actions %}
+{% if user.is_manager_role %}
 <a href="{% url 'inventory:transfer_create' %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
     등록
 </a>
+{% endif %}
 <a href="{% url 'inventory:transfer_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -19,7 +21,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <!-- 필터 -->
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
@@ -43,7 +45,7 @@
     </div>
 
     <!-- 테이블 -->
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">

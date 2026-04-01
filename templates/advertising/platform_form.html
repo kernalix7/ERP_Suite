@@ -6,7 +6,7 @@
 {% block content %}
 <div class="max-w-2xl mx-auto space-y-6">
     <h1 class="text-2xl font-bold text-gray-900">{% if form.instance.pk %}{% trans "플랫폼 수정" %}{% else %}{% trans "플랫폼 추가" %}{% endif %}</h1>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
         <form method="post">
             {% csrf_token %}
             {% for field in form %}

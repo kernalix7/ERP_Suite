@@ -1,8 +1,21 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
+from apps.core.attachment import ALLOWED_EXTENSIONS, MAX_FILE_SIZE, validate_file_content_type
 from apps.core.models import BaseModel
+from apps.core.storage import hashed_upload_path
+
+
+def validate_file_size(uploaded_file):
+    """파일 크기 검증 (10MB 제한)"""
+    if uploaded_file.size > MAX_FILE_SIZE:
+        raise ValidationError(
+            f'파일 크기가 {MAX_FILE_SIZE // (1024 * 1024)}MB를 초과합니다. '
+            f'(업로드 파일: {uploaded_file.size / (1024 * 1024):.1f}MB)'
+        )
 
 
 class ChatRoom(BaseModel):
@@ -116,10 +129,16 @@ class Message(BaseModel):
     )
     file = models.FileField(
         '첨부파일',
-        upload_to='messenger/',
+        upload_to=hashed_upload_path('messenger'),
         null=True,
         blank=True,
+        validators=[
+            FileExtensionValidator(ALLOWED_EXTENSIONS),
+            validate_file_content_type,
+            validate_file_size,
+        ],
     )
+    original_filename = models.CharField('원본파일명', max_length=255, blank=True)
     sent_at = models.DateTimeField('전송 시간', auto_now_add=True)
 
     history = HistoricalRecords()

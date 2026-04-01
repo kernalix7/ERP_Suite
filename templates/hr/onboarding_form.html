@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "신규 입사 처리" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">{% trans "신규 입사 처리" %}</h1>
+    <p class="mt-1 text-sm text-gray-500">{% trans "입사 처리 시 로그인 계정이 자동으로 생성됩니다." %}</p>
+  </div>
+
+  <div class="bg-white shadow rounded-lg p-6">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+        {{ form.non_field_errors }}
+      </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2" x-data="{ empType: '{{ form.employee_type.value|default:"INTERNAL" }}' }">
+
+        <div>
+          <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.name.label }} <span class="text-red-500">*</span>
+          </label>
+          {{ form.name }}
+          {% if form.name.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.name.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.email.label }} <span class="text-red-500">*</span>
+          </label>
+          {{ form.email }}
+          <p class="mt-1 text-xs text-gray-500">{{ form.email.help_text }}</p>
+          {% if form.email.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.email.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.employee_type.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.employee_type.label }} <span class="text-red-500">*</span>
+          </label>
+          <div x-init="$el.querySelector('select').addEventListener('change', e => empType = e.target.value)">
+            {{ form.employee_type }}
+          </div>
+          {% if form.employee_type.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.employee_type.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div x-show="empType === 'EXTERNAL' || empType === 'DISPATCH'" x-cloak>
+          <label for="{{ form.external_company.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.external_company.label }} <span class="text-red-500">*</span>
+          </label>
+          {{ form.external_company }}
+          {% if form.external_company.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.external_company.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.employee_number.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.employee_number.label }}
+          </label>
+          {{ form.employee_number }}
+          <p class="mt-1 text-xs text-gray-500">{{ form.employee_number.help_text }}</p>
+          {% if form.employee_number.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.employee_number.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.hire_date.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.hire_date.label }} <span class="text-red-500">*</span>
+          </label>
+          {{ form.hire_date }}
+          {% if form.hire_date.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.hire_date.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.department.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.department.label }}
+          </label>
+          {{ form.department }}
+          {% if form.department.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.department.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.position.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.position.label }}
+          </label>
+          {{ form.position }}
+          {% if form.position.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.position.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.contract_type.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.contract_type.label }} <span class="text-red-500">*</span>
+          </label>
+          {{ form.contract_type }}
+          {% if form.contract_type.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.contract_type.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.base_salary.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.base_salary.label }}
+          </label>
+          {{ form.base_salary }}
+          {% if form.base_salary.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.base_salary.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div x-show="empType !== 'INTERNAL'" x-cloak>
+          <label for="{{ form.contract_start.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.contract_start.label }}
+          </label>
+          {{ form.contract_start }}
+          {% if form.contract_start.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.contract_start.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div x-show="empType !== 'INTERNAL'" x-cloak>
+          <label for="{{ form.contract_end.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.contract_end.label }}
+          </label>
+          {{ form.contract_end }}
+          {% if form.contract_end.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.contract_end.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+      </div>
+
+      <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+        <strong>{% trans "자동 생성 정보" %}</strong><br>
+        {% trans "로그인: 사번 또는 이메일 / 초기 비밀번호: 사번 + !" %}
+      </div>
+
+      <div class="mt-6 flex items-center justify-end gap-3">
+        <a href="{% url 'hr:employee_list' %}"
+           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+          {% trans "취소" %}
+        </a>
+        <button type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700">
+          {% trans "입사 처리" %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

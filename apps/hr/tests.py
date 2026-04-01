@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from decimal import Decimal
 
 from apps.hr.models import (
-    Department, Position, EmployeeProfile, PersonnelAction,
+    Department, ExternalCompany, Position, EmployeeProfile, PersonnelAction,
     PayrollConfig, Payroll,
 )
 
@@ -113,23 +113,24 @@ class PositionModelTest(TestCase):
     def test_position_creation(self):
         """직급 생성"""
         pos = Position.objects.create(
-            name='사원', level=1, created_by=self.user,
+            code='POS-STF', name='사원', level=1, created_by=self.user,
         )
         self.assertEqual(pos.name, '사원')
         self.assertEqual(pos.level, 1)
+        self.assertEqual(pos.code, 'POS-STF')
 
     def test_position_str(self):
         """직급 문자열 표현"""
         pos = Position.objects.create(
-            name='과장', level=3, created_by=self.user,
+            code='POS-MGR', name='과장', level=3, created_by=self.user,
         )
-        self.assertEqual(str(pos), '과장')
+        self.assertEqual(str(pos), '과장 (POS-MGR)')
 
     def test_position_ordering(self):
         """직급은 레벨순 정렬"""
-        Position.objects.create(name='부장', level=5, created_by=self.user)
-        Position.objects.create(name='사원', level=1, created_by=self.user)
-        Position.objects.create(name='대리', level=2, created_by=self.user)
+        Position.objects.create(code='POS-GM', name='부장', level=5, created_by=self.user)
+        Position.objects.create(code='POS-STF2', name='사원', level=1, created_by=self.user)
+        Position.objects.create(code='POS-AM', name='대리', level=2, created_by=self.user)
         positions = list(Position.objects.all())
         self.assertEqual(positions[0].name, '사원')
         self.assertEqual(positions[1].name, '대리')
@@ -148,7 +149,7 @@ class EmployeeProfileModelTest(TestCase):
             name='인사팀', code='HR',
         )
         self.position = Position.objects.create(
-            name='대리', level=2,
+            code='POS-AM2', name='대리', level=2,
         )
         self.profile = EmployeeProfile.objects.create(
             user=self.user,
@@ -230,8 +231,8 @@ class PersonnelActionModelTest(TestCase):
         )
         self.dept1 = Department.objects.create(name='영업팀', code='SALES')
         self.dept2 = Department.objects.create(name='마케팅팀', code='MKT')
-        self.pos1 = Position.objects.create(name='사원', level=1)
-        self.pos2 = Position.objects.create(name='대리', level=2)
+        self.pos1 = Position.objects.create(code='POS-STF-PA', name='사원', level=1)
+        self.pos2 = Position.objects.create(code='POS-AM-PA', name='대리', level=2)
         self.profile = EmployeeProfile.objects.create(
             user=self.user,
             employee_number='PA-001',
@@ -273,6 +274,7 @@ class PersonnelActionModelTest(TestCase):
         self.assertIn('PROMOTION', choices)
         self.assertIn('TRANSFER', choices)
         self.assertIn('RESIGNATION', choices)
+        self.assertIn('MANAGER_APPOINT', choices)
 
     def test_ordering(self):
         """인사발령은 최신 발령일순"""
@@ -289,6 +291,245 @@ class PersonnelActionModelTest(TestCase):
         actions = list(PersonnelAction.objects.all())
         self.assertEqual(actions[0], a2)
         self.assertEqual(actions[1], a1)
+
+
+class PersonnelActionSignalTest(TestCase):
+    """인사발령 시그널 테스트"""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username='signal_manager', password='testpass123', role='manager',
+        )
+        self.dept = Department.objects.create(name='개발팀', code='SIG-DEV', created_by=self.manager)
+        self.position = Position.objects.create(code='POS-STF-SIG', name='사원', level=1, created_by=self.manager)
+
+    def _create_employee_with_user(self, username, emp_number, name='홍길동'):
+        user = User.objects.create_user(
+            username=username, password='pass123', role='staff', name=name,
+        )
+        profile = EmployeeProfile.objects.create(
+            user=user,
+            employee_number=emp_number,
+            department=self.dept,
+            position=self.position,
+            hire_date=date.today(),
+            created_by=self.manager,
+        )
+        return user, profile
+
+    def test_resignation_deactivates_user(self):
+        """퇴사 발령 시 User.is_active = False"""
+        user, profile = self._create_employee_with_user('resign_test', 'EMP-R001')
+        self.assertTrue(user.is_active)
+
+        PersonnelAction.objects.create(
+            employee=profile,
+            action_type=PersonnelAction.ActionType.RESIGNATION,
+            effective_date=date.today(),
+            created_by=self.manager,
+        )
+
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+        profile.refresh_from_db()
+        self.assertEqual(profile.status, 'RESIGNED')
+
+    def test_return_reactivates_user(self):
+        """복직 발령 시 User.is_active = True"""
+        user, profile = self._create_employee_with_user('return_test', 'EMP-RET01')
+        user.is_active = False
+        user.save()
+        profile.status = 'ON_LEAVE'
+        profile.save()
+
+        PersonnelAction.objects.create(
+            employee=profile,
+            action_type=PersonnelAction.ActionType.RETURN,
+            effective_date=date.today(),
+            created_by=self.manager,
+        )
+
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        profile.refresh_from_db()
+        self.assertEqual(profile.status, 'ACTIVE')
+
+    def test_hire_sets_employee_active(self):
+        """입사 발령 시 직원 상태 ACTIVE"""
+        user, profile = self._create_employee_with_user('hire_test', 'EMP-H001')
+        profile.status = 'RESIGNED'
+        profile.save()
+
+        PersonnelAction.objects.create(
+            employee=profile,
+            action_type=PersonnelAction.ActionType.HIRE,
+            effective_date=date.today(),
+            created_by=self.manager,
+        )
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.status, 'ACTIVE')
+
+    def test_leave_sets_on_leave_status(self):
+        """휴직 발령 시 직원 상태 ON_LEAVE"""
+        user, profile = self._create_employee_with_user('leave_test', 'EMP-L001')
+
+        PersonnelAction.objects.create(
+            employee=profile,
+            action_type=PersonnelAction.ActionType.LEAVE,
+            effective_date=date.today(),
+            created_by=self.manager,
+        )
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.status, 'ON_LEAVE')
+
+    def test_transfer_updates_department(self):
+        """전보 발령 시 부서 변경"""
+        user, profile = self._create_employee_with_user('transfer_test', 'EMP-T001')
+        new_dept = Department.objects.create(name='마케팅팀', code='SIG-MKT', created_by=self.manager)
+
+        PersonnelAction.objects.create(
+            employee=profile,
+            action_type=PersonnelAction.ActionType.TRANSFER,
+            effective_date=date.today(),
+            from_department=self.dept,
+            to_department=new_dept,
+            created_by=self.manager,
+        )
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.department, new_dept)
+
+    def test_manager_appoint_sets_department_manager(self):
+        """부서장 임명 발령 시 Department.manager 자동 설정"""
+        user, profile = self._create_employee_with_user('mgr_test', 'EMP-M001')
+
+        PersonnelAction.objects.create(
+            employee=profile,
+            action_type=PersonnelAction.ActionType.MANAGER_APPOINT,
+            effective_date=date.today(),
+            to_department=self.dept,
+            created_by=self.manager,
+        )
+
+        self.dept.refresh_from_db()
+        self.assertEqual(self.dept.manager, user)
+
+    def test_manager_appoint_clears_previous_department(self):
+        """부서장 임명 시 기존 부서장 직책 해제"""
+        user, profile = self._create_employee_with_user('mgr_prev', 'EMP-M002')
+        old_dept = Department.objects.create(name='기획팀', code='SIG-PLN', created_by=self.manager)
+        old_dept.manager = user
+        old_dept.save()
+
+        new_dept = Department.objects.create(name='전략팀', code='SIG-STR', created_by=self.manager)
+
+        PersonnelAction.objects.create(
+            employee=profile,
+            action_type=PersonnelAction.ActionType.MANAGER_APPOINT,
+            effective_date=date.today(),
+            to_department=new_dept,
+            created_by=self.manager,
+        )
+
+        old_dept.refresh_from_db()
+        new_dept.refresh_from_db()
+        self.assertIsNone(old_dept.manager)
+        self.assertEqual(new_dept.manager, user)
+
+    def test_manager_appoint_moves_department_if_different(self):
+        """부서장 임명 시 다른 부서이면 부서도 이동"""
+        user, profile = self._create_employee_with_user('mgr_move', 'EMP-M003')
+        new_dept = Department.objects.create(name='신규팀', code='SIG-NEW', created_by=self.manager)
+
+        PersonnelAction.objects.create(
+            employee=profile,
+            action_type=PersonnelAction.ActionType.MANAGER_APPOINT,
+            effective_date=date.today(),
+            to_department=new_dept,
+            created_by=self.manager,
+        )
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.department, new_dept)
+
+
+class OnboardingOffboardingViewTest(TestCase):
+    """입퇴사 처리 뷰 테스트"""
+
+    def setUp(self):
+        self.client = Client()
+        self.manager = User.objects.create_user(
+            username='ob_manager', password='testpass123', role='manager',
+        )
+        self.dept = Department.objects.create(name='테스트팀', code='OB-TST', created_by=self.manager)
+        self.position = Position.objects.create(code='POS-STF-OB', name='사원', level=1, created_by=self.manager)
+
+    def test_onboarding_requires_login(self):
+        """입사 처리 비로그인 접근 불가"""
+        response = self.client.get(reverse('hr:onboarding'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_onboarding_accessible_by_manager(self):
+        """입사 처리 매니저 접근 가능"""
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('hr:onboarding'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_onboarding_creates_employee_and_user(self):
+        """입사 처리 폼 제출 시 직원 및 User 생성 (이메일 로그인)"""
+        self.client.force_login(self.manager)
+        response = self.client.post(reverse('hr:onboarding'), {
+            'name': '신입직원',
+            'email': 'newbie@company.com',
+            'hire_date': '2026-03-25',
+            'department': self.dept.pk,
+            'position': self.position.pk,
+            'contract_type': 'FULL_TIME',
+            'employee_type': 'INTERNAL',
+            'base_salary': '3000000',
+            'employee_number': '',
+        })
+        self.assertRedirects(response, reverse('hr:employee_list'))
+        # 직원 프로필 생성 확인
+        self.assertTrue(EmployeeProfile.objects.filter(department=self.dept).exists())
+        # 사용자 계정 생성 확인 (사번=username)
+        profile = EmployeeProfile.objects.get(department=self.dept, status='ACTIVE')
+        self.assertEqual(profile.user.username, profile.employee_number)
+        self.assertEqual(profile.user.email, 'newbie@company.com')
+        self.assertTrue(profile.user.is_active)
+
+    def test_offboarding_requires_login(self):
+        """퇴사 처리 비로그인 접근 불가"""
+        response = self.client.get(reverse('hr:offboarding'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_offboarding_deactivates_user(self):
+        """퇴사 처리 폼 제출 시 User 비활성화"""
+        emp_user = User.objects.create_user(
+            username='ob_emp', password='pass123', role='staff', name='퇴직자',
+        )
+        profile = EmployeeProfile.objects.create(
+            user=emp_user,
+            employee_number='OB-EMP001',
+            department=self.dept,
+            position=self.position,
+            hire_date=date.today(),
+            status=EmployeeProfile.Status.ACTIVE,
+            created_by=self.manager,
+        )
+        self.client.force_login(self.manager)
+        response = self.client.post(reverse('hr:offboarding'), {
+            'employee': profile.pk,
+            'resignation_date': '2026-03-25',
+            'reason': '개인 사유',
+        })
+        self.assertRedirects(response, reverse('hr:employee_list'))
+        emp_user.refresh_from_db()
+        self.assertFalse(emp_user.is_active)
+        profile.refresh_from_db()
+        self.assertEqual(profile.status, 'RESIGNED')
 
 
 class HRViewAccessTest(TestCase):
@@ -356,7 +597,7 @@ class PayrollTest(TestCase):
             role='staff', name='박급여',
         )
         self.dept = Department.objects.create(name='경영지원팀', code='MGT')
-        self.position = Position.objects.create(name='사원', level=1)
+        self.position = Position.objects.create(code='POS-STF-PAY', name='사원', level=1)
         self.profile = EmployeeProfile.objects.create(
             user=self.user,
             employee_number='PAY-001',
@@ -447,3 +688,325 @@ class PayrollTest(TestCase):
                 month=3,
                 base_salary=Decimal('3000000'),
             )
+
+
+class ExternalCompanyTest(TestCase):
+    """외부 협력업체 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='ext_manager', password='testpass123', role='manager',
+        )
+        self.client = Client()
+        self.client.force_login(self.user)
+        self.company = ExternalCompany.objects.create(
+            name='(주)테스트협력사',
+            business_number='123-45-67890',
+            representative='홍길동',
+            contact_person='김담당',
+            phone='02-1234-5678',
+            email='test@partner.com',
+            created_by=self.user,
+        )
+
+    def test_external_company_creation(self):
+        """ExternalCompany 생성"""
+        self.assertEqual(self.company.name, '(주)테스트협력사')
+        self.assertEqual(self.company.business_number, '123-45-67890')
+        self.assertEqual(self.company.representative, '홍길동')
+
+    def test_external_company_str(self):
+        """ExternalCompany 문자열 표현"""
+        self.assertEqual(str(self.company), '(주)테스트협력사')
+
+    def test_external_company_unique_business_number(self):
+        """사업자번호 중복 불가"""
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            ExternalCompany.objects.create(
+                name='다른업체',
+                business_number='123-45-67890',
+                representative='이사장',
+                created_by=self.user,
+            )
+
+    def test_external_company_list_view(self):
+        """외부업체 목록 뷰 접근"""
+        response = self.client.get(reverse('hr:external_company_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '(주)테스트협력사')
+
+    def test_external_company_create_view(self):
+        """외부업체 등록 뷰 접근"""
+        response = self.client.get(reverse('hr:external_company_create'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_external_company_create_post(self):
+        """외부업체 등록 폼 제출"""
+        response = self.client.post(reverse('hr:external_company_create'), {
+            'name': '새협력사',
+            'business_number': '999-88-77654',
+            'representative': '박사장',
+            'contact_person': '',
+            'phone': '',
+            'email': '',
+            'address': '',
+            'notes': '',
+        })
+        self.assertRedirects(response, reverse('hr:external_company_list'))
+        self.assertTrue(ExternalCompany.objects.filter(name='새협력사').exists())
+
+    def test_external_company_update_view(self):
+        """외부업체 수정 뷰 접근"""
+        response = self.client.get(reverse('hr:external_company_update', args=[self.company.pk]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_external_company_soft_delete(self):
+        """외부업체 soft delete"""
+        self.company.soft_delete()
+        self.assertFalse(ExternalCompany.objects.filter(pk=self.company.pk).exists())
+        self.assertTrue(ExternalCompany.all_objects.filter(pk=self.company.pk).exists())
+
+
+class EmployeeTypeTest(TestCase):
+    """고용유형(EmployeeType) 필터 테스트"""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username='et_manager', password='testpass123', role='manager',
+        )
+        self.client = Client()
+        self.client.force_login(self.manager)
+        self.dept = Department.objects.create(name='개발팀', code='ET-DEV', created_by=self.manager)
+        self.position = Position.objects.create(code='ET-STF', name='사원', level=1, created_by=self.manager)
+        self.company = ExternalCompany.objects.create(
+            name='외부파트너사', business_number='222-33-44444',
+            representative='외대표', created_by=self.manager,
+        )
+
+    def _make_employee(self, username, emp_num, emp_type, name='테스트'):
+        user = User.objects.create_user(username=username, password='pass', role='staff', name=name)
+        return EmployeeProfile.objects.create(
+            user=user, employee_number=emp_num,
+            department=self.dept, position=self.position,
+            hire_date=date.today(), employee_type=emp_type,
+            created_by=self.manager,
+        )
+
+    def test_employee_type_choices(self):
+        """고용유형 선택지"""
+        choices = dict(EmployeeProfile.EmployeeType.choices)
+        self.assertIn('INTERNAL', choices)
+        self.assertIn('CONTRACT', choices)
+        self.assertIn('EXTERNAL', choices)
+        self.assertIn('DISPATCH', choices)
+
+    def test_default_employee_type_internal(self):
+        """기본 고용유형은 정규직"""
+        emp = self._make_employee('et_int', 'ET-001', EmployeeProfile.EmployeeType.INTERNAL)
+        self.assertEqual(emp.employee_type, 'INTERNAL')
+
+    def test_employee_type_filter_in_list_view(self):
+        """직원 목록 고용유형 필터"""
+        self._make_employee('et_int2', 'ET-002', EmployeeProfile.EmployeeType.INTERNAL)
+        self._make_employee('et_ext', 'ET-003', EmployeeProfile.EmployeeType.EXTERNAL)
+        self._make_employee('et_dis', 'ET-004', EmployeeProfile.EmployeeType.DISPATCH)
+
+        response = self.client.get(reverse('hr:employee_list'), {'employee_type': 'EXTERNAL'})
+        self.assertEqual(response.status_code, 200)
+        employees = response.context['employees']
+        for emp in employees:
+            self.assertEqual(emp.employee_type, 'EXTERNAL')
+
+    def test_external_employee_linked_to_company(self):
+        """외부 직원 외부업체 연결"""
+        user = User.objects.create_user(username='ext_emp', password='pass', role='staff')
+        emp = EmployeeProfile.objects.create(
+            user=user, employee_number='ET-EXT001',
+            department=self.dept, position=self.position,
+            hire_date=date.today(),
+            employee_type=EmployeeProfile.EmployeeType.EXTERNAL,
+            external_company=self.company,
+            contract_start=date(2026, 1, 1),
+            contract_end=date(2026, 12, 31),
+            created_by=self.manager,
+        )
+        emp.refresh_from_db()
+        self.assertEqual(emp.external_company, self.company)
+        self.assertEqual(emp.contract_start, date(2026, 1, 1))
+        self.assertEqual(emp.contract_end, date(2026, 12, 31))
+        self.assertIn(emp, self.company.employees.all())
+
+    def test_contract_expiry_check(self):
+        """계약만료 체크 — contract_end 과거인 직원 필터"""
+        user = User.objects.create_user(username='exp_emp', password='pass', role='staff')
+        emp = EmployeeProfile.objects.create(
+            user=user, employee_number='ET-EXP001',
+            department=self.dept, position=self.position,
+            hire_date=date(2025, 1, 1),
+            employee_type=EmployeeProfile.EmployeeType.CONTRACT,
+            contract_end=date(2025, 12, 31),
+            created_by=self.manager,
+        )
+        expired = EmployeeProfile.objects.filter(
+            is_active=True,
+            contract_end__lt=date.today(),
+            employee_type__in=[
+                EmployeeProfile.EmployeeType.CONTRACT,
+                EmployeeProfile.EmployeeType.EXTERNAL,
+                EmployeeProfile.EmployeeType.DISPATCH,
+            ],
+        )
+        self.assertIn(emp, expired)
+
+
+class DispatchPersonnelActionTest(TestCase):
+    """파견/외부 인사발령 테스트"""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username='dp_manager', password='testpass123', role='manager',
+        )
+        self.dept = Department.objects.create(name='파견팀', code='DP-DEP', created_by=self.manager)
+        self.position = Position.objects.create(code='DP-STF', name='사원', level=1, created_by=self.manager)
+        emp_user = User.objects.create_user(username='dp_emp', password='pass', role='staff', name='파견직원')
+        self.profile = EmployeeProfile.objects.create(
+            user=emp_user, employee_number='DP-001',
+            department=self.dept, position=self.position,
+            hire_date=date.today(),
+            employee_type=EmployeeProfile.EmployeeType.DISPATCH,
+            created_by=self.manager,
+        )
+
+    def test_dispatch_in_action(self):
+        """파견입사 발령 생성"""
+        action = PersonnelAction.objects.create(
+            employee=self.profile,
+            action_type=PersonnelAction.ActionType.DISPATCH_IN,
+            effective_date=date.today(),
+            to_department=self.dept,
+            created_by=self.manager,
+        )
+        self.assertEqual(action.action_type, 'DISPATCH_IN')
+        self.assertEqual(action.get_action_type_display(), '파견입사')
+
+    def test_dispatch_extend_action(self):
+        """파견연장 발령 생성"""
+        action = PersonnelAction.objects.create(
+            employee=self.profile,
+            action_type=PersonnelAction.ActionType.DISPATCH_EXTEND,
+            effective_date=date.today(),
+            created_by=self.manager,
+        )
+        self.assertEqual(action.action_type, 'DISPATCH_EXTEND')
+        self.assertEqual(action.get_action_type_display(), '파견연장')
+
+    def test_dispatch_end_action(self):
+        """파견종료 발령 생성"""
+        action = PersonnelAction.objects.create(
+            employee=self.profile,
+            action_type=PersonnelAction.ActionType.DISPATCH_END,
+            effective_date=date.today(),
+            created_by=self.manager,
+        )
+        self.assertEqual(action.action_type, 'DISPATCH_END')
+        self.assertEqual(action.get_action_type_display(), '파견종료')
+
+    def test_external_in_action(self):
+        """외부인력 투입 발령 생성"""
+        action = PersonnelAction.objects.create(
+            employee=self.profile,
+            action_type=PersonnelAction.ActionType.EXTERNAL_IN,
+            effective_date=date.today(),
+            to_department=self.dept,
+            created_by=self.manager,
+        )
+        self.assertEqual(action.action_type, 'EXTERNAL_IN')
+        self.assertEqual(action.get_action_type_display(), '외부인력 투입')
+
+    def test_external_out_action(self):
+        """외부인력 철수 발령 생성"""
+        action = PersonnelAction.objects.create(
+            employee=self.profile,
+            action_type=PersonnelAction.ActionType.EXTERNAL_OUT,
+            effective_date=date.today(),
+            created_by=self.manager,
+        )
+        self.assertEqual(action.action_type, 'EXTERNAL_OUT')
+        self.assertEqual(action.get_action_type_display(), '외부인력 철수')
+
+    def test_new_action_types_in_choices(self):
+        """새 발령유형이 choices에 포함됨"""
+        choices = dict(PersonnelAction.ActionType.choices)
+        self.assertIn('DISPATCH_IN', choices)
+        self.assertIn('DISPATCH_EXTEND', choices)
+        self.assertIn('DISPATCH_END', choices)
+        self.assertIn('EXTERNAL_IN', choices)
+        self.assertIn('EXTERNAL_OUT', choices)
+
+
+class EmployeeBankSyncTest(TestCase):
+    """직원 계좌 → 회계 BankAccount 연동 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='bankuser', password='testpass123', role='staff', name='홍길동',
+        )
+        self.dept = Department.objects.create(name='영업팀', code='SALES')
+        self.pos = Position.objects.create(name='사원', code='STAFF', level=5)
+
+    def test_bank_info_creates_account(self):
+        """직원 계좌정보 입력 시 BankAccount(PERSONAL) 자동 생성"""
+        from apps.accounting.models import BankAccount
+        profile = EmployeeProfile.objects.create(
+            user=self.user, employee_number='EMP-001',
+            department=self.dept, position=self.pos,
+            hire_date=date.today(),
+            bank_name='국민은행', bank_account='123-456-789',
+        )
+        acct = BankAccount.objects.filter(employee=profile).first()
+        self.assertIsNotNone(acct)
+        self.assertEqual(acct.account_type, 'PERSONAL')
+        self.assertEqual(acct.bank, '국민은행')
+        self.assertEqual(acct.account_number, '123-456-789')
+        self.assertIn('홍길동', acct.name)
+
+    def test_bank_info_update_syncs(self):
+        """직원 계좌정보 변경 시 BankAccount도 갱신"""
+        from apps.accounting.models import BankAccount
+        profile = EmployeeProfile.objects.create(
+            user=self.user, employee_number='EMP-002',
+            department=self.dept, position=self.pos,
+            hire_date=date.today(),
+            bank_name='국민은행', bank_account='111-222-333',
+        )
+        profile.bank_name = '신한은행'
+        profile.bank_account = '999-888-777'
+        profile.save()
+        acct = BankAccount.objects.get(employee=profile)
+        self.assertEqual(acct.bank, '신한은행')
+        self.assertEqual(acct.account_number, '999-888-777')
+
+    def test_no_bank_info_skips(self):
+        """계좌정보 미입력 시 BankAccount 생성 안 됨"""
+        from apps.accounting.models import BankAccount
+        profile = EmployeeProfile.objects.create(
+            user=self.user, employee_number='EMP-003',
+            department=self.dept, position=self.pos,
+            hire_date=date.today(),
+        )
+        self.assertFalse(BankAccount.objects.filter(employee=profile).exists())
+
+    def test_no_duplicate_accounts(self):
+        """동일 직원 계좌 반복 저장해도 BankAccount 1개만 유지"""
+        from apps.accounting.models import BankAccount
+        profile = EmployeeProfile.objects.create(
+            user=self.user, employee_number='EMP-004',
+            department=self.dept, position=self.pos,
+            hire_date=date.today(),
+            bank_name='우리은행', bank_account='555-666-777',
+        )
+        # 2번 더 저장
+        profile.save()
+        profile.save()
+        self.assertEqual(BankAccount.objects.filter(employee=profile).count(), 1)

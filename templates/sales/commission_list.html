@@ -20,7 +20,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white shadow rounded-lg border border-gray-200">
     <!-- 필터 -->
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-wrap gap-3">
@@ -43,7 +43,7 @@
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                     <th class="px-4 py-3">거래처</th>
                     <th class="px-4 py-3">주문</th>
                     <th class="px-4 py-3 text-right">주문금액</th>
@@ -60,7 +60,7 @@
                     <td class="px-4 py-3 text-gray-900 font-medium">{{ commission.partner.name }}</td>
                     <td class="px-4 py-3 text-gray-600">
                         {% if commission.order %}
-                        <a href="{% url 'sales:order_detail' commission.order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        <a href="{% url 'sales:order_detail' commission.order.order_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ commission.order.order_number }}
                         </a>
                         {% else %}-{% endif %}

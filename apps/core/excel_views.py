@@ -27,6 +27,20 @@ class PartnerExcelView(LoginRequiredMixin, View):
 
 class CustomerExcelView(LoginRequiredMixin, View):
     def get(self, request):
+        from apps.sales.models import Customer
+        qs = Customer.objects.filter(is_active=True).order_by('code')
+        headers = [
+            ('고객코드', 12), ('고객명', 15), ('연락처', 16),
+            ('이메일', 22), ('주소', 30),
+        ]
+        rows = [[
+            c.code, c.name, c.phone, c.email, c.address,
+        ] for c in qs]
+        return export_to_excel('고객 목록', headers, rows)
+
+
+class CustomerPurchaseExcelView(LoginRequiredMixin, View):
+    def get(self, request):
         from apps.sales.models import CustomerPurchase
         qs = CustomerPurchase.objects.filter(
             is_active=True, customer__is_active=True,

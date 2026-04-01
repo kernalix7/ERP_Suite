@@ -15,7 +15,7 @@
     </div>
 
     <!-- 캠페인 정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div><p class="text-xs text-gray-500">{% trans "플랫폼" %}</p><p class="font-medium">{{ campaign.platform.name }}</p></div>
             <div><p class="text-xs text-gray-500">{% trans "유형" %}</p><p class="font-medium">{{ campaign.get_campaign_type_display }}</p></div>
@@ -33,30 +33,30 @@
 
     <!-- 성과 KPI -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">{% trans "노출" %}</p>
             <p class="text-xl font-bold">{{ perf_summary.total_impressions|default:0|intcomma }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">{% trans "클릭" %}</p>
             <p class="text-xl font-bold">{{ perf_summary.total_clicks|default:0|intcomma }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">CTR</p>
             <p class="text-xl font-bold">{{ total_ctr }}%</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">{% trans "전환" %}</p>
             <p class="text-xl font-bold">{{ perf_summary.total_conversions|default:0|intcomma }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">ROAS</p>
             <p class="text-xl font-bold text-green-600">{{ total_roas }}%</p>
         </div>
     </div>
 
     <!-- 소재 목록 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100">
         <div class="p-5 border-b border-gray-100"><h2 class="text-lg font-semibold">{% trans "광고 소재" %}</h2></div>
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -83,7 +83,7 @@
     </div>
 
     <!-- 일별 성과 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100">
         <div class="p-5 border-b border-gray-100"><h2 class="text-lg font-semibold">{% trans "일별 성과" %}</h2></div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">

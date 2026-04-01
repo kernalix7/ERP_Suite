@@ -202,6 +202,30 @@
 | `/service/requests/<id>/edit/` | `service:request_update` | AS 접수 수정 |
 | `/service/repairs/create/` | `service:repair_create` | 수리 기록 등록 |
 
+## 구매관리 (purchase)
+
+### 발주서
+
+| URL 패턴 | 이름 | 설명 |
+|----------|------|------|
+| `/purchase/orders/` | `purchase:po_list` | 발주서 목록 |
+| `/purchase/orders/create/` | `purchase:po_create` | 발주서 등록 |
+| `/purchase/orders/<slug>/` | `purchase:po_detail` | 발주서 상세 |
+| `/purchase/orders/<slug>/edit/` | `purchase:po_update` | 발주서 수정 |
+| `/purchase/orders/<slug>/status/` | `purchase:po_status_change` | 발주서 상태 변경 |
+| `/purchase/orders/<slug>/delete/` | `purchase:po_delete` | 발주서 삭제 |
+| `/purchase/orders/excel/` | `purchase:po_excel` | 발주서 Excel 다운로드 |
+| `/purchase/orders/import/` | `purchase:po_import` | 발주서 일괄 가져오기 |
+
+### 입고확인
+
+| URL 패턴 | 이름 | 설명 |
+|----------|------|------|
+| `/purchase/receipts/` | `purchase:receipt_list` | 입고확인 목록 |
+| `/purchase/orders/<slug>/receive/` | `purchase:receipt_create` | 입고확인 등록 |
+| `/purchase/receipts/<slug>/` | `purchase:receipt_detail` | 입고확인 상세 |
+| `/purchase/receipts/excel/` | `purchase:receipt_excel` | 입고확인 Excel 다운로드 |
+
 ## 회계관리 (accounting)
 
 ### 대시보드
@@ -491,9 +515,45 @@
 
 ## REST API (api)
 
+28개 ViewSet이 DRF Router에 등록되어 있습니다.
+
+### 인증
+
 | URL 패턴 | 이름 | 설명 |
 |----------|------|------|
-| `/api/` | — | DRF Router (API 루트) |
 | `/api/token/` | `token_obtain_pair` | JWT 토큰 발급 (POST) |
 | `/api/token/refresh/` | `token_refresh` | JWT 토큰 갱신 (POST) |
 | `/api/token/verify/` | `token_verify` | JWT 토큰 검증 (POST) |
+
+### ViewSet 엔드포인트 (전체 CRUD)
+
+| URL 패턴 | ViewSet | 설명 |
+|----------|---------|------|
+| `/api/products/` | ProductViewSet | 제품 |
+| `/api/categories/` | CategoryViewSet | 카테고리 |
+| `/api/warehouses/` | WarehouseViewSet | 창고 |
+| `/api/stock-movements/` | StockMovementViewSet | 입출고 |
+| `/api/partners/` | PartnerViewSet | 거래처 |
+| `/api/customers/` | CustomerViewSet | 고객 |
+| `/api/orders/` | OrderViewSet | 주문 |
+| `/api/order-items/` | OrderItemViewSet | 주문 항목 |
+| `/api/boms/` | BOMViewSet | BOM |
+| `/api/bom-items/` | BOMItemViewSet | BOM 항목 |
+| `/api/production-plans/` | ProductionPlanViewSet | 생산계획 |
+| `/api/work-orders/` | WorkOrderViewSet | 작업지시 |
+| `/api/tax-invoices/` | TaxInvoiceViewSet | 세금계산서 |
+| `/api/approval-requests/` | ApprovalRequestViewSet | 결재 요청 |
+| `/api/approval-steps/` | ApprovalStepViewSet | 결재 단계 |
+| `/api/employees/` | EmployeeProfileViewSet | 직원 |
+| `/api/payrolls/` | PayrollViewSet | 급여 |
+| `/api/service-requests/` | ServiceRequestViewSet | AS 요청 |
+| `/api/inquiries/` | InquiryViewSet | 문의 |
+| `/api/fixed-assets/` | FixedAssetViewSet | 고정자산 |
+| `/api/marketplace-orders/` | MarketplaceOrderViewSet | 마켓플레이스 주문 |
+| `/api/vouchers/` | VoucherViewSet | 전표 |
+| `/api/accounts-receivable/` | AccountReceivableViewSet | 미수금 |
+| `/api/accounts-payable/` | AccountPayableViewSet | 미지급금 |
+| `/api/budgets/` | BudgetViewSet | 예산 |
+| `/api/purchase-orders/` | PurchaseOrderViewSet | 발주서 |
+| `/api/shipping-carriers/` | ShippingCarrierViewSet | 택배사 |
+| `/api/price-rules/` | PriceRuleViewSet | 가격 규칙 |

@@ -5,11 +5,14 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
+from apps.core.storage import hashed_upload_path
 from apps.core.utils import generate_document_number
 from apps.inventory.models import Product
 
 
 class PurchaseOrder(BaseModel):
+    BUSINESS_KEY_FIELD = 'po_number'
+
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', '작성중'
         CONFIRMED = 'CONFIRMED', '확정'
@@ -68,9 +71,10 @@ class PurchaseOrder(BaseModel):
     )
     attachment = models.FileField(
         '첨부파일',
-        upload_to='purchase/attachments/',
+        upload_to=hashed_upload_path('purchase/attachments'),
         blank=True,
     )
+    attachment_filename = models.CharField('첨부파일 원본명', max_length=255, blank=True)
     history = HistoricalRecords()
 
     class Meta:
@@ -126,7 +130,7 @@ class PurchaseOrderItem(BaseModel):
     amount = models.DecimalField('공급가액', max_digits=15, decimal_places=0, default=0)
     tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0, default=0)
     received_quantity = models.PositiveIntegerField('입고수량', default=0)
-    receipt_file = models.FileField('영수증', upload_to='receipts/purchase/', blank=True)
+    receipt_file = models.FileField('영수증', upload_to=hashed_upload_path('receipts/purchase'), blank=True)
     history = HistoricalRecords()
 
     class Meta:
@@ -150,7 +154,7 @@ class PurchaseOrderItem(BaseModel):
         else:
             # amount = 공급가액 그대로
             self.tax_amount = int(self.amount * Decimal('0.1'))
-        # 단가 역산 (참고용, 이동평균 원가 계산에도 사용)
+        # 단가 = 공급가액 / 수량 (VAT 미포함 단가로 저장)
         if self.quantity and self.quantity > 0:
             self.unit_price = int(Decimal(str(int(self.amount))) / self.quantity)
         super().save(*args, **kwargs)
@@ -161,6 +165,8 @@ class PurchaseOrderItem(BaseModel):
 
 
 class GoodsReceipt(BaseModel):
+    BUSINESS_KEY_FIELD = 'receipt_number'
+
     receipt_number = models.CharField('입고번호', max_length=30, unique=True, blank=True)
     purchase_order = models.ForeignKey(
         PurchaseOrder, verbose_name='발주서',

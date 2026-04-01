@@ -14,7 +14,7 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
         <form method="post" novalidate>
             {% csrf_token %}
 
@@ -57,4 +57,33 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if next_codes %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var nextCodes = {
+        'FINISHED': '{{ next_codes.FINISHED }}',
+        'RAW': '{{ next_codes.RAW }}',
+        'SEMI': '{{ next_codes.SEMI }}',
+    };
+    var typeField = document.getElementById('id_product_type');
+    var codeField = document.getElementById('id_code');
+
+    function updateCode() {
+        if (!codeField.value || Object.values(nextCodes).some(function(v) { return codeField.value === v; })) {
+            codeField.value = nextCodes[typeField.value] || '';
+        }
+    }
+
+    if (typeField && codeField) {
+        typeField.addEventListener('change', updateCode);
+        if (!codeField.value && !{{ form.instance.pk|default:"0" }}) {
+            updateCode();
+        }
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

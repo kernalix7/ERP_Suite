@@ -4,6 +4,7 @@
 {% block page_title %}카테고리 관리{% endblock %}
 
 {% block header_actions %}
+{% if user.is_manager_role %}
 <a href="{% url 'inventory:category_create' %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -16,14 +17,16 @@
     </svg>
     가져오기
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="overflow-x-auto">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">코드</th>
                     <th class="px-4 py-3">카테고리명</th>
                     <th class="px-4 py-3">상위 카테고리</th>
                     <th class="px-4 py-3">설명</th>
@@ -33,6 +36,7 @@
             <tbody class="divide-y divide-gray-100">
                 {% for category in categories %}
                 <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-500 text-xs font-mono">{{ category.code }}</td>
                     <td class="px-4 py-3 font-medium text-gray-900">{{ category.name }}</td>
                     <td class="px-4 py-3 text-gray-600">
                         {% if category.parent %}
@@ -53,7 +57,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                         </svg>

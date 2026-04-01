@@ -6,10 +6,10 @@
 
 {% block header_actions %}
 {% if order.status != 'CANCELLED' and order.status != 'RECEIVED' %}
-<a href="{% url 'purchase:po_update' order.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+<a href="{% url 'purchase:po_update' order.po_number %}" class="btn btn-primary">{% trans "수정" %}</a>
 {% endif %}
 {% if order.status == 'DRAFT' %}
-<form method="post" action="{% url 'purchase:po_delete' order.pk %}" class="inline">
+<form method="post" action="{% url 'purchase:po_delete' order.po_number %}" class="inline">
     {% csrf_token %}
     <button type="submit" class="btn btn-secondary text-red-600"
             onclick="return confirm('발주서를 삭제하시겠습니까?')">
@@ -21,7 +21,7 @@
 </form>
 {% endif %}
 {% if order.status == 'CONFIRMED' or order.status == 'PARTIAL_RECEIVED' %}
-<a href="{% url 'purchase:receipt_create' order.pk %}" class="btn btn-primary">
+<a href="{% url 'purchase:receipt_create' order.po_number %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
     </svg>
@@ -34,8 +34,8 @@
 {% block content %}
 <div class="space-y-6">
     <!-- 발주 기본정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between mb-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "발주 정보" %}</h2>
             {% if order.status == 'DRAFT' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{% trans "작성중" %}</span>
@@ -51,7 +51,7 @@
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ order.get_status_display }}</span>
             {% endif %}
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">{% trans "발주번호" %}</dt>
                 <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ order.po_number }}</dd>
@@ -88,7 +88,7 @@
                 <dt class="text-sm text-gray-500">{% trans "품의서" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900">
                     {% if order.approval_request %}
-                    <a href="{% url 'approval:approval_detail' order.approval_request.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    <a href="{% url 'approval:approval_detail' order.approval_request.request_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                         {{ order.approval_request.request_number }} - {{ order.approval_request.title }}
                     </a>
                     {% else %}-{% endif %}
@@ -116,11 +116,11 @@
 
     <!-- 발주 처리 -->
     {% if status_actions %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "발주 처리" %}</h2>
         <div class="flex flex-wrap gap-3">
             {% for action in status_actions %}
-            <form method="post" action="{% url 'purchase:po_status_change' order.pk %}" class="inline">
+            <form method="post" action="{% url 'purchase:po_status_change' order.po_number %}" class="inline">
                 {% csrf_token %}
                 <input type="hidden" name="status" value="{{ action.value }}">
                 <button type="submit" class="btn {{ action.css }}"
@@ -135,11 +135,11 @@
     {% endif %}
 
     <!-- 발주 항목 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="px-6 py-4 border-b border-gray-200">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "발주 항목" %}</h2>
         </div>
-        <div class="overflow-x-auto">
+        <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -211,11 +211,11 @@
     </div>
 
     <!-- 입고 이력 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "입고 이력" %}</h2>
             {% if order.status == 'CONFIRMED' or order.status == 'PARTIAL_RECEIVED' %}
-            <a href="{% url 'purchase:receipt_create' order.pk %}" class="btn btn-primary text-sm">
+            <a href="{% url 'purchase:receipt_create' order.po_number %}" class="btn btn-primary text-sm">
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -223,7 +223,7 @@
             </a>
             {% endif %}
         </div>
-        <div class="overflow-x-auto">
+        <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -237,7 +237,7 @@
                     {% for receipt in receipts %}
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3 font-mono text-gray-900">
-                            <a href="{% url 'purchase:receipt_detail' receipt.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            <a href="{% url 'purchase:receipt_detail' receipt.receipt_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                                 {{ receipt.receipt_number }}
                             </a>
                         </td>
@@ -248,7 +248,7 @@
                             {% endfor %}
                         </td>
                         <td class="px-4 py-3 text-center">
-                            <a href="{% url 'purchase:receipt_detail' receipt.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">{% trans "상세" %}</a>
+                            <a href="{% url 'purchase:receipt_detail' receipt.receipt_number %}" class="text-blue-600 hover:text-blue-800 text-sm">{% trans "상세" %}</a>
                         </td>
                     </tr>
                     {% empty %}

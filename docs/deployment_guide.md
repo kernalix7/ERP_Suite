@@ -231,6 +231,7 @@ docker-compose exec -T db psql -U erp erp_suite < backup_20260316_120000.sql
 | `NAVER_CLIENT_ID` | No | - | Naver API client ID |
 | `NAVER_CLIENT_SECRET` | No | - | Naver API client secret |
 | `ANTHROPIC_API_KEY` | No | - | Claude AI API key |
+| `FIELD_ENCRYPTION_KEY` | No | - | Encryption key for sensitive model fields |
 
 ## 4. Nginx Configuration
 

@@ -12,7 +12,7 @@
     </div>
 
     <!-- 필터 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
         <form method="get" class="flex flex-wrap gap-4 items-end">
             <div>
                 <label class="block text-xs text-gray-500 mb-1">{% trans "시작일" %}</label>
@@ -38,30 +38,30 @@
     <!-- 요약 -->
     {% if summary.total_impressions %}
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">{% trans "총 노출" %}</p>
             <p class="text-lg font-bold">{{ summary.total_impressions|intcomma }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">{% trans "총 클릭" %}</p>
             <p class="text-lg font-bold">{{ summary.total_clicks|intcomma }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">{% trans "총 전환" %}</p>
             <p class="text-lg font-bold">{{ summary.total_conversions|intcomma }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">{% trans "총 비용" %}</p>
             <p class="text-lg font-bold">{{ summary.total_cost|intcomma }}원</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <p class="text-xs text-gray-500">{% trans "총 매출" %}</p>
             <p class="text-lg font-bold">{{ summary.total_revenue|intcomma }}원</p>
         </div>
     </div>
     {% endif %}
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">

@@ -24,7 +24,13 @@ urlpatterns = [
     # 입출고
     path('movements/', views.StockMovementListView.as_view(), name='movement_list'),
     path('movements/create/', views.StockMovementCreateView.as_view(), name='movement_create'),
-    path('movements/<int:pk>/', views.StockMovementDetailView.as_view(), name='movement_detail'),
+    # 입고/출고 전용 (slug 패턴보다 먼저 등록)
+    path('movements/stock-in/', views.StockInCreateView.as_view(), name='stock_in_create'),
+    path('movements/stock-out/', views.StockOutCreateView.as_view(), name='stock_out_create'),
+    path('movements/<str:slug>/', views.StockMovementDetailView.as_view(), name='movement_detail'),
+    # StockLot 관리
+    path('stock-lots/', views.StockLotListView.as_view(), name='stocklot_list'),
+    path('stock-lots/<str:slug>/', views.StockLotDetailView.as_view(), name='stocklot_detail'),
     # 재고현황
     path('stock/', views.StockStatusView.as_view(), name='stock_status'),
     # 창고간 이동
@@ -44,9 +50,9 @@ urlpatterns = [
     # 재고실사
     path('stock-count/', views.StockCountListView.as_view(), name='stockcount_list'),
     path('stock-count/create/', views.StockCountCreateView.as_view(), name='stockcount_create'),
-    path('stock-count/<int:pk>/', views.StockCountDetailView.as_view(), name='stockcount_detail'),
-    path('stock-count/<int:pk>/update/', views.StockCountUpdateView.as_view(), name='stockcount_update'),
-    path('stock-count/<int:pk>/adjust/', views.StockCountAdjustView.as_view(), name='stockcount_adjust'),
+    path('stock-count/<str:slug>/', views.StockCountDetailView.as_view(), name='stockcount_detail'),
+    path('stock-count/<str:slug>/update/', views.StockCountUpdateView.as_view(), name='stockcount_update'),
+    path('stock-count/<str:slug>/adjust/', views.StockCountAdjustView.as_view(), name='stockcount_adjust'),
     # 창고별 재고
     path('warehouse-stock/', views.WarehouseStockView.as_view(), name='warehouse_stock'),
     # 재고평가

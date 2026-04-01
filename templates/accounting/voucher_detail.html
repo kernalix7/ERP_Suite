@@ -6,7 +6,7 @@
 
 {% block header_actions %}
 {% if object.approval_status == 'DRAFT' %}
-<a href="{% url 'accounting:voucher_update' object.pk %}" class="btn btn-primary">수정</a>
+<a href="{% url 'accounting:voucher_update' object.voucher_number %}" class="btn btn-primary">수정</a>
 {% endif %}
 <a href="{% url 'accounting:voucher_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
@@ -14,8 +14,8 @@
 {% block content %}
 <div class="space-y-6">
     <!-- 전표 기본정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between mb-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h2 class="text-lg font-semibold text-gray-800">전표 정보</h2>
             <div class="flex items-center gap-2">
                 {% if object.voucher_type == 'RECEIPT' %}
@@ -37,7 +37,7 @@
                 {% endif %}
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">전표번호</dt>
                 <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ object.voucher_number }}</dd>
@@ -64,7 +64,7 @@
     </div>
 
     <!-- 전표 항목 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
         <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">전표 항목</h2>
         </div>

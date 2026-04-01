@@ -13,12 +13,18 @@
         {% csrf_token %}
 
         <!-- 기본 정보 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="bg-white shadow rounded-lg border border-gray-200">
             <div class="px-6 py-4 border-b border-gray-200">
                 <h3 class="text-lg font-semibold text-gray-900">기본 정보</h3>
             </div>
             <div class="p-6 space-y-5">
                 {% for field in form %}
+                {% if field.name == 'bank_name' or field.name == 'bank_account' or field.name == 'bank_holder' %}
+                {% elif field.name == 'address' %}
+                {% include "includes/address_field.html" with field=field field_type="auto" %}
+                {% elif field.name == 'phone' %}
+                {% include "includes/phone_field.html" with field=field %}
+                {% else %}
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         {{ field.label }}
@@ -32,14 +38,36 @@
                     <p class="mt-1 text-xs text-red-600">{{ error }}</p>
                     {% endfor %}
                 </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 계좌 정보 -->
+        <div class="bg-white shadow rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">계좌 정보</h3>
+                <p class="text-xs text-gray-500 mt-1">등록 시 회계 결제계좌에 자동 연동됩니다.</p>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                {% for field in form %}
+                {% if field.name == 'bank_name' or field.name == 'bank_account' or field.name == 'bank_holder' %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                    <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 {% endfor %}
             </div>
         </div>
 
         <!-- 수수료 항목 -->
         {% if commission_formset %}
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <div class="bg-white shadow rounded-lg border border-gray-200">
+            <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h3 class="text-lg font-semibold text-gray-900">수수료 항목</h3>
                 <button type="button" id="add-commission" class="btn btn-sm btn-secondary">+ 항목 추가</button>
             </div>
@@ -47,7 +75,7 @@
             <div id="commission-forms" class="divide-y divide-gray-100">
                 {% for cf in commission_formset %}
                 <div class="commission-row p-4 {% if cf.DELETE.value %}hidden{% endif %}">
-                    <div class="grid grid-cols-12 gap-3 items-end">
+                    <div class="grid grid-cols-2 sm:grid-cols-6 lg:grid-cols-12 gap-3 items-end">
                         <div class="col-span-3">
                             <label class="block text-xs font-medium text-gray-600 mb-1">항목명</label>
                             {{ cf.name }}
@@ -97,6 +125,34 @@
         </div>
     </form>
 </div>
+
+{% if next_codes %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const nextCodes = {
+        'CUSTOMER': '{{ next_codes.CUSTOMER }}',
+        'SUPPLIER': '{{ next_codes.SUPPLIER }}',
+        'BOTH': '{{ next_codes.BOTH }}',
+    };
+    const typeField = document.getElementById('id_partner_type');
+    const codeField = document.getElementById('id_code');
+
+    function updateCode() {
+        if (!codeField.value || Object.values(nextCodes).some(v => codeField.value.startsWith(v.slice(0, 4)))) {
+            codeField.value = nextCodes[typeField.value] + '-';
+            codeField.setSelectionRange(codeField.value.length, codeField.value.length);
+        }
+    }
+
+    if (typeField && codeField) {
+        typeField.addEventListener('change', updateCode);
+        if (!codeField.value && !{{ form.instance.pk|default:"0" }}) {
+            updateCode();
+        }
+    }
+});
+</script>
+{% endif %}
 
 {% if commission_formset %}
 <script>

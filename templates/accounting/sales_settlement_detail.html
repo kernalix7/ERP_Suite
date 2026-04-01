@@ -11,7 +11,7 @@
 {% block content %}
 <div class="space-y-6">
     <!-- 정산 기본정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">정산 정보</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
@@ -46,28 +46,34 @@
     </div>
 
     <!-- 요약 카드 -->
-    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <dt class="text-xs text-gray-500">공급가액</dt>
             <dd class="mt-1 text-lg font-bold text-gray-900">{{ object.total_revenue|intcomma }}원</dd>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-            <dt class="text-xs text-gray-500">원가</dt>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+            <dt class="text-xs text-gray-500">원가(주문)</dt>
             <dd class="mt-1 text-lg font-bold text-gray-700">{{ object.total_cost|intcomma }}원</dd>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+            <dt class="text-xs text-gray-500">원가차이</dt>
+            <dd class="mt-1 text-lg font-bold {% if object.total_cost_variance > 0 %}text-red-600{% elif object.total_cost_variance < 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                {% if object.total_cost_variance > 0 %}+{% endif %}{{ object.total_cost_variance|intcomma }}원
+            </dd>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <dt class="text-xs text-gray-500">부가세</dt>
             <dd class="mt-1 text-lg font-bold text-gray-700">{{ object.total_tax|intcomma }}원</dd>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <dt class="text-xs text-gray-500">배송비</dt>
             <dd class="mt-1 text-lg font-bold text-gray-700">{{ object.total_shipping|intcomma }}원</dd>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <dt class="text-xs text-gray-500">수수료</dt>
             <dd class="mt-1 text-lg font-bold text-red-600">{{ object.total_commission|intcomma }}원</dd>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <dt class="text-xs text-gray-500">순이익</dt>
             <dd class="mt-1 text-lg font-bold {% if object.total_profit >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
                 {{ object.total_profit|intcomma }}원
@@ -78,11 +84,11 @@
 
     <!-- 처리 액션 -->
     {% if unpaid_count > 0 or not object.commission_paid %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">정산 처리</h2>
         <div class="flex flex-wrap gap-4 items-end">
             {% if unpaid_count > 0 %}
-            <form method="post" action="{% url 'accounting:sales_settlement_payment' object.pk %}" class="inline">
+            <form method="post" action="{% url 'accounting:sales_settlement_payment' object.settlement_number %}" class="inline">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary bg-emerald-600 hover:bg-emerald-700"
                         onclick="return confirm('미입금 {{ unpaid_count }}건을 일괄 입금 처리하시겠습니까?')">
@@ -95,26 +101,35 @@
             {% endif %}
 
             {% if not object.commission_paid and object.total_commission > 0 %}
-            <form method="post" action="{% url 'accounting:sales_settlement_commission_pay' object.pk %}" class="inline flex items-end gap-2">
+            <form method="post" action="{% url 'accounting:sales_settlement_commission_pay' object.settlement_number %}" class="inline flex flex-wrap items-end gap-2">
                 {% csrf_token %}
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">수수료 지급계좌</label>
+                    <label class="block text-xs text-gray-500 mb-1">출금계좌 <span class="text-red-500">*</span></label>
                     <select name="commission_bank_account" class="form-input text-sm" required>
-                        <option value="">-- 계좌 선택 --</option>
+                        <option value="">-- 출금계좌 선택 --</option>
                         {% for bank in bank_accounts %}
                         <option value="{{ bank.pk }}">{{ bank.bank }} {{ bank.account_number }} ({{ bank.owner }}) - {{ bank.balance|intcomma }}원</option>
                         {% endfor %}
                     </select>
                 </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">입금계좌 (선택)</label>
+                    <select name="commission_deposit_account" class="form-input text-sm">
+                        <option value="">-- 입금계좌 선택 --</option>
+                        {% for bank in bank_accounts %}
+                        <option value="{{ bank.pk }}">{{ bank.bank }} {{ bank.account_number }} ({{ bank.owner }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <button type="submit" class="btn btn-primary bg-orange-600 hover:bg-orange-700"
-                        onclick="return confirm('수수료 {{ object.total_commission|intcomma }}원을 계좌에서 출금 지급하시겠습니까?')">
+                        onclick="return confirm('수수료 {{ object.total_commission|intcomma }}원을 출금 지급하시겠습니까?')">
                     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
                     </svg>
                     자동 지급 (전표+출금)
                 </button>
             </form>
-            <form method="post" action="{% url 'accounting:sales_settlement_commission_manual' object.pk %}" class="inline flex items-end gap-2">
+            <form method="post" action="{% url 'accounting:sales_settlement_commission_manual' object.settlement_number %}" class="inline flex items-end gap-2">
                 {% csrf_token %}
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">연결 전표 (선택)</label>
@@ -143,7 +158,7 @@
     {% endif %}
 
     <!-- 수수료 지급 현황 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">수수료 지급 현황</h2>
         {% if object.commission_paid %}
         <div class="space-y-2">
@@ -155,14 +170,18 @@
                     {{ object.commission_paid_date|date:"Y-m-d" }}
                     {% if object.commission_bank_account %}
                     <span class="mx-1">|</span>
-                    {{ object.commission_bank_account.bank }} {{ object.commission_bank_account.account_number }} ({{ object.commission_bank_account.owner }})
+                    출금: {{ object.commission_bank_account.bank }} {{ object.commission_bank_account.account_number }} ({{ object.commission_bank_account.owner }})
+                    {% endif %}
+                    {% if object.commission_deposit_account %}
+                    <span class="mx-1">|</span>
+                    입금: {{ object.commission_deposit_account.bank }} {{ object.commission_deposit_account.account_number }} ({{ object.commission_deposit_account.owner }})
                     {% endif %}
                 </div>
             </div>
             {% if object.commission_voucher %}
             <div class="text-sm text-gray-600">
                 <span class="text-gray-500">연결 전표:</span>
-                <a href="{% url 'accounting:voucher_detail' object.commission_voucher.pk %}" class="text-blue-600 hover:text-blue-800 font-mono">{{ object.commission_voucher.voucher_number }}</a>
+                <a href="{% url 'accounting:voucher_detail' object.commission_voucher.voucher_number %}" class="text-blue-600 hover:text-blue-800 font-mono">{{ object.commission_voucher.voucher_number }}</a>
                 <span class="text-gray-400">{{ object.commission_voucher.description }}</span>
             </div>
             {% endif %}
@@ -186,7 +205,7 @@
     </div>
 
     <!-- 정산 항목 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
         <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">정산 주문 내역</h2>
         </div>
@@ -200,7 +219,8 @@
                         <th class="px-4 py-3">고객</th>
                         <th class="px-4 py-3 text-center">입금</th>
                         <th class="px-4 py-3 text-right">공급가액</th>
-                        <th class="px-4 py-3 text-right">원가</th>
+                        <th class="px-4 py-3 text-right">원가(주문)</th>
+                        <th class="px-4 py-3 text-right">원가차이</th>
                         <th class="px-4 py-3 text-right">배송비</th>
                         <th class="px-4 py-3 text-right">수수료율</th>
                         <th class="px-4 py-3 text-right">수수료</th>
@@ -212,7 +232,7 @@
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
                         <td class="px-4 py-3">
-                            <a href="{% url 'sales:order_detail' item.order.pk %}" class="text-blue-600 hover:text-blue-800 font-mono">{{ item.order.order_number }}</a>
+                            <a href="{% url 'sales:order_detail' item.order.order_number %}" class="text-blue-600 hover:text-blue-800 font-mono">{{ item.order.order_number }}</a>
                         </td>
                         <td class="px-4 py-3 text-gray-700">{{ item.order.partner.name|default:"-" }}</td>
                         <td class="px-4 py-3 text-gray-700">{{ item.order.customer.name|default:"-" }}</td>
@@ -225,6 +245,10 @@
                         </td>
                         <td class="px-4 py-3 text-right text-gray-900">{{ item.revenue|intcomma }}원</td>
                         <td class="px-4 py-3 text-right text-gray-500">{{ item.cost|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right text-sm {% if item.cost_variance > 0 %}text-red-600{% elif item.cost_variance < 0 %}text-green-600{% else %}text-gray-400{% endif %}">
+                            {% if item.cost_variance > 0 %}+{% endif %}{{ item.cost_variance|intcomma }}
+                            {% if item.cost_variance_rate %}<span class="text-xs">({{ item.cost_variance_rate }}%)</span>{% endif %}
+                        </td>
                         <td class="px-4 py-3 text-right text-gray-500">{{ item.shipping|intcomma }}원</td>
                         <td class="px-4 py-3 text-right text-gray-600">{{ item.commission_rate }}%</td>
                         <td class="px-4 py-3 text-right font-medium text-red-600">{{ item.commission|intcomma }}원</td>
@@ -234,7 +258,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="11" class="px-4 py-8 text-center text-gray-400">정산 항목이 없습니다.</td>
+                        <td colspan="12" class="px-4 py-8 text-center text-gray-400">정산 항목이 없습니다.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

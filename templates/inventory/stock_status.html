@@ -15,7 +15,7 @@
 {% block content %}
 <!-- 요약 카드 -->
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">전체 제품</p>
@@ -28,7 +28,7 @@
             </div>
         </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">정상 재고</p>
@@ -41,7 +41,7 @@
             </div>
         </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">재고 부족</p>
@@ -57,7 +57,7 @@
 </div>
 
 <!-- 재고 현황 테이블 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1">
@@ -75,7 +75,7 @@
         </form>
     </div>
 
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -151,11 +151,11 @@
 
     <!-- 페이지네이션 -->
     {% if is_paginated %}
-    <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
         <p class="text-sm text-gray-500">
             총 {{ page_obj.paginator.count }}건
         </p>
-        <nav class="flex items-center gap-1">
+        <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
             <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}"
                class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>

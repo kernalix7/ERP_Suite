@@ -1,5 +1,8 @@
+from datetime import date
+
 from import_export import fields, resources, widgets
 
+from apps.core.utils import generate_document_number
 from apps.inventory.models import Product
 from .models import Partner, Customer, Order, Quotation, Shipment
 from .commission import CommissionRate
@@ -10,7 +13,8 @@ class PartnerResource(resources.ModelResource):
         model = Partner
         fields = (
             'code', 'name', 'partner_type', 'business_number',
-            'representative', 'contact_name', 'phone', 'email', 'address',
+            'representative', 'contact_name', 'phone', 'email',
+            'address', 'address_road', 'address_detail',
         )
         import_id_fields = ('code',)
         skip_unchanged = True
@@ -20,7 +24,7 @@ class PartnerResource(resources.ModelResource):
 class CustomerResource(resources.ModelResource):
     class Meta:
         model = Customer
-        fields = ('name', 'phone', 'email', 'address')
+        fields = ('name', 'phone', 'email', 'address', 'address_road', 'address_detail')
         import_id_fields = ('name', 'phone')
         skip_unchanged = True
         report_skipped = True
@@ -52,22 +56,45 @@ class OrderResource(resources.ModelResource):
         attribute='partner',
         widget=widgets.ForeignKeyWidget(Partner, field='code'),
     )
-    customer_name = fields.Field(
-        column_name='customer_name',
+    customer_code = fields.Field(
+        column_name='customer_code',
         attribute='customer',
-        widget=widgets.ForeignKeyWidget(Customer, field='name'),
+        widget=widgets.ForeignKeyWidget(Customer, field='code'),
     )
 
     class Meta:
         model = Order
         fields = (
-            'order_number', 'order_type', 'partner_code', 'customer_name',
+            'order_number', 'order_type', 'partner_code', 'customer_code',
             'order_date', 'status', 'shipping_method', 'tracking_number',
-            'shipping_address', 'notes',
+            'shipping_address', 'shipping_address_road', 'shipping_address_detail',
+            'notes',
         )
         import_id_fields = ('order_number',)
         skip_unchanged = True
         report_skipped = True
+
+    def before_import(self, dataset, **kwargs):
+        """누락된 필수 컬럼 자동 보완"""
+        if 'order_number' not in dataset.headers:
+            dataset.append_col(
+                [generate_document_number(Order, 'order_number', 'ORD')
+                 for _ in range(dataset.height)],
+                header='order_number',
+            )
+        if 'order_date' not in dataset.headers:
+            dataset.append_col(
+                [date.today().isoformat()] * dataset.height,
+                header='order_date',
+            )
+
+    def before_save_instance(self, instance, row, **kwargs):
+        if not instance.order_number:
+            instance.order_number = generate_document_number(
+                Order, 'order_number', 'ORD',
+            )
+        if not instance.order_date:
+            instance.order_date = date.today()
 
 
 class QuotationResource(resources.ModelResource):
@@ -76,16 +103,16 @@ class QuotationResource(resources.ModelResource):
         attribute='partner',
         widget=widgets.ForeignKeyWidget(Partner, field='code'),
     )
-    customer_name = fields.Field(
-        column_name='customer_name',
+    customer_code = fields.Field(
+        column_name='customer_code',
         attribute='customer',
-        widget=widgets.ForeignKeyWidget(Customer, field='name'),
+        widget=widgets.ForeignKeyWidget(Customer, field='code'),
     )
 
     class Meta:
         model = Quotation
         fields = (
-            'quote_number', 'partner_code', 'customer_name',
+            'quote_number', 'partner_code', 'customer_code',
             'quote_date', 'valid_until', 'status', 'notes',
         )
         import_id_fields = ('quote_number',)
@@ -106,7 +133,7 @@ class ShipmentResource(resources.ModelResource):
             'shipment_number', 'order_number', 'shipping_type',
             'carrier', 'tracking_number', 'status', 'shipped_date',
             'delivered_date', 'receiver_name', 'receiver_phone',
-            'receiver_address',
+            'receiver_address', 'receiver_address_road', 'receiver_address_detail',
         )
         import_id_fields = ('shipment_number',)
         skip_unchanged = True

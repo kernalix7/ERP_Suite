@@ -6,7 +6,7 @@ from .models import Investor, InvestmentRound, Investment, EquityChange, Distrib
 class InvestorForm(BaseForm):
     class Meta:
         model = Investor
-        fields = ['name', 'company', 'contact_person', 'phone', 'email', 'address', 'registration_date', 'notes']
+        fields = ['code', 'name', 'company', 'contact_person', 'phone', 'email', 'address', 'registration_date', 'notes']
         widgets = {
             'registration_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
@@ -16,7 +16,7 @@ class InvestmentRoundForm(BaseForm):
     class Meta:
         model = InvestmentRound
         fields = [
-            'name', 'round_type', 'target_amount', 'raised_amount',
+            'code', 'name', 'round_type', 'target_amount', 'raised_amount',
             'round_date', 'pre_valuation', 'post_valuation', 'notes',
         ]
         widgets = {

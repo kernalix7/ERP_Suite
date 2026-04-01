@@ -73,9 +73,20 @@ class TaxRate(BaseModel):
 
 
 class TaxInvoice(BaseModel):
+    BUSINESS_KEY_FIELD = 'invoice_number'
+
     class InvoiceType(models.TextChoices):
         SALES = 'SALES', '매출'
         PURCHASE = 'PURCHASE', '매입'
+
+    class ElectronicStatus(models.TextChoices):
+        NONE = 'NONE', '미발행'
+        DRAFT = 'DRAFT', '작성중'
+        ISSUED = 'ISSUED', '발행완료'
+        SENT = 'SENT', '국세청 전송'
+        ACCEPTED = 'ACCEPTED', '국세청 승인'
+        REJECTED = 'REJECTED', '국세청 반려'
+        CANCELLED = 'CANCELLED', '취소'
 
     invoice_number = models.CharField('세금계산서번호', max_length=50, unique=True, blank=True)
     invoice_type = models.CharField('유형', max_length=10, choices=InvoiceType.choices)
@@ -92,6 +103,20 @@ class TaxInvoice(BaseModel):
     tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     total_amount = models.DecimalField('합계', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     description = models.TextField('적요', blank=True)
+
+    # 전자세금계산서 필드
+    electronic_status = models.CharField(
+        '전자발행상태', max_length=15,
+        choices=ElectronicStatus.choices, default=ElectronicStatus.NONE,
+    )
+    nts_confirmation_number = models.CharField('국세청 승인번호', max_length=50, blank=True)
+    issue_id = models.CharField(
+        '발행ID', max_length=100, blank=True,
+        help_text='전자세금계산서 발행 고유ID',
+    )
+    sent_at = models.DateTimeField('전송일시', null=True, blank=True)
+    nts_response = models.JSONField('국세청 응답', default=dict, blank=True)
+
     history = HistoricalRecords()
 
     class Meta:
@@ -101,6 +126,7 @@ class TaxInvoice(BaseModel):
         indexes = [
             models.Index(fields=['issue_date'], name='idx_invoice_date'),
             models.Index(fields=['invoice_type'], name='idx_invoice_type'),
+            models.Index(fields=['electronic_status'], name='idx_invoice_estatus'),
         ]
 
     def __str__(self):
@@ -213,6 +239,8 @@ class AccountCode(BaseModel):
 
 
 class Voucher(BaseModel):
+    BUSINESS_KEY_FIELD = 'voucher_number'
+
     class VoucherType(models.TextChoices):
         RECEIPT = 'RECEIPT', '입금'
         PAYMENT = 'PAYMENT', '출금'
@@ -415,12 +443,25 @@ class BankAccount(BaseModel):
         BUSINESS = 'BUSINESS', '사업자통장'
         PLATFORM = 'PLATFORM', '플랫폼'
 
+    employee = models.ForeignKey(
+        'hr.EmployeeProfile', verbose_name='직원',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='bank_accounts',
+        help_text='급여계좌 연동 시 직원 프로필과 연결',
+    )
+    partner = models.ForeignKey(
+        'sales.Partner', verbose_name='거래처',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='bank_accounts',
+        help_text='거래처 결제계좌 연동',
+    )
     name = models.CharField('계좌별칭', max_length=100)
     account_type = models.CharField('계좌유형', max_length=20, choices=AccountType.choices)
     owner = models.CharField('소유자', max_length=50)
     bank = models.CharField('은행/플랫폼', max_length=50, blank=True)
     account_number = models.CharField('계좌번호', max_length=50, blank=True)
     is_default = models.BooleanField('기본계좌', default=False)
+    show_on_dashboard = models.BooleanField('대시보드 표시', default=False, help_text='메인 대시보드에 잔액 표시')
     account_code = models.ForeignKey(
         AccountCode, verbose_name='계정과목',
         null=True, blank=True, on_delete=models.SET_NULL,
@@ -453,6 +494,7 @@ class BankAccount(BaseModel):
 
 class Payment(BaseModel):
     """입출금 기록"""
+    BUSINESS_KEY_FIELD = 'payment_number'
 
     class PaymentType(models.TextChoices):
         RECEIPT = 'RECEIPT', '입금'
@@ -519,6 +561,7 @@ class Payment(BaseModel):
 
 class AccountTransfer(BaseModel):
     """계좌간 이체"""
+    BUSINESS_KEY_FIELD = 'transfer_number'
 
     transfer_number = models.CharField('이체번호', max_length=30, unique=True, blank=True)
     from_account = models.ForeignKey(
@@ -558,6 +601,7 @@ class AccountTransfer(BaseModel):
 
 class CostSettlement(BaseModel):
     """원가 정산(월마감) — 제품별 원가/재고 스냅샷"""
+    BUSINESS_KEY_FIELD = 'settlement_number'
 
     class Period(models.TextChoices):
         MONTHLY = 'MONTHLY', '월'
@@ -662,6 +706,7 @@ class PaymentDistribution(BaseModel):
 
 class SalesSettlement(BaseModel):
     """매출 정산 — 주문 건별 선택 정산"""
+    BUSINESS_KEY_FIELD = 'settlement_number'
 
     settlement_number = models.CharField(
         '정산번호', max_length=30, unique=True, blank=True,
@@ -691,11 +736,21 @@ class SalesSettlement(BaseModel):
     total_profit = models.DecimalField(
         '총이익', max_digits=15, decimal_places=0, default=0,
     )
+    total_cost_variance = models.DecimalField(
+        '총원가차이', max_digits=15, decimal_places=0, default=0,
+        help_text='양수=원가상승(불리), 음수=원가하락(유리)',
+    )
     # 수수료 지급 관리
     commission_bank_account = models.ForeignKey(
-        'accounting.BankAccount', verbose_name='수수료 지급계좌',
+        'accounting.BankAccount', verbose_name='수수료 출금계좌',
         null=True, blank=True, on_delete=models.SET_NULL,
         related_name='commission_settlements',
+    )
+    commission_deposit_account = models.ForeignKey(
+        'accounting.BankAccount', verbose_name='수수료 입금계좌',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='commission_deposit_settlements',
+        help_text='거래처/파트너 입금계좌 (선택)',
     )
     commission_paid = models.BooleanField('수수료 지급완료', default=False)
     commission_paid_date = models.DateField(
@@ -757,7 +812,18 @@ class SalesSettlementOrder(BaseModel):
         '매출(공급가)', max_digits=15, decimal_places=0, default=0,
     )
     cost = models.DecimalField(
-        '원가', max_digits=15, decimal_places=0, default=0,
+        '원가(주문시점)', max_digits=15, decimal_places=0, default=0,
+    )
+    current_cost = models.DecimalField(
+        '원가(정산시점)', max_digits=15, decimal_places=0, default=0,
+        help_text='정산 생성 시 제품 현재 원가로 자동 측정',
+    )
+    cost_variance = models.DecimalField(
+        '원가차이', max_digits=15, decimal_places=0, default=0,
+        help_text='정산시점 원가 - 주문시점 원가 (양수=원가상승)',
+    )
+    cost_variance_rate = models.DecimalField(
+        '원가차이율(%)', max_digits=7, decimal_places=2, default=0,
     )
     tax = models.DecimalField(
         '부가세', max_digits=15, decimal_places=0, default=0,

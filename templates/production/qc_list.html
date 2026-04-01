@@ -5,17 +5,19 @@
 {% block page_title %}품질검수{% endblock %}
 
 {% block header_actions %}
+{% if user.is_manager_role %}
 <a href="{% url 'production:qc_create' %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
     검수 등록
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-    <form method="get" class="flex gap-4 items-end">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">결과</label>
             <select name="result" class="form-input rounded-lg border-gray-300">
@@ -30,8 +32,8 @@
     </form>
 </div>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="overflow-x-auto">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -50,7 +52,7 @@
                 {% for qc in inspections %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3">
-                        <a href="{% url 'production:qc_detail' qc.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ qc.inspection_number }}</a>
+                        <a href="{% url 'production:qc_detail' qc.inspection_number %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ qc.inspection_number }}</a>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ qc.get_inspection_type_display }}</td>
                     <td class="px-4 py-3 text-gray-900">{{ qc.product.name }}</td>
@@ -73,7 +75,10 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">
+                    <td colspan="9" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
                         등록된 품질검수가 없습니다.
                     </td>
                 </tr>
@@ -84,14 +89,20 @@
 </div>
 
 {% if is_paginated %}
-<div class="mt-4 flex justify-center">
-    <nav class="flex gap-1">
+<div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+    <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+    <nav class="flex flex-wrap items-center gap-1">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary text-sm">이전</a>
+        <a href="?page={{ page_obj.previous_page_number }}&result={{ request.GET.result }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
         {% endif %}
-        <span class="px-3 py-2 text-sm text-gray-600">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% for num in page_obj.paginator.page_range %}
+        <a href="?page={{ num }}&result={{ request.GET.result }}"
+           class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">
+            {{ num }}
+        </a>
+        {% endfor %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary text-sm">다음</a>
+        <a href="?page={{ page_obj.next_page_number }}&result={{ request.GET.result }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
         {% endif %}
     </nav>
 </div>

@@ -2,7 +2,9 @@ from django.conf import settings
 from django.db import models
 from simple_history.models import HistoricalRecords
 
+from apps.core.fields import EncryptedCharField
 from apps.core.models import BaseModel
+from apps.core.utils import generate_document_number
 
 
 class InquiryChannel(BaseModel):
@@ -19,6 +21,8 @@ class InquiryChannel(BaseModel):
 
 
 class Inquiry(BaseModel):
+    BUSINESS_KEY_FIELD = 'inquiry_number'
+
     class Status(models.TextChoices):
         RECEIVED = 'RECEIVED', '접수'
         WAITING = 'WAITING', '답변대기'
@@ -31,12 +35,15 @@ class Inquiry(BaseModel):
         HIGH = 'HIGH', '높음'
         URGENT = 'URGENT', '긴급'
 
+    inquiry_number = models.CharField(
+        '문의번호', max_length=30, unique=True, editable=False,
+    )
     channel = models.ForeignKey(
         InquiryChannel, verbose_name='채널',
         on_delete=models.PROTECT,
     )
     customer_name = models.CharField('고객명', max_length=100)
-    customer_contact = models.CharField('연락처', max_length=100, blank=True)
+    customer_contact = EncryptedCharField('연락처', max_length=500, blank=True)
     subject = models.CharField('제목', max_length=200)
     content = models.TextField('문의내용')
     status = models.CharField(
@@ -66,8 +73,15 @@ class Inquiry(BaseModel):
             ),
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.inquiry_number:
+            self.inquiry_number = generate_document_number(
+                Inquiry, 'inquiry_number', 'INQ',
+            )
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f'[{self.get_status_display()}] {self.subject}'
+        return f'[{self.inquiry_number}] {self.subject}'
 
 
 class InquiryReply(BaseModel):

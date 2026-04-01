@@ -19,7 +19,7 @@
 {% block content %}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- 미수금 정보 -->
-    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold">{% trans "미수금 정보" %}</h3>
             <span class="px-3 py-1 text-sm rounded-full
@@ -58,7 +58,7 @@
 
     <!-- 비고 -->
     <div class="space-y-4">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <h4 class="font-semibold mb-3">{% trans "추가 정보" %}</h4>
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
@@ -79,11 +79,11 @@
 </div>
 
 <!-- 입금 이력 -->
-<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
     <div class="px-6 py-4 border-b border-gray-200">
         <h2 class="text-lg font-semibold text-gray-800">{% trans "입금 이력" %}</h2>
     </div>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">

@@ -324,3 +324,77 @@ class BoardViewTest(TestCase):
             reverse('board:post_create', kwargs={'slug': self.board.slug}),
         )
         self.assertEqual(response.status_code, 200)
+
+
+class CommentFormTest(TestCase):
+    """CommentForm 폼 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='cmtformuser', password='testpass123',
+            role='staff', name='댓글폼유저',
+        )
+        self.board = Board.objects.create(
+            name='폼테스트게시판', slug='form-test', created_by=self.user,
+        )
+        self.post = Post.objects.create(
+            board=self.board, title='폼테스트글', content='내용',
+            author=self.user, created_by=self.user,
+        )
+
+    def test_comment_form_valid(self):
+        """유효한 댓글 폼"""
+        from apps.board.forms import CommentForm
+        form = CommentForm(data={'content': '좋은 글이네요.'})
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_comment_form_empty_content_invalid(self):
+        """빈 내용은 유효하지 않음"""
+        from apps.board.forms import CommentForm
+        form = CommentForm(data={'content': ''})
+        self.assertFalse(form.is_valid())
+
+    def test_comment_form_with_parent(self):
+        """대댓글 폼 (parent 포함)"""
+        from apps.board.forms import CommentForm
+        parent = Comment.objects.create(
+            post=self.post, content='부모 댓글',
+            author=self.user, created_by=self.user,
+        )
+        form = CommentForm(data={'content': '대댓글입니다.', 'parent': parent.pk})
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_post_form_valid_for_staff(self):
+        """staff 사용자 PostForm - is_pinned 필드 없음"""
+        from apps.board.forms import PostForm
+        form = PostForm(
+            data={
+                'board': self.board.pk,
+                'title': '일반글',
+                'content': '내용입니다.',
+                'notes': '',
+            },
+            user=self.user,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertNotIn('is_pinned', form.fields)
+
+    def test_post_form_valid_for_manager(self):
+        """manager 사용자 PostForm - is_pinned 필드 있음"""
+        from apps.board.forms import PostForm
+        manager = User.objects.create_user(
+            username='mgrcmtform', password='testpass123',
+            role='manager', name='매니저폼',
+        )
+        form = PostForm(
+            data={
+                'board': self.board.pk,
+                'title': '공지글',
+                'content': '공지 내용.',
+                'is_pinned': True,
+                'notes': '',
+            },
+            user=manager,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertIn('is_pinned', form.fields)

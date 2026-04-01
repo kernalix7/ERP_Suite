@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}시산표 - ERP Suite{% endblock %}
 {% block page_title %}시산표{% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-    <form method="get" class="flex flex-wrap gap-4 items-end">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 sm:gap-4 items-end">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
             <input type="date" name="date_from" value="{{ date_from }}" class="form-input rounded-lg border-gray-300">
@@ -24,15 +25,15 @@
 <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
     {% if is_balanced %}bg-green-50 text-green-800 border border-green-200{% else %}bg-red-50 text-red-800 border border-red-200{% endif %}">
     {% if is_balanced %}
-        차변/대변 합계 일치 ({{ grand_debit|floatformat:0 }}원)
+        차변/대변 합계 일치 ({{ grand_debit|intcomma }}원)
     {% else %}
-        차변/대변 불일치 — 차변: {{ grand_debit|floatformat:0 }}원, 대변: {{ grand_credit|floatformat:0 }}원
+        차변/대변 불일치 — 차변: {{ grand_debit|intcomma }}원, 대변: {{ grand_credit|intcomma }}원
     {% endif %}
 </div>
 {% endif %}
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="overflow-x-auto">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -66,10 +67,10 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">비용</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ row.debit|floatformat:0 }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ row.credit|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ row.debit|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ row.credit|intcomma }}</td>
                     <td class="px-4 py-3 text-right font-mono font-semibold {% if row.balance >= 0 %}text-gray-900{% else %}text-red-600{% endif %}">
-                        {{ row.balance|floatformat:0 }}
+                        {{ row.balance|intcomma }}
                     </td>
                 </tr>
                 {% empty %}
@@ -84,8 +85,8 @@
             <tfoot class="bg-gray-50 font-semibold">
                 <tr>
                     <td colspan="3" class="px-4 py-3 text-right text-gray-700">합계</td>
-                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ grand_debit|floatformat:0 }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ grand_credit|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ grand_debit|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ grand_credit|intcomma }}</td>
                     <td class="px-4 py-3"></td>
                 </tr>
             </tfoot>

@@ -9,6 +9,8 @@ from apps.sales.models import Customer
 
 
 class ServiceRequest(BaseModel):
+    BUSINESS_KEY_FIELD = 'request_number'
+
     class Status(models.TextChoices):
         RECEIVED = 'RECEIVED', '접수'
         INSPECTING = 'INSPECTING', '검수중'

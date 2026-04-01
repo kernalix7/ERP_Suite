@@ -7,4 +7,4 @@ class AttendanceConfig(AppConfig):
     verbose_name = '근태관리'
 
     def ready(self):
-        pass
+        import apps.attendance.signals  # noqa: F401

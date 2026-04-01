@@ -2,12 +2,36 @@ from datetime import date
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.core.fields import EncryptedCharField, EncryptedTextField
 from apps.core.models import BaseModel
 from apps.core.utils import generate_document_number
+
+
+class ExternalCompany(BaseModel):
+    """외부 협력업체"""
+    name = models.CharField('업체명', max_length=100)
+    business_number = models.CharField('사업자번호', max_length=20, unique=True)
+    representative = models.CharField('대표자', max_length=50)
+    contact_person = models.CharField('담당자', max_length=50, blank=True)
+    phone = models.CharField('연락처', max_length=20, blank=True)
+    email = models.EmailField('이메일', blank=True)
+    address = models.TextField('주소', blank=True)
+    contract_start = models.DateField('계약시작일', null=True, blank=True)
+    contract_end = models.DateField('계약종료일', null=True, blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '외부 협력업체'
+        verbose_name_plural = '외부 협력업체'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 
 class Department(BaseModel):
@@ -59,6 +83,7 @@ class Department(BaseModel):
 
 class Position(BaseModel):
     """직급"""
+    code = models.CharField('직급코드', max_length=20, unique=True)
     name = models.CharField('직급명', max_length=50)
     level = models.PositiveIntegerField(
         '레벨',
@@ -73,11 +98,18 @@ class Position(BaseModel):
         ordering = ['level']
 
     def __str__(self):
-        return self.name
+        return f'{self.name} ({self.code})'
 
 
 class EmployeeProfile(BaseModel):
     """직원 프로필"""
+    BUSINESS_KEY_FIELD = 'employee_number'
+
+    class EmployeeType(models.TextChoices):
+        INTERNAL = 'INTERNAL', '정규직'
+        CONTRACT = 'CONTRACT', '계약직'
+        EXTERNAL = 'EXTERNAL', '외부협력'
+        DISPATCH = 'DISPATCH', '파견'
 
     class ContractType(models.TextChoices):
         FULL_TIME = 'FULL_TIME', '정규직'
@@ -138,6 +170,21 @@ class EmployeeProfile(BaseModel):
         '기본급', max_digits=15, decimal_places=0, default=0,
         help_text='월 기본급 (원)',
     )
+    employee_type = models.CharField(
+        '고용유형',
+        max_length=20,
+        choices=EmployeeType.choices,
+        default=EmployeeType.INTERNAL,
+    )
+    external_company = models.ForeignKey(
+        ExternalCompany,
+        verbose_name='소속 외부업체',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='employees',
+    )
+    contract_start = models.DateField('계약시작일', null=True, blank=True)
+    contract_end = models.DateField('계약종료일', null=True, blank=True)
 
     history = HistoricalRecords()
 
@@ -174,9 +221,15 @@ class PersonnelAction(BaseModel):
         PROMOTION = 'PROMOTION', '승진'
         TRANSFER = 'TRANSFER', '전보'
         DEMOTION = 'DEMOTION', '강등'
+        MANAGER_APPOINT = 'MANAGER_APPOINT', '부서장 임명'
         RESIGNATION = 'RESIGNATION', '퇴사'
         LEAVE = 'LEAVE', '휴직'
         RETURN = 'RETURN', '복직'
+        DISPATCH_IN = 'DISPATCH_IN', '파견입사'
+        DISPATCH_EXTEND = 'DISPATCH_EXTEND', '파견연장'
+        DISPATCH_END = 'DISPATCH_END', '파견종료'
+        EXTERNAL_IN = 'EXTERNAL_IN', '외부인력 투입'
+        EXTERNAL_OUT = 'EXTERNAL_OUT', '외부인력 철수'
 
     employee = models.ForeignKey(
         EmployeeProfile,
@@ -322,18 +375,40 @@ class Payroll(BaseModel):
     def __str__(self):
         return f'{self.employee} - {self.year}년 {self.month}월 급여'
 
+    @staticmethod
+    def _calculate_income_tax(annual_taxable: Decimal) -> int:
+        """연간 과세표준에 누진세율 적용 → 연간 소득세(원) 반환"""
+        brackets = [
+            (Decimal('14000000'),  Decimal('0.06'), Decimal('0')),
+            (Decimal('50000000'),  Decimal('0.15'), Decimal('1260000')),
+            (Decimal('88000000'),  Decimal('0.24'), Decimal('5760000')),
+            (Decimal('150000000'), Decimal('0.35'), Decimal('15440000')),
+            (Decimal('300000000'), Decimal('0.38'), Decimal('19940000')),
+            (Decimal('500000000'), Decimal('0.40'), Decimal('25940000')),
+            (Decimal('1000000000'), Decimal('0.42'), Decimal('35940000')),
+        ]
+        t = annual_taxable
+        for limit, rate, deduction in brackets:
+            if t <= limit:
+                return max(int(t * rate - deduction), 0)
+        # 10억 초과
+        return max(int(t * Decimal('0.45') - Decimal('65940000')), 0)
+
     def calculate_deductions(self):
         """4대 보험 + 세금 자동 계산"""
         try:
             config = PayrollConfig.objects.get(year=self.year, is_active=True)
         except PayrollConfig.DoesNotExist:
-            return
+            raise ValidationError(
+                f'{self.year}년 급여 설정(PayrollConfig)이 존재하지 않습니다. '
+                f'급여 계산 전에 해당 연도의 급여 설정을 먼저 등록하세요.'
+            )
 
         self.national_pension = int(self.gross_pay * config.national_pension_rate / 100)
         self.health_insurance = int(self.gross_pay * config.health_insurance_rate / 100)
         self.long_term_care = int(self.health_insurance * config.long_term_care_rate / 100)
         self.employment_insurance = int(self.gross_pay * config.employment_insurance_rate / 100)
-        # 간이세액표 대신 간단 계산 (과세표준 기반)
+        # 누진세율 적용 (과세표준 기반)
         taxable = (
             self.gross_pay
             - self.national_pension
@@ -341,7 +416,7 @@ class Payroll(BaseModel):
             - self.long_term_care
             - self.employment_insurance
         )
-        self.income_tax = max(int(taxable * Decimal('0.06')), 0)  # 간이 6%
+        self.income_tax = max(self._calculate_income_tax(taxable * 12) // 12, 0)
         self.local_income_tax = int(self.income_tax * Decimal('0.10'))  # 소득세의 10%
 
         self.total_deductions = (

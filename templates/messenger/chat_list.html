@@ -1,16 +1,17 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}사내 메신저 - ERP Suite{% endblock %}
-{% block page_title %}사내 메신저{% endblock %}
+{% block title %}{% trans "사내 메신저" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "사내 메신저" %}{% endblock %}
 
 {% block content %}
-<div class="flex h-[calc(100vh-10rem)] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+<div class="flex h-[calc(100vh-10rem)] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
 
     <!-- 대화방 목록 (사이드바) -->
     <div class="w-full flex flex-col">
         <!-- 상단 헤더 -->
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-            <h2 class="text-sm font-semibold text-gray-700">대화 목록</h2>
+            <h2 class="text-sm font-semibold text-gray-700">{% trans "대화 목록" %}</h2>
             <div x-data="{ open: false }" class="relative">
                 <button @click="open = !open"
                         class="btn btn-primary text-xs px-3 py-1.5">
@@ -20,10 +21,10 @@
                      class="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1">
                     <a href="{% url 'messenger:create_group' %}"
                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        그룹 대화 만들기
+                        {% trans "그룹 대화 만들기" %}
                     </a>
                     <div class="border-t border-gray-100 my-1"></div>
-                    <p class="px-4 py-1 text-xs text-gray-400 uppercase">1:1 대화 시작</p>
+                    <p class="px-4 py-1 text-xs text-gray-400 uppercase">{% trans "1:1 대화 시작" %}</p>
                     {% for u in users %}
                     <form method="post" action="{% url 'messenger:create_direct' u.pk %}" class="inline">
                         {% csrf_token %}
@@ -70,7 +71,7 @@
                             {% if item.last_message %}
                                 {{ item.last_message.content|truncatechars:40 }}
                             {% else %}
-                                대화를 시작해보세요
+                                {% trans "대화를 시작해보세요" %}
                             {% endif %}
                         </p>
                         {% if item.unread_count > 0 %}
@@ -83,11 +84,11 @@
             </a>
             {% empty %}
             <div class="flex flex-col items-center justify-center py-16 text-gray-400">
-                <svg class="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                 </svg>
-                <p class="text-sm">아직 대화가 없습니다</p>
-                <p class="text-xs mt-1">"새 대화" 버튼을 눌러 시작하세요</p>
+                <p class="text-sm">{% trans "아직 대화가 없습니다" %}</p>
+                <p class="text-xs mt-1">{% trans "새 대화 버튼을 눌러 시작하세요" %}</p>
             </div>
             {% endfor %}
         </div>

@@ -148,7 +148,7 @@ This is the first screen you see after logging in.
 - Register shipping carriers and tracking URL templates under **Sales Management > Carrier Management**.
 
 ### Shipment Tracking
-- Create and track shipments under **Device Management > Shipment Tracking**.
+- Create and track shipments under **Sales Management > Shipment Tracking**.
 - Supports partial shipments with per-item tracking.
 - Automatic tracking URL generation per carrier (CJ, Hanjin, Lotte, Logen, Korea Post).
 
@@ -164,7 +164,23 @@ This is the first screen you see after logging in.
 2. Record repair details and change the status (Received -> Repairing -> Completed).
 3. Repair history is automatically tracked.
 
-## 7. Accounting Management
+## 7. Purchase Management
+
+### Purchase Order Creation
+1. Click the **Register** button under **Purchase Management > Purchase Orders**.
+2. Enter the supplier (partner), order items, quantities, and unit prices.
+3. VAT is automatically calculated when applicable.
+
+### Goods Receipt
+1. Register received goods under **Purchase Management > Goods Receipts**.
+2. Upon receipt confirmation, stock in is automatically processed for each item.
+3. The purchase order status is automatically updated.
+
+### Purchase Order Cancellation
+- Cancelling a purchase order will automatically soft delete related AP records and tax invoices.
+- If goods have already been received, cancellation is blocked.
+
+## 8. Accounting Management
 
 ### Tax Invoices
 - Register sales/purchase tax invoices under **Accounting Management > Tax Invoices**.
@@ -229,7 +245,7 @@ This is the first screen you see after logging in.
 ### Account Codes
 - Manage chart of accounts (asset/liability/equity/revenue/expense) under **Accounting Management > Account Codes**.
 
-## 8. Investment Management
+## 9. Investment Management
 
 ### Investor Registration
 - Register investor information under **Investment Management > Investor Management**.
@@ -243,7 +259,7 @@ This is the first screen you see after logging in.
 ### Dividends / Distributions
 - Record dividends and profit distributions under **Investment Management > Dividends / Distributions**.
 
-## 9. Fixed Asset Management
+## 10. Fixed Asset Management
 
 ### Asset Registration
 - Register fixed assets under **Fixed Assets > Asset List**.
@@ -259,7 +275,7 @@ This is the first screen you see after logging in.
 ### Asset Categories
 - Manage asset classifications under **Fixed Assets > Asset Categories**.
 
-## 10. Advertising Management
+## 11. Advertising Management
 
 ### Campaigns
 - Manage ad campaigns across platforms under **Advertising > Campaigns**.
@@ -274,7 +290,7 @@ This is the first screen you see after logging in.
 ### Ad Budget
 - Plan and track monthly advertising budgets per platform under **Advertising > Ad Budget**.
 
-## 11. Approval / Request Workflow
+## 12. Approval / Request Workflow
 
 ### Approval Requests
 - Create approval requests under **Approval** in the sidebar.
@@ -282,7 +298,7 @@ This is the first screen you see after logging in.
 - Multi-step approval chain with per-step approver and comments.
 - Attach files to approval requests.
 
-## 12. HR / Payroll
+## 13. HR / Payroll
 
 ### Organization
 - View the org chart under **HR/Attendance > Org Chart**.
@@ -302,17 +318,18 @@ This is the first screen you see after logging in.
 - Submit and approve leave requests under **HR/Attendance > Leave**.
 - View attendance dashboard under **HR/Attendance > Attendance Status**.
 
-## 13. Smart Store Integration
+## 14. Marketplace Integration
 
 ### Configuration
-1. Enter Naver API authentication credentials under **Smart Store > Store Settings**.
+1. Enter marketplace API authentication credentials under **Marketplace > Store Settings**.
+2. Supports Naver Smart Store and Coupang integration.
 
 ### Order Synchronization
-- Import orders using the sync button under **Smart Store > Store Dashboard**.
-- View synchronized order lists under **Smart Store > Store Orders**.
-- Check synchronization execution history under **Smart Store > Sync History**.
+- Import orders using the sync button under **Marketplace > Dashboard**.
+- View synchronized order lists under **Marketplace > Store Orders**.
+- Check synchronization execution history under **Marketplace > Sync History**.
 
-## 14. Inquiry Management
+## 15. Inquiry Management
 
 ### Inquiry Registration / Management
 1. Register inquiries by channel (Smart Store / Instagram / KakaoTalk) under **Inquiry Management > Inquiry List**.
@@ -322,13 +339,13 @@ This is the first screen you see after logging in.
 ### Reply Templates
 - Register frequently used reply templates under **Inquiry Management > Reply Templates**.
 
-## 15. Product Authentication
+## 16. Product Authentication
 
 - Manage serial number-based product authentication under the **Product Authentication** menu.
 - Warranty start and expiration dates are automatically calculated.
 - You can look up product authenticity by serial number.
 
-## 16. Groupware
+## 17. Groupware
 
 ### Board
 - Post notices and general messages under the **Board** menu.
@@ -346,7 +363,7 @@ This is the first screen you see after logging in.
 - View the audit dashboard, access logs, data change history, login/security events, and audit access records under the **Audit Trail** menu.
 - Requires auditor permission (`is_auditor`).
 
-## 17. System Administration (Admin Only)
+## 18. System Administration (Admin Only)
 
 ### User Management
 - Manage user accounts and roles under **System Administration > User Management**.
@@ -366,7 +383,7 @@ This is the first screen you see after logging in.
 ### AD Integration
 - Configure Active Directory domains, groups, user mappings, and sync policies under **System Administration > AD Integration**.
 
-## 18. Excel Download
+## 19. Excel Download
 
 Excel download functionality is available on each list page.
 
@@ -374,6 +391,6 @@ Excel download functionality is available on each list page.
 2. Click the **Excel Download** button.
 3. A styled `.xlsx` file will be downloaded.
 
-## 19. Backup / Restore
+## 20. Backup / Restore
 
 > Administrator (admin) privileges are required. See also "System Administration" above.

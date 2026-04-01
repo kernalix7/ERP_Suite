@@ -45,12 +45,21 @@ class PurchaseOrderItemForm(BaseForm):
             )
 
     def clean_amount(self):
-        val = self.data.get(self.add_prefix('amount'), '0')
-        return int(str(val).replace(',', '').strip() or '0')
+        val = self.data.get(self.add_prefix('amount'), '')
+        cleaned = str(val).replace(',', '').strip()
+        return int(cleaned) if cleaned else 0
 
     def clean_unit_price(self):
-        val = self.data.get(self.add_prefix('unit_price'), '0')
-        return int(str(val).replace(',', '').strip() or '0')
+        val = self.data.get(self.add_prefix('unit_price'), '')
+        cleaned = str(val).replace(',', '').strip()
+        return int(cleaned) if cleaned else 0
+
+    def has_changed(self):
+        """제품 미선택 시 빈 행으로 간주 — 유효성 검사 건너뛰기"""
+        product = self.data.get(self.add_prefix('product'), '')
+        if not product:
+            return False
+        return super().has_changed()
 
 
 PurchaseOrderItemFormSet = forms.inlineformset_factory(

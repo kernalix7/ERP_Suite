@@ -57,6 +57,10 @@ INSTALLED_APPS = [
     'apps.advertising',
     'apps.asset',
     'apps.api',
+    'apps.store_modules',
+    'apps.modules.naver_smartstore',
+    'apps.modules.coupang',
+    'apps.modules.direct_sale',
 ]
 
 MIDDLEWARE = [
@@ -81,7 +85,7 @@ MIDDLEWARE = [
 
 AUTHENTICATION_BACKENDS = [
     'axes.backends.AxesStandaloneBackend',
-    'django.contrib.auth.backends.ModelBackend',
+    'apps.accounts.backends.EmailOrEmployeeNumberBackend',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -97,6 +101,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.core.context_processors.effective_role',
             ],
         },
     },

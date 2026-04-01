@@ -1,6 +1,17 @@
+import warnings
+
 from .base import *  # noqa: F401, F403
 
 DEBUG = True
+
+# Dev/test 환경: FIELD_ENCRYPTION_KEY 미설정 시 고정 키 자동 할당 + 경고
+if not FIELD_ENCRYPTION_KEY:  # noqa: F405
+    FIELD_ENCRYPTION_KEY = 'miu9vt1XwBwIVqH8hacdPE7lKwQsMhYGMyQ7jF_gV6c='  # noqa: F811
+    warnings.warn(
+        'FIELD_ENCRYPTION_KEY가 설정되지 않아 개발용 기본 키를 사용합니다. '
+        '프로덕션에서는 반드시 고유 키를 설정하세요.',
+        stacklevel=1,
+    )
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '.app.github.dev', '.preview.app.github.dev']
 

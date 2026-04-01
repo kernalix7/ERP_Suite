@@ -15,14 +15,14 @@
 
 {% block content %}
 <!-- 출퇴근 버튼 영역 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-6">
+<div class="bg-white shadow rounded-lg p-4 sm:p-8 mb-4 sm:mb-6">
     <div class="text-center mb-6">
         <p class="text-sm text-gray-500 mb-1">{% trans "현재 시간" %}</p>
         <p class="text-4xl font-bold text-gray-900" id="current-clock">{{ current_time|time:"H:i:s" }}</p>
         <p class="text-sm text-gray-500 mt-1">{{ current_time|date:"Y년 n월 j일 (l)" }}</p>
     </div>
 
-    <div class="flex justify-center gap-6">
+    <div class="flex flex-wrap justify-center gap-4 sm:gap-6">
         {% if not my_record or not my_record.check_in %}
         <form method="post" action="{% url 'attendance:check_in' %}">
             {% csrf_token %}
@@ -34,7 +34,7 @@
             </button>
         </form>
         {% else %}
-        <div class="w-40 h-40 rounded-2xl bg-gray-200 text-gray-400 font-bold text-xl flex flex-col items-center justify-center cursor-not-allowed">
+        <div class="w-40 h-40 rounded-2xl bg-gray-100 text-gray-400 font-bold text-xl flex flex-col items-center justify-center cursor-not-allowed">
             <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
             </svg>
@@ -73,14 +73,14 @@
 </div>
 
 <!-- 오늘 출근 현황 카드 -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-    <div class="bg-white shadow-sm rounded-xl p-6">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
+    <div class="bg-white shadow rounded-lg p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">{% trans "전체 직원" %}</p>
                 <p class="mt-2 text-2xl font-bold text-gray-900">{{ total_staff }}{% trans "명" %}</p>
             </div>
-            <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
                 </svg>
@@ -88,13 +88,13 @@
         </div>
     </div>
 
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">{% trans "출근" %}</p>
                 <p class="mt-2 text-2xl font-bold text-green-600">{{ today_checked_in }}{% trans "명" %}</p>
             </div>
-            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
@@ -102,13 +102,13 @@
         </div>
     </div>
 
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">{% trans "퇴근" %}</p>
                 <p class="mt-2 text-2xl font-bold text-blue-600">{{ today_checked_out }}{% trans "명" %}</p>
             </div>
-            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7"/>
                 </svg>
@@ -116,13 +116,13 @@
         </div>
     </div>
 
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow rounded-lg p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">{% trans "미출근" %}</p>
                 <p class="mt-2 text-2xl font-bold text-red-600">{{ today_absent }}{% trans "명" %}</p>
             </div>
-            <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -132,9 +132,9 @@
 </div>
 
 <!-- 이번 달 내 요약 -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+<div class="bg-white shadow rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
     <h3 class="text-lg font-semibold text-gray-800 mb-4">{% trans "이번 달 내 근태 요약" %}</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <div>
             <p class="text-sm text-gray-500">{% trans "출근 일수" %}</p>
             <p class="text-xl font-bold text-gray-900">{{ month_work_days }}{% trans "일" %}</p>
@@ -151,8 +151,8 @@
 </div>
 
 <!-- 빠른 링크 -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <a href="{% url 'attendance:leave_create' %}" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:bg-gray-50 transition-colors">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+    <a href="{% url 'attendance:leave_create' %}" class="bg-white shadow rounded-lg p-6 hover:bg-gray-50 transition-colors">
         <div class="flex items-center">
             <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
                 <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,7 +165,7 @@
             </div>
         </div>
     </a>
-    <a href="{% url 'attendance:leave_list' %}" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:bg-gray-50 transition-colors">
+    <a href="{% url 'attendance:leave_list' %}" class="bg-white shadow rounded-lg p-6 hover:bg-gray-50 transition-colors">
         <div class="flex items-center">
             <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-4">
                 <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,7 +178,7 @@
             </div>
         </div>
     </a>
-    <a href="{% url 'attendance:leave_balance' %}" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:bg-gray-50 transition-colors">
+    <a href="{% url 'attendance:leave_balance' %}" class="bg-white shadow rounded-lg p-6 hover:bg-gray-50 transition-colors">
         <div class="flex items-center">
             <div class="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center mr-4">
                 <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

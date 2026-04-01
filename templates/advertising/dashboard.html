@@ -15,19 +15,19 @@
 
     <!-- KPI 카드 -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "활성 캠페인" %}</p>
             <p class="text-2xl font-bold text-blue-600 mt-1">{{ active_campaign_count }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "총 집행액" %}</p>
             <p class="text-2xl font-bold text-gray-900 mt-1">{{ total_spent|intcomma }}원</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "평균 ROAS" %}</p>
             <p class="text-2xl font-bold text-green-600 mt-1">{{ avg_roas }}%</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
             <p class="text-sm text-gray-500">{% trans "총 전환수" %}</p>
             <p class="text-2xl font-bold text-purple-600 mt-1">{{ total_conversions|intcomma }}</p>
         </div>
@@ -35,7 +35,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- 최근 캠페인 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100">
             <div class="p-5 border-b border-gray-100 flex justify-between items-center">
                 <h2 class="text-lg font-semibold">{% trans "최근 캠페인" %}</h2>
                 <a href="{% url 'advertising:campaign_list' %}" class="text-blue-600 text-sm hover:underline">{% trans "전체보기" %}</a>
@@ -69,7 +69,7 @@
         </div>
 
         <!-- 플랫폼별 성과 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100">
             <div class="p-5 border-b border-gray-100 flex justify-between items-center">
                 <h2 class="text-lg font-semibold">{% trans "플랫폼별 성과" %}</h2>
                 <a href="{% url 'advertising:platform_list' %}" class="text-blue-600 text-sm hover:underline">{% trans "전체보기" %}</a>
@@ -109,16 +109,16 @@
 
     <!-- 빠른 링크 -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <a href="{% url 'advertising:platform_list' %}" class="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition text-center">
+        <a href="{% url 'advertising:platform_list' %}" class="bg-white rounded-lg shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition text-center">
             <p class="text-sm font-medium text-gray-700">{% trans "플랫폼 관리" %}</p>
         </a>
-        <a href="{% url 'advertising:creative_list' %}" class="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition text-center">
+        <a href="{% url 'advertising:creative_list' %}" class="bg-white rounded-lg shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition text-center">
             <p class="text-sm font-medium text-gray-700">{% trans "소재 관리" %}</p>
         </a>
-        <a href="{% url 'advertising:performance_list' %}" class="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition text-center">
+        <a href="{% url 'advertising:performance_list' %}" class="bg-white rounded-lg shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition text-center">
             <p class="text-sm font-medium text-gray-700">{% trans "성과 분석" %}</p>
         </a>
-        <a href="{% url 'advertising:budget_list' %}" class="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition text-center">
+        <a href="{% url 'advertising:budget_list' %}" class="bg-white rounded-lg shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition text-center">
             <p class="text-sm font-medium text-gray-700">{% trans "예산 관리" %}</p>
         </a>
     </div>

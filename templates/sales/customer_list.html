@@ -1,31 +1,36 @@
 {% extends "base.html" %}
+{% load phone_filters %}
 
 {% block title %}고객 관리 - ERP Suite{% endblock %}
 {% block page_title %}고객 관리{% endblock %}
 
 {% block header_actions %}
+{% if user.is_manager_role %}
 <a href="{% url 'sales:customer_create' %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
     고객 등록
 </a>
+{% endif %}
 <a href="{% url 'sales:customer_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
     Excel
 </a>
+{% if user.is_manager_role %}
 <a href="{% url 'sales:customer_import' %}" class="btn btn-secondary" title="일괄 가져오기">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
     </svg>
     가져오기
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white shadow rounded-lg border border-gray-200">
     <!-- 검색 바 -->
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
@@ -44,7 +49,8 @@
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">코드</th>
                     <th class="px-4 py-3">고객명</th>
                     <th class="px-4 py-3">연락처</th>
                     <th class="px-4 py-3">구매내역</th>
@@ -54,12 +60,13 @@
             <tbody class="divide-y divide-gray-100">
                 {% for customer in customers %}
                 <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-500 text-xs font-mono">{{ customer.code }}</td>
                     <td class="px-4 py-3 font-medium text-gray-900">
-                        <a href="{% url 'sales:customer_detail' customer.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        <a href="{% url 'sales:customer_detail' customer.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ customer.name }}
                         </a>
                     </td>
-                    <td class="px-4 py-3 text-gray-600">{{ customer.phone|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ customer.phone|format_phone|default:"-" }}</td>
                     <td class="px-4 py-3">
                         {% for p in customer.purchases.all %}
                         <div class="{% if not forloop.first %}mt-1{% endif %} flex items-center gap-2 text-gray-600">
@@ -80,8 +87,10 @@
                         {% endfor %}
                     </td>
                     <td class="px-4 py-3 text-center">
-                        <a href="{% url 'sales:customer_detail' customer.pk %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
-                        <a href="{% url 'sales:customer_update' customer.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                        <a href="{% url 'sales:customer_detail' customer.code %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
+                        {% if user.is_manager_role %}
+                        <a href="{% url 'sales:customer_update' customer.code %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

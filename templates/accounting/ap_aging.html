@@ -14,9 +14,9 @@
 
 {% block content %}
 <!-- 구간별 요약 카드 -->
-<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-4 sm:mb-6">
     {% for key, bucket in buckets.items %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <p class="text-xs text-gray-500 mb-1">{{ bucket.label }}</p>
         <p class="text-lg font-bold {% if key == 'current' %}text-green-600{% elif key == 'over_30' %}text-yellow-600{% elif key == 'over_60' %}text-orange-500{% else %}text-red-600{% endif %}">
             {{ bucket.total|intcomma }}{% trans "원" %}
@@ -28,11 +28,11 @@
 
 <!-- 거래처별 Aging 요약 -->
 {% if partner_summary %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
     <div class="p-4 border-b border-gray-200">
         <h3 class="text-base font-semibold text-gray-800">{% trans "거래처별 Aging 요약" %}</h3>
     </div>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -68,7 +68,7 @@
 <!-- 구간별 상세 내역 -->
 {% for key, bucket in buckets.items %}
 {% if bucket.items %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
     <div class="p-4 border-b border-gray-200 flex items-center justify-between">
         <h3 class="text-base font-semibold text-gray-800">
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mr-2
@@ -81,7 +81,7 @@
             {{ bucket.total|intcomma }}{% trans "원" %} ({{ bucket.items|length }}{% trans "건" %})
         </h3>
     </div>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -118,7 +118,7 @@
 {% endfor %}
 
 {% if not partner_summary %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-400">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center text-gray-400">
     {% trans "미지급금 데이터가 없습니다." %}
 </div>
 {% endif %}

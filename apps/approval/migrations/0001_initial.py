@@ -103,13 +103,9 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
-        # Step 2: Add new fields (content_type, object_id) and indexes
+        # Step 2: Add status index (GFK index moved to 0002 after columns are added)
         migrations.AddIndex(
             model_name='approvalrequest',
             index=models.Index(fields=['status'], name='idx_appr_status'),
-        ),
-        migrations.AddIndex(
-            model_name='approvalrequest',
-            index=models.Index(fields=['content_type', 'object_id'], name='idx_appr_gfk'),
         ),
     ]

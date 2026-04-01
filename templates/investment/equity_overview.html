@@ -10,9 +10,9 @@
 
 {% block content %}
 <!-- 차트 & 요약 -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-8">
     <!-- 지분 분포 차트 -->
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">지분 분포</h3>
         <div class="flex justify-center">
             <canvas id="equityDistChart" style="max-height: 320px;"></canvas>
@@ -59,7 +59,7 @@
 
     <!-- 요약 카드 -->
     <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">지분 요약</h3>
             <div class="space-y-4">
                 <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
@@ -80,23 +80,23 @@
 </div>
 
 <!-- 투자자별 현황 -->
-<div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">투자자별 현황</h3>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                    <th class="text-left py-3 px-4 font-medium text-gray-500">투자자</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">지분율</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">총투자금</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">총배당금</th>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">투자자</th>
+                    <th class="px-4 py-3 text-right">지분율</th>
+                    <th class="px-4 py-3 text-right">총투자금</th>
+                    <th class="px-4 py-3 text-right">총배당금</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-100">
                 {% for data in equity_data %}
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 px-4 font-medium text-gray-900">{{ data.name }}</td>
-                    <td class="py-3 px-4 text-right">
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ data.name }}</td>
+                    <td class="px-4 py-3 text-right">
                         <div class="flex items-center justify-end gap-2">
                             <div class="w-20 bg-gray-200 rounded-full h-2">
                                 <div class="bg-blue-600 h-2 rounded-full" style="width: {{ data.share }}%"></div>
@@ -104,12 +104,12 @@
                             <span>{{ data.share }}%</span>
                         </div>
                     </td>
-                    <td class="py-3 px-4 text-right">{{ data.total_invested|intcomma }}원</td>
-                    <td class="py-3 px-4 text-right">{{ data.total_distributed|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ data.total_invested|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ data.total_distributed|intcomma }}원</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="py-8 text-center text-gray-400">투자자 데이터가 없습니다.</td>
+                    <td colspan="4" class="px-4 py-12 text-center text-gray-400">투자자 데이터가 없습니다.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -118,26 +118,26 @@
 </div>
 
 <!-- 지분변동이력 -->
-<div class="bg-white rounded-xl shadow-sm p-6">
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">지분변동이력</h3>
-    <div class="overflow-x-auto">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                    <th class="text-left py-3 px-4 font-medium text-gray-500">투자자</th>
-                    <th class="text-left py-3 px-4 font-medium text-gray-500">변동유형</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">변동 전</th>
-                    <th class="text-center py-3 px-4 font-medium text-gray-500"></th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">변동 후</th>
-                    <th class="text-left py-3 px-4 font-medium text-gray-500">변동일</th>
-                    <th class="text-left py-3 px-4 font-medium text-gray-500">관련 라운드</th>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">투자자</th>
+                    <th class="px-4 py-3">변동유형</th>
+                    <th class="px-4 py-3 text-right">변동 전</th>
+                    <th class="px-4 py-3 text-center"></th>
+                    <th class="px-4 py-3 text-right">변동 후</th>
+                    <th class="px-4 py-3">변동일</th>
+                    <th class="px-4 py-3">관련 라운드</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-100">
                 {% for change in equity_changes %}
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 px-4 font-medium text-gray-900">{{ change.investor.name }}</td>
-                    <td class="py-3 px-4">
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ change.investor.name }}</td>
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             {% if change.change_type == '신규투자' %}bg-green-100 text-green-800
                             {% elif change.change_type == '희석' %}bg-yellow-100 text-yellow-800
@@ -147,15 +147,15 @@
                             {{ change.change_type }}
                         </span>
                     </td>
-                    <td class="py-3 px-4 text-right">{{ change.before_percentage }}%</td>
-                    <td class="py-3 px-4 text-center text-gray-400">&rarr;</td>
-                    <td class="py-3 px-4 text-right font-medium">{{ change.after_percentage }}%</td>
-                    <td class="py-3 px-4">{{ change.change_date }}</td>
-                    <td class="py-3 px-4">{{ change.related_round|default:"-" }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ change.before_percentage }}%</td>
+                    <td class="px-4 py-3 text-center text-gray-400">&rarr;</td>
+                    <td class="px-4 py-3 text-right font-mono font-medium text-gray-900">{{ change.after_percentage }}%</td>
+                    <td class="px-4 py-3 text-gray-600">{{ change.change_date }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ change.related_round|default:"-" }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="py-8 text-center text-gray-400">지분변동 이력이 없습니다.</td>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">지분변동 이력이 없습니다.</td>
                 </tr>
                 {% endfor %}
             </tbody>

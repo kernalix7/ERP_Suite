@@ -5,20 +5,22 @@
 {% block page_title %}{% trans "택배사 관리" %}{% endblock %}
 
 {% block header_actions %}
+{% if user.is_manager_role %}
 <a href="{% url 'sales:carrier_create' %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
     {% trans "등록" %}
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+<div class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left">
+        <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                     <th class="px-4 py-3">{% trans "택배사코드" %}</th>
                     <th class="px-4 py-3">{% trans "택배사명" %}</th>
                     <th class="px-4 py-3">{% trans "추적URL 템플릿" %}</th>
@@ -44,7 +46,9 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-center">
+                        {% if user.is_manager_role %}
                         <a href="{% url 'sales:carrier_update' carrier.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">{% trans "수정" %}</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

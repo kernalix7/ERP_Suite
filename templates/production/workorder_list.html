@@ -5,12 +5,14 @@
 {% block page_title %}작업지시{% endblock %}
 
 {% block header_actions %}
+{% if user.is_manager_role %}
 <a href="{% url 'production:workorder_create' %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
     등록
 </a>
+{% endif %}
 <a href="{% url 'production:workorder_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -49,8 +51,8 @@
     </a>
 </div>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <div class="overflow-x-auto">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
@@ -67,12 +69,12 @@
                 {% for wo in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3">
-                        <a href="{% url 'production:workorder_detail' wo.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">
+                        <a href="{% url 'production:workorder_detail' wo.order_number %}" class="text-blue-600 hover:text-blue-800 font-medium">
                             {{ wo.order_number }}
                         </a>
                     </td>
                     <td class="px-4 py-3">
-                        <a href="{% url 'production:plan_detail' wo.production_plan.pk %}" class="text-gray-700 hover:text-blue-600">
+                        <a href="{% url 'production:plan_detail' wo.production_plan.plan_number %}" class="text-gray-700 hover:text-blue-600">
                             {{ wo.production_plan.plan_number }}
                         </a>
                     </td>
@@ -91,7 +93,7 @@
                     <td class="px-4 py-3 text-gray-700">{{ wo.assigned_to.name|default:"-" }}</td>
                     <td class="px-4 py-3 text-gray-500">{{ wo.started_at|date:"Y-m-d H:i"|default:"-" }}</td>
                     <td class="px-4 py-3 text-right">
-                        <a href="{% url 'production:workorder_update' wo.pk %}" class="text-gray-500 hover:text-blue-600">
+                        <a href="{% url 'production:workorder_update' wo.order_number %}" class="text-gray-500 hover:text-blue-600">
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                             </svg>
@@ -101,6 +103,9 @@
                 {% empty %}
                 <tr>
                     <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
                         등록된 작업지시가 없습니다.
                     </td>
                 </tr>
@@ -108,21 +113,22 @@
             </tbody>
         </table>
     </div>
-</div>
 
-{% if is_paginated %}
-<div class="mt-6 flex justify-center">
-    <nav class="flex flex-wrap items-center space-x-1">
-        {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-2 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
-        {% endif %}
-        {% for num in page_obj.paginator.page_range %}
-        <a href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-2 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
-        {% endfor %}
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-2 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
-        {% endif %}
-    </nav>
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 {% endblock %}

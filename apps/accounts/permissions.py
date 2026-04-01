@@ -1,0 +1,32 @@
+MODULE_CHOICES = [
+    ('sales', '판매관리'),
+    ('inventory', '재고관리'),
+    ('production', '생산관리'),
+    ('purchase', '구매관리'),
+    ('accounting', '회계관리'),
+    ('hr', '인사관리'),
+    ('attendance', '근태관리'),
+    ('approval', '결재관리'),
+    ('board', '게시판'),
+    ('calendar_app', '일정관리'),
+    ('messenger', '사내메신저'),
+    ('service', 'AS관리'),
+    ('warranty', '정품등록'),
+    ('investment', '투자관리'),
+    ('marketplace', '외부스토어'),
+    ('inquiry', '문의관리'),
+    ('asset', '고정자산'),
+    ('ad', 'AD관리'),
+    ('advertising', '광고관리'),
+    ('accounts', '사용자관리'),
+    ('core', '시스템관리'),
+]
+
+ACTION_CHOICES = [
+    ('VIEW', '조회'),
+    ('CREATE', '생성'),
+    ('EDIT', '수정'),
+    ('DELETE', '삭제'),
+    ('APPROVE', '승인'),
+    ('EXPORT', '내보내기'),
+]

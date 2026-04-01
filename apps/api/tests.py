@@ -93,7 +93,7 @@ class IsManagerOrReadOnlyPermissionTest(TestCase):
             username='api_staff', password='testpass123', role='staff',
         )
         self.category = Category.objects.create(
-            name='테스트카테고리', created_by=self.admin,
+            code='CAT-TEST', name='테스트카테고리', created_by=self.admin,
         )
 
     def _get_token(self, username):
@@ -124,7 +124,7 @@ class IsManagerOrReadOnlyPermissionTest(TestCase):
         token = self._get_token('api_manager')
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         response = self.client.post('/api/categories/', {
-            'name': '매니저카테고리',
+            'code': 'CAT-MGR', 'name': '매니저카테고리',
         })
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -133,7 +133,7 @@ class IsManagerOrReadOnlyPermissionTest(TestCase):
         token = self._get_token('api_admin')
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         response = self.client.post('/api/categories/', {
-            'name': '관리자카테고리',
+            'code': 'CAT-ADM', 'name': '관리자카테고리',
         })
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -157,13 +157,15 @@ class IsManagerOrReadOnlyPermissionTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_manager_can_delete(self):
-        """manager는 삭제 가능"""
+        """manager 삭제 시 soft delete 수행"""
         token = self._get_token('api_manager')
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         response = self.client.delete(
             f'/api/categories/{self.category.pk}/',
         )
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.category.refresh_from_db()
+        self.assertFalse(self.category.is_active)
 
 
 class ProductAPITest(TestCase):
@@ -296,6 +298,259 @@ class OrderAPITest(TestCase):
             'order_number': 'ORD-API-001',
             'partner': self.partner.pk,
             'order_date': '2026-03-17',
-            'status': 'DRAFT',
         })
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_order_status_read_only(self):
+        """주문 status 필드는 API로 직접 변경 불가"""
+        from apps.sales.models import Order
+        order = Order.objects.create(
+            order_number='ORD-API-RO', partner=self.partner,
+            order_date='2026-03-17', created_by=self.manager,
+        )
+        response = self.client.patch(
+            f'/api/orders/{order.pk}/',
+            {'status': 'CONFIRMED'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'DRAFT')
+
+
+# ====================================================================
+# New ViewSet Tests
+# ====================================================================
+
+class _AuthenticatedAPITestBase(TestCase):
+    """Authenticated API test base with manager JWT token"""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.manager = User.objects.create_user(
+            username='new_api_mgr', password='testpass123', role='manager',
+            name='API매니저',
+        )
+        self.staff = User.objects.create_user(
+            username='new_api_staff', password='testpass123', role='staff',
+            name='API스탭',
+        )
+        response = self.client.post(reverse('token_obtain_pair'), {
+            'username': 'new_api_mgr', 'password': 'testpass123',
+        })
+        self.token = response.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.token}')
+
+
+class ApprovalRequestAPITest(_AuthenticatedAPITestBase):
+    """ApprovalRequest API 테스트"""
+
+    def test_list(self):
+        """결재 목록 조회"""
+        response = self.client.get('/api/approval-requests/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create(self):
+        """결재 생성"""
+        response = self.client.post('/api/approval-requests/', {
+            'category': 'GENERAL',
+            'title': 'API 결재 테스트',
+            'content': 'API에서 생성',
+            'amount': 50000,
+            'requester': self.manager.pk,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('request_number', response.data)
+
+    def test_detail(self):
+        """결재 상세 조회"""
+        from apps.approval.models import ApprovalRequest
+        ar = ApprovalRequest.all_objects.create(
+            category='PURCHASE', title='상세테스트', content='내용',
+            requester=self.manager, created_by=self.manager,
+        )
+        response = self.client.get(f'/api/approval-requests/{ar.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['title'], '상세테스트')
+        self.assertIn('steps', response.data)
+
+    def test_request_number_read_only(self):
+        """request_number는 읽기전용"""
+        from apps.approval.models import ApprovalRequest
+        ar = ApprovalRequest.all_objects.create(
+            category='GENERAL', title='RO테스트', content='내용',
+            requester=self.manager, created_by=self.manager,
+        )
+        original_num = ar.request_number
+        response = self.client.patch(
+            f'/api/approval-requests/{ar.pk}/',
+            {'request_number': 'AR-HACK'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ar.refresh_from_db()
+        self.assertEqual(ar.request_number, original_num)
+
+    def test_staff_read_only(self):
+        """staff는 읽기만 가능"""
+        staff_response = self.client.post(reverse('token_obtain_pair'), {
+            'username': 'new_api_staff', 'password': 'testpass123',
+        })
+        staff_client = APIClient()
+        staff_client.credentials(
+            HTTP_AUTHORIZATION=f'Bearer {staff_response.data["access"]}',
+        )
+        response = staff_client.get('/api/approval-requests/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response = staff_client.post('/api/approval-requests/', {
+            'category': 'GENERAL', 'title': 'X', 'content': 'X',
+            'requester': self.staff.pk,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ApprovalStepAPITest(_AuthenticatedAPITestBase):
+    """ApprovalStep API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/approval-steps/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_step(self):
+        from apps.approval.models import ApprovalRequest
+        ar = ApprovalRequest.all_objects.create(
+            category='GENERAL', title='단계테스트', content='내용',
+            requester=self.manager, created_by=self.manager,
+        )
+        response = self.client.post('/api/approval-steps/', {
+            'request': ar.pk,
+            'step_order': 1,
+            'approver': self.manager.pk,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
+class EmployeeProfileAPITest(_AuthenticatedAPITestBase):
+    """EmployeeProfile API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/employees/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class PayrollAPITest(_AuthenticatedAPITestBase):
+    """Payroll API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/payrolls/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class ServiceRequestAPITest(_AuthenticatedAPITestBase):
+    """ServiceRequest API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/service-requests/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class InquiryAPITest(_AuthenticatedAPITestBase):
+    """Inquiry API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/inquiries/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class FixedAssetAPITest(_AuthenticatedAPITestBase):
+    """FixedAsset API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/fixed-assets/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class MarketplaceOrderAPITest(_AuthenticatedAPITestBase):
+    """MarketplaceOrder API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/marketplace-orders/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class VoucherAPITest(_AuthenticatedAPITestBase):
+    """Voucher API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/vouchers/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class AccountReceivableAPITest(_AuthenticatedAPITestBase):
+    """AccountReceivable API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/accounts-receivable/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class AccountPayableAPITest(_AuthenticatedAPITestBase):
+    """AccountPayable API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/accounts-payable/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class BudgetAPITest(_AuthenticatedAPITestBase):
+    """Budget API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/budgets/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class PurchaseOrderAPITest(_AuthenticatedAPITestBase):
+    """PurchaseOrder API 테스트"""
+
+    def test_list(self):
+        response = self.client.get('/api/purchase-orders/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create(self):
+        partner = Partner.objects.create(
+            code='PO-API-P001', name='발주API거래처',
+            partner_type='SUPPLIER', created_by=self.manager,
+        )
+        response = self.client.post('/api/purchase-orders/', {
+            'partner': partner.pk,
+            'order_date': '2026-03-24',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_soft_delete(self):
+        """API 삭제 시 soft delete"""
+        from apps.purchase.models import PurchaseOrder as PO
+        partner = Partner.objects.create(
+            code='PO-API-DEL', name='삭제테스트거래처',
+            partner_type='SUPPLIER', created_by=self.manager,
+        )
+        po = PO.all_objects.create(
+            partner=partner, order_date='2026-03-24',
+            created_by=self.manager,
+        )
+        response = self.client.delete(f'/api/purchase-orders/{po.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        po.refresh_from_db()
+        self.assertFalse(po.is_active)
+
+
+class NewViewSetCountTest(_AuthenticatedAPITestBase):
+    """API ViewSet 총 개수 확인"""
+
+    def test_total_viewset_count(self):
+        """API 엔드포인트 25개 이상 등록 확인"""
+        response = self.client.get('/api/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # DefaultRouter root returns all registered endpoints
+        self.assertGreaterEqual(len(response.data), 25)

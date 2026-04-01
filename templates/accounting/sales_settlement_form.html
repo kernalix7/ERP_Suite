@@ -12,7 +12,7 @@
 <form method="post" x-data="settlementForm()">
     {% csrf_token %}
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-800">정산 대상 주문 선택</h2>
             <div class="flex items-center gap-3">
@@ -23,9 +23,18 @@
             </div>
         </div>
 
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">적요</label>
-            <input type="text" name="description" class="form-input" placeholder="정산 메모 (선택)">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">적요</label>
+                <input type="text" name="description" class="form-input" placeholder="정산 메모 (선택)">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">수수료 계산 기준</label>
+                <select name="commission_base" class="form-input" @change="updateSummary()">
+                    <option value="revenue">공급가액 기준 (매출 × 수수료율)</option>
+                    <option value="profit">순이익 기준 ((매출 - 원가) × 수수료율)</option>
+                </select>
+            </div>
         </div>
 
         <div class="overflow-x-auto">
@@ -96,7 +105,7 @@
     </div>
 
     <!-- 정산 요약 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">정산 요약</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
             <div class="bg-gray-50 rounded-lg p-4 text-center">
@@ -126,7 +135,34 @@
             <div class="bg-gray-50 rounded-lg p-4 text-center">
                 <dt class="text-sm text-gray-500">예상 수수료</dt>
                 <dd class="mt-1 text-xl font-bold text-red-600" id="summary-commission">0원</dd>
-                <p class="text-xs text-gray-400 mt-1">(공급가액-원가)×수수료율</p>
+                <p class="text-xs text-gray-400 mt-1" id="commission-base-label">공급가액×수수료율</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 정산 계좌 선택 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">정산 계좌</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">수수료 출금 계좌</label>
+                <select name="commission_bank" class="form-input">
+                    <option value="">-- 선택 (수수료 출금 안함) --</option>
+                    {% for acct in bank_accounts %}
+                    <option value="{{ acct.pk }}">{{ acct.name }} ({{ acct.bank }} {{ acct.account_number|truncatechars:10 }}) 잔액: {{ acct.balance|intcomma }}원</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-400 mt-1">수수료를 차감할 계좌</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">정산금 입금 계좌</label>
+                <select name="settlement_bank" class="form-input">
+                    <option value="">-- 선택 (입금 처리 안함) --</option>
+                    {% for acct in bank_accounts %}
+                    <option value="{{ acct.pk }}" {% if acct.is_default %}selected{% endif %}>{{ acct.name }} ({{ acct.bank }} {{ acct.account_number|truncatechars:10 }}) 잔액: {{ acct.balance|intcomma }}원</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-400 mt-1">정산금(매출-수수료)을 입금할 계좌</p>
             </div>
         </div>
     </div>
@@ -176,9 +212,10 @@ function settlementForm() {
                 grand += parseFloat(cb.dataset.grand) || 0;
                 const row = cb.closest('tr');
                 const rate = parseFloat(row.querySelector('.rate-input')?.value) || 0;
-                // 수수료 = (공급가액 - 원가) × 수수료율
-                const margin = r - cost;
-                commission += Math.round(margin * rate / 100);
+                // 수수료 기준 선택 (순이익 = 공급가액 - 원가 - 배송비)
+                const base = document.querySelector('[name=commission_base]').value;
+                const commBase = base === 'profit' ? Math.max(r - cost - shipping, 0) : r;
+                commission += Math.round(commBase * rate / 100);
             });
             document.getElementById('summary-count').textContent = count + '건';
             document.getElementById('summary-revenue').textContent = revenue.toLocaleString() + '원';
@@ -187,6 +224,8 @@ function settlementForm() {
             document.getElementById('summary-tax').textContent = tax.toLocaleString() + '원';
             document.getElementById('summary-grand').textContent = grand.toLocaleString() + '원';
             document.getElementById('summary-commission').textContent = commission.toLocaleString() + '원';
+            const baseLabel = document.querySelector('[name=commission_base]').value === 'profit' ? '(매출-원가-배송비)×수수료율' : '공급가액×수수료율';
+            document.getElementById('commission-base-label').textContent = baseLabel;
             document.getElementById('btn-submit').disabled = count === 0;
         },
         init() {

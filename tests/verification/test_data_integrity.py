@@ -530,7 +530,7 @@ class INT008_SoftDeleteTest(TestCase):
         product.soft_delete()
 
         self.assertEqual(
-            Product.all_objects.filter(code='INT008-P2').count(), 1,
+            Product.all_objects.filter(pk=product.pk).count(), 1,
             "soft_delete 후 all_objects에서도 조회 불가",
         )
 

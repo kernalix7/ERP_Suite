@@ -66,7 +66,7 @@ class ChatRoomModelTest(TestCase):
         ChatParticipant.objects.create(room=room, user=self.user1)
         ChatParticipant.objects.create(room=room, user=self.user2)
         display = room.get_display_name(self.user1)
-        self.assertEqual(display, '유저2')
+        self.assertEqual(display, str(self.user2))
 
     def test_get_display_name_group_with_name(self):
         """이름 있는 그룹 대화방 표시 이름"""
@@ -340,3 +340,76 @@ class MessengerViewTest(TestCase):
         )
         participant = ChatParticipant.objects.get(room=room, user=self.user1)
         self.assertIsNotNone(participant.last_read_at)
+
+
+class ChatRoomFormTest(TestCase):
+    """ChatRoomForm / ChatParticipantForm 폼 테스트"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(
+            username='formchat1', password='testpass123',
+            role='staff', name='폼채팅유저1',
+        )
+        self.user2 = User.objects.create_user(
+            username='formchat2', password='testpass123',
+            role='staff', name='폼채팅유저2',
+        )
+
+    def test_chat_room_form_group_valid(self):
+        """그룹 대화방 폼 유효"""
+        from apps.messenger.forms import ChatRoomForm
+        form = ChatRoomForm(data={
+            'name': '개발팀',
+            'room_type': ChatRoom.RoomType.GROUP,
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_chat_room_form_group_no_name_invalid(self):
+        """그룹 대화방에 이름 없으면 유효하지 않음"""
+        from apps.messenger.forms import ChatRoomForm
+        form = ChatRoomForm(data={
+            'name': '',
+            'room_type': ChatRoom.RoomType.GROUP,
+        })
+        self.assertFalse(form.is_valid())
+
+    def test_chat_room_form_direct_valid(self):
+        """1:1 대화방 폼 유효 (이름 없어도 됨)"""
+        from apps.messenger.forms import ChatRoomForm
+        form = ChatRoomForm(data={
+            'name': '',
+            'room_type': ChatRoom.RoomType.DIRECT,
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_chat_participant_form_valid(self):
+        """참여자 폼 유효"""
+        from apps.messenger.forms import ChatParticipantForm
+        room = ChatRoom.objects.create(
+            room_type=ChatRoom.RoomType.GROUP,
+            name='테스트방',
+            created_by=self.user1,
+        )
+        form = ChatParticipantForm(data={
+            'room': room.pk,
+            'user': self.user2.pk,
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_group_chat_form_valid(self):
+        """GroupChatForm 유효 (레거시 폼 호환)"""
+        from apps.messenger.forms import GroupChatForm
+        form = GroupChatForm(data={
+            'name': '그룹채팅',
+            'participants': [self.user1.pk, self.user2.pk],
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_group_chat_form_no_name_invalid(self):
+        """GroupChatForm - 이름 없으면 유효하지 않음"""
+        from apps.messenger.forms import GroupChatForm
+        form = GroupChatForm(data={
+            'name': '',
+            'participants': [self.user1.pk],
+        })
+        self.assertFalse(form.is_valid())

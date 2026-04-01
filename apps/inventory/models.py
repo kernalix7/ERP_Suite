@@ -6,10 +6,12 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
-from apps.core.utils import generate_document_number
+from apps.core.storage import hashed_upload_path
+from apps.core.utils import generate_document_number, generate_sequential_code
 
 
 class Category(BaseModel):
+    code = models.CharField('카테고리코드', max_length=30, unique=True)
     name = models.CharField('카테고리명', max_length=100)
     parent = models.ForeignKey(
         'self', verbose_name='상위 카테고리',
@@ -21,24 +23,32 @@ class Category(BaseModel):
     class Meta:
         verbose_name = '카테고리'
         verbose_name_plural = '카테고리'
-        ordering = ['name']
+        ordering = ['code']
 
     def __str__(self):
-        return self.name
+        return f"[{self.code}] {self.name}"
 
 
 class Product(BaseModel):
+    BUSINESS_KEY_FIELD = 'code'
+
     class ProductType(models.TextChoices):
         RAW = 'RAW', '원자재'
         SEMI = 'SEMI', '반제품'
         FINISHED = 'FINISHED', '완제품'
+
+    TYPE_PREFIX_MAP = {
+        'FINISHED': 'FIN',
+        'RAW': 'RAW',
+        'SEMI': 'ASM',
+    }
 
     class ValuationMethod(models.TextChoices):
         WEIGHTED_AVG = 'AVG', '이동평균법'
         FIFO = 'FIFO', '선입선출법'
         LIFO = 'LIFO', '후입선출법'
 
-    code = models.CharField('제품코드', max_length=50, unique=True)
+    code = models.CharField('제품코드', max_length=50, unique=True, blank=True)
     name = models.CharField('제품명', max_length=200)
     product_type = models.CharField(
         '제품유형', max_length=10,
@@ -64,7 +74,7 @@ class Product(BaseModel):
     )
     specification = models.TextField('규격/사양', blank=True)
     image = models.ImageField(
-        '이미지', upload_to='products/',
+        '이미지', upload_to=hashed_upload_path('products'),
         null=True, blank=True,
     )
     history = HistoricalRecords()
@@ -89,8 +99,22 @@ class Product(BaseModel):
             ),
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.code:
+            prefix = self.TYPE_PREFIX_MAP.get(self.product_type, 'FIN')
+            self.code = generate_sequential_code(
+                Product, 'code', prefix, digits=4,
+            )
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f'[{self.code}] {self.name}'
+
+    @classmethod
+    def generate_next_code(cls, product_type):
+        """제품유형별 다음 코드 생성"""
+        prefix = cls.TYPE_PREFIX_MAP.get(product_type, 'FIN')
+        return generate_sequential_code(cls, 'code', prefix, digits=4)
 
     @property
     def available_stock(self):
@@ -117,7 +141,8 @@ class Product(BaseModel):
 class Warehouse(BaseModel):
     code = models.CharField('창고코드', max_length=20, unique=True)
     name = models.CharField('창고명', max_length=100)
-    location = models.CharField('위치', max_length=200, blank=True)
+    address = models.CharField('주소', max_length=300, blank=True)
+    location = models.CharField('상세위치', max_length=200, blank=True, help_text='동/층/구역 등 상세 위치')
     is_default = models.BooleanField('기본창고', default=False)
     history = HistoricalRecords()
 
@@ -139,6 +164,8 @@ class Warehouse(BaseModel):
 
 
 class StockMovement(BaseModel):
+    BUSINESS_KEY_FIELD = 'movement_number'
+
     class MovementType(models.TextChoices):
         IN = 'IN', '입고'
         OUT = 'OUT', '출고'
@@ -196,6 +223,8 @@ class StockMovement(BaseModel):
 
 
 class StockTransfer(BaseModel):
+    BUSINESS_KEY_FIELD = 'transfer_number'
+
     transfer_number = models.CharField('이동번호', max_length=30, unique=True, blank=True)
     from_warehouse = models.ForeignKey(
         Warehouse, verbose_name='출발창고',
@@ -231,6 +260,8 @@ class StockTransfer(BaseModel):
 
 class StockCount(BaseModel):
     """재고실사 — 정기 실물 재고 점검"""
+    BUSINESS_KEY_FIELD = 'count_number'
+
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', '작성중'
         IN_PROGRESS = 'IN_PROGRESS', '실사중'
@@ -334,6 +365,8 @@ class WarehouseStock(BaseModel):
 
 class StockLot(BaseModel):
     """입고 배치(LOT) 단위 재고 추적"""
+    BUSINESS_KEY_FIELD = 'lot_number'
+
     lot_number = models.CharField('LOT번호', max_length=50, unique=True)
     product = models.ForeignKey(
         Product, verbose_name='제품',

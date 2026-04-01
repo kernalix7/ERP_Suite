@@ -5,18 +5,18 @@
 {% block page_title %}고정자산 상세{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'asset:asset_update' asset.pk %}" class="btn btn-primary">수정</a>
+<a href="{% url 'asset:asset_update' asset.asset_number %}" class="btn btn-primary">수정</a>
 {% if asset.status == 'ACTIVE' %}
-<a href="{% url 'asset:asset_dispose' asset.pk %}" class="btn btn-danger">처분</a>
+<a href="{% url 'asset:asset_dispose' asset.asset_number %}" class="btn btn-danger">처분</a>
 {% endif %}
 <a href="{% url 'asset:asset_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
 <!-- 기본 정보 -->
-<div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">기본 정보</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <div>
             <p class="text-sm text-gray-500">자산번호</p>
             <p class="mt-1 font-medium text-gray-900">{{ asset.asset_number }}</p>
@@ -75,20 +75,20 @@
 </div>
 
 <!-- 금액 요약 -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-    <div class="bg-white rounded-xl shadow-sm p-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <p class="text-sm font-medium text-gray-500">취득원가</p>
         <p class="mt-1 text-2xl font-bold text-gray-900">{{ asset.acquisition_cost|intcomma }}원</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <p class="text-sm font-medium text-gray-500">감가상각 누계액</p>
         <p class="mt-1 text-2xl font-bold text-red-600">{{ asset.accumulated_depreciation|intcomma }}원</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <p class="text-sm font-medium text-gray-500">장부가액</p>
         <p class="mt-1 text-2xl font-bold text-blue-600">{{ asset.book_value|intcomma }}원</p>
     </div>
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <p class="text-sm font-medium text-gray-500">잔존가치</p>
         <p class="mt-1 text-2xl font-bold text-gray-600">{{ asset.residual_value|intcomma }}원</p>
     </div>
@@ -96,9 +96,9 @@
 
 {% if asset.status == 'DISPOSED' or asset.status == 'SCRAPPED' %}
 <!-- 처분 정보 -->
-<div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">처분 정보</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div>
             <p class="text-sm text-gray-500">처분일</p>
             <p class="mt-1 font-medium text-gray-900">{{ asset.disposal_date|default:"-" }}</p>
@@ -116,29 +116,29 @@
 {% endif %}
 
 <!-- 감가상각 내역 -->
-<div class="bg-white rounded-xl shadow-sm p-6">
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">감가상각 내역</h3>
     <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
-                <tr class="border-b border-gray-200">
-                    <th class="text-left py-3 px-4 font-medium text-gray-500">기간</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">감가상각비</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">누계액</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-500">장부가액</th>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">기간</th>
+                    <th class="px-4 py-3 text-right">감가상각비</th>
+                    <th class="px-4 py-3 text-right">누계액</th>
+                    <th class="px-4 py-3 text-right">장부가액</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-100">
                 {% for record in depreciation_records %}
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 px-4 font-medium text-gray-900">{{ record.year }}년 {{ record.month }}월</td>
-                    <td class="py-3 px-4 text-right">{{ record.depreciation_amount|intcomma }}원</td>
-                    <td class="py-3 px-4 text-right">{{ record.accumulated_amount|intcomma }}원</td>
-                    <td class="py-3 px-4 text-right font-medium">{{ record.book_value_after|intcomma }}원</td>
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ record.year }}년 {{ record.month }}월</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ record.depreciation_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ record.accumulated_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono font-medium text-blue-600">{{ record.book_value_after|intcomma }}원</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="py-8 text-center text-gray-400">감가상각 내역이 없습니다.</td>
+                    <td colspan="4" class="px-4 py-12 text-center text-gray-400">감가상각 내역이 없습니다.</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -15,7 +15,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white shadow rounded-lg border border-gray-200">
     <!-- 필터 -->
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-wrap gap-3">
@@ -35,7 +35,7 @@
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
-                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                     <th class="px-4 py-3">주문번호</th>
                     <th class="px-4 py-3">상품명</th>
                     <th class="px-4 py-3 text-right">수량</th>
@@ -50,7 +50,7 @@
                 {% for order in object_list %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3 font-mono text-gray-900">
-                        <a href="{% url 'marketplace:order_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        <a href="{% url 'marketplace:order_detail' order.store_order_id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ order.order_number }}
                         </a>
                     </td>
@@ -75,7 +75,7 @@
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ order.order_date|date:"Y-m-d" }}</td>
                     <td class="px-4 py-3 text-center">
-                        <a href="{% url 'marketplace:order_detail' order.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">상세</a>
+                        <a href="{% url 'marketplace:order_detail' order.store_order_id %}" class="text-blue-600 hover:text-blue-800 text-sm">상세</a>
                     </td>
                 </tr>
                 {% empty %}

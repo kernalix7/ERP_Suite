@@ -12,7 +12,7 @@
     <a href="?tab=my" class="px-3 py-1.5 text-sm rounded-full border {% if request.GET.tab == 'my' %}bg-blue-100 border-blue-300 text-blue-700{% else %}border-gray-300 text-gray-600{% endif %}">내가 작성</a>
     <a href="?tab=pending" class="px-3 py-1.5 text-sm rounded-full border {% if request.GET.tab == 'pending' %}bg-red-100 border-red-300 text-red-700{% else %}border-gray-300 text-gray-600{% endif %}">결재대기</a>
 </div>
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
     <div class="table-responsive">
     <table class="min-w-full divide-y divide-gray-200">
         <thead>
@@ -29,7 +29,7 @@
         </thead>
         <tbody class="divide-y divide-gray-200">
             {% for a in approvals %}
-            <tr class="hover:bg-gray-50 cursor-pointer" onclick="location.href='{% url 'approval:approval_detail' a.pk %}'">
+            <tr class="hover:bg-gray-50 cursor-pointer" onclick="location.href='{% url 'approval:approval_detail' a.request_number %}'">
                 <td class="px-4 py-3 text-sm font-medium text-blue-600">{{ a.request_number }}</td>
                 <td class="px-4 py-3 text-sm"><span class="px-2 py-1 text-xs rounded-full bg-gray-100">{{ a.get_category_display }}</span></td>
                 <td class="px-4 py-3 text-sm font-medium">{{ a.title }}</td>

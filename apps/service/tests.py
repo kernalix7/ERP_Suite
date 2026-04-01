@@ -4,8 +4,9 @@ from decimal import Decimal
 from django.test import TestCase
 
 from apps.accounts.models import User
+from apps.accounting.models import AccountReceivable
 from apps.inventory.models import Product
-from apps.sales.models import Customer
+from apps.sales.models import Customer, Partner
 
 from .models import RepairRecord, ServiceRequest
 
@@ -20,7 +21,7 @@ class ServiceRequestTests(TestCase):
             product_type=Product.ProductType.FINISHED,
         )
         self.customer = Customer.objects.create(
-            name='테스트 고객',
+            code='CUST-SVC01', name='테스트 고객',
             phone='010-1234-5678',
         )
 
@@ -103,7 +104,7 @@ class RepairRecordTests(TestCase):
             product_type=Product.ProductType.FINISHED,
         )
         self.customer = Customer.objects.create(
-            name='수리 고객',
+            code='CUST-SVC02', name='수리 고객',
             phone='010-9999-8888',
         )
         self.technician = User.objects.create_user(
@@ -160,3 +161,122 @@ class RepairRecordTests(TestCase):
 
         total_cost = sum(r.cost for r in self.service_request.repairs.all())
         self.assertEqual(total_cost, Decimal('200000'))
+
+
+class ServiceRequestSignalTests(TestCase):
+    """AS 완료 시 유상수리 AR 자동 생성 시그널 테스트"""
+
+    def setUp(self):
+        self.product = Product.objects.create(
+            code='PRD-SIG-001',
+            name='시그널 테스트 제품',
+            product_type=Product.ProductType.FINISHED,
+        )
+        self.customer = Customer.objects.create(
+            code='CUST-SIG01', name='시그널고객',
+            phone='010-5555-6666',
+        )
+        self.partner = Partner.objects.create(
+            code='PTN-SIG-001',
+            name='시그널고객',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+
+    def test_completed_paid_repair_creates_ar(self):
+        """유상수리 완료 시 AR 자동 생성"""
+        sr = ServiceRequest.objects.create(
+            request_number='AS-SIG-001',
+            customer=self.customer,
+            product=self.product,
+            request_type=ServiceRequest.RequestType.PAID,
+            symptom='화면 깨짐',
+            received_date=date(2026, 3, 1),
+            is_warranty=False,
+        )
+        RepairRecord.objects.create(
+            service_request=sr,
+            repair_date=date(2026, 3, 5),
+            description='LCD 교체',
+            cost=Decimal('100000'),
+        )
+        sr.status = ServiceRequest.Status.COMPLETED
+        sr.completed_date = date(2026, 3, 5)
+        sr.save()
+
+        ar = AccountReceivable.objects.filter(
+            notes__contains='AS-SIG-001',
+        ).first()
+        self.assertIsNotNone(ar)
+        self.assertEqual(int(ar.amount), 100000)
+        self.assertEqual(ar.partner, self.partner)
+
+    def test_warranty_repair_no_ar(self):
+        """보증수리 완료 시 AR 미생성"""
+        sr = ServiceRequest.objects.create(
+            request_number='AS-SIG-002',
+            customer=self.customer,
+            product=self.product,
+            request_type=ServiceRequest.RequestType.WARRANTY,
+            symptom='작동 불량',
+            received_date=date(2026, 3, 1),
+            is_warranty=True,
+        )
+        RepairRecord.objects.create(
+            service_request=sr,
+            repair_date=date(2026, 3, 5),
+            description='부품 교체',
+            cost=Decimal('80000'),
+        )
+        sr.status = ServiceRequest.Status.COMPLETED
+        sr.save()
+
+        ar_count = AccountReceivable.objects.filter(
+            notes__contains='AS-SIG-002',
+        ).count()
+        self.assertEqual(ar_count, 0)
+
+    def test_no_partner_match_no_ar(self):
+        """매칭 거래처 없으면 AR 미생성"""
+        other_customer = Customer.objects.create(
+            code='CUST-NOMATCH', name='매칭불가고객',
+            phone='010-0000-0000',
+        )
+        sr = ServiceRequest.objects.create(
+            request_number='AS-SIG-003',
+            customer=other_customer,
+            product=self.product,
+            symptom='고장',
+            received_date=date(2026, 3, 1),
+            is_warranty=False,
+        )
+        RepairRecord.objects.create(
+            service_request=sr,
+            repair_date=date(2026, 3, 5),
+            description='수리',
+            cost=Decimal('50000'),
+        )
+        sr.status = ServiceRequest.Status.COMPLETED
+        sr.save()
+
+        ar_count = AccountReceivable.objects.filter(
+            notes__contains='AS-SIG-003',
+        ).count()
+        self.assertEqual(ar_count, 0)
+
+    def test_zero_cost_no_ar(self):
+        """수리비용 0원이면 AR 미생성"""
+        sr = ServiceRequest.objects.create(
+            request_number='AS-SIG-004',
+            customer=self.customer,
+            product=self.product,
+            symptom='점검',
+            received_date=date(2026, 3, 1),
+            is_warranty=False,
+        )
+        sr.status = ServiceRequest.Status.COMPLETED
+        sr.save()
+
+        ar_count = AccountReceivable.objects.filter(
+            notes__contains='AS-SIG-004',
+        ).count()
+        self.assertEqual(ar_count, 0)

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n humanize %}
+{% load i18n humanize phone_filters %}
 
 {% block title %}{% trans "판매제품 상세" %} - {{ order_item.product.name }} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "판매제품 상세" %}{% endblock %}
@@ -11,13 +11,13 @@
 {% block content %}
 <div class="space-y-6">
     <!-- 주문 정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "주문 정보" %}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">{% trans "주문번호" %}</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">
-                    <a href="{% url 'sales:order_detail' order_item.order.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline font-mono">
+                    <a href="{% url 'sales:order_detail' order_item.order.order_number %}" class="text-blue-600 hover:text-blue-800 hover:underline font-mono">
                         {{ order_item.order.order_number }}
                     </a>
                 </dd>
@@ -56,9 +56,9 @@
     </div>
 
     <!-- 제품 정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "제품 정보" %}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">{% trans "제품코드" %}</dt>
                 <dd class="mt-1 text-sm font-mono text-gray-900">{{ order_item.product.code }}</dd>
@@ -100,20 +100,20 @@
 
     <!-- 고객 정보 -->
     {% if order_item.order.customer %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "고객 정보" %}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">{% trans "고객명" %}</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">
-                    <a href="{% url 'sales:customer_detail' order_item.order.customer.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    <a href="{% url 'sales:customer_detail' order_item.order.customer.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                         {{ order_item.order.customer.name }}
                     </a>
                 </dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "연락처" %}</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.customer.phone|default:"-" }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.customer.phone|format_phone|default:"-" }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "이메일" %}</dt>
@@ -126,16 +126,16 @@
         </div>
     </div>
     {% elif order_item.order.partner %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "거래처 정보" %}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">{% trans "거래처명" %}</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">{{ order_item.order.partner.name }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "연락처" %}</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.partner.phone|default:"-" }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ order_item.order.partner.phone|format_phone|default:"-" }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">{% trans "이메일" %}</dt>
@@ -150,9 +150,9 @@
     {% endif %}
 
     <!-- 보증 정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "보증 정보" %}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">{% trans "시리얼번호" %}</dt>
                 <dd class="mt-1 text-sm font-mono text-gray-900">{{ warranty_info.serial_number|default:"-" }}</dd>
@@ -191,14 +191,14 @@
     </div>
 
     <!-- AS 이력 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="px-6 py-4 border-b border-gray-200">
+    <div class="bg-white shadow rounded-lg border border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "AS 이력" %}</h2>
         </div>
-        <div class="overflow-x-auto">
+        <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                         <th class="px-4 py-3">{% trans "AS번호" %}</th>
                         <th class="px-4 py-3">{% trans "요청유형" %}</th>
                         <th class="px-4 py-3">{% trans "상태" %}</th>
@@ -212,7 +212,7 @@
                     {% for sr in service_requests %}
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3 font-mono text-gray-900">
-                            <a href="{% url 'service:request_detail' sr.pk %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            <a href="{% url 'service:request_detail' sr.request_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                                 {{ sr.request_number }}
                             </a>
                         </td>

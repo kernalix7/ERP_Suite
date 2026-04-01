@@ -12,14 +12,14 @@
 {% endif %}
 
 {% if not report.sections %}
-<div class="bg-white rounded-xl shadow-sm border p-12 text-center text-gray-400">
+<div class="bg-white rounded-lg shadow-sm border p-12 text-center text-gray-400">
     아직 등록된 가이드가 없습니다.<br>
     Beta 환경에서 데이터를 임포트하면 이 페이지에 입력 가이드가 자동 생성됩니다.
 </div>
 {% endif %}
 
 {% for section in report.sections %}
-<div class="bg-white rounded-xl shadow-sm border mb-6">
+<div class="bg-white rounded-lg shadow-sm border mb-6">
     <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
         <div>
             <h2 class="text-lg font-bold text-gray-900">{{ section.title }}</h2>
@@ -67,7 +67,7 @@
 </div>
 {% endfor %}
 
-<div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+<div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
     <h3 class="text-base font-semibold text-blue-800 mb-2">사용 방법</h3>
     <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
         <li>이 페이지는 Beta 환경에서 AI가 데이터를 임포트할 때 자동으로 갱신됩니다.</li>

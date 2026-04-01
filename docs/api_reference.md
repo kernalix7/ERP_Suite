@@ -507,9 +507,52 @@ A document listing all URL endpoints organized by app.
 
 ## REST API (api)
 
+### Authentication
+
 | URL Pattern | Name | Description |
 |-------------|------|-------------|
 | `/api/` | — | DRF Router (browsable API root) |
 | `/api/token/` | `token_obtain_pair` | JWT token obtain (POST) |
 | `/api/token/refresh/` | `token_refresh` | JWT token refresh (POST) |
 | `/api/token/verify/` | `token_verify` | JWT token verify (POST) |
+
+### ViewSets (28 total, all support CRUD via DRF Router)
+
+| Prefix | ViewSet | Description |
+|--------|---------|-------------|
+| `/api/products/` | `ProductViewSet` | Product CRUD |
+| `/api/categories/` | `CategoryViewSet` | Category CRUD |
+| `/api/warehouses/` | `WarehouseViewSet` | Warehouse CRUD |
+| `/api/stock-movements/` | `StockMovementViewSet` | Stock movement CRUD |
+| `/api/partners/` | `PartnerViewSet` | Partner CRUD |
+| `/api/customers/` | `CustomerViewSet` | Customer CRUD |
+| `/api/orders/` | `OrderViewSet` | Order CRUD |
+| `/api/order-items/` | `OrderItemViewSet` | Order item CRUD |
+| `/api/boms/` | `BOMViewSet` | BOM CRUD |
+| `/api/bom-items/` | `BOMItemViewSet` | BOM item CRUD |
+| `/api/production-plans/` | `ProductionPlanViewSet` | Production plan CRUD |
+| `/api/work-orders/` | `WorkOrderViewSet` | Work order CRUD |
+| `/api/tax-invoices/` | `TaxInvoiceViewSet` | Tax invoice CRUD |
+| `/api/approval-requests/` | `ApprovalRequestViewSet` | Approval request CRUD |
+| `/api/approval-steps/` | `ApprovalStepViewSet` | Approval step CRUD |
+| `/api/employees/` | `EmployeeProfileViewSet` | Employee profile CRUD |
+| `/api/payrolls/` | `PayrollViewSet` | Payroll CRUD |
+| `/api/service-requests/` | `ServiceRequestViewSet` | Service request CRUD |
+| `/api/inquiries/` | `InquiryViewSet` | Inquiry CRUD |
+| `/api/fixed-assets/` | `FixedAssetViewSet` | Fixed asset CRUD |
+| `/api/marketplace-orders/` | `MarketplaceOrderViewSet` | Marketplace order CRUD |
+| `/api/vouchers/` | `VoucherViewSet` | Voucher CRUD |
+| `/api/accounts-receivable/` | `AccountReceivableViewSet` | Accounts receivable CRUD |
+| `/api/accounts-payable/` | `AccountPayableViewSet` | Accounts payable CRUD |
+| `/api/budgets/` | `BudgetViewSet` | Budget CRUD |
+| `/api/purchase-orders/` | `PurchaseOrderViewSet` | Purchase order CRUD |
+| `/api/shipping-carriers/` | `ShippingCarrierViewSet` | Shipping carrier CRUD |
+| `/api/price-rules/` | `PriceRuleViewSet` | Price rule CRUD |
+
+### API Documentation (DEBUG mode only)
+
+| URL Pattern | Name | Description |
+|-------------|------|-------------|
+| `/api/schema/` | `schema` | OpenAPI schema (YAML) |
+| `/api/docs/` | `swagger-ui` | Swagger UI |
+| `/api/redoc/` | `redoc` | ReDoc documentation |

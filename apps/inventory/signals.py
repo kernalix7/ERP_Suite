@@ -208,8 +208,16 @@ def update_stock_on_save(sender, instance, created, **kwargs):
     with transaction.atomic():
         if instance.movement_type in INBOUND_TYPES:
             # 이동평균단가 계산 (입고 시 unit_price가 있을 때만)
+            # 창고간이동(StockTransfer) IN은 단가 재계산 스킵
+            is_transfer = (
+                getattr(instance, 'reference', '') == '창고간이동'
+                or (instance.reference and '창고이동' in instance.reference)
+                or (instance.movement_number
+                    and instance.movement_number.startswith('TF-'))
+            )
             if (instance.unit_price and instance.unit_price > 0
-                    and instance.movement_type in ('IN', 'PROD_IN')):
+                    and instance.movement_type in ('IN', 'PROD_IN')
+                    and not is_transfer):
                 _update_weighted_avg_cost(
                     instance.product_id, instance.quantity,
                     instance.unit_price,
@@ -258,6 +266,71 @@ def update_stock_on_delete(sender, instance, **kwargs):
             )
 
 
+def _soft_delete_lots_on_inbound_cancel(movement):
+    """입고 soft delete 시 연결된 StockLot도 soft delete"""
+    lots = StockLot.objects.filter(
+        stock_movement=movement,
+        is_active=True,
+    )
+    for lot in lots:
+        lot.is_active = False
+        lot.save(update_fields=['is_active', 'updated_at'])
+        logger.info(
+            'StockLot soft deleted: %s (inbound movement %s cancelled)',
+            lot.lot_number, movement.movement_number,
+        )
+
+
+def _restore_lots_on_outbound_cancel(movement):
+    """출고 soft delete 시 소진된 StockLot의 remaining_quantity 복원
+
+    consumption과 동일한 순서(FIFO/LIFO)로 LOT를 찾아 복원한다.
+    consumed_qty = initial_quantity - remaining_quantity인 LOT에 수량 복원.
+    """
+    product = Product.all_objects.get(pk=movement.product_id)
+    remaining_to_restore = movement.quantity
+
+    # 소진 시 사용한 것과 같은 정렬
+    if product.valuation_method == 'LIFO':
+        ordering = ['-received_date', '-pk']
+    else:
+        ordering = ['received_date', 'pk']
+
+    lots = (
+        StockLot.objects
+        .filter(
+            product_id=movement.product_id,
+            warehouse_id=movement.warehouse_id,
+            is_active=True,
+        )
+        .exclude(remaining_quantity=F('initial_quantity'))
+        .order_by(*ordering)
+        .select_for_update()
+    )
+
+    for lot in lots:
+        if remaining_to_restore <= 0:
+            break
+
+        consumed = lot.initial_quantity - lot.remaining_quantity
+        restore_qty = min(consumed, remaining_to_restore)
+        remaining_to_restore -= restore_qty
+
+        StockLot.objects.filter(pk=lot.pk).update(
+            remaining_quantity=F('remaining_quantity') + restore_qty,
+        )
+        logger.info(
+            'StockLot restored: %s +%s (outbound movement %s cancelled)',
+            lot.lot_number, restore_qty, movement.movement_number,
+        )
+
+    if remaining_to_restore > 0:
+        logger.warning(
+            'LOT restore incomplete: product=%s, movement=%s, unrestored=%s',
+            product.code, movement.movement_number, remaining_to_restore,
+        )
+
+
 @receiver(pre_save, sender=StockMovement)
 def reverse_stock_on_soft_delete(sender, instance, **kwargs):
     """입출고 soft-delete(비활성화) 시 재고 복원"""
@@ -272,6 +345,35 @@ def reverse_stock_on_soft_delete(sender, instance, **kwargs):
     if old.is_active and not instance.is_active:
         with transaction.atomic():
             if old.movement_type in INBOUND_TYPES:
+                # 입고 취소 시 이동평균단가 역산
+                if (old.unit_price and old.unit_price > 0
+                        and old.movement_type in ('IN', 'PROD_IN')):
+                    # 창고간이동은 스킵
+                    is_transfer = (
+                        (old.reference and '창고이동' in old.reference)
+                        or (old.movement_number
+                            and old.movement_number.startswith('TF-'))
+                    )
+                    if not is_transfer:
+                        product = Product.objects.select_for_update().get(
+                            pk=old.product_id,
+                        )
+                        old_stock = product.current_stock
+                        old_cost = product.cost_price or Decimal('0')
+                        new_stock = old_stock - old.quantity
+                        if new_stock > 0:
+                            new_cost = (
+                                (old_stock * old_cost
+                                 - old.quantity * old.unit_price)
+                                / new_stock
+                            ).quantize(
+                                Decimal('1'), rounding=ROUND_HALF_UP,
+                            )
+                            Product.objects.filter(
+                                pk=old.product_id,
+                            ).update(cost_price=new_cost)
+                        # new_stock <= 0: cost_price 유지
+
                 Product.objects.filter(pk=old.product_id).update(
                     current_stock=F('current_stock') - old.quantity
                 )
@@ -279,6 +381,8 @@ def reverse_stock_on_soft_delete(sender, instance, **kwargs):
                     old.warehouse_id, old.product_id,
                     old.quantity, add=False,
                 )
+                # 입고 삭제 시 연결된 StockLot soft delete
+                _soft_delete_lots_on_inbound_cancel(old)
             elif old.movement_type in OUTBOUND_TYPES:
                 Product.objects.filter(pk=old.product_id).update(
                     current_stock=F('current_stock') + old.quantity
@@ -287,6 +391,8 @@ def reverse_stock_on_soft_delete(sender, instance, **kwargs):
                     old.warehouse_id, old.product_id,
                     old.quantity, add=True,
                 )
+                # 출고 삭제 시 소진된 StockLot 복원
+                _restore_lots_on_outbound_cancel(old)
 
 
 @receiver(post_save, sender=StockTransfer)

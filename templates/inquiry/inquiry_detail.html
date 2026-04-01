@@ -5,7 +5,7 @@
 
 {% block header_actions %}
 {% if inquiry.status == 'RECEIVED' or inquiry.status == 'WAITING' %}
-<form method="post" action="{% url 'inquiry:inquiry_generate_reply' inquiry.pk %}"
+<form method="post" action="{% url 'inquiry:inquiry_generate_reply' inquiry.inquiry_number %}"
       onsubmit="return confirm('AI 답변을 생성하시겠습니까?');" class="inline">
     {% csrf_token %}
     <button type="submit"
@@ -23,8 +23,8 @@
 {% block content %}
 <div class="space-y-6" x-data="inquiryDetail()">
     <!-- 문의 정보 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between mb-4">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h2 class="text-lg font-semibold text-gray-800">문의 정보</h2>
             <div class="flex items-center gap-2">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{{ object.channel }}</span>
@@ -49,7 +49,7 @@
                 {% endif %}
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">제목</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">{{ object.title }}</dd>
@@ -78,8 +78,8 @@
     </div>
 
     <!-- 답변 목록 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="px-6 py-4 border-b border-gray-200">
+    <div class="bg-white shadow rounded-lg border border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">답변 목록</h2>
         </div>
         <div class="divide-y divide-gray-100">
@@ -105,8 +105,8 @@
     </div>
 
     <!-- 답변 작성 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between mb-4">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h2 class="text-lg font-semibold text-gray-800">답변 작성</h2>
             <button type="button"
                     @click="generateAiReply()"
@@ -127,7 +127,7 @@
             </button>
         </div>
 
-        <form method="post" action="{% url 'inquiry:inquiry_detail' object.pk %}">
+        <form method="post" action="{% url 'inquiry:reply_create' object.inquiry_number %}">
             {% csrf_token %}
             {% for field in reply_form %}
             <div class="mb-4">
@@ -169,7 +169,7 @@ function inquiryDetail() {
             this.aiLoading = true;
             this.aiError = '';
             try {
-                const response = await fetch("{% url 'inquiry:llm_generate' object.pk %}", {
+                const response = await fetch("{% url 'inquiry:llm_generate' object.inquiry_number %}", {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,

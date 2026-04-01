@@ -16,6 +16,7 @@ class FUNC001_OrderLifecycleTest(TestCase):
     """FUNC-001: 주문 라이프사이클 - DRAFT -> CONFIRMED -> SHIPPED -> DELIVERED"""
 
     def setUp(self):
+        from apps.accounting.models import AccountCode, BankAccount
         from apps.inventory.models import Product, Warehouse
         from apps.sales.models import Partner, Order, OrderItem
 
@@ -31,6 +32,22 @@ class FUNC001_OrderLifecycleTest(TestCase):
         )
         self.partner = Partner.all_objects.create(
             code='WF001-PT', name='주문거래처',
+        )
+        # DELIVERED 시 자동입금에 필요한 계정과목 + 기본계좌
+        acct_deposit = AccountCode.all_objects.create(
+            code='103', name='보통예금', account_type='ASSET',
+        )
+        AccountCode.all_objects.create(
+            code='401', name='매출', account_type='REVENUE',
+        )
+        AccountCode.all_objects.create(
+            code='204', name='부가세예수금', account_type='LIABILITY',
+        )
+        BankAccount.all_objects.create(
+            name='기본계좌', account_type='BUSINESS',
+            owner='테스트', bank='테스트은행',
+            account_number='000-0000-0000',
+            is_default=True, account_code=acct_deposit,
         )
         self.order = Order.all_objects.create(
             order_number='WF001-ORD01',
@@ -82,24 +99,29 @@ class FUNC001_OrderLifecycleTest(TestCase):
                          "SHIPPED 시 OUT 전표 미생성")
 
     def test_SHIPPED에서_DELIVERED_전환(self):
-        """SHIPPED -> DELIVERED 상태 전환"""
+        """SHIPPED -> DELIVERED 상태 전환 (자동입금 시 CLOSED로 종결)"""
         self.order.status = 'SHIPPED'
         self.order.save()
 
         self.order.status = 'DELIVERED'
         self.order.save()
         self.order.refresh_from_db()
-        self.assertEqual(self.order.status, 'DELIVERED')
+        self.assertIn(self.order.status, ('DELIVERED', 'CLOSED'))
 
     def test_전체_라이프사이클(self):
-        """DRAFT -> CONFIRMED -> SHIPPED -> DELIVERED 전체 워크플로우"""
+        """DRAFT -> CONFIRMED -> SHIPPED -> DELIVERED -> CLOSED 전체 워크플로우"""
         states = ['CONFIRMED', 'SHIPPED', 'DELIVERED']
         for state in states:
             self.order.status = state
             self.order.save()
             self.order.refresh_from_db()
-            self.assertEqual(self.order.status, state,
-                             f"상태 전환 실패: {state}")
+            if state == 'DELIVERED':
+                # 자동입금 + 자동종결로 CLOSED 가능
+                self.assertIn(self.order.status, ('DELIVERED', 'CLOSED'),
+                              f"상태 전환 실패: {state}")
+            else:
+                self.assertEqual(self.order.status, state,
+                                 f"상태 전환 실패: {state}")
 
     def test_주문금액_정합성(self):
         """워크플로우 전체에서 주문 금액이 일관되게 유지"""
@@ -596,7 +618,7 @@ class FUNC006_QuotationToOrderTest(TestCase):
         self.client.force_login(self.user)
 
         response = self.client.post(
-            f'/sales/quotes/{self.quote.pk}/convert/',
+            f'/sales/quotes/{self.quote.quote_number}/convert/',
         )
         # 성공 시 주문 상세로 리다이렉트
         self.assertIn(response.status_code, [302, 200],
@@ -618,7 +640,7 @@ class FUNC006_QuotationToOrderTest(TestCase):
         from apps.sales.models import Order, OrderItem
 
         self.client.force_login(self.user)
-        self.client.post(f'/sales/quotes/{self.quote.pk}/convert/')
+        self.client.post(f'/sales/quotes/{self.quote.quote_number}/convert/')
 
         self.quote.refresh_from_db()
         order = self.quote.converted_order
@@ -643,13 +665,13 @@ class FUNC006_QuotationToOrderTest(TestCase):
         self.client.force_login(self.user)
 
         # 1차 전환
-        self.client.post(f'/sales/quotes/{self.quote.pk}/convert/')
+        self.client.post(f'/sales/quotes/{self.quote.quote_number}/convert/')
 
         # 2차 전환 시도
         from apps.sales.models import Order
         order_count_before = Order.all_objects.count()
 
-        self.client.post(f'/sales/quotes/{self.quote.pk}/convert/')
+        self.client.post(f'/sales/quotes/{self.quote.quote_number}/convert/')
 
         order_count_after = Order.all_objects.count()
         self.assertEqual(order_count_before, order_count_after,

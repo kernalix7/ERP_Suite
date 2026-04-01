@@ -49,7 +49,7 @@ class BOM(BaseModel):
         shortages = []
         for item in self.items.select_related('material').all():
             required = item.effective_quantity * quantity
-            available = item.material.current_stock
+            available = item.material.available_stock
             if available < required:
                 shortages.append({
                     'material': item.material,
@@ -98,6 +98,8 @@ class BOMItem(BaseModel):
 
 
 class ProductionPlan(BaseModel):
+    BUSINESS_KEY_FIELD = 'plan_number'
+
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', '작성중'
         CONFIRMED = 'CONFIRMED', '확정'
@@ -156,6 +158,8 @@ class ProductionPlan(BaseModel):
 
 
 class WorkOrder(BaseModel):
+    BUSINESS_KEY_FIELD = 'order_number'
+
     class Status(models.TextChoices):
         PENDING = 'PENDING', '대기'
         IN_PROGRESS = 'IN_PROGRESS', '작업중'
@@ -331,6 +335,8 @@ class StandardCost(BaseModel):
 
 class QualityInspection(BaseModel):
     """품질검수 — 생산실적 또는 입고에 대한 검수 기록"""
+    BUSINESS_KEY_FIELD = 'inspection_number'
+
     class InspectionType(models.TextChoices):
         PRODUCTION = 'PRODUCTION', '생산검수'
         INCOMING = 'INCOMING', '입고검수'

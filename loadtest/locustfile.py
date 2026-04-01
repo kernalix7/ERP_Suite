@@ -13,6 +13,7 @@ ERP Suite 부하 테스트
     --headless -u 50 -r 5 --run-time 60s \
     --csv=results --html=report.html
 """
+import os
 import re
 
 from locust import HttpUser, task, between, tag
@@ -33,7 +34,7 @@ class ERPUser(HttpUser):
 
         self.client.post('/accounts/login/', {
             'username': 'admin',
-            'password': 'admin123!',
+            'password': os.environ.get('LOADTEST_PASSWORD', 'changeme'),
             'csrfmiddlewaretoken': csrf,
         }, headers={'Referer': f'{self.host}/accounts/login/'})
 
@@ -247,7 +248,7 @@ class APIUser(HttpUser):
         """JWT 토큰 획득"""
         resp = self.client.post('/api/token/', json={
             'username': 'admin',
-            'password': 'admin123!',
+            'password': os.environ.get('LOADTEST_PASSWORD', 'changeme'),
         })
         if resp.status_code == 200:
             self.token = resp.json().get('access', '')

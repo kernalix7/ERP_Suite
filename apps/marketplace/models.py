@@ -1,7 +1,7 @@
 from django.db import models
 from simple_history.models import HistoricalRecords
 
-from apps.core.fields import EncryptedCharField
+from apps.core.fields import EncryptedCharField, EncryptedTextField
 from apps.core.models import BaseModel
 
 
@@ -20,6 +20,8 @@ class MarketplaceConfig(BaseModel):
 
 
 class MarketplaceOrder(BaseModel):
+    BUSINESS_KEY_FIELD = 'store_order_id'
+
     class Status(models.TextChoices):
         NEW = 'NEW', '신규주문'
         CONFIRMED = 'CONFIRMED', '확인'
@@ -34,10 +36,10 @@ class MarketplaceOrder(BaseModel):
     quantity = models.PositiveIntegerField('수량')
     price = models.DecimalField('결제금액', max_digits=15, decimal_places=0)
     buyer_name = models.CharField('주문자', max_length=100)
-    buyer_phone = models.CharField('연락처', max_length=20, blank=True)
+    buyer_phone = EncryptedCharField('연락처', max_length=500, blank=True)
     receiver_name = models.CharField('수취인', max_length=100)
-    receiver_phone = models.CharField('수취인연락처', max_length=20, blank=True)
-    receiver_address = models.TextField('배송주소', blank=True)
+    receiver_phone = EncryptedCharField('수취인연락처', max_length=500, blank=True)
+    receiver_address = EncryptedTextField('배송주소', blank=True)
     status = models.CharField(
         '상태', max_length=20,
         choices=Status.choices, default=Status.NEW,
@@ -45,6 +47,10 @@ class MarketplaceOrder(BaseModel):
     ordered_at = models.DateTimeField('주문일시')
     erp_order = models.ForeignKey(
         'sales.Order', verbose_name='연결된 ERP 주문',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    erp_quotation = models.ForeignKey(
+        'sales.Quotation', verbose_name='연결된 견적서',
         null=True, blank=True, on_delete=models.SET_NULL,
     )
     synced_at = models.DateTimeField('동기화일시', null=True, blank=True)

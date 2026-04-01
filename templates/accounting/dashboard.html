@@ -6,15 +6,15 @@
 
 {% block content %}
 <!-- 연간 요약 카드 -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-8">
     <!-- 올해 매출 -->
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow-sm rounded-lg p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">올해 매출</p>
                 <p class="mt-2 text-2xl font-bold text-gray-900">{{ year_revenue|intcomma }}원</p>
             </div>
-            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                 </svg>
@@ -23,13 +23,17 @@
     </div>
 
     <!-- 올해 비용 -->
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow-sm rounded-lg p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">올해 비용</p>
                 <p class="mt-2 text-2xl font-bold text-gray-900">{{ year_costs|intcomma }}원</p>
+                <div class="mt-1 flex gap-3 text-xs text-gray-400">
+                    <span>고정비 {{ year_fixed|intcomma }}원</span>
+                    <span>변동비 {{ year_variable|intcomma }}원</span>
+                </div>
             </div>
-            <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
                 </svg>
@@ -38,7 +42,7 @@
     </div>
 
     <!-- 올해 이익 -->
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow-sm rounded-lg p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">올해 이익</p>
@@ -46,7 +50,7 @@
                     {{ year_profit|intcomma }}원
                 </p>
             </div>
-            <div class="w-12 h-12 {% if year_profit >= 0 %}bg-green-100{% else %}bg-red-100{% endif %} rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 {% if year_profit >= 0 %}bg-green-100{% else %}bg-red-100{% endif %} rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 {% if year_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -56,9 +60,9 @@
 </div>
 
 <!-- 이번 분기 부가세 카드 -->
-<div class="bg-white shadow-sm rounded-xl p-6 mb-8">
+<div class="bg-white shadow-sm rounded-lg p-4 sm:p-6 mb-4 sm:mb-8">
     <h3 class="text-lg font-semibold text-gray-800 mb-4">이번 분기 부가세 ({{ quarter }})</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
         <div>
             <p class="text-sm text-gray-500">매출 부가세</p>
             <p class="text-xl font-bold text-gray-900">{{ sales_tax|intcomma }}원</p>
@@ -77,31 +81,33 @@
 </div>
 
 <!-- 차트 영역 -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
     <!-- 월별 매출 vs 비용 -->
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow-sm rounded-lg p-4 sm:p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">월별 매출 vs 비용</h3>
-        <canvas id="monthlyChart" height="300"></canvas>
+        <div class="w-full"><canvas id="monthlyChart" height="300"></canvas></div>
     </div>
 
     <!-- 제품별 이익률 -->
-    <div class="bg-white shadow-sm rounded-xl p-6">
+    <div class="bg-white shadow-sm rounded-lg p-4 sm:p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">제품별 이익률</h3>
-        <canvas id="marginChart" height="300"></canvas>
+        <div class="w-full"><canvas id="marginChart" height="300"></canvas></div>
     </div>
 </div>
 
 {{ months_json|json_script:"months-data" }}
 {{ revenue_json|json_script:"revenue-data" }}
-{{ costs_json|json_script:"costs-data" }}
+{{ fixed_costs_json|json_script:"fixed-costs-data" }}
+{{ variable_costs_json|json_script:"variable-costs-data" }}
 {{ product_margins_json|json_script:"product-margins-data" }}
 <script>
     const months = JSON.parse(document.getElementById('months-data').textContent);
     const revenueData = JSON.parse(document.getElementById('revenue-data').textContent);
-    const costsData = JSON.parse(document.getElementById('costs-data').textContent);
+    const fixedCostsData = JSON.parse(document.getElementById('fixed-costs-data').textContent);
+    const variableCostsData = JSON.parse(document.getElementById('variable-costs-data').textContent);
     const productMargins = JSON.parse(document.getElementById('product-margins-data').textContent);
 
-    // 월별 매출 vs 비용 바 차트
+    // 월별 매출 vs 비용 바 차트 (비용: 고정비+변동비 스택)
     new Chart(document.getElementById('monthlyChart'), {
         type: 'bar',
         data: {
@@ -115,11 +121,20 @@
                     borderWidth: 1
                 },
                 {
-                    label: '비용',
-                    data: costsData,
+                    label: '고정비',
+                    data: fixedCostsData,
                     backgroundColor: 'rgba(239, 68, 68, 0.7)',
                     borderColor: 'rgba(239, 68, 68, 1)',
-                    borderWidth: 1
+                    borderWidth: 1,
+                    stack: 'costs'
+                },
+                {
+                    label: '변동비',
+                    data: variableCostsData,
+                    backgroundColor: 'rgba(249, 115, 22, 0.7)',
+                    borderColor: 'rgba(249, 115, 22, 1)',
+                    borderWidth: 1,
+                    stack: 'costs'
                 }
             ]
         },

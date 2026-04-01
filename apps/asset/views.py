@@ -59,6 +59,8 @@ class AssetDetailView(ManagerRequiredMixin, DetailView):
     model = FixedAsset
     template_name = 'asset/asset_detail.html'
     context_object_name = 'asset'
+    slug_field = 'asset_number'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -75,6 +77,8 @@ class AssetUpdateView(ManagerRequiredMixin, UpdateView):
     model = FixedAsset
     form_class = FixedAssetForm
     template_name = 'asset/asset_form.html'
+    slug_field = 'asset_number'
+    slug_url_kwarg = 'slug'
     success_url = reverse_lazy('asset:asset_list')
 
     def form_valid(self, form):
@@ -86,6 +90,8 @@ class AssetDisposalView(ManagerRequiredMixin, UpdateView):
     model = FixedAsset
     form_class = AssetDisposalForm
     template_name = 'asset/asset_form.html'
+    slug_field = 'asset_number'
+    slug_url_kwarg = 'slug'
     success_url = reverse_lazy('asset:asset_list')
 
     def get_context_data(self, **kwargs):

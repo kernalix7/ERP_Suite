@@ -1,19 +1,28 @@
 from decimal import Decimal
 
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
+from apps.core.fields import EncryptedCharField, EncryptedTextField
 from apps.core.models import BaseModel
-from apps.core.utils import generate_document_number
+from apps.core.utils import generate_document_number, generate_sequential_code
 from apps.inventory.models import Product
 
 
 class Partner(BaseModel):
+    BUSINESS_KEY_FIELD = 'code'
+
     class PartnerType(models.TextChoices):
         CUSTOMER = 'CUSTOMER', '고객'
         SUPPLIER = 'SUPPLIER', '공급처'
         BOTH = 'BOTH', '고객/공급처'
+
+    TYPE_PREFIX_MAP = {
+        'CUSTOMER': 'CUS',
+        'SUPPLIER': 'SUP',
+        'BOTH': 'SUS',
+    }
 
     code = models.CharField('거래처코드', max_length=30, unique=True)
     name = models.CharField('거래처명', max_length=200)
@@ -24,9 +33,14 @@ class Partner(BaseModel):
     business_number = models.CharField('사업자번호', max_length=20, blank=True)
     representative = models.CharField('대표자', max_length=50, blank=True)
     contact_name = models.CharField('담당자', max_length=50, blank=True)
-    phone = models.CharField('전화번호', max_length=20, blank=True)
-    email = models.EmailField('이메일', blank=True)
-    address = models.TextField('주소', blank=True)
+    phone = EncryptedCharField('전화번호', max_length=500, blank=True)
+    email = EncryptedCharField('이메일', max_length=500, blank=True)
+    address = EncryptedTextField('주소', blank=True)
+    address_road = EncryptedTextField('도로명주소', blank=True)
+    address_detail = EncryptedTextField('상세주소', blank=True)
+    bank_name = models.CharField('은행명', max_length=50, blank=True)
+    bank_account = EncryptedCharField('계좌번호', max_length=500, blank=True)
+    bank_holder = models.CharField('예금주', max_length=50, blank=True)
     lead_time_days = models.PositiveIntegerField(
         '리드타임(일)', default=0,
         help_text='평균 납품 소요일',
@@ -34,6 +48,22 @@ class Partner(BaseModel):
     default_currency = models.ForeignKey(
         'accounting.Currency', verbose_name='기본통화',
         null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    default_bank_account = models.ForeignKey(
+        'accounting.BankAccount', verbose_name='기본 입금계좌',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='default_partners',
+        help_text='주문 생성 시 자동 설정되는 입금계좌',
+    )
+    commission_bank_account = models.ForeignKey(
+        'accounting.BankAccount', verbose_name='수수료 계좌',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='commission_partners',
+        help_text='수수료 자동 차감 계좌 (미설정 시 기본계좌)',
+    )
+    store_module = models.CharField(
+        '스토어 모듈', max_length=50, blank=True, default='',
+        help_text='연결된 스토어 모듈 ID (예: naver_smartstore, coupang, direct_sale)',
     )
     history = HistoricalRecords()
 
@@ -65,34 +95,69 @@ class Partner(BaseModel):
         )
         return sum(int(i.fixed_amount) for i in items)
 
-    def calculate_commission(self, base_amount):
-        """모든 활성 수수료 항목 합산 계산"""
+    def calculate_commission(self, base_amount, product=None):
+        """수수료 합산 계산 — product 지정 시 제품별 수수료 우선, 없으면 거래처 전체 수수료"""
         from apps.sales.commission import CommissionRate
         total = 0
+        if product:
+            # 제품별 수수료가 있으면 제품별로 계산
+            product_rates = CommissionRate.objects.filter(
+                partner=self, is_active=True, product=product,
+            )
+            if product_rates.exists():
+                for item in product_rates:
+                    total += item.calculate(base_amount)
+                return total
+        # 제품별 수수료 없으면 거래처 전체 수수료
         for item in CommissionRate.objects.filter(
             partner=self, is_active=True, product__isnull=True,
         ):
             total += item.calculate(base_amount)
         return total
 
+    @classmethod
+    def generate_next_code(cls, partner_type):
+        """거래처 유형별 다음 코드 생성"""
+        prefix = cls.TYPE_PREFIX_MAP.get(partner_type, 'CUS')
+        return generate_sequential_code(cls, 'code', prefix, digits=3)
+
+    def save(self, *args, **kwargs):
+        if self.address_road or self.address_detail:
+            self.address = f'{self.address_road} {self.address_detail}'.strip()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
 
 class Customer(BaseModel):
+    BUSINESS_KEY_FIELD = 'code'
+
+    code = models.CharField('고객코드', max_length=30, unique=True, blank=True)
     name = models.CharField('고객명', max_length=100)
-    phone = models.CharField('연락처', max_length=20)
-    email = models.EmailField('이메일', blank=True)
-    address = models.TextField('주소', blank=True)
+    phone = EncryptedCharField('연락처', max_length=500)
+    email = EncryptedCharField('이메일', max_length=500, blank=True)
+    address = EncryptedTextField('주소', blank=True)
+    address_road = EncryptedTextField('도로명주소', blank=True)
+    address_detail = EncryptedTextField('상세주소', blank=True)
     history = HistoricalRecords()
 
     class Meta:
         verbose_name = '고객'
         verbose_name_plural = '고객'
-        ordering = ['name']
+        ordering = ['code']
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = generate_sequential_code(
+                Customer, 'code', 'CST', digits=4,
+            )
+        if self.address_road or self.address_detail:
+            self.address = f'{self.address_road} {self.address_detail}'.strip()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.name
+        return f"[{self.code}] {self.name}"
 
 
 class CustomerPurchase(BaseModel):
@@ -126,12 +191,15 @@ class CustomerPurchase(BaseModel):
 
 
 class Order(BaseModel):
+    BUSINESS_KEY_FIELD = 'order_number'
+
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', '작성중'
         CONFIRMED = 'CONFIRMED', '확정'
         PARTIAL_SHIPPED = 'PARTIAL_SHIPPED', '부분출고'
         SHIPPED = 'SHIPPED', '출고완료'
         DELIVERED = 'DELIVERED', '배송완료'
+        CLOSED = 'CLOSED', '종결'
         CANCELLED = 'CANCELLED', '취소'
 
     class OrderType(models.TextChoices):
@@ -144,9 +212,10 @@ class Order(BaseModel):
     STATUS_TRANSITIONS = {
         'DRAFT': ['CONFIRMED', 'CANCELLED'],
         'CONFIRMED': ['PARTIAL_SHIPPED', 'SHIPPED', 'CANCELLED'],
-        'PARTIAL_SHIPPED': ['PARTIAL_SHIPPED', 'CANCELLED'],
+        'PARTIAL_SHIPPED': ['PARTIAL_SHIPPED', 'SHIPPED', 'CANCELLED'],
         'SHIPPED': ['DELIVERED'],
-        'DELIVERED': [],
+        'DELIVERED': ['CLOSED'],
+        'CLOSED': [],
         'CANCELLED': [],
     }
 
@@ -181,7 +250,9 @@ class Order(BaseModel):
     )
     tax_total = models.DecimalField('부가세 합계', max_digits=15, decimal_places=0, default=0)
     grand_total = models.DecimalField('총합계(세포함)', max_digits=15, decimal_places=0, default=0)
-    shipping_address = models.TextField('배송주소', blank=True)
+    shipping_address = EncryptedTextField('배송주소', blank=True)
+    shipping_address_road = EncryptedTextField('배송 도로명주소', blank=True)
+    shipping_address_detail = EncryptedTextField('배송 상세주소', blank=True)
     shipping_method = models.CharField('배송방법', max_length=50, blank=True)
     tracking_number = models.CharField('운송장번호', max_length=50, blank=True)
     vat_included = models.BooleanField(
@@ -225,11 +296,13 @@ class Order(BaseModel):
     def save(self, *args, **kwargs):
         if not self.order_number:
             self.order_number = generate_document_number(Order, 'order_number', 'ORD')
+        if self.shipping_address_road or self.shipping_address_detail:
+            self.shipping_address = f'{self.shipping_address_road} {self.shipping_address_detail}'.strip()
         super().save(*args, **kwargs)
 
     def update_total(self):
         from django.db.models import Sum
-        totals = self.items.aggregate(
+        totals = self.items.filter(is_active=True).aggregate(
             total_amount=Sum('amount'),
             tax_total=Sum('tax_amount'),
         )
@@ -316,6 +389,7 @@ class OrderItem(BaseModel):
 
 class Quotation(BaseModel):
     """견적서"""
+    BUSINESS_KEY_FIELD = 'quote_number'
 
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', '작성중'
@@ -386,7 +460,7 @@ class Quotation(BaseModel):
 
     def update_total(self):
         from django.db.models import Sum
-        totals = self.quote_items.aggregate(
+        totals = self.quote_items.filter(is_active=True).aggregate(
             total_amount=Sum('amount'),
             tax_total=Sum('tax_amount'),
         )
@@ -480,7 +554,7 @@ class ShippingCarrier(BaseModel):
         help_text='{tracking_number}를 치환',
     )
     api_endpoint = models.URLField('API 엔드포인트', blank=True)
-    api_key = models.CharField('API Key', max_length=200, blank=True)
+    api_key = EncryptedCharField('API Key', max_length=500, blank=True)
     is_default = models.BooleanField('기본택배사', default=False)
     history = HistoricalRecords()
 
@@ -502,6 +576,7 @@ class ShippingCarrier(BaseModel):
 
 class Shipment(BaseModel):
     """배송 추적"""
+    BUSINESS_KEY_FIELD = 'shipment_number'
 
     class Status(models.TextChoices):
         PREPARING = 'PREPARING', '준비중'
@@ -559,10 +634,12 @@ class Shipment(BaseModel):
     receiver_name = models.CharField(
         '수취인', max_length=100, blank=True,
     )
-    receiver_phone = models.CharField(
-        '수취인연락처', max_length=20, blank=True,
+    receiver_phone = EncryptedCharField(
+        '수취인연락처', max_length=500, blank=True,
     )
-    receiver_address = models.TextField('배송주소', blank=True)
+    receiver_address = EncryptedTextField('배송주소', blank=True)
+    receiver_address_road = EncryptedTextField('수취인 도로명주소', blank=True)
+    receiver_address_detail = EncryptedTextField('수취인 상세주소', blank=True)
     history = HistoricalRecords()
 
     class Meta:
@@ -581,6 +658,8 @@ class Shipment(BaseModel):
     def save(self, *args, **kwargs):
         if not self.shipment_number:
             self.shipment_number = generate_document_number(Shipment, 'shipment_number', 'SH')
+        if self.receiver_address_road or self.receiver_address_detail:
+            self.receiver_address = f'{self.receiver_address_road} {self.receiver_address_detail}'.strip()
         super().save(*args, **kwargs)
 
     @property
@@ -637,6 +716,58 @@ class ShipmentTracking(BaseModel):
 
     def __str__(self):
         return f'{self.shipment.shipment_number} - {self.status} ({self.tracked_at})'
+
+
+class PriceRule(BaseModel):
+    """거래처별/수량별 가격규칙"""
+    product = models.ForeignKey(
+        Product, verbose_name='제품',
+        on_delete=models.PROTECT, related_name='price_rules',
+    )
+    partner = models.ForeignKey(
+        Partner, verbose_name='거래처',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='price_rules',
+    )
+    customer = models.ForeignKey(
+        Customer, verbose_name='고객',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='price_rules',
+    )
+    min_quantity = models.PositiveIntegerField('최소수량', default=1)
+    unit_price = models.DecimalField(
+        '적용단가', max_digits=15, decimal_places=0,
+        null=True, blank=True,
+        help_text='설정 시 이 단가 적용. 비워두면 기본 판매단가에서 할인',
+    )
+    discount_rate = models.DecimalField(
+        '할인율(%)', max_digits=5, decimal_places=2, default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    valid_from = models.DateField('적용시작일', null=True, blank=True)
+    valid_to = models.DateField('적용종료일', null=True, blank=True)
+    priority = models.PositiveIntegerField('우선순위', default=0, help_text='높을수록 우선 적용')
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '가격규칙'
+        verbose_name_plural = '가격규칙'
+        ordering = ['-priority', 'min_quantity']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['product', 'partner', 'customer', 'min_quantity'],
+                name='uq_price_rule',
+            ),
+        ]
+
+    def __str__(self):
+        parts = [str(self.product)]
+        if self.partner:
+            parts.append(str(self.partner))
+        if self.customer:
+            parts.append(str(self.customer))
+        parts.append(f'Q>={self.min_quantity}')
+        return ' / '.join(parts)
 
 
 from apps.sales.commission import CommissionRate, CommissionRecord  # noqa
