@@ -16,7 +16,7 @@ class PartnerForm(BaseForm):
             'address', 'address_road', 'address_detail',
             'bank_name', 'bank_account', 'bank_holder',
             'default_bank_account', 'commission_bank_account',
-            'store_module', 'notes',
+            'approval_status', 'store_module', 'notes',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -29,6 +29,23 @@ class PartnerForm(BaseForm):
             choices=registry.choices(),
             attrs={'class': 'form-select'},
         )
+        # 기존 계좌 선택 드롭다운
+        from apps.accounting.models import BankAccount
+        active_accounts = BankAccount.objects.filter(is_active=True)
+        self.fields['default_bank_account'].queryset = active_accounts
+        self.fields['commission_bank_account'].queryset = active_accounts
+        # 거래처 유형에 따라 라벨 변경
+        partner_type = (
+            self.instance.partner_type if self.instance.pk
+            else self.data.get('partner_type', 'CUSTOMER') if self.is_bound
+            else 'CUSTOMER'
+        )
+        if partner_type == 'SUPPLIER':
+            self.fields['default_bank_account'].label = '거래처 출금계좌'
+            self.fields['default_bank_account'].help_text = '이 공급처에 대금 지급 시 사용할 계좌'
+        else:
+            self.fields['default_bank_account'].label = '거래처 입금계좌'
+            self.fields['default_bank_account'].help_text = '이 고객의 주문 입금을 받을 계좌'
 
     def clean_code(self):
         code = self.cleaned_data.get('code', '').strip()
@@ -68,8 +85,7 @@ class OrderForm(BaseForm):
         fields = [
             'order_number', 'order_type', 'partner', 'customer',
             'assigned_to', 'order_date', 'delivery_date',
-            'vat_included', 'bank_account', 'shipping_method',
-            'tracking_number', 'shipping_cost',
+            'vat_included', 'bank_account', 'shipping_cost',
             'shipping_address', 'shipping_address_road', 'shipping_address_detail',
             'notes',
         ]
@@ -147,6 +163,15 @@ class ShippingCarrierForm(BaseForm):
             'code', 'name', 'tracking_url_template',
             'api_endpoint', 'api_key', 'is_default', 'notes',
         ]
+
+
+class ReturnOrderForm(BaseForm):
+    class Meta:
+        model = Order
+        fields = ['return_reason', 'notes']
+        widgets = {
+            'return_reason': forms.Textarea(attrs={'rows': 3}),
+        }
 
 
 class PriceRuleForm(BaseForm):

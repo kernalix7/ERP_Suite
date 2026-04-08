@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}가져오기 결과 - ERP Suite{% endblock %}
+{% block page_title %}주문 가져오기 결과{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">주문 목록</a>
+<a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">대시보드</a>
+{% endblock %}
+
+{% block content %}
+<!-- 결과 요약 -->
+<div class="bg-white shadow rounded-lg p-6 mb-6">
+    <div class="flex items-center gap-4 mb-4">
+        {% if error_count == 0 %}
+        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900">{{ success_count }}건 가져오기 완료</h2>
+            <p class="text-sm text-gray-500">모든 주문이 성공적으로 가져와졌습니다.</p>
+        </div>
+        {% else %}
+        <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+            </svg>
+        </div>
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900">가져오기 완료 (일부 실패)</h2>
+            <p class="text-sm text-gray-500">성공 {{ success_count }}건, 실패 {{ error_count }}건</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 템플릿 저장 -->
+{% if has_mappings %}
+<div class="bg-white shadow rounded-lg p-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-2">이 설정을 템플릿으로 저장</h3>
+    <p class="text-sm text-gray-500 mb-4">
+        {{ mapping_count }}건의 상품 매핑 규칙을 템플릿으로 저장하면 다음에 같은 스토어 주문을 가져올 때 자동으로 적용됩니다.
+    </p>
+    <form method="post" action="{% url 'marketplace:save_template' %}" class="space-y-4">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label for="template_name" class="block text-sm font-medium text-gray-700 mb-1">템플릿명</label>
+                <input type="text" name="template_name" id="template_name"
+                       placeholder="예: 네이버 스마트스토어 기본"
+                       class="w-full text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                       required>
+            </div>
+            <div>
+                <label for="store_type" class="block text-sm font-medium text-gray-700 mb-1">스토어 유형</label>
+                <select name="store_type" id="store_type"
+                        class="w-full text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                    {% for value, label in store_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="default_period" class="block text-sm font-medium text-gray-700 mb-1">기본 조회기간</label>
+                <select name="default_period" id="default_period"
+                        class="w-full text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                    <option value="1">오늘</option>
+                    <option value="7" selected>최근 7일</option>
+                    <option value="30">최근 30일</option>
+                    <option value="90">전체 (90일)</option>
+                </select>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <button type="submit" class="btn btn-primary">템플릿 저장</button>
+            <a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">건너뛰기</a>
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

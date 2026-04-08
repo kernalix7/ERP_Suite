@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}가져오기 - 완료 - ERP Suite{% endblock %}
+{% block page_title %}외부 스토어 주문 가져오기{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'marketplace:wizard_fetch' %}" class="btn btn-secondary">새로 가져오기</a>
+<a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">대시보드</a>
+{% endblock %}
+
+{% block content %}
+{% include "marketplace/wizard/_steps.html" with current_stage="DONE" %}
+
+<div class="bg-white shadow rounded-lg p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-2">가져오기 완료</h2>
+
+    <!-- 최종 요약 -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-blue-700">{{ summary.total }}</div>
+            <div class="text-xs text-blue-600">전체</div>
+        </div>
+        <div class="bg-green-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-green-700">{{ summary.order_done }}</div>
+            <div class="text-xs text-green-600">주문 완료</div>
+        </div>
+        <div class="bg-yellow-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-yellow-700">{{ summary.quotation_done }}</div>
+            <div class="text-xs text-yellow-600">견적까지</div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-gray-700">{{ summary.skipped }}</div>
+            <div class="text-xs text-gray-600">건너뜀</div>
+        </div>
+        <div class="bg-red-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-red-700">{{ summary.error }}</div>
+            <div class="text-xs text-red-600">오류</div>
+        </div>
+    </div>
+</div>
+
+<!-- 완료된 주문 목록 -->
+{% if completed_orders %}
+<div class="bg-white shadow rounded-lg overflow-x-auto mb-6">
+    <h3 class="px-6 py-4 text-sm font-semibold text-gray-700 border-b">주문 전환 완료 ({{ completed_orders|length }}건)</h3>
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">스토어주문번호</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상품명</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">금액</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ERP 주문번호</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for order in completed_orders %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm font-mono">{{ order.store_order_id }}</td>
+                <td class="px-4 py-3 text-sm">{{ order.product_name }}</td>
+                <td class="px-4 py-3 text-sm text-right">{{ order.price|intcomma }}원</td>
+                <td class="px-4 py-3 text-sm">
+                    {% if order.erp_order %}
+                    <a href="{% url 'sales:order_detail' slug=order.erp_order.order_number %}" class="text-blue-600 hover:underline font-medium">{{ order.erp_order.order_number }}</a>
+                    {% else %}
+                    <span class="text-gray-400">-</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- 오류 목록 -->
+{% if error_orders %}
+<div class="bg-white shadow rounded-lg overflow-x-auto mb-6">
+    <h3 class="px-6 py-4 text-sm font-semibold text-red-700 border-b">오류 발생 ({{ error_orders|length }}건)</h3>
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상품명</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">오류 내용</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for order in error_orders %}
+            <tr class="hover:bg-red-50">
+                <td class="px-4 py-3 text-sm font-mono">{{ order.store_order_id }}</td>
+                <td class="px-4 py-3 text-sm">{{ order.product_name }}</td>
+                <td class="px-4 py-3 text-sm text-red-600">{{ order.import_error }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="flex justify-center gap-4">
+    <a href="{% url 'sales:order_list' %}" class="btn btn-primary">ERP 주문 목록</a>
+    <a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">스토어 주문 목록</a>
+</div>
+{% endblock %}

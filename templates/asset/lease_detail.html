@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}리스 계약 상세 - {{ contract.contract_number }} - ERP Suite{% endblock %}
+{% block page_title %}리스 계약 상세{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:lease_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">계약 정보</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div>
+            <p class="text-sm text-gray-500">계약번호</p>
+            <p class="mt-1 font-medium text-gray-900 font-mono">{{ contract.contract_number }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">대상자산</p>
+            <p class="mt-1 font-medium">
+                <a href="{% url 'asset:asset_detail' contract.asset.asset_number %}" class="text-blue-600 hover:underline">{{ contract.asset }}</a>
+            </p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">리스유형</p>
+            <p class="mt-1 font-medium text-gray-900">{{ contract.get_lease_type_display }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">임대인</p>
+            <p class="mt-1 font-medium text-gray-900">{{ contract.lessor|default:"-" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">계약시작일</p>
+            <p class="mt-1 font-medium text-gray-900">{{ contract.start_date }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">계약종료일</p>
+            <p class="mt-1 font-medium text-gray-900">{{ contract.end_date }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">자동 전표 생성</p>
+            <p class="mt-1">
+                {% if contract.auto_voucher %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">활성</span>
+                {% else %}
+                <span class="text-gray-400">비활성</span>
+                {% endif %}
+            </p>
+        </div>
+        {% if contract.notes %}
+        <div class="md:col-span-3">
+            <p class="text-sm text-gray-500">비고</p>
+            <p class="mt-1 font-medium text-gray-900">{{ contract.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-gray-500">월 리스료</p>
+        <p class="mt-1 text-2xl font-bold text-gray-900">{{ contract.monthly_payment|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-gray-500">보증금</p>
+        <p class="mt-1 text-2xl font-bold text-gray-600">{{ contract.deposit|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-gray-500">총 계약금액</p>
+        <p class="mt-1 text-2xl font-bold text-blue-600">{{ contract.total_amount|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-gray-500">남은 계약 월수</p>
+        <p class="mt-1 text-2xl font-bold {% if contract.remaining_months > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            {% if contract.remaining_months > 0 %}{{ contract.remaining_months }}개월{% else %}만료{% endif %}
+        </p>
+    </div>
+</div>
+
+{% include 'includes/timestamps.html' with obj=contract %}
+{% endblock %}

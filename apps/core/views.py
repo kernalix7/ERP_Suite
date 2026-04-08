@@ -31,7 +31,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         today = date.today()
 
-        # 재고 부족 품목
+        # 재고 부족 품목 (완제품)
         from apps.inventory.models import Product
         products = Product.objects.filter(product_type='FINISHED')
         low_stock = products.filter(
@@ -39,6 +39,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ).select_related('category')
         context['low_stock_products'] = low_stock
         context['total_products'] = products.count()
+
+        # 안전재고 경고 (원자재/반제품/완제품 전체)
+        safety_stock_alerts = Product.objects.filter(
+            is_active=True,
+            product_type__in=['RAW', 'SEMI', 'FINISHED'],
+            safety_stock__gt=0,
+            current_stock__lt=F('safety_stock'),
+        ).select_related('category').order_by('current_stock')
+        context['safety_stock_alerts'] = safety_stock_alerts
 
         # 금일 주문
         from apps.sales.models import Order, OrderItem, Shipment
@@ -73,7 +82,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # 재무 KPI
         this_month_orders = Order.objects.filter(
             order_date__year=today.year, order_date__month=today.month,
-            status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED'],
+            status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
         )
         context['month_revenue'] = this_month_orders.aggregate(
             total=Sum('total_amount')
@@ -154,6 +163,46 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             a.balance for a in context['dashboard_accounts']
         )
 
+        # ── 자산/인증/리스 위젯 ───────────────────────────
+        from apps.asset.models import Certification, LeaseContract, FixedAsset, AssetTransfer
+
+        # 30일 이내 만료 인증 수
+        thirty_days_later = today + timedelta(days=30)
+        context['cert_expiring_count'] = Certification.objects.filter(
+            is_active=True,
+            expiry_date__isnull=False,
+            expiry_date__lte=thirty_days_later,
+            expiry_date__gte=today,
+        ).count()
+
+        # 활성 리스 계약 수 + 총 월 리스료
+        active_leases = LeaseContract.objects.filter(
+            is_active=True, end_date__gte=today,
+        )
+        context['lease_count'] = active_leases.count()
+        context['lease_monthly_total'] = active_leases.aggregate(
+            total=Sum('monthly_payment')
+        )['total'] or 0
+
+        # 활성 자산 총 취득원가 + 총 장부가
+        active_assets = FixedAsset.objects.filter(
+            is_active=True, status=FixedAsset.Status.ACTIVE,
+        )
+        asset_agg = active_assets.aggregate(
+            total_cost=Sum('acquisition_cost'),
+            total_book=Sum('book_value'),
+        )
+        context['asset_total_cost'] = asset_agg['total_cost'] or 0
+        context['asset_total_book_value'] = asset_agg['total_book'] or 0
+        context['asset_count'] = active_assets.count()
+
+        # 최근 자산 이관 5건
+        context['recent_transfers'] = AssetTransfer.objects.filter(
+            is_active=True,
+        ).select_related(
+            'asset', 'from_department', 'to_department',
+        )[:5]
+
         # ── Chart data (캐시 적용) ───────────────────────────
         chart_data = cache.get('dashboard_chart_data')
         if chart_data is None:
@@ -179,7 +228,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             Order.objects
             .filter(
                 order_date__gte=six_months_ago,
-                status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED'],
+                status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
             )
             .annotate(month=TruncMonth('order_date'))
             .values('month')

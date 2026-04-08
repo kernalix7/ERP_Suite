@@ -43,6 +43,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             text = content.get('content', '').strip()
             if not text:
                 return
+            if len(text) > 5000:
+                await self.send_json({'type': 'error', 'message': '메시지가 너무 깁니다. (최대 5000자)'})
+                return
 
             # DB에 메시지 저장
             message_data = await self.save_message(text)

@@ -56,6 +56,7 @@
                     <th class="px-4 py-3">연락처</th>
                     <th class="px-4 py-3">구매일</th>
                     <th class="px-4 py-3 text-center">인증상태</th>
+                    <th class="px-4 py-3">작성일</th>
                     <th class="px-4 py-3 text-center">관리</th>
                 </tr>
             </thead>
@@ -78,6 +79,7 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">미인증</span>
                         {% endif %}
                     </td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ reg.created_at|date:"m-d H:i" }}</td>
                     <td class="px-4 py-3 text-center">
                         <a href="{% url 'warranty:registration_detail' reg.serial_number %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
                         {% if user.is_manager_role %}
@@ -87,7 +89,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
                         등록된 정품등록 내역이 없습니다.
                     </td>
                 </tr>

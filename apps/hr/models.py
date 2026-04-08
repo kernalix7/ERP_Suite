@@ -396,13 +396,9 @@ class Payroll(BaseModel):
 
     def calculate_deductions(self):
         """4대 보험 + 세금 자동 계산"""
-        try:
-            config = PayrollConfig.objects.get(year=self.year, is_active=True)
-        except PayrollConfig.DoesNotExist:
-            raise ValidationError(
-                f'{self.year}년 급여 설정(PayrollConfig)이 존재하지 않습니다. '
-                f'급여 계산 전에 해당 연도의 급여 설정을 먼저 등록하세요.'
-            )
+        config = PayrollConfig.objects.filter(year=self.year, is_active=True).first()
+        if not config:
+            raise ValidationError(f'{self.year}년 급여설정이 없거나 비활성 상태입니다. 관리자에게 문의하세요.')
 
         self.national_pension = int(self.gross_pay * config.national_pension_rate / 100)
         self.health_insurance = int(self.gross_pay * config.health_insurance_rate / 100)

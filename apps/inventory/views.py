@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models, transaction
-from django.db.models import F, Sum
+from django.db.models import F, Q, Sum
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
@@ -31,7 +31,7 @@ class ProductListView(LoginRequiredMixin, ListView):
         q = self.request.GET.get('q')
         product_type = self.request.GET.get('type')
         if q:
-            qs = qs.filter(name__icontains=q) | qs.filter(code__icontains=q)
+            qs = qs.filter(Q(name__icontains=q) | Q(code__icontains=q))
         if product_type:
             qs = qs.filter(product_type=product_type)
         return qs

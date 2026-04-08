@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}가져오기 - 고객등록 - ERP Suite{% endblock %}
+{% block page_title %}외부 스토어 주문 가져오기{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">대시보드</a>
+{% endblock %}
+
+{% block content %}
+{% include "marketplace/wizard/_steps.html" with current_stage="CUSTOMER" %}
+
+<div class="bg-white shadow rounded-lg p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-2">3단계: 고객 등록</h2>
+    <p class="text-sm text-gray-600 mb-4">
+        선택된 주문의 주문자를 고객으로 등록합니다.
+        이미 등록된 고객은 정보가 보완됩니다.
+    </p>
+
+    <!-- 요약 -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-blue-700">{{ summary.total }}</div>
+            <div class="text-xs text-blue-600">전체</div>
+        </div>
+        <div class="bg-yellow-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-yellow-700">{{ summary.pending }}</div>
+            <div class="text-xs text-yellow-600">대기</div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-gray-700">{{ summary.skipped }}</div>
+            <div class="text-xs text-gray-600">건너뜀</div>
+        </div>
+        <div class="bg-red-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-red-700">{{ summary.error }}</div>
+            <div class="text-xs text-red-600">오류</div>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="flex justify-end">
+            <button type="submit" class="btn btn-primary">고객 등록 실행 &rarr; 견적생성</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

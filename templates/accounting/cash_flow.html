@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}현금흐름표 - ERP Suite{% endblock %}
+{% block page_title %}현금흐름표{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 sm:gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+            <input type="date" name="from_date" value="{{ from_date }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+            <input type="date" name="to_date" value="{{ to_date }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">조회</button>
+        </div>
+    </form>
+</div>
+
+<!-- 영업활동 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-blue-50">
+        <h3 class="text-lg font-semibold text-blue-800">I. 영업활동 현금흐름</h3>
+    </div>
+    <div class="p-4 sm:p-6 space-y-3">
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">매출 수익</span>
+            <span class="font-mono text-gray-900">{{ revenue_total|intcomma }}원</span>
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">영업 비용</span>
+            <span class="font-mono text-red-600">-{{ expense_total|intcomma }}원</span>
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">미수금 변동 (AR)</span>
+            <span class="font-mono {% if ar_change > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                {% if ar_change > 0 %}-{% endif %}{{ ar_change|intcomma }}원
+            </span>
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">미지급금 변동 (AP)</span>
+            <span class="font-mono {% if ap_change > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                {% if ap_change > 0 %}+{% endif %}{{ ap_change|intcomma }}원
+            </span>
+        </div>
+        <div class="border-t border-gray-200 pt-3 flex justify-between items-center">
+            <span class="font-semibold text-gray-700">영업활동 소계</span>
+            <span class="font-mono font-bold {% if operating >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+                {{ operating|intcomma }}원
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- 투자활동 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-indigo-50">
+        <h3 class="text-lg font-semibold text-indigo-800">II. 투자활동 현금흐름</h3>
+    </div>
+    <div class="p-4 sm:p-6 space-y-3">
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">자산 취득</span>
+            <span class="font-mono text-red-600">-{{ acquisitions|intcomma }}원</span>
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">자산 처분</span>
+            <span class="font-mono text-green-600">+{{ disposals|intcomma }}원</span>
+        </div>
+        <div class="border-t border-gray-200 pt-3 flex justify-between items-center">
+            <span class="font-semibold text-gray-700">투자활동 소계</span>
+            <span class="font-mono font-bold {% if investing >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+                {{ investing|intcomma }}원
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- 재무활동 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-purple-50">
+        <h3 class="text-lg font-semibold text-purple-800">III. 재무활동 현금흐름</h3>
+    </div>
+    <div class="p-4 sm:p-6 space-y-3">
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">자본 변동 (투자/차입)</span>
+            <span class="font-mono {% if financing >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                {{ financing|intcomma }}원
+            </span>
+        </div>
+        <div class="border-t border-gray-200 pt-3 flex justify-between items-center">
+            <span class="font-semibold text-gray-700">재무활동 소계</span>
+            <span class="font-mono font-bold {% if financing >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+                {{ financing|intcomma }}원
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- 현금 요약 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-yellow-50">
+        <h3 class="text-lg font-semibold text-yellow-800">현금 증감 요약</h3>
+    </div>
+    <div class="p-4 sm:p-6 space-y-3">
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">기초 현금</span>
+            <span class="font-mono text-gray-900">{{ opening_cash|intcomma }}원</span>
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">현금 순증감 (I + II + III)</span>
+            <span class="font-mono font-semibold {% if net_change >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+                {{ net_change|intcomma }}원
+            </span>
+        </div>
+        <div class="border-t-2 border-gray-300 pt-3 flex justify-between items-center">
+            <span class="font-bold text-gray-900 text-lg">기말 현금</span>
+            <span class="font-mono font-bold text-lg {% if closing_cash >= 0 %}text-blue-700{% else %}text-red-700{% endif %}">
+                {{ closing_cash|intcomma }}원
+            </span>
+        </div>
+    </div>
+</div>
+{% endblock %}

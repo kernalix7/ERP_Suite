@@ -3,7 +3,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 
-def generate_document_number(model_class, field_name, prefix):
+def generate_document_number(model_class, field_name, prefix, reference_date=None):
     """날짜 기반 문서번호 자동 생성.
 
     형식: {PREFIX}-{YYYYMMDD}-{NNN}
@@ -15,6 +15,7 @@ def generate_document_number(model_class, field_name, prefix):
         model_class: 대상 모델 클래스
         field_name: 번호 필드명 (예: 'quote_number')
         prefix: 접두사 (예: 'QT')
+        reference_date: 기준일 (None이면 오늘)
 
     Returns:
         생성된 문서번호 문자열
@@ -22,7 +23,7 @@ def generate_document_number(model_class, field_name, prefix):
     for attempt in range(3):
         try:
             with transaction.atomic():
-                today = timezone.localdate()
+                today = reference_date or timezone.localdate()
                 date_str = today.strftime('%Y%m%d')
                 pattern = f'{prefix}-{date_str}-'
 

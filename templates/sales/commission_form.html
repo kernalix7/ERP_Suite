@@ -51,44 +51,52 @@
     const amountInput = document.getElementById('id_order_amount');
     const rateInput = document.getElementById('id_commission_rate');
     const commInput = document.getElementById('id_commission_amount');
+    let manualOverride = false;  // 수동 입력 시 자동계산 방지
 
     function autoFillFromOrder() {
         if (!orderSel || !orderSel.value) return;
         const data = orderAmounts[orderSel.value];
         if (!data) return;
 
-        // 주문금액 자동 입력
-        if (amountInput && (!amountInput.value || amountInput.value === '0')) {
-            amountInput.value = data.amount;
-        }
-        // 거래처 자동 선택
+        amountInput.value = data.amount;
         if (partnerSel && data.partner) {
             partnerSel.value = data.partner;
-            autoFillRate();
         }
+        // 서버에서 계산된 수수료 자동 입력 (정률+정액 모두 포함)
+        if (data.commission > 0 && commInput) {
+            commInput.value = data.commission;
+            manualOverride = false;
+        }
+        // 수수료율은 참고용
+        autoFillRate();
     }
 
     function autoFillRate() {
         if (!partnerSel || !partnerSel.value) return;
-        const rate = commissionRates[partnerSel.value];
-        if (rate !== undefined && rateInput && (!rateInput.value || rateInput.value === '0')) {
-            rateInput.value = rate;
+        const data = commissionRates[partnerSel.value];
+        if (data && rateInput && (!rateInput.value || rateInput.value === '0')) {
+            rateInput.value = data.rate || 0;
         }
-        calcCommission();
     }
 
-    function calcCommission() {
+    function calcFromRate() {
+        if (manualOverride) return;
         const amount = parseFloat(amountInput?.value) || 0;
         const rate = parseFloat(rateInput?.value) || 0;
-        if (amount > 0 && rate > 0 && commInput) {
-            commInput.value = Math.round(amount * rate / 100);
+        const partnerData = partnerSel ? commissionRates[partnerSel.value] : null;
+        const fixed = partnerData ? (partnerData.fixed || 0) : 0;
+        const total = Math.round(amount * rate / 100) + fixed;
+        if ((amount > 0 || fixed > 0) && commInput) {
+            commInput.value = total;
         }
     }
 
     if (orderSel) orderSel.addEventListener('change', autoFillFromOrder);
-    if (partnerSel) partnerSel.addEventListener('change', autoFillRate);
-    if (amountInput) amountInput.addEventListener('input', calcCommission);
-    if (rateInput) rateInput.addEventListener('input', calcCommission);
+    if (partnerSel) partnerSel.addEventListener('change', function() { autoFillRate(); calcFromRate(); });
+    if (amountInput) amountInput.addEventListener('input', calcFromRate);
+    if (rateInput) rateInput.addEventListener('input', function() { manualOverride = false; calcFromRate(); });
+    // 수수료금액 직접 입력 시 수동 모드
+    if (commInput) commInput.addEventListener('input', function() { manualOverride = true; });
 })();
 </script>
 {% endblock %}

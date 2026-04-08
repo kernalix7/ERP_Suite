@@ -912,3 +912,554 @@ class PriceRuleTest(TestCase):
             min_quantity=10, unit_price=9000,
         )
         self.assertIn('Q>=10', str(rule))
+
+
+class QuotationStatusTransitionTest(TestCase):
+    """견적서 상태 전환 규칙 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='quotetransuser', password='testpass123', role='staff',
+        )
+        self.partner = Partner.objects.create(
+            code='QTT-P001', name='전환테스트거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+
+    def _create_quote(self, status='DRAFT', valid_until=None):
+        if valid_until is None:
+            valid_until = date.today() + timedelta(days=30)
+        return Quotation.objects.create(
+            quote_number=f'QTT-{status}-{Quotation.objects.count() + 1}',
+            partner=self.partner,
+            quote_date=date.today(),
+            valid_until=valid_until,
+            status=status,
+            created_by=self.user,
+        )
+
+    def test_draft_to_sent_allowed(self):
+        """DRAFT → SENT 허용"""
+        quote = self._create_quote('DRAFT')
+        quote.status = 'SENT'
+        quote.save()
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, 'SENT')
+
+    def test_draft_to_accepted_blocked(self):
+        """DRAFT → ACCEPTED 차단"""
+        quote = self._create_quote('DRAFT')
+        quote.status = 'ACCEPTED'
+        with self.assertRaises(ValueError):
+            quote.save()
+
+    def test_sent_to_accepted_allowed(self):
+        """SENT → ACCEPTED 허용"""
+        quote = self._create_quote('SENT')
+        quote.status = 'ACCEPTED'
+        quote.save()
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, 'ACCEPTED')
+
+    def test_sent_to_rejected_allowed(self):
+        """SENT → REJECTED 허용"""
+        quote = self._create_quote('SENT')
+        quote.status = 'REJECTED'
+        quote.save()
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, 'REJECTED')
+
+    def test_rejected_cannot_transition(self):
+        """REJECTED 상태에서 전환 불가"""
+        quote = self._create_quote('REJECTED')
+        quote.status = 'DRAFT'
+        with self.assertRaises(ValueError):
+            quote.save()
+
+    def test_converted_cannot_transition(self):
+        """CONVERTED 상태에서 전환 불가"""
+        quote = self._create_quote('CONVERTED')
+        quote.status = 'DRAFT'
+        with self.assertRaises(ValueError):
+            quote.save()
+
+    def test_expired_cannot_transition(self):
+        """EXPIRED 상태에서 전환 불가"""
+        quote = self._create_quote('EXPIRED')
+        quote.status = 'DRAFT'
+        with self.assertRaises(ValueError):
+            quote.save()
+
+    def test_auto_expire_on_save(self):
+        """유효기한 초과 시 save()에서 EXPIRED 자동 전환"""
+        quote = self._create_quote('SENT', valid_until=date.today() - timedelta(days=1))
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, 'EXPIRED')
+
+    def test_auto_expire_draft(self):
+        """DRAFT도 유효기한 초과 시 EXPIRED 전환"""
+        quote = self._create_quote('DRAFT', valid_until=date.today() - timedelta(days=1))
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, 'EXPIRED')
+
+    def test_no_expire_when_valid(self):
+        """유효기한 내면 EXPIRED 전환 안 됨"""
+        quote = self._create_quote('SENT', valid_until=date.today() + timedelta(days=10))
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, 'SENT')
+
+
+class QuotationExpireTaskTest(TestCase):
+    """견적 만료 Celery task 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='expiretaskuser', password='testpass123', role='staff',
+        )
+
+    def test_expire_quotations_task(self):
+        """expire_quotations task가 만료 견적을 일괄 전환"""
+        from apps.sales.tasks import expire_quotations
+        # 만료된 견적 생성 (status를 먼저 SENT로 저장, 유효기한은 미래로)
+        q1 = Quotation.objects.create(
+            quote_number='EXP-001',
+            quote_date=date.today() - timedelta(days=60),
+            valid_until=date.today() + timedelta(days=30),
+            status='SENT',
+            created_by=self.user,
+        )
+        # 유효기한을 과거로 직접 변경 (save()의 auto-expire를 우회)
+        Quotation.objects.filter(pk=q1.pk).update(
+            valid_until=date.today() - timedelta(days=1),
+        )
+        # 유효한 견적 (만료 안 됨)
+        q2 = Quotation.objects.create(
+            quote_number='EXP-002',
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            status='DRAFT',
+            created_by=self.user,
+        )
+        count = expire_quotations()
+        self.assertEqual(count, 1)
+        q1.refresh_from_db()
+        self.assertEqual(q1.status, 'EXPIRED')
+        q2.refresh_from_db()
+        self.assertEqual(q2.status, 'DRAFT')
+
+
+class ReturnExchangeOrderTest(TestCase):
+    """반품/교환 주문 프로세스 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='returnuser', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-RTN', name='반품창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='PRD-RTN-001', name='반품제품', product_type='FINISHED',
+            unit_price=10000, cost_price=7000, current_stock=100,
+            created_by=self.user,
+        )
+        self.partner = Partner.objects.create(
+            code='RTN-P001', name='반품거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        # 원본 주문 (SHIPPED 상태)
+        self.original_order = Order.objects.create(
+            order_number='ORD-RTN-ORIG',
+            order_type='NORMAL',
+            partner=self.partner,
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+        )
+        self.original_item = OrderItem.objects.create(
+            order=self.original_order,
+            product=self.product,
+            quantity=5,
+            unit_price=10000,
+            created_by=self.user,
+        )
+        self.original_order.update_total()
+        self.original_order.status = 'SHIPPED'
+        self.original_order.save(update_fields=['status', 'updated_at'])
+
+    def test_return_order_creates_stock_in(self):
+        """반품 주문 확정 시 반품입고 StockMovement 생성"""
+        return_order = Order.objects.create(
+            order_number='ORD-RTN-001',
+            order_type='RETURN',
+            original_order=self.original_order,
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=return_order,
+            product=self.product,
+            quantity=5,
+            unit_price=10000,
+            created_by=self.user,
+        )
+        return_order.update_total()
+        # 재고 확인 (출고 후)
+        self.product.refresh_from_db()
+        stock_before = self.product.current_stock
+
+        return_order.status = 'CONFIRMED'
+        return_order.save(update_fields=['status', 'updated_at'])
+
+        # 반품입고 IN StockMovement 생성 확인
+        in_movements = StockMovement.objects.filter(
+            movement_type='IN',
+            reference__contains='반품입고',
+        )
+        self.assertEqual(in_movements.count(), 1)
+        self.assertEqual(in_movements.first().quantity, 5)
+
+        # 재고 증가 확인
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.current_stock, stock_before + 5)
+
+    def test_return_order_creates_reverse_ar(self):
+        """반품 주문 확정 시 AR 역전표 생성"""
+        from apps.accounting.models import AccountReceivable
+
+        return_order = Order.objects.create(
+            order_number='ORD-RTN-AR',
+            order_type='RETURN',
+            original_order=self.original_order,
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=return_order,
+            product=self.product,
+            quantity=5,
+            unit_price=10000,
+            created_by=self.user,
+        )
+        return_order.update_total()
+        return_order.status = 'CONFIRMED'
+        return_order.save(update_fields=['status', 'updated_at'])
+
+        ar = AccountReceivable.objects.filter(order=return_order, is_active=True).first()
+        self.assertIsNotNone(ar)
+        self.assertTrue(ar.amount < 0)  # 역전표
+
+    def test_exchange_order_creates_in_and_out(self):
+        """교환 주문 확정 시 반품입고 + 교환출고 StockMovement 생성"""
+        exchange_order = Order.objects.create(
+            order_number='ORD-EXC-001',
+            order_type='EXCHANGE',
+            original_order=self.original_order,
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=exchange_order,
+            product=self.product,
+            quantity=5,
+            unit_price=10000,
+            created_by=self.user,
+        )
+        exchange_order.update_total()
+        exchange_order.status = 'CONFIRMED'
+        exchange_order.save(update_fields=['status', 'updated_at'])
+
+        # 반품입고(IN) + 교환출고(OUT) 모두 존재
+        in_movements = StockMovement.objects.filter(
+            movement_type='IN',
+            reference__contains='교환반품입고',
+        )
+        out_movements = StockMovement.objects.filter(
+            movement_type='OUT',
+            reference__contains='교환출고',
+        )
+        self.assertEqual(in_movements.count(), 1)
+        self.assertEqual(out_movements.count(), 1)
+
+    def test_return_order_fields(self):
+        """반품 주문에 original_order, return_reason 필드 존재"""
+        return_order = Order.objects.create(
+            order_number='ORD-RTN-FIELD',
+            order_type='RETURN',
+            original_order=self.original_order,
+            return_reason='불량품 반품',
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+        return_order.refresh_from_db()
+        self.assertEqual(return_order.original_order, self.original_order)
+        self.assertEqual(return_order.return_reason, '불량품 반품')
+        self.assertEqual(return_order.order_type, 'RETURN')
+
+
+class PriceRuleAutoApplyTest(TestCase):
+    """C3: PriceRule 자동 적용 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='priceautouser', password='testpass123', role='staff',
+        )
+        self.partner = Partner.objects.create(
+            code='PA-001', name='가격규칙거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='PA-PRD-001', name='가격규칙제품',
+            product_type='FINISHED',
+            unit_price=10000, cost_price=7000,
+            created_by=self.user,
+        )
+        self.order = Order.objects.create(
+            order_number='ORD-PA-001',
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+
+    def test_orderitem_auto_price_from_rule(self):
+        """unit_price=0일 때 PriceRule에서 자동 조회"""
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            unit_price=8000, priority=10,
+            created_by=self.user,
+        )
+        item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=3,
+            unit_price=0,
+            created_by=self.user,
+        )
+        self.assertEqual(item.unit_price, 8000)
+        self.assertEqual(item.amount, 24000)
+
+    def test_orderitem_no_override_when_price_set(self):
+        """unit_price가 0이 아니면 PriceRule 무시"""
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            unit_price=8000,
+            created_by=self.user,
+        )
+        item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=2,
+            unit_price=9000,
+            created_by=self.user,
+        )
+        self.assertEqual(item.unit_price, 9000)
+
+    def test_quotationitem_auto_price_from_rule(self):
+        """QuotationItem에서도 PriceRule 자동 적용"""
+        from apps.sales.models import PriceRule
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            unit_price=7500,
+            created_by=self.user,
+        )
+        quote = Quotation.objects.create(
+            quote_number='QT-PA-001',
+            partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        qi = QuotationItem.objects.create(
+            quotation=quote,
+            product=self.product,
+            quantity=4,
+            unit_price=0,
+            created_by=self.user,
+        )
+        self.assertEqual(qi.unit_price, 7500)
+        self.assertEqual(qi.amount, 30000)
+
+
+class ShipmentTrackingAutoTest(TestCase):
+    """H2: ShipmentTracking 자동 생성 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='trackuser', password='testpass123', role='staff',
+        )
+        self.order = Order.objects.create(
+            order_number='ORD-TRACK-001',
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+        )
+        self.shipment = Shipment.objects.create(
+            order=self.order,
+            shipment_number='SH-TRACK-001',
+            carrier=Shipment.Carrier.CJ,
+            created_by=self.user,
+        )
+
+    def test_status_change_creates_tracking(self):
+        """배송 상태 변경 시 ShipmentTracking 자동 생성"""
+        from apps.sales.models import ShipmentTracking
+        self.shipment.status = 'SHIPPED'
+        self.shipment.shipped_date = date.today()
+        self.shipment.save()
+
+        tracks = ShipmentTracking.objects.filter(shipment=self.shipment)
+        self.assertEqual(tracks.count(), 1)
+        self.assertEqual(tracks.first().status, '발송')
+
+    def test_no_tracking_on_same_status(self):
+        """동일 상태 저장 시 ShipmentTracking 생성 안 됨"""
+        from apps.sales.models import ShipmentTracking
+        self.shipment.save()
+        self.assertEqual(
+            ShipmentTracking.objects.filter(shipment=self.shipment).count(), 0,
+        )
+
+
+class PartnerApprovalTest(TestCase):
+    """M1: 거래처 승인 상태 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='approvaluser', password='testpass123', role='staff',
+        )
+        self.product = Product.objects.create(
+            code='APR-PRD-001', name='승인제품',
+            product_type='FINISHED',
+            unit_price=10000, cost_price=7000, current_stock=100,
+            created_by=self.user,
+        )
+
+    def test_approved_partner_can_confirm(self):
+        """APPROVED 거래처 주문 확정 가능"""
+        partner = Partner.objects.create(
+            code='APR-P001', name='승인거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            approval_status='APPROVED',
+            created_by=self.user,
+        )
+        order = Order.objects.create(
+            order_number='ORD-APR-001',
+            partner=partner,
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=1, unit_price=10000,
+            created_by=self.user,
+        )
+        order.update_total()
+        order.status = 'CONFIRMED'
+        order.save(update_fields=['status', 'updated_at'])
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'CONFIRMED')
+
+    def test_suspended_partner_blocks_confirm(self):
+        """SUSPENDED 거래처 주문 확정 차단"""
+        partner = Partner.objects.create(
+            code='APR-P002', name='정지거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            approval_status='SUSPENDED',
+            created_by=self.user,
+        )
+        order = Order.objects.create(
+            order_number='ORD-APR-002',
+            partner=partner,
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+        order.status = 'CONFIRMED'
+        with self.assertRaises(ValueError):
+            order.save(update_fields=['status', 'updated_at'])
+
+    def test_default_approval_status_is_approved(self):
+        """기본 승인상태는 APPROVED"""
+        partner = Partner.objects.create(
+            code='APR-P003', name='기본거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        self.assertEqual(partner.approval_status, 'APPROVED')
+
+
+class ServiceRequestOrderFKTest(TestCase):
+    """M3: ServiceRequest ← Order FK 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='svcfkuser', password='testpass123', role='staff',
+        )
+        self.customer = Customer.objects.create(
+            code='SVC-CST', name='서비스고객', phone='010-1234-5678',
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='SVC-PRD', name='서비스제품',
+            unit_price=10000, created_by=self.user,
+        )
+        self.order = Order.objects.create(
+            order_number='ORD-SVC-001',
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+
+    def test_service_request_with_order(self):
+        """ServiceRequest에 order FK 설정 가능"""
+        from apps.service.models import ServiceRequest
+        sr = ServiceRequest.objects.create(
+            customer=self.customer,
+            product=self.product,
+            symptom='제품 불량',
+            received_date=date.today(),
+            order=self.order,
+            created_by=self.user,
+        )
+        sr.refresh_from_db()
+        self.assertEqual(sr.order, self.order)
+
+    def test_service_request_without_order(self):
+        """ServiceRequest order FK는 nullable"""
+        from apps.service.models import ServiceRequest
+        sr = ServiceRequest.objects.create(
+            customer=self.customer,
+            product=self.product,
+            symptom='일반 AS',
+            received_date=date.today(),
+            created_by=self.user,
+        )
+        self.assertIsNone(sr.order)
+
+    def test_order_service_requests_reverse(self):
+        """Order에서 service_requests 역참조"""
+        from apps.service.models import ServiceRequest
+        ServiceRequest.objects.create(
+            customer=self.customer,
+            product=self.product,
+            symptom='반품 AS',
+            received_date=date.today(),
+            order=self.order,
+            created_by=self.user,
+        )
+        self.assertEqual(self.order.service_requests.count(), 1)

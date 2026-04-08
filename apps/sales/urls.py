@@ -41,6 +41,8 @@ urlpatterns = [
     path('orders/<str:slug>/po-pdf/', views.OrderPurchaseOrderPDFView.as_view(), name='order_po_pdf'),
     path('orders/<str:order_slug>/ship/', views.ShipmentCreateView.as_view(), name='shipment_create'),
     path('orders/<str:slug>/partial-ship/', views.PartialShipmentView.as_view(), name='partial_shipment'),
+    path('orders/<str:slug>/return/', views.ReturnOrderCreateView.as_view(), name='order_return'),
+    path('orders/<str:slug>/exchange/', views.ExchangeOrderCreateView.as_view(), name='order_exchange'),
     # 견적서 — 고정 경로 먼저
     path('quotes/', views.QuotationListView.as_view(), name='quote_list'),
     path('quotes/create/', views.QuotationCreateView.as_view(), name='quote_create'),
@@ -75,6 +77,7 @@ urlpatterns = [
     path('price-rules/<int:pk>/delete/', views.PriceRuleDeleteView.as_view(), name='price_rule_delete'),
     # 가격 조회 API
     path('api/price-lookup/', views.PriceLookupView.as_view(), name='price_lookup'),
+    path('api/customer-address/', views.CustomerAddressView.as_view(), name='customer_address'),
     # 택배사
     path('carriers/', views.ShippingCarrierListView.as_view(), name='carrier_list'),
     path('carriers/create/', views.ShippingCarrierCreateView.as_view(), name='carrier_create'),

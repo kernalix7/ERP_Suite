@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block page_title %}{% trans "카드 사용내역" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:card_transaction_create' %}" class="btn btn-primary">+ {% trans "거래 등록" %}</a>
+{% endblock %}
+
+{% block content %}
+<!-- 필터 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "시작일" %}</label>
+            <input type="date" name="date_from" value="{{ request.GET.date_from|default:'' }}" class="rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "종료일" %}</label>
+            <input type="date" name="date_to" value="{{ request.GET.date_to|default:'' }}" class="rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "카드" %}</label>
+            <select name="card_id" class="rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+                <option value="">전체</option>
+                {% for c in cards %}
+                <option value="{{ c.pk }}" {% if request.GET.card_id == c.pk|stringformat:"d" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "카테고리" %}</label>
+            <select name="category" class="rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+                <option value="">전체</option>
+                {% for val, label in category_choices %}
+                <option value="{{ val }}" {% if request.GET.category == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex-1 min-w-[150px]">
+            <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "검색" %}</label>
+            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="가맹점명" class="w-full rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-secondary">{% trans "검색" %}</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white shadow-sm rounded-lg overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">{% trans "날짜" %}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">{% trans "카드" %}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">{% trans "가맹점" %}</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-600">{% trans "금액" %}</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-600">{% trans "부가세" %}</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">{% trans "할부" %}</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">{% trans "카테고리" %}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">{% trans "승인번호" %}</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">{% trans "취소" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for tx in transactions %}
+                <tr class="hover:bg-gray-50 {% if tx.is_cancelled %}opacity-50{% endif %}">
+                    <td class="px-4 py-3 text-gray-600">{{ tx.transaction_date }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ tx.card.name }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ tx.merchant_name }}</td>
+                    <td class="px-4 py-3 text-right font-mono {% if tx.is_cancelled %}text-gray-400 line-through{% else %}text-gray-900{% endif %}">
+                        {{ tx.amount|intcomma }}원
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-500">{{ tx.tax_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-center text-gray-600">{% if tx.installments %}{{ tx.installments }}개월{% else %}일시불{% endif %}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                            {{ tx.get_category_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ tx.authorization_number|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if tx.is_cancelled %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">취소</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">{% trans "카드 사용내역이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% include 'includes/pagination.html' %}
+{% endblock %}

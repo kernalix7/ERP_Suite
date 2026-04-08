@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}자산 이관 목록 - ERP Suite{% endblock %}
+{% block page_title %}자산 이관 목록{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <!-- 검색/필터 -->
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px] relative">
+                <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input type="text" name="asset" value="{{ request.GET.asset }}" placeholder="자산번호/자산명 검색..."
+                       class="form-input pl-10">
+            </div>
+            <input type="date" name="date_from" value="{{ request.GET.date_from }}" placeholder="시작일"
+                   class="form-input w-auto" title="이관일 시작">
+            <input type="date" name="date_to" value="{{ request.GET.date_to }}" placeholder="종료일"
+                   class="form-input w-auto" title="이관일 종료">
+            <select name="department" class="form-input w-auto">
+                <option value="">전체 부서</option>
+                {% for dept in departments %}
+                <option value="{{ dept.pk }}" {% if request.GET.department == dept.pk|stringformat:"d" %}selected{% endif %}>{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">검색</button>
+            {% if request.GET.asset or request.GET.date_from or request.GET.date_to or request.GET.department %}
+            <a href="{% url 'asset:transfer_list' %}" class="btn btn-secondary">초기화</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- 테이블 -->
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">자산번호</th>
+                    <th class="px-4 py-3">자산명</th>
+                    <th class="px-4 py-3">이관일</th>
+                    <th class="px-4 py-3">이전부서</th>
+                    <th class="px-4 py-3">이관부서</th>
+                    <th class="px-4 py-3">이관사유</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for t in transfers %}
+                <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onclick="location.href='{% url 'asset:asset_detail' t.asset.asset_number %}'">
+                    <td class="px-4 py-3 font-medium text-blue-600 hover:text-blue-800">{{ t.asset.asset_number }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ t.asset.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ t.transfer_date }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ t.from_department|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-900 font-medium">{{ t.to_department }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ t.reason|truncatewords:15 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">자산 이관 내역이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.asset %}&asset={{ request.GET.asset }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.department %}&department={{ request.GET.department }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}{% if request.GET.asset %}&asset={{ request.GET.asset }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.department %}&department={{ request.GET.department }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.asset %}&asset={{ request.GET.asset }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.department %}&department={{ request.GET.department }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

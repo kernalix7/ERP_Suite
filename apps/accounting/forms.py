@@ -5,6 +5,7 @@ from .models import (
     TaxRate, TaxInvoice, FixedCost, WithholdingTax, AccountCode, Voucher, VoucherLine,
     AccountReceivable, AccountPayable, Payment, BankAccount,
     AccountTransfer, PaymentDistribution,
+    CreditCard, CardTransaction,
 )
 
 
@@ -107,7 +108,7 @@ class AccountReceivableForm(BaseForm):
 class AccountPayableForm(BaseForm):
     class Meta:
         model = AccountPayable
-        fields = ['partner', 'invoice', 'amount', 'paid_amount', 'due_date', 'status', 'notes']
+        fields = ['partner', 'purchase_order', 'invoice', 'amount', 'paid_amount', 'due_date', 'status', 'notes']
         widgets = {
             'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
@@ -160,3 +161,26 @@ PaymentDistributionFormSet = forms.inlineformset_factory(
     extra=2,
     can_delete=True,
 )
+
+
+class CreditCardForm(BaseForm):
+    class Meta:
+        model = CreditCard
+        fields = [
+            'name', 'card_type', 'card_issuer', 'card_number_last4',
+            'cardholder', 'employee', 'expiry_date', 'monthly_limit',
+            'billing_day', 'payment_account', 'account_code', 'notes',
+        ]
+
+
+class CardTransactionForm(BaseForm):
+    class Meta:
+        model = CardTransaction
+        fields = [
+            'card', 'transaction_date', 'merchant_name', 'amount',
+            'tax_amount', 'installments', 'authorization_number',
+            'category', 'partner', 'notes',
+        ]
+        widgets = {
+            'transaction_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+        }

@@ -63,7 +63,7 @@
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                     <span class="text-gray-500">{% trans "등록일" %}</span>
-                    <span>{{ object.created_at|date:"Y-m-d" }}</span>
+                    <span>{{ object.created_at|date:"Y-m-d H:i" }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">{% trans "등록자" %}</span>
@@ -112,4 +112,5 @@
         </table>
     </div>
 </div>
+{% include 'includes/timestamps.html' with obj=object %}
 {% endblock %}

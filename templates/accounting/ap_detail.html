@@ -33,8 +33,9 @@
         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div><dt class="text-sm text-gray-500">{% trans "거래처" %}</dt><dd class="font-medium">{{ object.partner.name }}</dd></div>
             <div><dt class="text-sm text-gray-500">{% trans "세금계산서" %}</dt><dd>{{ object.invoice.invoice_number|default:"-" }}</dd></div>
+            <div><dt class="text-sm text-gray-500">{% trans "발주서" %}</dt><dd>{% if object.purchase_order %}<a href="{% url 'purchase:po_detail' object.purchase_order.po_number %}" class="text-blue-600 hover:text-blue-800">{{ object.purchase_order.po_number }}</a>{% else %}-{% endif %}</dd></div>
             <div><dt class="text-sm text-gray-500">{% trans "납기일" %}</dt><dd class="{% if object.is_overdue %}text-red-600 font-semibold{% endif %}">{{ object.due_date }}</dd></div>
-            <div><dt class="text-sm text-gray-500">{% trans "등록일" %}</dt><dd>{{ object.created_at|date:"Y-m-d" }}</dd></div>
+            <div><dt class="text-sm text-gray-500">{% trans "등록일" %}</dt><dd>{{ object.created_at|date:"Y-m-d H:i" }}</dd></div>
             <div><dt class="text-sm text-gray-500">{% trans "금액" %}</dt><dd class="font-medium text-lg">{{ object.amount|intcomma }}{% trans "원" %}</dd></div>
             <div><dt class="text-sm text-gray-500">{% trans "지급액" %}</dt><dd class="font-medium text-lg text-green-600">{{ object.paid_amount|intcomma }}{% trans "원" %}</dd></div>
         </dl>
@@ -108,4 +109,5 @@
         </table>
     </div>
 </div>
+{% include 'includes/timestamps.html' with obj=object %}
 {% endblock %}

@@ -14,9 +14,15 @@ def auto_create_erp_quotation(sender, instance, created, **kwargs):
     """마켓플레이스 주문 NEW → ERP 견적서 자동 생성
 
     - status=NEW이고 erp_quotation이 없을 때만 생성
+    - _skip_signal attr이 있으면 건너뜀 (import 경로에서 직접 처리)
+    - matched_product_id attr이 있으면 그 제품 사용
     - 고객 생성 시 전화번호/주소 포함
     - 주문 전환은 수동으로 진행
     """
+    # import 경로에서는 시그널 건너뜀 (import_selected_orders가 직접 처리)
+    from .sync_service import _import_context
+    if getattr(_import_context, 'skip_signal', False):
+        return
     if instance.status != 'NEW':
         return
     if instance.erp_quotation_id is not None:
@@ -24,14 +30,21 @@ def auto_create_erp_quotation(sender, instance, created, **kwargs):
 
     from apps.inventory.models import Product
     from apps.sales.models import Customer, Quotation, QuotationItem
+    from .models import ProductMapping
 
     with transaction.atomic():
+        # 주소 분리
+        from .sync_service import _parse_address
+        address, address_road, address_detail = _parse_address(instance.receiver_address)
+
         # 고객 찾기/생성 (buyer_name 기준, 전화번호+주소 포함)
         customer, customer_created = Customer.objects.get_or_create(
             name=instance.buyer_name,
             defaults={
                 'phone': instance.buyer_phone or '',
-                'address': instance.receiver_address or '',
+                'address': address,
+                'address_road': address_road,
+                'address_detail': address_detail,
                 'created_by': instance.created_by,
             },
         )
@@ -41,17 +54,35 @@ def auto_create_erp_quotation(sender, instance, created, **kwargs):
             if not customer.phone and instance.buyer_phone:
                 customer.phone = instance.buyer_phone
                 updated_fields.append('phone')
-            if not customer.address and instance.receiver_address:
-                customer.address = instance.receiver_address
-                updated_fields.append('address')
+            if not customer.address and address:
+                customer.address = address
+                customer.address_road = address_road
+                customer.address_detail = address_detail
+                updated_fields.extend(['address', 'address_road', 'address_detail'])
             if updated_fields:
                 updated_fields.append('updated_at')
                 customer.save(update_fields=updated_fields)
 
-        # 상품 매칭 (product_name으로 검색, 없으면 스킵)
-        product = Product.objects.filter(
-            name=instance.product_name, is_active=True,
-        ).first()
+        # 상품 매칭: matched_product_id attr → ProductMapping → 이름 검색
+        product = None
+        matched_id = getattr(instance, '_matched_product_id', None)
+        if matched_id:
+            product = Product.objects.filter(pk=matched_id, is_active=True).first()
+
+        if not product:
+            mapping = ProductMapping.objects.filter(
+                store_product_name=instance.product_name,
+                store_option_name=instance.option_name or '',
+                is_active=True,
+            ).select_related('product').first()
+            if mapping:
+                product = mapping.product
+
+        if not product:
+            product = Product.objects.filter(
+                name=instance.product_name, is_active=True,
+            ).first()
+
         if not product:
             logger.warning(
                 'MarketplaceOrder %s: 상품 "%s" 매칭 실패 — 견적서 미생성',

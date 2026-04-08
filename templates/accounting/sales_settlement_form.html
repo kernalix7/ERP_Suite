@@ -31,8 +31,8 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">수수료 계산 기준</label>
                 <select name="commission_base" class="form-input" @change="updateSummary()">
-                    <option value="revenue">공급가액 기준 (매출 × 수수료율)</option>
-                    <option value="profit">순이익 기준 ((매출 - 원가) × 수수료율)</option>
+                    <option value="revenue">실입금 기준 ((공급가액 - 플랫폼수수료) x 수수료율)</option>
+                    <option value="profit">매출이익 기준 ((공급가액 - 플랫폼수수료 - 원가 - 배송비) x 수수료율)</option>
                 </select>
             </div>
         </div>
@@ -52,9 +52,10 @@
                         <th class="px-3 py-3 text-right">공급가액</th>
                         <th class="px-3 py-3 text-right">원가</th>
                         <th class="px-3 py-3 text-right">배송비</th>
+                        <th class="px-3 py-3 text-right">플랫폼 수수료</th>
                         <th class="px-3 py-3 text-right">부가세</th>
                         <th class="px-3 py-3 text-right">총합계</th>
-                        <th class="px-3 py-3 w-24 text-right">수수료율(%)</th>
+                        <th class="px-3 py-3 w-44 text-right">정산 수수료</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -67,6 +68,7 @@
                                    data-order-id="{{ order.pk }}"
                                    data-revenue="{{ order.total_amount }}"
                                    data-shipping="{{ order.shipping_cost }}"
+                                   data-platform-commission="{{ order.platform_commission }}"
                                    data-tax="{{ order.tax_total }}"
                                    data-grand="{{ order.grand_total }}">
                         </td>
@@ -77,6 +79,8 @@
                         <td class="px-3 py-3 text-center">
                             {% if order.status == 'DELIVERED' %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">배송완료</span>
+                            {% elif order.status == 'CLOSED' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">종결</span>
                             {% elif order.status == 'SHIPPED' %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">출고완료</span>
                             {% elif order.status == 'CONFIRMED' %}
@@ -86,17 +90,27 @@
                         <td class="px-3 py-3 text-right text-gray-900">{{ order.total_amount|intcomma }}원</td>
                         <td class="px-3 py-3 text-right text-gray-500">{{ order.cost_total|intcomma }}원</td>
                         <td class="px-3 py-3 text-right text-gray-500">{{ order.shipping_cost|intcomma }}원</td>
+                        <td class="px-3 py-3 text-right {% if order.platform_commission %}text-red-500 font-medium{% else %}text-gray-400{% endif %}">
+                            {% if order.platform_commission %}{{ order.platform_commission|intcomma }}원{% else %}-{% endif %}
+                        </td>
                         <td class="px-3 py-3 text-right text-gray-500">{{ order.tax_total|intcomma }}원</td>
                         <td class="px-3 py-3 text-right font-medium text-gray-900">{{ order.grand_total|intcomma }}원</td>
                         <td class="px-3 py-3 text-right">
-                            <input type="number" name="rate_{{ order.pk }}" class="form-input w-20 text-right text-sm rate-input"
-                                   step="0.01" min="0" max="100" placeholder="0"
-                                   @input="updateSummary()">
+                            <div class="flex items-center gap-1 justify-end">
+                                <select name="comm_type_{{ order.pk }}" class="form-input w-16 text-xs comm-type-select px-1"
+                                        @change="updateSummary()">
+                                    <option value="rate">%</option>
+                                    <option value="fixed">원</option>
+                                </select>
+                                <input type="number" name="rate_{{ order.pk }}" class="form-input w-24 text-right text-sm rate-input"
+                                       step="0.01" min="0" placeholder="0"
+                                       @input="updateSummary()">
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="12" class="px-4 py-12 text-center text-gray-400">정산 대상 주문이 없습니다.</td>
+                        <td colspan="13" class="px-4 py-12 text-center text-gray-400">정산 대상 주문이 없습니다.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -107,7 +121,8 @@
     <!-- 정산 요약 -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">정산 요약</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <!-- 1단: 매출 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
             <div class="bg-gray-50 rounded-lg p-4 text-center">
                 <dt class="text-sm text-gray-500">선택 건수</dt>
                 <dd class="mt-1 text-xl font-bold text-gray-900" id="summary-count">0건</dd>
@@ -117,6 +132,17 @@
                 <dd class="mt-1 text-xl font-bold text-gray-900" id="summary-revenue">0원</dd>
             </div>
             <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <dt class="text-sm text-gray-500">부가세</dt>
+                <dd class="mt-1 text-xl font-bold text-gray-700" id="summary-tax">0원</dd>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <dt class="text-sm text-gray-500">총액 (VAT 포함)</dt>
+                <dd class="mt-1 text-xl font-bold text-gray-900" id="summary-grand">0원</dd>
+            </div>
+        </div>
+        <!-- 2단: 비용 차감 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
                 <dt class="text-sm text-gray-500">원가</dt>
                 <dd class="mt-1 text-xl font-bold text-gray-700" id="summary-cost">0원</dd>
             </div>
@@ -124,18 +150,33 @@
                 <dt class="text-sm text-gray-500">배송비</dt>
                 <dd class="mt-1 text-xl font-bold text-gray-700" id="summary-shipping">0원</dd>
             </div>
-            <div class="bg-gray-50 rounded-lg p-4 text-center">
-                <dt class="text-sm text-gray-500">부가세</dt>
-                <dd class="mt-1 text-xl font-bold text-gray-700" id="summary-tax">0원</dd>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                <dt class="text-sm font-medium text-red-700">플랫폼 수수료</dt>
+                <dd class="mt-1 text-xl font-bold text-red-600" id="summary-platform-commission">0원</dd>
+                <p class="text-xs text-red-400 mt-1">이미 공제된 수수료</p>
             </div>
-            <div class="bg-gray-50 rounded-lg p-4 text-center">
-                <dt class="text-sm text-gray-500">총합계</dt>
-                <dd class="mt-1 text-xl font-bold text-blue-600" id="summary-grand">0원</dd>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                <dt class="text-sm font-medium text-yellow-700">매출이익</dt>
+                <dd class="mt-1 text-xl font-bold text-yellow-700" id="summary-gross-profit">0원</dd>
+                <p class="text-xs text-yellow-500 mt-1">공급가액 - 원가 - 배송비 - 플랫폼수수료</p>
             </div>
-            <div class="bg-gray-50 rounded-lg p-4 text-center">
-                <dt class="text-sm text-gray-500">예상 수수료</dt>
-                <dd class="mt-1 text-xl font-bold text-red-600" id="summary-commission">0원</dd>
-                <p class="text-xs text-gray-400 mt-1" id="commission-base-label">공급가액×수수료율</p>
+        </div>
+        <!-- 3단: 정산 수수료 + 최종 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+                <dt class="text-sm font-medium text-orange-700">정산 수수료</dt>
+                <dd class="mt-1 text-xl font-bold text-orange-600" id="summary-commission">0원</dd>
+                <p class="text-xs text-orange-400 mt-1" id="commission-base-label">수수료율 기반</p>
+            </div>
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                <dt class="text-sm font-medium text-blue-700">실 입금액</dt>
+                <dd class="mt-1 text-xl font-bold text-blue-700" id="summary-net">0원</dd>
+                <p class="text-xs text-blue-400 mt-1">총매출 - 플랫폼수수료 - 정산수수료</p>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <dt class="text-sm font-medium text-green-700">순이익</dt>
+                <dd class="mt-1 text-xl font-bold text-green-700" id="summary-profit">0원</dd>
+                <p class="text-xs text-green-400 mt-1">매출이익 - 정산수수료</p>
             </div>
         </div>
     </div>
@@ -198,33 +239,52 @@ function settlementForm() {
             this.updateSummary();
         },
         updateSummary() {
-            let count = 0, revenue = 0, costSum = 0, shippingSum = 0, tax = 0, grand = 0, commission = 0;
+            let count = 0, revenue = 0, costSum = 0, shippingSum = 0, tax = 0, grand = 0;
+            let platformCommission = 0, additionalCommission = 0;
             document.querySelectorAll('.order-check:checked').forEach(cb => {
                 count++;
                 const r = parseFloat(cb.dataset.revenue) || 0;
                 const orderId = cb.dataset.orderId;
                 const cost = parseFloat(_orderCosts[orderId]) || 0;
                 const shipping = parseFloat(cb.dataset.shipping) || 0;
+                const pComm = parseFloat(cb.dataset.platformCommission) || 0;
                 revenue += r;
                 costSum += cost;
                 shippingSum += shipping;
+                platformCommission += pComm;
                 tax += parseFloat(cb.dataset.tax) || 0;
                 grand += parseFloat(cb.dataset.grand) || 0;
+                // 수수료: 정률(%) or 정액(원)
                 const row = cb.closest('tr');
-                const rate = parseFloat(row.querySelector('.rate-input')?.value) || 0;
-                // 수수료 기준 선택 (순이익 = 공급가액 - 원가 - 배송비)
-                const base = document.querySelector('[name=commission_base]').value;
-                const commBase = base === 'profit' ? Math.max(r - cost - shipping, 0) : r;
-                commission += Math.round(commBase * rate / 100);
+                const commType = row.querySelector('.comm-type-select')?.value || 'rate';
+                const inputVal = parseFloat(row.querySelector('.rate-input')?.value) || 0;
+                if (inputVal > 0) {
+                    if (commType === 'fixed') {
+                        additionalCommission += Math.round(inputVal);
+                    } else {
+                        const netRevenue = r - pComm;
+                        const base = document.querySelector('[name=commission_base]').value;
+                        const commBase = base === 'profit' ? Math.max(netRevenue - cost - shipping, 0) : Math.max(netRevenue, 0);
+                        additionalCommission += Math.round(commBase * inputVal / 100);
+                    }
+                }
             });
+            const grossProfit = revenue - costSum - shippingSum - platformCommission;
+            const net = grand - platformCommission - additionalCommission;
+            const profit = grossProfit - additionalCommission;
+
             document.getElementById('summary-count').textContent = count + '건';
             document.getElementById('summary-revenue').textContent = revenue.toLocaleString() + '원';
             document.getElementById('summary-cost').textContent = costSum.toLocaleString() + '원';
             document.getElementById('summary-shipping').textContent = shippingSum.toLocaleString() + '원';
             document.getElementById('summary-tax').textContent = tax.toLocaleString() + '원';
+            document.getElementById('summary-gross-profit').textContent = grossProfit.toLocaleString() + '원';
             document.getElementById('summary-grand').textContent = grand.toLocaleString() + '원';
-            document.getElementById('summary-commission').textContent = commission.toLocaleString() + '원';
-            const baseLabel = document.querySelector('[name=commission_base]').value === 'profit' ? '(매출-원가-배송비)×수수료율' : '공급가액×수수료율';
+            document.getElementById('summary-platform-commission').textContent = platformCommission.toLocaleString() + '원';
+            document.getElementById('summary-commission').textContent = additionalCommission.toLocaleString() + '원';
+            document.getElementById('summary-net').textContent = net.toLocaleString() + '원';
+            document.getElementById('summary-profit').textContent = profit.toLocaleString() + '원';
+            const baseLabel = document.querySelector('[name=commission_base]').value === 'profit' ? '(공급가액-플랫폼수수료-원가-배송비)x수수료율' : '(공급가액-플랫폼수수료)x수수료율';
             document.getElementById('commission-base-label').textContent = baseLabel;
             document.getElementById('btn-submit').disabled = count === 0;
         },

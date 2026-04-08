@@ -1,8 +1,10 @@
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import F, Prefetch, Q
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.views import View
 from django.views.generic import (
     ListView, CreateView, UpdateView, DeleteView, DetailView,
 )
@@ -47,7 +49,7 @@ class PostDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'post'
 
     def get_queryset(self):
-        return Post.objects.select_related('board', 'author')
+        return Post.objects.filter(is_active=True).select_related('board', 'author')
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -183,3 +185,15 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         return HttpResponseRedirect(
             reverse('board:post_detail', kwargs={'pk': self.kwargs['pk']})
         )
+
+
+class CommentDeleteView(LoginRequiredMixin, View):
+    def post(self, request, pk, comment_pk):
+        comment = get_object_or_404(Comment, pk=comment_pk, post_id=pk, is_active=True)
+        if comment.author != request.user and not request.user.role == 'admin':
+            messages.error(request, '삭제 권한이 없습니다.')
+            return redirect('board:post_detail', pk=pk)
+        comment.is_active = False
+        comment.save(update_fields=['is_active', 'updated_at'])
+        messages.success(request, '댓글이 삭제되었습니다.')
+        return redirect('board:post_detail', pk=pk)

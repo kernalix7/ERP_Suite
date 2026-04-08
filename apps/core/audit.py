@@ -377,7 +377,7 @@ class AccessLogView(AuditRequiredMixin, TemplateView):
     LOG_PATTERN = re.compile(
         r'\[(?P<ts>[^\]]+)\]\s+INFO\s+access\s+'
         r'(?P<user>\S+)\s+(?P<method>\S+)\s+(?P<path>\S+)\s+'
-        r'(?P<status>\d+)\s+(?P<duration>\d+)ms'
+        r'(?P<status>\d+)\s+(?P<duration>\d+)ms\s+(?P<ip>\S+)'
     )
 
     def get_context_data(self, **kwargs):

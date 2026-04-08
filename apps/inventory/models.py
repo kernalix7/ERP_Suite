@@ -36,11 +36,15 @@ class Product(BaseModel):
         RAW = 'RAW', '원자재'
         SEMI = 'SEMI', '반제품'
         FINISHED = 'FINISHED', '완제품'
+        SERVICE = 'SERVICE', '서비스'
+        INTANGIBLE = 'INTANGIBLE', '무형상품'
 
     TYPE_PREFIX_MAP = {
         'FINISHED': 'FIN',
         'RAW': 'RAW',
         'SEMI': 'ASM',
+        'SERVICE': 'SVC',
+        'INTANGIBLE': 'INT',
     }
 
     class ValuationMethod(models.TextChoices):
@@ -130,6 +134,11 @@ class Product(BaseModel):
         if self.current_stock >= self.safety_stock:
             return 0
         return self.safety_stock - self.current_stock
+
+    @property
+    def is_stockable(self):
+        """재고 관리 대상 여부 (서비스/무형상품은 재고 미추적)"""
+        return self.product_type not in (self.ProductType.SERVICE, self.ProductType.INTANGIBLE)
 
     @property
     def profit_margin(self):

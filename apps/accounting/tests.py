@@ -11,10 +11,17 @@ from apps.sales.models import Partner
 
 from .models import (
     AccountCode,
+    AccountPayable,
+    AccountReceivable,
+    BankAccount,
+    CardBilling,
+    CardTransaction,
     ClosingPeriod,
+    CreditCard,
     Currency,
     ExchangeRate,
     FixedCost,
+    Payment,
     TaxInvoice,
     TaxRate,
     Voucher,
@@ -495,6 +502,121 @@ class ApprovalStepTests(TestCase):
                 request=req, step_order=1,
                 approver=self.approver2,
             )
+
+
+class AccountPayablePurchaseOrderTests(TestCase):
+    """AP ← PurchaseOrder FK 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='P-AP-001',
+            name='테스트 공급사',
+            partner_type=Partner.PartnerType.SUPPLIER,
+        )
+
+    def test_ap_with_purchase_order_fk(self):
+        """AP에 PurchaseOrder FK 연결 가능"""
+        from apps.purchase.models import PurchaseOrder
+        po = PurchaseOrder.objects.create(
+            po_number='PO-TEST-001',
+            partner=self.partner,
+            order_date=date.today(),
+            status='CONFIRMED',
+        )
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            purchase_order=po,
+            amount=Decimal('1000000'),
+            due_date=date.today(),
+            status='PENDING',
+            notes=f'발주 {po.po_number} 입고완료',
+        )
+        self.assertEqual(ap.purchase_order, po)
+        self.assertEqual(po.payables.first(), ap)
+
+    def test_ap_without_purchase_order(self):
+        """AP는 PurchaseOrder FK 없이도 생성 가능"""
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            due_date=date.today(),
+            status='PENDING',
+        )
+        self.assertIsNone(ap.purchase_order)
+
+
+class OverdueTaskTests(TestCase):
+    """AR/AP 연체 Celery 태스크 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='P-OD-001',
+            name='연체 테스트 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+
+    def test_overdue_ar_auto_transition(self):
+        """만기일 지난 AR이 OVERDUE로 전환"""
+        from datetime import timedelta
+        from apps.accounting.tasks import update_overdue_receivables
+
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            due_date=date.today() - timedelta(days=1),
+            status='PENDING',
+        )
+        result = update_overdue_receivables()
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'OVERDUE')
+        self.assertEqual(result['ar_updated'], 1)
+
+    def test_overdue_ap_auto_transition(self):
+        """만기일 지난 AP가 OVERDUE로 전환"""
+        from datetime import timedelta
+        from apps.accounting.tasks import update_overdue_receivables
+
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            due_date=date.today() - timedelta(days=1),
+            status='PARTIAL',
+        )
+        result = update_overdue_receivables()
+        ap.refresh_from_db()
+        self.assertEqual(ap.status, 'OVERDUE')
+        self.assertEqual(result['ap_updated'], 1)
+
+    def test_paid_ar_not_marked_overdue(self):
+        """완납된 AR은 OVERDUE로 전환되지 않음"""
+        from datetime import timedelta
+        from apps.accounting.tasks import update_overdue_receivables
+
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            paid_amount=Decimal('1000000'),
+            due_date=date.today() - timedelta(days=10),
+            status='PAID',
+        )
+        update_overdue_receivables()
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'PAID')
+
+    def test_future_due_date_not_marked_overdue(self):
+        """만기일이 아직 안 지난 AR은 OVERDUE로 전환되지 않음"""
+        from datetime import timedelta
+        from apps.accounting.tasks import update_overdue_receivables
+
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            due_date=date.today() + timedelta(days=30),
+            status='PENDING',
+        )
+        update_overdue_receivables()
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'PENDING')
 
 
 class AccountReceivablePayableTests(TestCase):
@@ -1015,3 +1137,431 @@ class BankAccountSyncTest(TestCase):
         )
         self.assertEqual(acct.account_type, 'PERSONAL')
         self.assertEqual(acct.get_account_type_display(), '개인통장')
+
+
+class PaymentSoftDeleteTests(TestCase):
+    """Payment soft delete 시 잔액 복원 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='PSD-001', name='잔액복원 거래처',
+            partner_type=Partner.PartnerType.BOTH,
+        )
+        self.account_code = AccountCode.objects.create(
+            code='110', name='보통예금',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        self.bank_account = BankAccount.objects.create(
+            name='테스트 계좌',
+            account_type='BUSINESS',
+            owner='테스트',
+            account_code=self.account_code,
+            balance=Decimal('10000000'),
+        )
+
+    def test_receipt_soft_delete_restores_ar_and_bank(self):
+        """입금 Payment soft delete → AR paid_amount 감소 + 계좌잔액 복원"""
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            paid_amount=Decimal('500000'),
+            due_date=date.today(),
+            status='PARTIAL',
+        )
+        payment = Payment.objects.create(
+            payment_type='RECEIPT',
+            partner=self.partner,
+            bank_account=self.bank_account,
+            receivable=ar,
+            amount=Decimal('500000'),
+            payment_date=date.today(),
+        )
+        # post_save signal adds 500000 to bank balance
+        self.bank_account.refresh_from_db()
+        balance_after_payment = self.bank_account.balance
+
+        # Soft delete
+        payment.soft_delete()
+
+        ar.refresh_from_db()
+        self.bank_account.refresh_from_db()
+        # AR paid_amount restored
+        self.assertEqual(ar.paid_amount, Decimal('0'))
+        # AR status recalculated
+        self.assertEqual(ar.status, 'PENDING')
+        # Bank balance restored (subtract the receipt amount)
+        self.assertEqual(
+            self.bank_account.balance,
+            balance_after_payment - Decimal('500000'),
+        )
+
+    def test_disbursement_soft_delete_restores_ap_and_bank(self):
+        """출금 Payment soft delete → AP paid_amount 감소 + 계좌잔액 복원"""
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('2000000'),
+            paid_amount=Decimal('1000000'),
+            due_date=date.today(),
+            status='PARTIAL',
+        )
+        payment = Payment.objects.create(
+            payment_type='DISBURSEMENT',
+            partner=self.partner,
+            bank_account=self.bank_account,
+            payable=ap,
+            amount=Decimal('1000000'),
+            payment_date=date.today(),
+        )
+        # post_save signal subtracts 1000000 from bank balance
+        self.bank_account.refresh_from_db()
+        balance_after_payment = self.bank_account.balance
+
+        # Soft delete
+        payment.soft_delete()
+
+        ap.refresh_from_db()
+        self.bank_account.refresh_from_db()
+        # AP paid_amount restored
+        self.assertEqual(ap.paid_amount, Decimal('0'))
+        # AP status recalculated
+        self.assertEqual(ap.status, 'PENDING')
+        # Bank balance restored (add back the disbursement amount)
+        self.assertEqual(
+            self.bank_account.balance,
+            balance_after_payment + Decimal('1000000'),
+        )
+
+    def test_soft_delete_paid_ar_becomes_partial(self):
+        """완납 AR에서 일부 Payment만 soft delete → PARTIAL"""
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            paid_amount=Decimal('1000000'),
+            due_date=date.today(),
+            status='PAID',
+        )
+        payment = Payment.objects.create(
+            payment_type='RECEIPT',
+            partner=self.partner,
+            receivable=ar,
+            amount=Decimal('400000'),
+            payment_date=date.today(),
+        )
+
+        payment.soft_delete()
+
+        ar.refresh_from_db()
+        self.assertEqual(ar.paid_amount, Decimal('600000'))
+        self.assertEqual(ar.status, 'PARTIAL')
+
+    def test_skip_balance_restore_flag(self):
+        """_skip_balance_restore 플래그 설정 시 복원 스킵"""
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            paid_amount=Decimal('500000'),
+            due_date=date.today(),
+            status='PARTIAL',
+        )
+        payment = Payment.objects.create(
+            payment_type='RECEIPT',
+            partner=self.partner,
+            bank_account=self.bank_account,
+            receivable=ar,
+            amount=Decimal('500000'),
+            payment_date=date.today(),
+        )
+        self.bank_account.refresh_from_db()
+        balance_after = self.bank_account.balance
+
+        # Set skip flag and soft delete
+        payment._skip_balance_restore = True
+        payment.soft_delete()
+
+        ar.refresh_from_db()
+        self.bank_account.refresh_from_db()
+        # AR paid_amount NOT restored (skipped)
+        self.assertEqual(ar.paid_amount, Decimal('500000'))
+        # Bank balance NOT restored (skipped)
+        self.assertEqual(self.bank_account.balance, balance_after)
+
+    def test_soft_delete_without_ar_ap(self):
+        """AR/AP 연결 없는 Payment soft delete → 계좌잔액만 복원"""
+        payment = Payment.objects.create(
+            payment_type='RECEIPT',
+            partner=self.partner,
+            bank_account=self.bank_account,
+            amount=Decimal('300000'),
+            payment_date=date.today(),
+        )
+        self.bank_account.refresh_from_db()
+        balance_after = self.bank_account.balance
+
+        payment.soft_delete()
+
+        self.bank_account.refresh_from_db()
+        self.assertEqual(
+            self.bank_account.balance,
+            balance_after - Decimal('300000'),
+        )
+
+
+class CreditCardCRUDTests(TestCase):
+    """카드 CRUD 테스트"""
+
+    def test_credit_card_creation(self):
+        """카드 생성"""
+        card = CreditCard.objects.create(
+            name='법인카드1',
+            card_type=CreditCard.CardType.CORPORATE,
+            card_issuer=CreditCard.CardIssuer.SHINHAN,
+            card_number_last4='1234',
+            cardholder='홍길동',
+            monthly_limit=Decimal('5000000'),
+        )
+        self.assertEqual(card.name, '법인카드1')
+        self.assertEqual(card.card_type, 'CORPORATE')
+        self.assertEqual(card.remaining_limit, Decimal('5000000'))
+        self.assertEqual(card.usage_rate, 0)
+
+    def test_credit_card_str(self):
+        """카드 문자열 표현"""
+        card = CreditCard.objects.create(
+            name='테스트카드',
+            card_type=CreditCard.CardType.PERSONAL,
+            card_issuer=CreditCard.CardIssuer.KB,
+            card_number_last4='5678',
+            cardholder='테스트',
+        )
+        result = str(card)
+        self.assertIn('테스트카드', result)
+        self.assertIn('5678', result)
+
+    def test_credit_card_usage_rate(self):
+        """카드 사용률 계산"""
+        card = CreditCard.objects.create(
+            name='한도카드',
+            card_type=CreditCard.CardType.CORPORATE,
+            card_issuer=CreditCard.CardIssuer.SAMSUNG,
+            card_number_last4='9999',
+            cardholder='테스트',
+            monthly_limit=Decimal('1000000'),
+            used_amount=Decimal('250000'),
+        )
+        self.assertEqual(card.usage_rate, 25.0)
+        self.assertEqual(card.remaining_limit, Decimal('750000'))
+
+
+class CardTransactionVoucherTests(TestCase):
+    """카드 거래 → 자동전표 테스트"""
+
+    def setUp(self):
+        self.card = CreditCard.objects.create(
+            name='테스트법인카드',
+            card_type=CreditCard.CardType.CORPORATE,
+            card_issuer=CreditCard.CardIssuer.SHINHAN,
+            card_number_last4='1111',
+            cardholder='테스트',
+            monthly_limit=Decimal('10000000'),
+        )
+        # 비용 계정과목 + 미지급금 계정
+        self.expense_acct = AccountCode.objects.create(
+            code='501', name='매입원가',
+            account_type=AccountCode.AccountType.EXPENSE,
+        )
+        self.payable_acct = AccountCode.objects.create(
+            code='253', name='미지급금',
+            account_type=AccountCode.AccountType.LIABILITY,
+        )
+        self.travel_acct = AccountCode.objects.create(
+            code='524', name='여비교통비',
+            account_type=AccountCode.AccountType.EXPENSE,
+        )
+
+    def test_transaction_creates_voucher(self):
+        """카드 거래 생성 시 자동전표 생성 + used_amount 증가"""
+        txn = CardTransaction.objects.create(
+            card=self.card,
+            transaction_date=date.today(),
+            merchant_name='테스트가맹점',
+            amount=Decimal('100000'),
+            category=CardTransaction.Category.PURCHASE,
+        )
+        txn.refresh_from_db()
+        self.assertIsNotNone(txn.voucher)
+        self.assertTrue(txn.voucher.is_balanced)
+
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.used_amount, Decimal('100000'))
+
+    def test_transaction_travel_category_voucher(self):
+        """여비교통비 카테고리 → 524 계정과목 사용"""
+        txn = CardTransaction.objects.create(
+            card=self.card,
+            transaction_date=date.today(),
+            merchant_name='택시',
+            amount=Decimal('30000'),
+            category=CardTransaction.Category.TRAVEL,
+        )
+        txn.refresh_from_db()
+        self.assertIsNotNone(txn.voucher)
+        # 차변이 여비교통비(524)
+        debit_line = txn.voucher.lines.filter(debit__gt=0).first()
+        self.assertEqual(debit_line.account.code, '524')
+
+
+class CardTransactionCancelTests(TestCase):
+    """카드 거래 취소 테스트"""
+
+    def setUp(self):
+        self.card = CreditCard.objects.create(
+            name='취소테스트카드',
+            card_type=CreditCard.CardType.CORPORATE,
+            card_issuer=CreditCard.CardIssuer.KB,
+            card_number_last4='2222',
+            cardholder='테스트',
+            monthly_limit=Decimal('5000000'),
+        )
+        AccountCode.objects.create(
+            code='501', name='매입원가',
+            account_type=AccountCode.AccountType.EXPENSE,
+        )
+        AccountCode.objects.create(
+            code='253', name='미지급금',
+            account_type=AccountCode.AccountType.LIABILITY,
+        )
+
+    def test_cancel_reduces_used_amount(self):
+        """카드 거래 취소 시 used_amount 감소"""
+        txn = CardTransaction.objects.create(
+            card=self.card,
+            transaction_date=date.today(),
+            merchant_name='취소가맹점',
+            amount=Decimal('200000'),
+            category=CardTransaction.Category.PURCHASE,
+        )
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.used_amount, Decimal('200000'))
+
+        # 취소 처리
+        txn.is_cancelled = True
+        txn.cancelled_date = date.today()
+        txn.save()
+
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.used_amount, Decimal('0'))
+
+    def test_cancel_creates_reverse_voucher(self):
+        """카드 거래 취소 시 역전표 생성"""
+        txn = CardTransaction.objects.create(
+            card=self.card,
+            transaction_date=date.today(),
+            merchant_name='역전표가맹점',
+            amount=Decimal('150000'),
+            category=CardTransaction.Category.PURCHASE,
+        )
+        initial_voucher_count = Voucher.objects.count()
+
+        txn.is_cancelled = True
+        txn.cancelled_date = date.today()
+        txn.save()
+
+        # 역전표가 추가로 1건 생성됨
+        self.assertEqual(Voucher.objects.count(), initial_voucher_count + 1)
+        # 역전표는 차변=미지급금, 대변=비용
+        reverse_voucher = Voucher.objects.order_by('-pk').first()
+        self.assertTrue(reverse_voucher.is_balanced)
+        self.assertIn('카드취소전표', reverse_voucher.description)
+
+
+class CardBillingPayTests(TestCase):
+    """카드 청구 결제 테스트"""
+
+    def setUp(self):
+        self.bank_account = BankAccount.objects.create(
+            name='결제계좌',
+            account_type=BankAccount.AccountType.BUSINESS,
+            owner='회사',
+            balance=Decimal('10000000'),
+        )
+        self.card = CreditCard.objects.create(
+            name='청구테스트카드',
+            card_type=CreditCard.CardType.CORPORATE,
+            card_issuer=CreditCard.CardIssuer.HYUNDAI,
+            card_number_last4='3333',
+            cardholder='테스트',
+            monthly_limit=Decimal('5000000'),
+            payment_account=self.bank_account,
+        )
+
+    def test_billing_payment_creates_disbursement(self):
+        """청구 결제 시 Payment(DISBURSEMENT) 생성"""
+        partner = Partner.objects.create(
+            code='CARD-PAY', name='카드결제 거래처',
+            partner_type='SUPPLIER',
+        )
+        billing = CardBilling.objects.create(
+            card=self.card,
+            billing_month=date(2026, 3, 1),
+            total_amount=Decimal('500000'),
+            payment_due_date=date(2026, 4, 25),
+        )
+        # 수동으로 결제 처리 로직 수행
+        from django.db import transaction as db_transaction
+        from django.db.models import F as db_F
+        from apps.core.utils import generate_document_number
+
+        with db_transaction.atomic():
+            pay_amount = billing.remaining_amount
+            payment = Payment.objects.create(
+                payment_number=generate_document_number(Payment, 'payment_number', 'PM'),
+                payment_type='DISBURSEMENT',
+                partner=partner,
+                bank_account=self.bank_account,
+                amount=pay_amount,
+                payment_date=date.today(),
+                payment_method='CARD',
+            )
+            CardBilling.objects.filter(pk=billing.pk).update(
+                paid_amount=db_F('paid_amount') + pay_amount,
+                payment=payment,
+            )
+            billing.refresh_from_db()
+            if billing.paid_amount >= billing.total_amount:
+                CardBilling.objects.filter(pk=billing.pk).update(status='PAID')
+            billing.refresh_from_db()
+
+        billing.refresh_from_db()
+        self.assertEqual(billing.status, 'PAID')
+        self.assertEqual(billing.paid_amount, Decimal('500000'))
+        self.assertIsNotNone(billing.payment)
+
+    def test_billing_remaining_amount(self):
+        """청구 잔액 계산"""
+        billing = CardBilling.objects.create(
+            card=self.card,
+            billing_month=date(2026, 4, 1),
+            total_amount=Decimal('1000000'),
+            paid_amount=Decimal('300000'),
+            payment_due_date=date(2026, 5, 25),
+            status='PARTIAL',
+        )
+        self.assertEqual(billing.remaining_amount, Decimal('700000'))
+
+
+class CardLimitTests(TestCase):
+    """카드 한도 검증 테스트"""
+
+    def test_zero_limit_usage_rate(self):
+        """한도가 0인 카드의 사용률은 0"""
+        card = CreditCard.objects.create(
+            name='무한도카드',
+            card_type=CreditCard.CardType.CHECK,
+            card_issuer=CreditCard.CardIssuer.WOORI,
+            card_number_last4='4444',
+            cardholder='테스트',
+            monthly_limit=Decimal('0'),
+            used_amount=Decimal('100000'),
+        )
+        self.assertEqual(card.usage_rate, 0)
+        self.assertEqual(card.remaining_limit, Decimal('-100000'))

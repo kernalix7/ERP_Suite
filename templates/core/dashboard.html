@@ -109,6 +109,108 @@
     </div>
 </div>
 
+<!-- 자산/인증/리스 위젯 -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <!-- 자산 현황 -->
+    <div class="bg-white shadow-sm rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">자산 현황</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ asset_count|default:"0" }}건</p>
+                <p class="mt-1 text-sm text-gray-500">장부가 {{ asset_total_book_value|default:"0"|intcomma }}원</p>
+            </div>
+            <div class="w-12 h-12 bg-violet-50 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- 인증 만료 임박 -->
+    <div class="bg-white shadow-sm rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">인증 만료 임박</p>
+                <p class="mt-1 text-2xl font-bold {% if cert_expiring_count > 0 %}text-amber-600{% else %}text-gray-900{% endif %}">{{ cert_expiring_count|default:"0" }}건</p>
+                <p class="mt-1 text-sm text-gray-500">30일 이내 만료</p>
+            </div>
+            <div class="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- 리스 계약 -->
+    <div class="bg-white shadow-sm rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">활성 리스 계약</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ lease_count|default:"0" }}건</p>
+                <p class="mt-1 text-sm text-gray-500">월 {{ lease_monthly_total|default:"0"|intcomma }}원</p>
+            </div>
+            <div class="w-12 h-12 bg-cyan-50 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- 취득원가 합계 -->
+    <div class="bg-white shadow-sm rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">자산 취득원가</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ asset_total_cost|default:"0"|intcomma }}원</p>
+                <p class="mt-1 text-sm text-gray-500">활성 자산 합계</p>
+            </div>
+            <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 최근 자산 이관 -->
+{% if recent_transfers %}
+<div class="bg-white shadow-sm rounded-lg overflow-hidden mb-6">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-gray-900">최근 자산 이관</h2>
+        <a href="{% url 'asset:asset_list' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">자산 관리 &rarr;</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <caption class="sr-only">최근 자산 이관 목록</caption>
+            <thead>
+                <tr class="bg-gray-50">
+                    <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">자산</th>
+                    <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">이관일</th>
+                    <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">이전부서</th>
+                    <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">이관부서</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for tf in recent_transfers %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-5 py-3">
+                        <a href="{% url 'asset:asset_detail' tf.asset.asset_number %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ tf.asset.name }}</a>
+                    </td>
+                    <td class="px-5 py-3 text-gray-500">{{ tf.transfer_date|date:"Y-m-d" }}</td>
+                    <td class="px-5 py-3 text-gray-700">{{ tf.from_department|default:"-" }}</td>
+                    <td class="px-5 py-3 text-gray-700">{{ tf.to_department }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- 계좌 잔액 -->
 {% if dashboard_accounts %}
 <div x-data="{ showAll: false }" class="bg-white shadow-sm rounded-lg mb-6">
@@ -294,6 +396,53 @@
         </div>
     </div>
 </div>
+
+<!-- Safety Stock Alerts (전체 재고유형) -->
+{% if safety_stock_alerts %}
+<div class="bg-white shadow-sm rounded-lg overflow-hidden mb-6">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            <h2 class="text-base font-semibold text-gray-900">안전재고 경고</h2>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">{{ safety_stock_alerts|length }}건</span>
+        </div>
+        <a href="{% url 'inventory:stock_status' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">재고현황 보기 &rarr;</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <caption class="sr-only">안전재고 미달 품목 목록</caption>
+            <thead>
+                <tr class="bg-gray-50">
+                    <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">제품명</th>
+                    <th scope="col" class="px-5 py-2.5 text-left font-medium text-gray-500">유형</th>
+                    <th scope="col" class="px-5 py-2.5 text-right font-medium text-gray-500">현재재고</th>
+                    <th scope="col" class="px-5 py-2.5 text-right font-medium text-gray-500">안전재고</th>
+                    <th scope="col" class="px-5 py-2.5 text-right font-medium text-gray-500">부족량</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for product in safety_stock_alerts %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-5 py-3">
+                        <a href="{% url 'inventory:product_detail' product.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">{{ product.name }}</a>
+                    </td>
+                    <td class="px-5 py-3 text-gray-500">{{ product.get_product_type_display }}</td>
+                    <td class="px-5 py-3 text-right">
+                        <span class="font-medium text-red-600">{{ product.current_stock|intcomma }}</span>
+                    </td>
+                    <td class="px-5 py-3 text-right text-gray-700">{{ product.safety_stock|intcomma }}</td>
+                    <td class="px-5 py-3 text-right">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            -{{ product.shortage|intcomma }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 <!-- Low Stock Products Alert -->
 <div class="bg-white shadow-sm rounded-lg overflow-hidden">

@@ -61,6 +61,14 @@
                 <dd class="mt-1 text-sm text-gray-900">{{ service_request.customer.phone|format_phone|default:"-" }}</dd>
             </div>
             <div>
+                <dt class="text-sm text-gray-500">관련주문</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    {% if service_request.order %}
+                    <a href="{% url 'sales:order_detail' service_request.order.order_number %}" class="text-blue-600 hover:text-blue-800">{{ service_request.order.order_number }}</a>
+                    {% else %}-{% endif %}
+                </dd>
+            </div>
+            <div>
                 <dt class="text-sm text-gray-500">제품</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ service_request.product.name|default:"-" }}</dd>
             </div>
@@ -153,4 +161,5 @@
         </div>
     </div>
 </div>
+{% include 'includes/timestamps.html' with obj=object %}
 {% endblock %}

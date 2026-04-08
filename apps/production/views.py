@@ -327,8 +327,23 @@ class ProductionRecordCreateView(ManagerRequiredMixin, CreateView):
     success_url = reverse_lazy('production:record_list')
 
     def form_valid(self, form):
+        from django.db import IntegrityError, transaction
+        from django.contrib import messages
         form.instance.created_by = self.request.user
-        return super().form_valid(form)
+        try:
+            with transaction.atomic():
+                response = super().form_valid(form)
+            return response
+        except IntegrityError as e:
+            err = str(e)
+            if 'non_negative' in err or 'stock' in err.lower():
+                messages.error(
+                    self.request,
+                    '원자재 재고가 부족하여 생산 실적을 등록할 수 없습니다. '
+                    '해당 창고의 원자재 재고를 확인해주세요.',
+                )
+                return self.form_invalid(form)
+            raise
 
 
 class ProductionRecordUpdateView(ManagerRequiredMixin, UpdateView):

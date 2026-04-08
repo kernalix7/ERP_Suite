@@ -14,7 +14,9 @@ from apps.api.views import (
     ApprovalRequestViewSet, ApprovalStepViewSet,
     EmployeeProfileViewSet, PayrollViewSet,
     ServiceRequestViewSet, InquiryViewSet,
-    FixedAssetViewSet, MarketplaceOrderViewSet,
+    FixedAssetViewSet, AssetCategoryViewSet, AssetTransferViewSet,
+    CertificationViewSet, LeaseContractViewSet, AssetAuditViewSet,
+    MarketplaceOrderViewSet,
     VoucherViewSet, AccountReceivableViewSet,
     AccountPayableViewSet, BudgetViewSet,
     PurchaseOrderViewSet, ShippingCarrierViewSet,
@@ -44,6 +46,11 @@ router.register('payrolls', PayrollViewSet)
 router.register('service-requests', ServiceRequestViewSet)
 router.register('inquiries', InquiryViewSet)
 router.register('fixed-assets', FixedAssetViewSet)
+router.register('asset-categories', AssetCategoryViewSet)
+router.register('asset-transfers', AssetTransferViewSet)
+router.register('certifications', CertificationViewSet)
+router.register('lease-contracts', LeaseContractViewSet)
+router.register('asset-audits', AssetAuditViewSet)
 router.register('marketplace-orders', MarketplaceOrderViewSet)
 router.register('vouchers', VoucherViewSet)
 router.register('accounts-receivable', AccountReceivableViewSet)

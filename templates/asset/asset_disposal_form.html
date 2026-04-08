@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}자산 처분 - {{ object.name }} - ERP Suite{% endblock %}
+{% block page_title %}자산 처분{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:asset_detail' object.asset_number %}" class="btn btn-secondary">돌아가기</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <!-- 현재 자산 상태 요약 -->
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">자산 현재 상태</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+                <p class="text-sm text-gray-500">자산번호</p>
+                <p class="mt-1 font-medium text-gray-900">{{ object.asset_number }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">자산명</p>
+                <p class="mt-1 font-medium text-gray-900">{{ object.name }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">분류</p>
+                <p class="mt-1 font-medium text-gray-900">{{ object.category }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">취득원가</p>
+                <p class="mt-1 font-medium text-gray-900">{{ object.acquisition_cost|intcomma }}원</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">감가상각 누계액</p>
+                <p class="mt-1 font-medium text-red-600">{{ object.accumulated_depreciation|intcomma }}원</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">장부가액</p>
+                <p class="mt-1 font-medium text-blue-600">{{ object.book_value|intcomma }}원</p>
+            </div>
+        </div>
+        {% if object.is_fully_depreciated %}
+        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+            완전상각된 자산입니다. 폐기(SCRAPPED)만 가능합니다.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 처분 폼 -->
+    <div class="bg-white rounded-lg shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">처분 정보</h3>
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="space-y-5">
+                {% for field in form %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ field.label_tag }}
+                    </label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div class="mt-1 text-sm text-red-600">
+                        {% for error in field.errors %}
+                        <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if field.help_text %}
+                    <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3">
+                <a href="{% url 'asset:asset_detail' object.asset_number %}" class="btn btn-secondary">취소</a>
+                <button type="submit" class="btn btn-danger">처분 확인</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

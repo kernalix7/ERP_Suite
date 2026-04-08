@@ -54,12 +54,14 @@
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
                     <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3">{% trans "발주서" %}</th>
                     <th class="px-4 py-3">{% trans "세금계산서" %}</th>
                     <th class="px-4 py-3 text-right">{% trans "금액" %}</th>
                     <th class="px-4 py-3 text-right">{% trans "지급액" %}</th>
                     <th class="px-4 py-3 text-right">{% trans "잔액" %}</th>
                     <th class="px-4 py-3">{% trans "납기일" %}</th>
                     <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "작성일" %}</th>
                     <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
                 </tr>
             </thead>
@@ -67,6 +69,11 @@
                 {% for ap in payables %}
                 <tr class="hover:bg-gray-50 transition-colors {% if ap.is_overdue %}bg-red-50{% endif %}">
                     <td class="px-4 py-3 font-medium text-gray-900">{{ ap.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">
+                        {% if ap.purchase_order %}
+                        <a href="{% url 'purchase:po_detail' ap.purchase_order.po_number %}" class="text-blue-600 hover:text-blue-800">{{ ap.purchase_order.po_number }}</a>
+                        {% else %}-{% endif %}
+                    </td>
                     <td class="px-4 py-3 text-gray-600">{{ ap.invoice.invoice_number|default:"-" }}</td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ ap.amount|intcomma }}{% trans "원" %}</td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ ap.paid_amount|intcomma }}{% trans "원" %}</td>
@@ -81,13 +88,14 @@
                             {% if ap.is_overdue and ap.status != 'PAID' %}{% trans "연체" %}{% else %}{{ ap.get_status_display }}{% endif %}
                         </span>
                     </td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ ap.created_at|date:"m-d H:i" }}</td>
                     <td class="px-4 py-3 text-center">
                         <a href="{% url 'accounting:ap_detail' ap.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">{% trans "상세" %}</a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 미지급금이 없습니다." %}</td>
+                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 미지급금이 없습니다." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

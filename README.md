@@ -15,10 +15,10 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | **Sales** | Partners, customers, orders, quotes (with one-click order conversion), ShipmentItem (partial shipments), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), commission management, partner analytics |
 | **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking, reverse cascade on PO cancellation |
 | **Service** | Service requests, repair history tracking, warranty period verification |
-| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management), Currency/ExchangeRate (multi-currency), AR/AP Aging, bank reconciliation, settlements |
+| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement, vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management), Currency/ExchangeRate (multi-currency), AR/AP Aging, bank reconciliation, settlements |
 | **Investment** | Investors, funding rounds, equity tracking (donut charts), dividend/distribution records |
-| **Asset** | Fixed asset management, depreciation (straight-line / declining balance methods) |
-| **Marketplace** | Naver/Coupang store integration, order sync, sync history |
+| **Asset** | Fixed asset management, depreciation (straight-line / declining balance), asset transfers, certifications (KC/CE/FCC/ISO/RoHS), lease contracts (operating/finance), asset audits, barcode/QR tag generation |
+| **Marketplace** | Naver/Coupang store integration, order sync, 6-stage Import Wizard, settlement reconciliation (auto-matching), sync history |
 | **Inquiry** | Multi-channel inquiry management, Claude AI auto-reply drafts, reply templates |
 | **Warranty** | Serial number authentication, warranty period management, QR verification |
 | **Approval** | Multi-step approval workflows, document categories (purchase/expense/budget/contract/leave/travel/IT), per-step approvers, file attachments |
@@ -38,9 +38,10 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 
 | Module | Description |
 |--------|-------------|
-| **Core** | Dashboard, notifications, Excel/PDF export, barcode generation, backup/restore, audit trail, access logs |
+| **Core** | Dashboard (KPI widgets, asset/certification/lease summaries), real-time notifications (WebSocket push), Excel/PDF export, barcode generation, backup/restore, audit trail, access logs |
 | **Accounts** | Authentication, RBAC (admin/manager/staff), login protection (django-axes) |
-| **API** | REST API (28 DRF ViewSets), JWT authentication (SimpleJWT), OpenAPI/Swagger docs |
+| **API** | REST API (33 DRF ViewSets), JWT authentication (SimpleJWT), OpenAPI/Swagger docs |
+| **Store Modules** | Modular store architecture (pluggable per-channel modules: Naver SmartStore, Coupang, direct sales) |
 | **Active Directory** | LDAP/AD integration, user/group sync, group policy-based role mapping |
 
 ## Tech Stack
@@ -51,7 +52,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | Frontend | Django Templates + Tailwind CSS (local build) + HTMX + Alpine.js + Chart.js + FullCalendar.js (all served from static/vendor/) |
 | Database | SQLite (dev) / PostgreSQL 16 (prod) |
 | Real-time | Django Channels + WebSocket (Daphne ASGI) |
-| Async Tasks | Celery + Redis (task queue, scheduled backups) |
+| Async Tasks | Celery + Redis (task queue, scheduled backups, certification expiry alerts, lease voucher auto-generation, monthly depreciation) |
 | Caching | Redis (django-redis) |
 | API | Django REST Framework + JWT (SimpleJWT) |
 | Security | django-axes (login throttling), RBAC, HSTS/CSP, django-prometheus |
@@ -155,9 +156,11 @@ ERP_Suite/
 │   ├── messenger/       # Internal chat (1:1/group, WebSocket real-time)
 │   ├── ad/              # Active Directory / LDAP integration
 │   ├── advertising/     # Ad campaign/creative management, performance tracking, budgets
-│   ├── asset/           # Fixed asset management, depreciation (straight-line/declining balance)
+│   ├── asset/           # Fixed assets, depreciation, transfers, certifications, leases, audits, barcode/QR
 │   ├── approval/        # Standalone approval workflows
-│   └── api/             # REST API (28 DRF ViewSets, JWT auth)
+│   ├── store_modules/   # Modular store architecture (pluggable per-channel)
+│   ├── modules/         # Channel modules (Naver SmartStore, Coupang, direct sales)
+│   └── api/             # REST API (33 DRF ViewSets, JWT auth)
 ├── config/              # Django settings (base/dev/prod), celery, asgi, wsgi
 ├── templates/           # 250+ HTML templates (Tailwind CSS, responsive)
 ├── static/              # CSS, JS, PWA (manifest.json, sw.js)
@@ -179,7 +182,7 @@ ERP_Suite/
 ## Testing
 
 ```bash
-# Unit tests (878 tests across all apps, --parallel for speed)
+# Unit tests (1000+ tests across all apps, --parallel for speed)
 python manage.py test apps/ -v 2 --parallel
 
 # Verification tests (security/integrity/performance/workflow/disaster recovery)
@@ -195,7 +198,7 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**Test coverage: 988+ tests (unit + verification)**
+**Test coverage: 1124+ tests (unit + verification)**
 
 Verification criteria cover 152 items across 10 categories:
 - SEC-001~035: Security (OWASP Top 10)
@@ -225,6 +228,11 @@ Verification criteria cover 152 items across 10 categories:
 - **AR/AP**: Payment registration → auto balance recalculation
 - **Period Closing**: ClosingPeriod → blocks voucher modifications for the closed month
 - **Payroll**: `Payroll.save()` → auto deductions for 4 major insurances and taxes
+- **Asset Transfer**: Asset transfer → department/location/person updated, transfer history tracked
+- **Depreciation**: Monthly batch depreciation run → `F()` atomic book value updates
+- **Lease Contracts**: `LeaseContract.save()` → auto total_amount calculation (monthly_payment x months)
+- **Settlement Reconciliation**: Marketplace settlements auto-matched with orders (amount/date/channel)
+- **Financial Statements**: P&L + balance sheet + cash flow statement generation from voucher data
 
 ## Security
 
@@ -244,11 +252,12 @@ Verification criteria cover 152 items across 10 categories:
 
 ## Scale
 
-- **22 apps**, **107+ models** (all with history tracking)
-- **420+ views**, **250+ templates**, **350+ URL endpoints**
-- **~30,000 lines** of Python (excluding migrations)
-- **988+ tests** (unit + verification)
-- **120+ migrations**, **25+ packages**
+- **24 apps**, **120+ models** (all with history tracking)
+- **450+ views**, **260+ templates**, **380+ URL endpoints**
+- **~35,000 lines** of Python (excluding migrations)
+- **1124+ tests** (unit + verification), **17 E2E test files**, **load test suite**
+- **130+ migrations**, **25+ packages**
+- **33 REST API ViewSets** with JWT authentication
 
 ## Contributing
 

@@ -68,3 +68,5 @@ if 'test' in sys.argv:
         'handlers': {'null': {'class': 'logging.NullHandler'}},
         'root': {'handlers': ['null']},
     }
+    # 테스트 병렬 실행 기본 활성화 (--parallel 없이도 자동 병렬)
+    TEST_RUNNER = 'config.test_runner.ParallelTestRunner'

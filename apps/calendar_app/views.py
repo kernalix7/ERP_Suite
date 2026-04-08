@@ -112,6 +112,11 @@ class EventAPIView(LoginRequiredMixin, View):
             end_dt = self._parse_aware(end, use_end_of_day=True)
             if end_dt:
                 qs = qs.filter(start_datetime__lte=end_dt)
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(event_type__in=['team', 'company', 'meeting']) |
+            Q(event_type='personal', creator=request.user)
+        )
 
         events = []
         for event in qs:

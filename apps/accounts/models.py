@@ -4,6 +4,7 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.permissions import ACTION_CHOICES, MODULE_CHOICES
+from apps.core.fields import EncryptedCharField
 from apps.core.models import BaseModel
 
 
@@ -15,7 +16,7 @@ class User(AbstractUser):
         STAFF = 'staff', '직원'
 
     name = models.CharField('이름', max_length=50, blank=True)
-    phone = models.CharField('연락처', max_length=20, blank=True)
+    phone = EncryptedCharField('연락처', max_length=500, blank=True)
     role = models.CharField(
         '역할',
         max_length=20,

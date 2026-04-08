@@ -59,12 +59,35 @@
                     {% endif %}
                 </dd>
             </div>
+            {% if order.customer and order.customer.phone %}
+            <div>
+                <dt class="text-sm text-gray-500">고객 연락처</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.customer.phone }}</dd>
+            </div>
+            {% endif %}
+            {% if order.customer and order.customer.address %}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">고객 주소</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.customer.address }}</dd>
+            </div>
+            {% endif %}
             <div>
                 <dt class="text-sm text-gray-500">담당자</dt>
                 <dd class="mt-1 text-sm text-gray-900">{% if order.assigned_to %}{{ order.assigned_to.get_full_name|default:order.assigned_to.username }}{% else %}-{% endif %}</dd>
             </div>
+            {% with src_quote=order.source_quotation.first %}
+            {% if src_quote %}
             <div>
-                <dt class="text-sm text-gray-500">주문일</dt>
+                <dt class="text-sm text-gray-500">원본 견적</dt>
+                <dd class="mt-1 text-sm">
+                    <a href="{% url 'sales:quote_detail' src_quote.quote_number %}" class="text-blue-600 hover:text-blue-800 font-mono">{{ src_quote.quote_number }}</a>
+                    <span class="ml-1 text-gray-400 text-xs">({{ src_quote.quote_date|date:"Y-m-d" }})</span>
+                </dd>
+            </div>
+            {% endif %}
+            {% endwith %}
+            <div>
+                <dt class="text-sm text-gray-500">주문 전환일</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ order.order_date|date:"Y-m-d" }}</dd>
             </div>
             <div>
@@ -110,8 +133,14 @@
                 <dd class="mt-1 text-sm font-mono text-gray-900">{{ order.tracking_number }}</dd>
             </div>
             {% endif %}
+            {% if order.customer and order.customer.phone or order.shipping_address %}
+            <div>
+                <dt class="text-sm text-gray-500">배송 연락처</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ order.customer.phone|default:"-" }}</dd>
+            </div>
+            {% endif %}
             {% if order.shipping_address %}
-            <div class="md:col-span-2 lg:col-span-3">
+            <div class="md:col-span-2">
                 <dt class="text-sm text-gray-500">배송주소</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ order.shipping_address }}</dd>
             </div>
@@ -120,8 +149,40 @@
                 <dt class="text-sm text-gray-500">비고</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ order.notes|default:"-" }}</dd>
             </div>
+            {% with mp_order=order.marketplace_orders.first %}
+            {% if mp_order %}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-sm text-gray-500">스토어 주문</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    <a href="{% url 'marketplace:order_detail' mp_order.store_order_id %}" class="text-blue-600 hover:text-blue-800 font-mono">{{ mp_order.store_order_id }}</a>
+                    <span class="ml-2 text-gray-400">({{ mp_order.get_status_display }})</span>
+                </dd>
+            </div>
+            {% endif %}
+            {% endwith %}
         </div>
     </div>
+
+    <!-- 반품/교환 -->
+    {% if order.order_type == 'NORMAL' and order.status != 'DRAFT' and order.status != 'CANCELLED' %}
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">반품/교환</h2>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% url 'sales:order_return' order.order_number %}" class="btn btn-secondary border-orange-300 text-orange-700 hover:bg-orange-50">
+                <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                </svg>
+                반품 접수
+            </a>
+            <a href="{% url 'sales:order_exchange' order.order_number %}" class="btn btn-secondary border-yellow-300 text-yellow-700 hover:bg-yellow-50">
+                <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                </svg>
+                교환 접수
+            </a>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- 주문 처리 -->
     {% if status_actions or not order.is_paid %}
@@ -139,7 +200,7 @@
                 </button>
             </form>
             {% endfor %}
-            {% if order.status == 'CONFIRMED' %}
+            {% if order.status == 'CONFIRMED' or order.status == 'PARTIAL_SHIPPED' or order.status == 'SHIPPED' %}
             <a href="{% url 'sales:shipment_create' order.order_number %}" class="btn btn-primary">
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
@@ -162,13 +223,13 @@
                         전액 입금 ({{ order.grand_total|intcomma }}원)
                     </button>
                 </form>
-                {% if partner_commission_rate %}
+                {% if partner_commission %}
                 <!-- 수수료 자동 차감 입금 -->
                 <form method="post" action="{% url 'sales:order_payment' order.order_number %}" class="inline">
                     {% csrf_token %}
                     <input type="hidden" name="payment_mode" value="auto_commission">
                     <button type="submit" class="btn btn-primary bg-blue-600 hover:bg-blue-700"
-                            onclick="return confirm('수수료 {{ partner_commission_rate }}% ({{ partner_commission|intcomma }}원) 차감\n실 입금액: {{ auto_deposit|intcomma }}원\n\n처리하시겠습니까?')">
+                            onclick="return confirm('수수료 {% if partner_commission_rate %}{{ partner_commission_rate }}%{% endif %}{% if partner_commission_rate and partner_fixed_commission %} + {% endif %}{% if partner_fixed_commission %}{{ partner_fixed_commission|intcomma }}원{% endif %} ({{ partner_commission|intcomma }}원) 차감\n실 입금액: {{ auto_deposit|intcomma }}원\n\n처리하시겠습니까?')">
                         <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
                         </svg>
@@ -310,4 +371,5 @@
     </div>
     {% endif %}
 </div>
+{% include 'includes/timestamps.html' with obj=object %}
 {% endblock %}

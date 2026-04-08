@@ -23,7 +23,7 @@ from .models import (
 )
 from .forms import (
     PartnerForm, CustomerForm, CustomerPurchaseFormSet,
-    OrderForm, OrderItemFormSet,
+    OrderForm, OrderItemFormSet, ReturnOrderForm,
     QuotationForm, QuotationItemFormSet,
     ShippingCarrierForm, PriceRuleForm,
 )
@@ -226,13 +226,15 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         ctx['purchases'] = self.object.purchases.filter(
             is_active=True,
         ).select_related('product')
-        ctx['orders'] = self.object.orders.select_related(
+        ctx['orders'] = self.object.orders.filter(
+            is_active=True,
+        ).select_related(
             'partner', 'customer',
-        ).all()
+        )
         ctx['service_requests'] = (
             self.object.service_requests
+            .filter(is_active=True)
             .select_related('product')
-            .all()
         )
         from apps.warranty.models import ProductRegistration
         ctx['registrations'] = ProductRegistration.objects.filter(
@@ -283,7 +285,20 @@ class OrderListView(LoginRequiredMixin, ListView):
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(order_number__icontains=q)
+                | Q(partner__name__icontains=q)
+                | Q(customer__name__icontains=q)
+                | Q(marketplace_orders__store_order_id__icontains=q)
+            ).distinct()
         return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['q'] = self.request.GET.get('q', '')
+        return context
 
 
 class OrderCreateView(ManagerRequiredMixin, CreateView):
@@ -314,6 +329,7 @@ class OrderCreateView(ManagerRequiredMixin, CreateView):
             ctx['formset'] = OrderItemFormSet()
         ctx['product_units_json'] = _product_units_json()
         ctx['product_costs_json'] = _product_costs_json()
+        ctx['quote_notes'] = ''
         return ctx
 
     def form_valid(self, form):
@@ -365,11 +381,14 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
         # 거래처 수수료 (입금 시 차감용)
         if not self.object.is_paid and self.object.partner:
             partner = self.object.partner
+            supply = int(self.object.total_amount or 0)
             grand = int(self.object.grand_total or 0)
-            comm = partner.calculate_commission(grand)
+            comm = partner.calculate_commission(supply, total_amount=grand)
             if comm > 0:
                 rate = partner.total_commission_rate
+                fixed = partner.total_fixed_commission
                 ctx['partner_commission_rate'] = float(rate)
+                ctx['partner_fixed_commission'] = fixed
                 ctx['partner_commission'] = comm
                 ctx['auto_deposit'] = grand - comm
         return ctx
@@ -395,6 +414,12 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
                 'css': 'btn btn-primary bg-green-600 hover:bg-green-700',
                 'icon': '<svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
                 'confirm': '배송 완료 처리하시겠습니까?',
+            },
+            'CLOSED': {
+                'label': '주문 종결',
+                'css': 'btn btn-sm bg-gray-600 hover:bg-gray-700 text-white',
+                'icon': '<svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                'confirm': '주문을 종결하시겠습니까?',
             },
             'CANCELLED': {
                 'label': '주문 취소',
@@ -427,6 +452,9 @@ class OrderUpdateView(ManagerRequiredMixin, UpdateView):
         ctx['product_units_json'] = _product_units_json()
         ctx['product_costs_json'] = _product_costs_json()
         ctx['is_settled'] = self.object.is_settled
+        # 견적서 비고 (있으면)
+        quote = self.object.source_quotation.first()
+        ctx['quote_notes'] = quote.notes if quote else ''
         return ctx
 
     def form_valid(self, form):
@@ -476,16 +504,10 @@ class OrderPaymentView(ManagerRequiredMixin, View):
             messages.warning(request, '이미 입금 처리된 주문입니다.')
             return redirect('sales:order_detail', slug=order.order_number)
 
-        from apps.sales.signals import (
-            _auto_create_commission, _auto_create_payment,
-            _try_close_order,
-        )
+        from apps.sales.signals import _auto_create_payment
         try:
-            with transaction.atomic():
-                # 수수료 미처리 시 자동 생성 (배송완료 전 입금 또는 기존 주문)
-                _auto_create_commission(order)
-                _auto_create_payment(order)
-            _try_close_order(order)
+            # _auto_create_payment 내부에서 commission + close 처리
+            _auto_create_payment(order)
             messages.success(
                 request,
                 f'{order.order_number} 입금 처리 완료'
@@ -494,6 +516,114 @@ class OrderPaymentView(ManagerRequiredMixin, View):
         except Exception as e:
             messages.error(request, f'입금 처리 실패: {e}')
 
+        return redirect('sales:order_detail', slug=order.order_number)
+
+
+class ReturnOrderCreateView(ManagerRequiredMixin, CreateView):
+    """원본 주문 기반 반품 주문 생성"""
+    model = Order
+    form_class = ReturnOrderForm
+    template_name = 'sales/order_return_form.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.original_order = get_object_or_404(
+            Order, order_number=kwargs['slug'], is_active=True,
+        )
+        if self.original_order.order_type in ('RETURN', 'EXCHANGE'):
+            messages.error(request, '반품/교환 주문에서는 반품을 생성할 수 없습니다.')
+            return redirect('sales:order_detail', slug=self.original_order.order_number)
+        if self.original_order.status not in ('SHIPPED', 'DELIVERED', 'CLOSED'):
+            messages.error(request, '출고 이후 상태의 주문만 반품할 수 있습니다.')
+            return redirect('sales:order_detail', slug=self.original_order.order_number)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['original_order'] = self.original_order
+        ctx['order_type'] = 'RETURN'
+        return ctx
+
+    def form_valid(self, form):
+        from apps.core.utils import generate_document_number
+        with transaction.atomic():
+            order = form.save(commit=False)
+            order.order_type = Order.OrderType.RETURN
+            order.original_order = self.original_order
+            order.partner = self.original_order.partner
+            order.customer = self.original_order.customer
+            order.order_date = date.today()
+            order.order_number = generate_document_number(Order, 'order_number', 'ORD')
+            order.vat_included = self.original_order.vat_included
+            order.created_by = self.request.user
+            order.save()
+
+            for item in self.original_order.items.filter(is_active=True):
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    quantity=item.quantity,
+                    cost_price=item.cost_price,
+                    unit_price=item.unit_price,
+                    discount_rate=item.discount_rate,
+                    discount_amount=item.discount_amount,
+                    created_by=self.request.user,
+                )
+            order.update_total()
+        messages.success(self.request, f'반품주문 {order.order_number}이(가) 생성되었습니다.')
+        return redirect('sales:order_detail', slug=order.order_number)
+
+
+class ExchangeOrderCreateView(ManagerRequiredMixin, CreateView):
+    """원본 주문 기반 교환 주문 생성"""
+    model = Order
+    form_class = ReturnOrderForm
+    template_name = 'sales/order_return_form.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.original_order = get_object_or_404(
+            Order, order_number=kwargs['slug'], is_active=True,
+        )
+        if self.original_order.order_type in ('RETURN', 'EXCHANGE'):
+            messages.error(request, '반품/교환 주문에서는 교환을 생성할 수 없습니다.')
+            return redirect('sales:order_detail', slug=self.original_order.order_number)
+        if self.original_order.status not in ('SHIPPED', 'DELIVERED', 'CLOSED'):
+            messages.error(request, '출고 이후 상태의 주문만 교환할 수 있습니다.')
+            return redirect('sales:order_detail', slug=self.original_order.order_number)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['original_order'] = self.original_order
+        ctx['order_type'] = 'EXCHANGE'
+        return ctx
+
+    def form_valid(self, form):
+        from apps.core.utils import generate_document_number
+        with transaction.atomic():
+            order = form.save(commit=False)
+            order.order_type = Order.OrderType.EXCHANGE
+            order.original_order = self.original_order
+            order.partner = self.original_order.partner
+            order.customer = self.original_order.customer
+            order.order_date = date.today()
+            order.order_number = generate_document_number(Order, 'order_number', 'ORD')
+            order.vat_included = self.original_order.vat_included
+            order.created_by = self.request.user
+            order.save()
+
+            for item in self.original_order.items.filter(is_active=True):
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    quantity=item.quantity,
+                    cost_price=item.cost_price,
+                    unit_price=item.unit_price,
+                    discount_rate=item.discount_rate,
+                    discount_amount=item.discount_amount,
+                    created_by=self.request.user,
+                )
+            order.update_total()
+        messages.success(self.request, f'교환주문 {order.order_number}이(가) 생성되었습니다.')
         return redirect('sales:order_detail', slug=order.order_number)
 
 
@@ -524,6 +654,18 @@ class OrderDeleteView(_SoftDeleteView):
         self.object = self.get_object()
         order = self.object
 
+        # 상태 전이 검증: CANCELLED가 허용 전이가 아닌 상태면 삭제 차단
+        allowed = Order.STATUS_TRANSITIONS.get(order.status, [])
+        if order.status != Order.Status.CANCELLED and 'CANCELLED' not in allowed:
+            messages.error(
+                request,
+                f'현재 상태({order.get_status_display()})에서는 '
+                f'주문을 삭제할 수 없습니다.',
+            )
+            return HttpResponseRedirect(
+                reverse_lazy('sales:order_detail', kwargs={'slug': order.order_number}),
+            )
+
         with transaction.atomic():
             # 취소 시그널 트리거를 위해 CANCELLED 상태로 먼저 변경
             if order.status != Order.Status.CANCELLED:
@@ -548,7 +690,7 @@ class QuotationDeleteView(ManagerRequiredMixin, DeleteView):
         order = self.object.converted_order
         blocked = False
         if order and order.is_active and order.status in (
-            Order.Status.SHIPPED, Order.Status.DELIVERED
+            Order.Status.SHIPPED, Order.Status.DELIVERED, Order.Status.CLOSED
         ):
             blocked = True
         ctx['converted_order'] = order if (order and order.is_active) else None
@@ -561,7 +703,7 @@ class QuotationDeleteView(ManagerRequiredMixin, DeleteView):
 
         # 출고/배송 완료 주문이 있으면 삭제 차단
         if order and order.is_active and order.status in (
-            Order.Status.SHIPPED, Order.Status.DELIVERED
+            Order.Status.SHIPPED, Order.Status.DELIVERED, Order.Status.CLOSED
         ):
             messages.error(
                 request,
@@ -572,6 +714,15 @@ class QuotationDeleteView(ManagerRequiredMixin, DeleteView):
         with transaction.atomic():
             delete_order = request.POST.get('delete_order') == '1'
             if delete_order and order and order.is_active:
+                # STATUS_TRANSITIONS 검증: CANCELLED가 허용 전이인지 확인
+                allowed = Order.STATUS_TRANSITIONS.get(order.status, [])
+                if 'CANCELLED' not in allowed:
+                    messages.error(
+                        request,
+                        f'연결된 주문({order.order_number})이 '
+                        f'{order.get_status_display()} 상태여서 취소할 수 없습니다.',
+                    )
+                    return HttpResponseRedirect(request.path)
                 order.status = Order.Status.CANCELLED
                 order.save(update_fields=['status', 'updated_at'])
                 order.soft_delete()
@@ -690,8 +841,21 @@ class CommissionRecordListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['partners'] = Partner.objects.all()
+        ctx['partners'] = Partner.objects.filter(is_active=True)
         ctx['status_choices'] = CommissionRecord.Status.choices
+        # 수수료 구성 설명 추가
+        for commission in ctx.get('object_list', []):
+            parts = []
+            rates = CommissionRate.objects.filter(
+                partner=commission.partner, is_active=True,
+            )
+            for r in rates:
+                if r.calc_type == 'PERCENT':
+                    base_label = '판매가' if r.base_type == 'TOTAL' else '공급가'
+                    parts.append(f'{r.rate}%({base_label})')
+                else:
+                    parts.append(f'{int(r.fixed_amount):,}원')
+            commission.commission_desc = ' + '.join(parts) if parts else '-'
         return ctx
 
 
@@ -703,18 +867,38 @@ class CommissionRecordCreateView(ManagerRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # 주문 금액 데이터 (order_id → total_amount)
+        # 주문별 금액 + 서버 계산 수수료
         order_amounts = {}
-        for o in Order.objects.filter(is_active=True, status='DELIVERED'):
+        for o in Order.objects.filter(
+            is_active=True, status__in=['DELIVERED', 'CLOSED'],
+        ).select_related('partner').prefetch_related('items__product'):
+            supply = int(o.total_amount)
+            grand = int(o.grand_total or 0)
+            comm = 0
+            if o.partner:
+                for item in o.items.filter(is_active=True):
+                    s = int(item.amount) if item.amount else 0
+                    t = s + (int(item.tax_amount) if item.tax_amount else 0)
+                    comm += o.partner.calculate_commission(
+                        s, total_amount=t, product=item.product,
+                    )
             order_amounts[str(o.pk)] = {
-                'amount': int(o.total_amount),
+                'amount': supply,
+                'grand_total': grand,
                 'partner': o.partner_id,
+                'commission': comm,
             }
         ctx['order_amounts_json'] = order_amounts
-        # 수수료율 데이터 (partner_id → rate)
+        # 거래처별 수수료 구성 설명 (참고용)
         rate_map = {}
-        for r in CommissionRate.objects.filter(is_active=True, product__isnull=True):
-            rate_map[str(r.partner_id)] = float(r.rate)
+        for r in CommissionRate.objects.filter(is_active=True):
+            pid = str(r.partner_id)
+            if pid not in rate_map:
+                rate_map[pid] = {'rate': 0, 'fixed': 0}
+            if r.calc_type == 'PERCENT':
+                rate_map[pid]['rate'] += float(r.rate)
+            else:
+                rate_map[pid]['fixed'] += int(r.fixed_amount)
         ctx['commission_rates_json'] = rate_map
         return ctx
 
@@ -749,7 +933,9 @@ class CommissionSummaryView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        summary = CommissionRecord.objects.values(
+        summary = CommissionRecord.objects.filter(
+            is_active=True,
+        ).values(
             'partner__id', 'partner__name',
         ).annotate(
             total_orders=Count('id'),
@@ -831,12 +1017,14 @@ class OrderExcelView(LoginRequiredMixin, View):
         status_colors = {
             'DRAFT': 'F2F2F2', 'CONFIRMED': 'DAEEF3',
             'SHIPPED': 'E2EFDA', 'DELIVERED': 'C6EFCE',
-            'CANCELLED': 'FFC7CE',
+            'CANCELLED': 'FFC7CE', 'CLOSED': 'B4C6E7',
+            'PARTIAL_SHIPPED': 'FCE4D6',
         }
         status_labels = {
             'DRAFT': '작성중', 'CONFIRMED': '확정',
             'SHIPPED': '출고완료', 'DELIVERED': '배송완료',
-            'CANCELLED': '취소',
+            'CANCELLED': '취소', 'CLOSED': '종결',
+            'PARTIAL_SHIPPED': '부분출고',
         }
 
         # --- 사전 집계 ---
@@ -1211,16 +1399,17 @@ class OrderExcelView(LoginRequiredMixin, View):
         ws2 = wb.create_sheet('주문 목록')
         ws2.sheet_properties.tabColor = '2E75B6'
 
-        ws2.merge_cells('A1:L1')
+        ws2.merge_cells('A1:N1')
         ws2.cell(1, 1, '주문 전체 목록').font = title_font
         ws2.row_dimensions[1].height = 36
-        ws2.merge_cells('A2:L2')
+        ws2.merge_cells('A2:N2')
         c = ws2.cell(2, 1, f'총 {total_count}건  |  유효 매출 {total_grand:,}원  |  취소 {len(cancelled_orders)}건')
         c.font = subtitle_font
         c.alignment = Alignment(horizontal='right')
 
         list_headers = [
             ('주문번호', 16), ('유형', 8), ('거래처', 18), ('고객', 14),
+            ('고객 연락처', 16), ('고객 주소', 30),
             ('담당자', 10), ('주문일', 12), ('주문 전환일', 14), ('납기일', 12),
             ('상태', 10), ('공급가액', 14), ('부가세', 12), ('총합계(VAT)', 14),
         ]
@@ -1235,6 +1424,8 @@ class OrderExcelView(LoginRequiredMixin, View):
                 o.get_order_type_display() if hasattr(o, 'get_order_type_display') else '',
                 o.partner.name if o.partner else '',
                 o.customer.name if o.customer else '',
+                o.customer.phone if o.customer else '',
+                o.customer.address if o.customer else '',
                 o.assigned_to.get_full_name() if o.assigned_to else '',
                 sq.quote_date if sq and sq.quote_date else None,
                 o.order_date,
@@ -1245,24 +1436,24 @@ class OrderExcelView(LoginRequiredMixin, View):
                 int(o.grand_total),
             ]
             _write_row(ws2, row, vals,
-                       money_cols=(10, 11, 12), date_cols=(6, 7, 8),
-                       status_col=9, status_val=o.status)
+                       money_cols=(12, 13, 14), date_cols=(8, 9, 10),
+                       status_col=11, status_val=o.status)
             sum_supply += int(o.total_amount)
             sum_tax += int(o.tax_total)
             sum_grand_all += int(o.grand_total)
             row += 1
 
         # 합계
-        ws2.merge_cells(start_row=row, start_column=1, end_row=row, end_column=9)
+        ws2.merge_cells(start_row=row, start_column=1, end_row=row, end_column=11)
         c = ws2.cell(row, 1, '합 계')
         c.font = Font('맑은 고딕', 11, bold=True, color='1F4E79')
         c.alignment = Alignment(horizontal='right', vertical='center')
         c.fill = grand_fill
         c.border = border
-        for ci in range(2, 10):
+        for ci in range(2, 12):
             ws2.cell(row, ci).fill = grand_fill
             ws2.cell(row, ci).border = border
-        for ci, val in [(10, sum_supply), (11, sum_tax), (12, sum_grand_all)]:
+        for ci, val in [(12, sum_supply), (13, sum_tax), (14, sum_grand_all)]:
             c = ws2.cell(row, ci, val)
             c.font = Font('맑은 고딕', 11, bold=True)
             c.number_format = money_fmt
@@ -2308,12 +2499,25 @@ class QuotationConvertView(ManagerRequiredMixin, View):
             return HttpResponseRedirect(
                 reverse_lazy('sales:quote_detail', kwargs={'slug': slug})
             )
+        if quote.valid_until and quote.valid_until < date.today():
+            messages.error(request, '유효기한이 만료된 견적서는 주문으로 전환할 수 없습니다.')
+            return HttpResponseRedirect(
+                reverse_lazy('sales:quote_detail', kwargs={'slug': slug})
+            )
+        if quote.status in (Quotation.Status.REJECTED, Quotation.Status.EXPIRED):
+            messages.error(request, f'{quote.get_status_display()} 상태의 견적서는 주문으로 전환할 수 없습니다.')
+            return HttpResponseRedirect(
+                reverse_lazy('sales:quote_detail', kwargs={'slug': slug})
+            )
 
         from apps.core.utils import generate_document_number
 
         with transaction.atomic():
             order = Order.objects.create(
-                order_number=generate_document_number(Order, 'order_number', 'ORD'),
+                order_number=generate_document_number(
+                    Order, 'order_number', 'ORD',
+                    reference_date=quote.quote_date,
+                ),
                 partner=quote.partner,
                 customer=quote.customer,
                 order_date=date.today(),
@@ -2325,7 +2529,7 @@ class QuotationConvertView(ManagerRequiredMixin, View):
                 created_by=request.user,
             )
 
-            for qi in quote.quote_items.all():
+            for qi in quote.quote_items.filter(is_active=True):
                 OrderItem.objects.create(
                     order=order,
                     product=qi.product,
@@ -2343,6 +2547,12 @@ class QuotationConvertView(ManagerRequiredMixin, View):
             quote.save(update_fields=[
                 'status', 'converted_order', 'updated_at',
             ])
+
+            # 마켓플레이스 주문 연결 (견적서 경유 → ERP 주문)
+            from apps.marketplace.models import MarketplaceOrder
+            MarketplaceOrder.objects.filter(
+                erp_quotation=quote, is_active=True,
+            ).update(erp_order=order)
 
         messages.success(
             request,
@@ -2501,7 +2711,31 @@ class ShipmentCreateView(ManagerRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['order'] = get_object_or_404(Order, order_number=self.kwargs['order_slug'])
+        order = get_object_or_404(
+            Order.objects.select_related('customer'),
+            order_number=self.kwargs['order_slug'],
+        )
+        ctx['order'] = order
+        # 주문서 배송정보 (JS 자동채우기용)
+        customer = order.customer
+        name = customer.name if customer else ''
+        phone = customer.phone if customer else ''
+        road = order.shipping_address_road or ''
+        detail = order.shipping_address_detail or ''
+        if not road and order.shipping_address:
+            parts = order.shipping_address.split('\n')
+            road = parts[0].strip() if parts else ''
+            detail = parts[1].strip() if len(parts) > 1 else ''
+        if name or road:
+            ctx['orderer_info'] = {
+                'name': name,
+                'phone': phone,
+                'address_road': road,
+                'address_detail': detail,
+                'address': order.shipping_address or f'{road} {detail}'.strip(),
+            }
+        else:
+            ctx['orderer_info'] = None
         return ctx
 
 
@@ -2526,11 +2760,35 @@ class ShipmentUpdateView(ManagerRequiredMixin, UpdateView):
     slug_field = 'shipment_number'
     slug_url_kwarg = 'slug'
 
+    # Shipment 모델에 STATUS_TRANSITIONS가 없으므로 뷰에서 검증
+    SHIPMENT_STATUS_TRANSITIONS = {
+        'PREPARING': ['SHIPPED'],
+        'SHIPPED': ['IN_TRANSIT', 'DELIVERED'],
+        'IN_TRANSIT': ['DELIVERED'],
+        'DELIVERED': [],
+        'RETURNED': [],
+    }
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         for field in form.fields.values():
             field.widget.attrs.setdefault('class', 'form-input')
         return form
+
+    def form_valid(self, form):
+        old_status = self.get_object().status
+        new_status = form.cleaned_data.get('status', old_status)
+        if old_status != new_status:
+            allowed = self.SHIPMENT_STATUS_TRANSITIONS.get(old_status, [])
+            if new_status not in allowed:
+                form.add_error(
+                    'status',
+                    f'{self.object.get_status_display()}에서 '
+                    f'{dict(Shipment.Status.choices).get(new_status, new_status)}(으)로 '
+                    f'변경할 수 없습니다.',
+                )
+                return self.form_invalid(form)
+        return super().form_valid(form)
 
     def get_success_url(self):
         return reverse_lazy(
@@ -2638,7 +2896,7 @@ class PartnerAnalysisView(ManagerRequiredMixin, TemplateView):
             OrderItem.objects.filter(
                 order__is_active=True,
                 order__partner__isnull=False,
-                order__status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED'],
+                order__status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
                 order__order_date__gte=date_from,
                 order__order_date__lte=date_to,
                 is_active=True,
@@ -2854,3 +3112,28 @@ class PriceLookupView(LoginRequiredMixin, View):
 
         result = get_applicable_price(product, partner, customer, quantity)
         return JsonResponse(result)
+
+
+class CustomerAddressView(LoginRequiredMixin, View):
+    """고객 주소 정보 반환 (주문폼 AJAX용)"""
+    def get(self, request):
+        from django.http import JsonResponse
+        customer_id = request.GET.get('customer_id')
+        if not customer_id:
+            return JsonResponse({'address': '', 'phone': ''})
+        customer = Customer.objects.filter(pk=customer_id, is_active=True).first()
+        if not customer:
+            return JsonResponse({'address': '', 'phone': ''})
+        road = customer.address_road or ''
+        detail = customer.address_detail or ''
+        # address_road가 없고 address만 있으면 줄바꿈으로 분리
+        if not road and customer.address:
+            parts = customer.address.split('\n')
+            road = parts[0].strip() if parts else ''
+            detail = parts[1].strip() if len(parts) > 1 else ''
+        return JsonResponse({
+            'address': customer.address or f'{road} {detail}'.strip(),
+            'address_road': road,
+            'address_detail': detail,
+            'phone': customer.phone or '',
+        })

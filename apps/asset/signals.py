@@ -6,7 +6,7 @@ from django.db.models import F
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from .models import DepreciationRecord, FixedAsset
+from .models import AssetTransfer, Certification, DepreciationRecord, FixedAsset
 
 logger = logging.getLogger(__name__)
 
@@ -205,3 +205,111 @@ def asset_disposal_gain_loss(sender, instance, **kwargs):
                 'FixedAsset %s disposed — voucher %s created (gain/loss: %s)',
                 instance.asset_number, voucher.voucher_number, gain_loss,
             )
+
+
+@receiver(post_save, sender=AssetTransfer)
+def apply_asset_transfer(sender, instance, created, **kwargs):
+    """자산 이관 → FixedAsset 부서/관리자/위치 자동 갱신"""
+    if not created:
+        return
+    FixedAsset.objects.filter(pk=instance.asset_id).update(
+        department=instance.to_department,
+        responsible_person=instance.to_person,
+        location=instance.to_location,
+    )
+
+
+@receiver(post_save, sender=Certification)
+def capitalize_certification_cost(sender, instance, created, **kwargs):
+    """인증 자본화 → 무형자산(FixedAsset INTANGIBLE) 자동 생성 + 전표
+
+    is_capitalized=True이고 asset이 없으면:
+    - FixedAsset(asset_type=INTANGIBLE) 자동 생성
+    - useful_life_years = (expiry_date - issue_date).days // 365 (최소 1년)
+    - depreciation_method = STRAIGHT
+    - acquisition_cost = cost
+    - 생성된 asset을 certification.asset에 연결
+    - 차변: 무형자산(160), 대변: 현금(101) 전표 자동 생성
+    """
+    if not created:
+        return
+    if not instance.is_capitalized or instance.cost <= 0:
+        return
+    if instance.asset_id:
+        return
+
+    with transaction.atomic():
+        from apps.core.utils import generate_document_number
+
+        # 내용연수 계산
+        if instance.expiry_date and instance.issue_date:
+            useful_life = max((instance.expiry_date - instance.issue_date).days // 365, 1)
+        else:
+            useful_life = 1
+
+        # 무형자산용 카테고리 조회/생성
+        from .models import AssetCategory
+        intangible_cat, _ = AssetCategory.objects.get_or_create(
+            code='INTANGIBLE',
+            defaults={
+                'name': '무형자산',
+                'useful_life_years': useful_life,
+                'depreciation_method': 'STRAIGHT',
+            },
+        )
+
+        asset_number = generate_document_number(FixedAsset, 'asset_number', 'FA')
+        asset = FixedAsset.objects.create(
+            asset_number=asset_number,
+            name=f'{instance.cert_name} (인증 자본화)',
+            category=intangible_cat,
+            asset_type=FixedAsset.AssetType.INTANGIBLE,
+            acquisition_date=instance.issue_date,
+            acquisition_cost=instance.cost,
+            residual_value=0,
+            useful_life_years=useful_life,
+            depreciation_method='STRAIGHT',
+            created_by=instance.created_by,
+        )
+
+        # certification.asset에 연결
+        Certification.objects.filter(pk=instance.pk).update(asset=asset)
+
+        # 전표 생성: 차변 무형자산(160), 대변 현금(101)
+        intangible_account = _get_account_code('160')
+        cash_account = _get_account_code('101')
+
+        if not intangible_account or not cash_account:
+            logger.warning(
+                'AccountCode 160/101 not found — '
+                'skipping capitalization voucher for Certification %s',
+                instance.pk,
+            )
+            return
+
+        from apps.accounting.models import Voucher, VoucherLine
+
+        voucher = Voucher.objects.create(
+            voucher_number=_generate_voucher_number(),
+            voucher_type='TRANSFER',
+            voucher_date=instance.issue_date,
+            description=f'자본화: {instance.cert_name} 무형자산 취득',
+            approval_status='APPROVED',
+            created_by=instance.created_by,
+        )
+        VoucherLine.objects.create(
+            voucher=voucher, account=intangible_account,
+            debit=instance.cost, credit=0,
+            description=f'{instance.cert_name} 무형자산 취득',
+            created_by=instance.created_by,
+        )
+        VoucherLine.objects.create(
+            voucher=voucher, account=cash_account,
+            debit=0, credit=instance.cost,
+            description=f'{instance.cert_name} 인증비용 지급',
+            created_by=instance.created_by,
+        )
+        logger.info(
+            'Certification %s → IntangibleAsset %s created, voucher %s',
+            instance.pk, asset_number, voucher.voucher_number,
+        )

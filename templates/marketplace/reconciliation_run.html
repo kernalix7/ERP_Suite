@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}정산 대사 실행 - ERP Suite{% endblock %}
+{% block page_title %}정산 대사 실행{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'marketplace:reconciliation_list' %}" class="btn btn-secondary">대사 목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto bg-white shadow rounded-lg border border-gray-200 p-6">
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="space-y-4">
+            <div>
+                <label for="id_store_module" class="block text-sm font-medium text-gray-700 mb-1">스토어</label>
+                {{ form.store_module }}
+                {% if form.store_module.errors %}
+                <p class="text-red-600 text-xs mt-1">{{ form.store_module.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="id_from_date" class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+                    {{ form.from_date }}
+                    {% if form.from_date.errors %}
+                    <p class="text-red-600 text-xs mt-1">{{ form.from_date.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="id_to_date" class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+                    {{ form.to_date }}
+                    {% if form.to_date.errors %}
+                    <p class="text-red-600 text-xs mt-1">{{ form.to_date.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+            <a href="{% url 'marketplace:reconciliation_list' %}" class="btn btn-secondary">취소</a>
+            <button type="submit" class="btn btn-primary">대사 실행</button>
+        </div>
+    </form>
+</div>
+
+<div class="max-w-lg mx-auto mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+    <h3 class="text-sm font-medium text-blue-800 mb-2">안내</h3>
+    <ul class="text-sm text-blue-700 space-y-1 list-disc ml-4">
+        <li>스토어 API에서 정산 데이터를 조회하여 실제 입금 내역과 자동 매칭합니다.</li>
+        <li>금액 차이 ±10원 이내일 경우 '일치'로 처리됩니다.</li>
+        <li>API 미지원 스토어의 경우 입금 내역 기반 '수동처리' 모드로 동작합니다.</li>
+    </ul>
+</div>
+{% endblock %}

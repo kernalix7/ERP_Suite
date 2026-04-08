@@ -8,21 +8,21 @@ class CommissionRateForm(BaseForm):
         model = CommissionRate
         fields = [
             'partner', 'product', 'name',
-            'calc_type', 'rate', 'fixed_amount', 'notes',
+            'calc_type', 'base_type', 'rate', 'fixed_amount', 'notes',
         ]
 
 
 class CommissionRateInlineForm(BaseForm):
     class Meta:
         model = CommissionRate
-        fields = ['name', 'product', 'calc_type', 'rate', 'fixed_amount']
+        fields = ['name', 'product', 'calc_type', 'base_type', 'rate', 'fixed_amount']
 
 
 CommissionRateInlineFormSet = forms.inlineformset_factory(
     CommissionRate.partner.field.related_model,
     CommissionRate,
     form=CommissionRateInlineForm,
-    fields=['name', 'product', 'calc_type', 'rate', 'fixed_amount'],
+    fields=['name', 'product', 'calc_type', 'base_type', 'rate', 'fixed_amount'],
     extra=1,
     can_delete=True,
 )

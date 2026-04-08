@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block page_title %}{{ object.name }} {% trans "상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:card_update' object.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+<a href="{% url 'accounting:card_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- 카드 정보 -->
+    <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">{% trans "카드 정보" %}</h3>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                {% if object.card_type == 'CORPORATE' %}bg-blue-100 text-blue-700
+                {% elif object.card_type == 'PERSONAL' %}bg-green-100 text-green-700
+                {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                {{ object.get_card_type_display }}
+            </span>
+        </div>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "카드별칭" %}</dt>
+                <dd class="font-medium text-gray-900">{{ object.name }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "카드사" %}</dt>
+                <dd class="font-medium text-gray-900">{{ object.get_card_issuer_display }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "카드유형" %}</dt>
+                <dd class="text-gray-700">{{ object.get_card_type_display }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "끝4자리" %}</dt>
+                <dd class="font-mono text-sm text-gray-700">{{ object.card_number_last4 }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "소유자" %}</dt>
+                <dd class="text-gray-700">{{ object.cardholder }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "유효기간" %}</dt>
+                <dd class="text-gray-700">{{ object.expiry_date|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "결제일" %}</dt>
+                <dd class="text-gray-700">매월 {{ object.billing_day }}일</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "결제계좌" %}</dt>
+                <dd class="text-gray-700">{{ object.payment_account|default:"-" }}</dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- 한도 현황 -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h4 class="text-sm font-semibold text-gray-500 mb-3">{% trans "한도 현황" %}</h4>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500">{% trans "월간한도" %}</span>
+                    <span class="font-mono text-right text-gray-700">{{ object.monthly_limit|intcomma }}원</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500">{% trans "사용액" %}</span>
+                    <span class="font-mono text-right text-gray-700">{{ object.used_amount|intcomma }}원</span>
+                </div>
+                <div class="border-t pt-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm text-gray-500">{% trans "잔여한도" %}</span>
+                        <span class="font-mono text-right font-bold {% if object.remaining_limit > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                            {{ object.remaining_limit|intcomma }}원
+                        </span>
+                    </div>
+                    <div class="bg-gray-200 rounded-full h-3">
+                        <div class="h-3 rounded-full {% if object.usage_rate >= 90 %}bg-red-500{% elif object.usage_rate >= 70 %}bg-yellow-500{% else %}bg-blue-500{% endif %}"
+                             style="width: {{ object.usage_rate }}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1 text-right">{% trans "사용률" %}: {{ object.usage_rate }}%</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <h4 class="font-semibold mb-3">{% trans "추가 정보" %}</h4>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">{% trans "등록일" %}</span>
+                    <span>{{ object.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">{% trans "등록자" %}</span>
+                    <span>{{ object.created_by|default:"-" }}</span>
+                </div>
+            </div>
+            <div class="mt-3">
+                <dt class="text-sm text-gray-500">{% trans "비고" %}</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.notes|default:"-" }}</dd>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 최근 거래 -->
+<div class="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-800">{% trans "최근 거래" %}</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "날짜" %}</th>
+                    <th class="px-4 py-3">{% trans "가맹점" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "금액" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "카테고리" %}</th>
+                    <th class="px-4 py-3">{% trans "승인번호" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for tx in recent_transactions %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-600">{{ tx.transaction_date }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ tx.merchant_name }}</td>
+                    <td class="px-4 py-3 text-right font-mono {% if tx.is_cancelled %}text-gray-400 line-through{% else %}text-gray-900{% endif %}">
+                        {{ tx.amount|intcomma }}원
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                            {{ tx.get_category_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ tx.authorization_number|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "거래 내역이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 청구 현황 -->
+<div class="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-800">{% trans "청구 현황" %}</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "청구월" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "금액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "결제액" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for billing in recent_billings %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">{{ billing.billing_month|date:"Y-m" }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ billing.total_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ billing.paid_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if billing.status == 'PAID' %}bg-green-100 text-green-700
+                            {% elif billing.status == 'PARTIAL' %}bg-yellow-100 text-yellow-700
+                            {% elif billing.status == 'OVERDUE' %}bg-red-100 text-red-700
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ billing.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-4 py-8 text-center text-gray-400">{% trans "청구 내역이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% include 'includes/timestamps.html' with obj=object %}
+{% endblock %}

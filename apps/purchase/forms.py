@@ -8,7 +8,7 @@ class PurchaseOrderForm(BaseForm):
         model = PurchaseOrder
         fields = [
             'po_number', 'partner', 'order_date',
-            'expected_date', 'vat_included',
+            'expected_date', 'is_taxable', 'vat_included',
             'approval_request', 'attachment', 'notes',
         ]
         widgets = {

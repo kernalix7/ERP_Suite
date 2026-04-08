@@ -1,6 +1,8 @@
 import logging
 from datetime import date, timedelta
 
+from django.utils import timezone
+
 from django.db import transaction
 from django.db.models import F
 from django.db.models.signals import pre_save, post_save
@@ -16,8 +18,11 @@ def _get_partner_module(partner):
     """거래처의 스토어 모듈 인스턴스 반환 (없으면 None)."""
     if not partner or not getattr(partner, 'store_module', ''):
         return None
-    from apps.store_modules.registry import registry
-    return registry.get_instance(partner.store_module)
+    try:
+        from apps.store_modules.registry import registry
+        return registry.get_instance(partner.store_module)
+    except (ImportError, Exception):
+        return None
 
 
 def _get_product_warehouse(product_id):
@@ -34,6 +39,38 @@ def _get_product_warehouse(product_id):
 class InsufficientStockError(Exception):
     """재고 부족 시 발생하는 예외"""
     pass
+
+
+@receiver(pre_save, sender='sales.Quotation')
+def validate_quotation_status_transition(sender, instance, **kwargs):
+    """견적서 상태 전환 규칙 검증"""
+    if not instance.pk:
+        return
+    try:
+        old = sender.all_objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+    if old.status == instance.status:
+        return
+    from apps.sales.models import Quotation
+    allowed = Quotation.STATUS_TRANSITIONS.get(old.status, [])
+    if instance.status not in allowed:
+        raise ValueError(
+            f'견적 상태를 {old.get_status_display()}에서 '
+            f'{instance.get_status_display()}(으)로 변경할 수 없습니다.'
+        )
+
+
+@receiver(pre_save, sender='sales.Order')
+def auto_fill_bank_account(sender, instance, **kwargs):
+    """bank_account가 비어있으면 거래처 기본 입금계좌로 자동 설정"""
+    if not instance.bank_account_id and instance.partner_id:
+        try:
+            partner = instance.partner
+            if partner.default_bank_account_id:
+                instance.bank_account_id = partner.default_bank_account_id
+        except Exception:
+            pass
 
 
 @receiver(pre_save, sender='sales.Order')
@@ -53,22 +90,37 @@ def auto_stock_out_on_ship(sender, instance, **kwargs):
         # CONFIRMED/PARTIAL_SHIPPED에서 전환 시에만 예약재고 해제 (예약된 적이 있는 경우만)
         if old.status in ('CONFIRMED', 'PARTIAL_SHIPPED'):
             _auto_release_reserved_stock(instance, quantity_source='full')
-    # 부분출고→출고완료 전환 시 이미 ShipmentItem으로 처리됨 → 스킵
+    # 부분출고→출고완료 전환 시: 미출고 잔량 처리
     if old.status == 'PARTIAL_SHIPPED' and instance.status == 'SHIPPED':
-        pass  # ShipmentItem 시그널에서 이미 처리 (예약재고 포함)
+        _auto_full_ship(instance)
+        _auto_release_reserved_stock(instance)
 
-    # 배송완료 시 → Shipment 동기화 + 고객등록 + 수수료 + 입금
+    # 배송완료 시 → Shipment 동기화 + 고객등록 + 종결 체크
+    # 수수료는 입금 시 발생 (배송완료 ≠ 입금완료)
     if old.status != 'DELIVERED' and instance.status == 'DELIVERED':
         _sync_shipments_delivered(instance)
         _auto_register_on_delivered(instance)
-        _auto_create_commission(instance)
-        _auto_create_payment(instance)
+        _try_close_order(instance)  # 선입금 후 배송완료 시 자동 종결
 
-    # 확정 시 → 재고 예약 + 매출채권(AR) + 세금계산서 자동 생성
+    # 확정 시 → 거래처 승인 검증 + 주문 유형별 분기
     if old.status != 'CONFIRMED' and instance.status == 'CONFIRMED':
-        _auto_reserve_stock(instance)
-        _auto_create_ar(instance)
-        _auto_create_tax_invoice(instance)
+        if instance.partner and getattr(instance.partner, 'approval_status', 'APPROVED') != 'APPROVED':
+            raise ValueError(
+                f'거래처 "{instance.partner.name}"의 승인상태가 '
+                f'"{instance.partner.get_approval_status_display()}"이므로 주문을 확정할 수 없습니다.'
+            )
+        if instance.order_type == 'RETURN':
+            _auto_create_return_stock_in(instance)
+            _auto_reverse_ar(instance)
+            _auto_cancel_tax_invoice_for_return(instance)
+        elif instance.order_type == 'EXCHANGE':
+            _auto_create_exchange_stock_movements(instance)
+            _auto_exchange_ar_diff(instance)
+            _auto_cancel_tax_invoice_for_return(instance)
+        else:
+            _auto_reserve_stock(instance)
+            _auto_create_ar(instance)
+            _auto_create_tax_invoice(instance)
 
     # 취소 시 → 연쇄 처리 (재고복원, 수수료취소, AR취소)
     if old.status != 'CANCELLED' and instance.status == 'CANCELLED':
@@ -79,22 +131,23 @@ def auto_stock_out_on_ship(sender, instance, **kwargs):
 
 def _auto_full_ship(instance):
     """전량 출고 처리 (기존 all-or-nothing 방식)"""
-    # C2: Idempotency — skip if movements already exist
-    existing = StockMovement.all_objects.filter(
+    # C2: Idempotency — skip if active movements already exist
+    existing = StockMovement.objects.filter(
         reference__startswith=f'주문 {instance.order_number}',
         movement_type='OUT',
+        is_active=True,
     ).exists()
     if existing:
         return
 
-    # C1: 미출고 수량만 체크 (부분출고 이력 고려)
+    # C1: 미출고 수량만 체크 (부분출고 이력 고려, 재고추적 상품만)
     insufficient = []
     for item in instance.items.all():
         remaining = item.quantity - item.shipped_quantity
         if remaining <= 0:
             continue
         product = Product.all_objects.get(pk=item.product_id)
-        if product.current_stock < remaining:
+        if product.is_stockable and product.current_stock < remaining:
             insufficient.append(
                 f'{product.name}({product.code}): '
                 f'현재 {product.current_stock}, '
@@ -113,27 +166,28 @@ def _auto_full_ship(instance):
             remaining = item.quantity - item.shipped_quantity
             if remaining <= 0:
                 continue
-            warehouse = _get_product_warehouse(item.product_id)
-            if not warehouse:
-                logger.error(
-                    'No warehouse for product %s — '
-                    'cannot create stock movement for %s',
-                    item.product, instance,
+            if item.product.is_stockable:
+                warehouse = _get_product_warehouse(item.product_id)
+                if not warehouse:
+                    logger.error(
+                        'No warehouse for product %s — '
+                        'cannot create stock movement for %s',
+                        item.product, instance,
+                    )
+                    continue
+                StockMovement.objects.create(
+                    movement_number=(
+                        f'OUT-{instance.order_number}-{item.pk}'
+                    ),
+                    movement_type='OUT',
+                    product=item.product,
+                    warehouse=warehouse,
+                    quantity=remaining,
+                    unit_price=item.unit_price,
+                    movement_date=date.today(),
+                    reference=f'주문 {instance.order_number}',
+                    created_by=instance.created_by,
                 )
-                continue
-            StockMovement.objects.create(
-                movement_number=(
-                    f'OUT-{instance.order_number}-{item.pk}'
-                ),
-                movement_type='OUT',
-                product=item.product,
-                warehouse=warehouse,
-                quantity=remaining,
-                unit_price=item.unit_price,
-                movement_date=date.today(),
-                reference=f'주문 {instance.order_number}',
-                created_by=instance.created_by,
-            )
             OrderItem.objects.filter(pk=item.pk).update(
                 shipped_quantity=item.quantity,
             )
@@ -143,9 +197,10 @@ def _auto_reserve_stock(order):
     """주문 확정 시 각 주문항목의 수량만큼 예약재고 증가"""
     with transaction.atomic():
         for item in order.items.select_related('product').all():
-            Product.objects.filter(pk=item.product_id).update(
-                reserved_stock=F('reserved_stock') + item.quantity,
-            )
+            if item.product.is_stockable:
+                Product.objects.filter(pk=item.product_id).update(
+                    reserved_stock=F('reserved_stock') + item.quantity,
+                )
         logger.info(
             'Reserved stock for order %s (%d items)',
             order.order_number, order.items.count(),
@@ -161,6 +216,8 @@ def _auto_release_reserved_stock(order, quantity_source='full'):
     """
     with transaction.atomic():
         for item in order.items.select_related('product').all():
+            if not item.product.is_stockable:
+                continue
             if quantity_source == 'shipped':
                 release_qty = item.shipped_quantity
             else:
@@ -185,6 +242,15 @@ def _auto_register_on_delivered(order):
     from apps.warranty.models import ProductRegistration
 
     customer = order.customer
+
+    # 고객/거래처 모두 없으면 ProductRegistration 생성 스킵
+    if not customer and not order.partner:
+        logger.warning(
+            '주문 %s: 고객/거래처 없음 — ProductRegistration 생성 스킵',
+            order.order_number,
+        )
+        return
+
     today = date.today()
 
     with transaction.atomic():
@@ -228,6 +294,7 @@ def _auto_create_commission(order):
     입금은 전액 처리, 수수료는 별도 출금으로 처리.
     """
     from apps.sales.commission import CommissionRecord
+    from apps.sales.models import Order
 
     if not order.partner:
         return
@@ -247,16 +314,17 @@ def _auto_create_commission(order):
                 )
         return
 
-    # 주문 항목별 수수료 계산 — 공급가액(tax 제외) 기준
+    # 주문 항목별 수수료 계산 — base_type에 따라 공급가액 or 판매가 기준
     module = _get_partner_module(order.partner)
     if module:
         total_commission = int(module.calculate_commission(order, order.partner))
     else:
         total_commission = 0
         for item in order.items.filter(is_active=True):
-            item_amount = int(item.amount) if item.amount else 0
+            supply = int(item.amount) if item.amount else 0
+            total_with_tax = supply + (int(item.tax_amount) if item.tax_amount else 0)
             total_commission += order.partner.calculate_commission(
-                item_amount, product=item.product,
+                supply, total_amount=total_with_tax, product=item.product,
             )
 
     if total_commission <= 0:
@@ -274,6 +342,11 @@ def _auto_create_commission(order):
             status='SETTLED',
             settled_date=date.today(),
             created_by=order.created_by,
+        )
+
+        # 주문에 플랫폼 수수료 기록
+        Order.objects.filter(pk=order.pk).update(
+            platform_commission=total_commission,
         )
 
         # 수수료 출금(DISBURSEMENT) 자동 생성
@@ -425,6 +498,172 @@ def _auto_create_tax_invoice(order):
         )
 
 
+def _auto_create_return_stock_in(order):
+    """반품주문 확정 시 원본 주문의 출고 아이템 기준 IN(반품입고) StockMovement 생성"""
+    if not order.original_order:
+        logger.warning('반품주문 %s: 원본주문 미지정 — 반품입고 스킵', order.order_number)
+        return
+
+    with transaction.atomic():
+        for item in order.items.select_related('product').all():
+            if not item.product.is_stockable:
+                continue
+            warehouse = _get_product_warehouse(item.product_id)
+            if not warehouse:
+                warehouse = Warehouse.get_default()
+            if not warehouse:
+                logger.error('No warehouse — cannot create return stock in for %s', order.order_number)
+                continue
+            StockMovement.objects.create(
+                movement_number=f'IN-RTN-{order.order_number}-{item.pk}',
+                movement_type='IN',
+                product=item.product,
+                warehouse=warehouse,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                movement_date=date.today(),
+                reference=f'반품입고 {order.order_number} (원본: {order.original_order.order_number})',
+                created_by=order.created_by,
+            )
+        logger.info('Auto-created return stock IN for order %s', order.order_number)
+
+
+def _auto_reverse_ar(order):
+    """반품주문 확정 시 원본 주문의 AR 역전표(환불) 생성"""
+    from apps.accounting.models import AccountReceivable
+
+    original = order.original_order
+    if not original or not original.partner:
+        return
+
+    grand_total = int(order.grand_total) if order.grand_total else 0
+    if grand_total <= 0:
+        return
+
+    # 이미 역전표가 있으면 스킵
+    if AccountReceivable.objects.filter(order=order, is_active=True).exists():
+        return
+
+    with transaction.atomic():
+        ar = AccountReceivable.objects.create(
+            partner=original.partner,
+            order=order,
+            amount=-grand_total,
+            due_date=date.today() + timedelta(days=30),
+            status='PENDING',
+            created_by=order.created_by,
+        )
+        logger.info(
+            'Auto-created reverse AR for return order %s: -%s원',
+            order.order_number, grand_total,
+        )
+
+
+def _auto_cancel_tax_invoice_for_return(order):
+    """반품/교환 주문 확정 시 원본 주문의 세금계산서를 soft delete"""
+    from apps.accounting.models import TaxInvoice
+
+    original = order.original_order
+    if not original:
+        return
+
+    with transaction.atomic():
+        invoices = TaxInvoice.objects.filter(order=original, is_active=True)
+        for inv in invoices:
+            inv.is_active = False
+            inv.save(update_fields=['is_active', 'updated_at'])
+            logger.info(
+                'Auto-cancelled TaxInvoice %s for return/exchange order %s',
+                inv.invoice_number, order.order_number,
+            )
+
+
+def _auto_create_exchange_stock_movements(order):
+    """교환주문 확정 시 원본품 반품입고(IN) + 교환품 출고(OUT) StockMovement 생성"""
+    original = order.original_order
+    if not original:
+        logger.warning('교환주문 %s: 원본주문 미지정 — 교환 재고처리 스킵', order.order_number)
+        return
+
+    with transaction.atomic():
+        # 원본 주문의 아이템: 반품입고(IN)
+        for item in original.items.select_related('product').all():
+            if not item.product.is_stockable:
+                continue
+            warehouse = _get_product_warehouse(item.product_id)
+            if not warehouse:
+                warehouse = Warehouse.get_default()
+            if not warehouse:
+                continue
+            StockMovement.objects.create(
+                movement_number=f'IN-EXC-{order.order_number}-ORIG-{item.pk}',
+                movement_type='IN',
+                product=item.product,
+                warehouse=warehouse,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                movement_date=date.today(),
+                reference=f'교환반품입고 {order.order_number} (원본: {original.order_number})',
+                created_by=order.created_by,
+            )
+
+        # 교환 주문의 아이템: 교환출고(OUT)
+        for item in order.items.select_related('product').all():
+            if not item.product.is_stockable:
+                continue
+            warehouse = _get_product_warehouse(item.product_id)
+            if not warehouse:
+                warehouse = Warehouse.get_default()
+            if not warehouse:
+                continue
+            StockMovement.objects.create(
+                movement_number=f'OUT-EXC-{order.order_number}-{item.pk}',
+                movement_type='OUT',
+                product=item.product,
+                warehouse=warehouse,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                movement_date=date.today(),
+                reference=f'교환출고 {order.order_number}',
+                created_by=order.created_by,
+            )
+        logger.info('Auto-created exchange stock movements for order %s', order.order_number)
+
+
+def _auto_exchange_ar_diff(order):
+    """교환주문 확정 시 원본과의 AR 차액 처리"""
+    from apps.accounting.models import AccountReceivable
+
+    original = order.original_order
+    if not original or not original.partner:
+        return
+
+    orig_total = int(original.grand_total) if original.grand_total else 0
+    new_total = int(order.grand_total) if order.grand_total else 0
+    diff = new_total - orig_total
+
+    if diff == 0:
+        return
+
+    # 이미 AR이 있으면 스킵
+    if AccountReceivable.objects.filter(order=order, is_active=True).exists():
+        return
+
+    with transaction.atomic():
+        AccountReceivable.objects.create(
+            partner=original.partner,
+            order=order,
+            amount=diff,
+            due_date=date.today() + timedelta(days=30),
+            status='PENDING',
+            created_by=order.created_by,
+        )
+        logger.info(
+            'Auto-created exchange AR diff for order %s: %s원',
+            order.order_number, diff,
+        )
+
+
 def _auto_cancel_order(order, old_status):
     """주문 취소 시 연쇄 처리: 재고복원, 수수료취소, AR취소, 세금계산서취소"""
     from apps.accounting.models import AccountReceivable, TaxInvoice
@@ -437,6 +676,7 @@ def _auto_cancel_order(order, old_status):
             if ar.paid_amount > 0:
                 payments = ar.payments.filter(is_active=True)
                 for payment in payments:
+                    payment._skip_balance_restore = True
                     payment.soft_delete()
                     logger.info(
                         'Auto-cancelled Payment %s for order %s',
@@ -470,6 +710,7 @@ def _auto_cancel_order(order, old_status):
                         BankAccount.objects.filter(pk=pmt.bank_account_id).update(
                             balance=F('balance') + pmt.amount,
                         )
+                    pmt._skip_balance_restore = True
                     pmt.soft_delete()
                     logger.info(
                         'Auto-cancelled DISBURSEMENT Payment %s for commission %s',
@@ -482,6 +723,8 @@ def _auto_cancel_order(order, old_status):
         # 2-1. 예약재고 해제 (확정 이후 취소 시)
         if old_status in ('CONFIRMED', 'PARTIAL_SHIPPED'):
             for item in order.items.select_related('product').all():
+                if not item.product.is_stockable:
+                    continue
                 # CONFIRMED에서 취소: 전량 해제
                 # PARTIAL_SHIPPED에서 취소: 미출고분만 해제 (출고분은 ShipmentItem에서 이미 해제)
                 release_qty = item.quantity - item.shipped_quantity
@@ -498,6 +741,8 @@ def _auto_cancel_order(order, old_status):
             )
 
         # 3. 재고 복원 — 출고 이동(OUT)이 있으면 soft delete → 시그널이 재고 복원
+        # 방어적 코드: SHIPPED/DELIVERED→CANCELLED는 STATUS_TRANSITIONS에서 도달 불가하나,
+        # 관리자 직접 수정 등 예외 상황 대비. 삭제 금지.
         if old_status in ('PARTIAL_SHIPPED', 'SHIPPED', 'DELIVERED'):
             from apps.inventory.models import StockMovement
             from django.db.models import Q
@@ -515,7 +760,7 @@ def _auto_cancel_order(order, old_status):
                     mv.movement_number, order.order_number,
                 )
 
-        # 3-1. shipped_quantity 초기화
+        # 3-1. shipped_quantity 초기화 (방어적 코드 — SHIPPED/DELIVERED 포함)
         if old_status in ('PARTIAL_SHIPPED', 'SHIPPED', 'DELIVERED'):
             from apps.sales.models import OrderItem
             order.items.update(shipped_quantity=0)
@@ -545,40 +790,42 @@ def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
         return
 
     with transaction.atomic():
-        # 재고 부족 체크
         product = Product.all_objects.get(pk=order_item.product_id)
-        if product.current_stock < instance.quantity:
-            raise InsufficientStockError(
-                f'재고 부족: {product.name} '
-                f'(현재 {product.current_stock}, '
-                f'필요 {instance.quantity})'
+
+        if product.is_stockable:
+            # 재고 부족 체크
+            if product.current_stock < instance.quantity:
+                raise InsufficientStockError(
+                    f'재고 부족: {product.name} '
+                    f'(현재 {product.current_stock}, '
+                    f'필요 {instance.quantity})'
+                )
+
+            # OUT 재고이동 생성
+            StockMovement.objects.create(
+                movement_number=(
+                    f'OUT-{order.order_number}'
+                    f'-SH{shipment.pk}-{instance.pk}'
+                ),
+                movement_type='OUT',
+                product=order_item.product,
+                warehouse=warehouse,
+                quantity=instance.quantity,
+                unit_price=order_item.unit_price,
+                movement_date=shipment.shipped_date or date.today(),
+                reference=f'부분출고 {order.order_number}',
+                created_by=shipment.created_by,
             )
 
-        # OUT 재고이동 생성
-        StockMovement.objects.create(
-            movement_number=(
-                f'OUT-{order.order_number}'
-                f'-SH{shipment.pk}-{instance.pk}'
-            ),
-            movement_type='OUT',
-            product=order_item.product,
-            warehouse=warehouse,
-            quantity=instance.quantity,
-            unit_price=order_item.unit_price,
-            movement_date=shipment.shipped_date or date.today(),
-            reference=f'부분출고 {order.order_number}',
-            created_by=shipment.created_by,
-        )
+            # 예약재고 해제 (출고된 수량만큼, 예약 없으면 스킵)
+            prod = Product.objects.get(pk=order_item.product_id)
+            actual_release = min(instance.quantity, prod.reserved_stock)
+            if actual_release > 0:
+                Product.objects.filter(pk=order_item.product_id).update(
+                    reserved_stock=F('reserved_stock') - actual_release,
+                )
 
-        # 예약재고 해제 (출고된 수량만큼, 예약 없으면 스킵)
-        prod = Product.objects.get(pk=order_item.product_id)
-        actual_release = min(instance.quantity, prod.reserved_stock)
-        if actual_release > 0:
-            Product.objects.filter(pk=order_item.product_id).update(
-                reserved_stock=F('reserved_stock') - actual_release,
-            )
-
-        # OrderItem.shipped_quantity 갱신
+        # OrderItem.shipped_quantity 갱신 (서비스 상품도 출고 수량 추적)
         from apps.sales.models import OrderItem
         OrderItem.objects.filter(pk=order_item.pk).update(
             shipped_quantity=F('shipped_quantity') + instance.quantity,
@@ -609,31 +856,47 @@ def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
 
 
 def _try_close_order(order):
-    """배송완료 + 입금완료 시 자동 종결
+    """배송완료 + 입금완료 시 자동 종결 (history 보존을 위해 save() 사용)
 
-    주의: pre_save 내에서 호출될 수 있으므로 refresh_from_db 금지.
-    is_paid는 .update()로 DB에 이미 반영됨, 인메모리와 다를 수 있어 DB 조회.
-    status는 인메모리 값 사용 (pre_save 시 DB에는 아직 이전 값).
+    pre_save에서 호출 시: 인메모리 status 사용 (DB에 아직 미반영).
+    외부(post-payment)에서 호출 시: refresh_from_db로 최신 상태 확인.
     """
     from apps.sales.models import Order
+    # pre_save에서 호출 시 인메모리 status가 DELIVERED일 수 있음 (아직 DB 미반영)
+    in_memory_status = order.status
     is_paid = Order.objects.filter(pk=order.pk).values_list(
         'is_paid', flat=True,
     ).first()
-    if order.status == 'DELIVERED' and is_paid:
-        order.status = 'CLOSED'
-        Order.objects.filter(pk=order.pk).update(status='CLOSED')
+    if in_memory_status == 'DELIVERED' and is_paid:
+        # DB 상태가 이미 CLOSED면 스킵
+        db_status = Order.objects.filter(pk=order.pk).values_list(
+            'status', flat=True,
+        ).first()
+        if db_status == 'CLOSED':
+            return
+        # history 보존을 위해 refresh + save (pre_save 밖에서만 DB 반영됨)
+        fresh = Order.objects.get(pk=order.pk)
+        fresh.status = 'CLOSED'
+        fresh.save(update_fields=['status', 'updated_at'])
         logger.info('Order %s auto-closed (DELIVERED + paid)', order.order_number)
 
 
 def _sync_shipments_delivered(order):
-    """주문 배송완료 → 연결 Shipment도 배송완료 (.update() 사용 — 시그널 미발생)"""
+    """주문 배송완료 → 연결 Shipment도 배송완료 (history 보존을 위해 개별 save())"""
     from apps.sales.models import Shipment
-    updated = order.shipments.filter(
+    shipments = order.shipments.filter(
         is_active=True,
         status__in=['PREPARING', 'SHIPPED', 'IN_TRANSIT'],
-    ).update(status='DELIVERED', delivered_date=date.today())
-    if updated:
-        logger.info('Synced %d shipments to DELIVERED for order %s', updated, order.order_number)
+    )
+    count = 0
+    for s in shipments:
+        s.status = 'DELIVERED'
+        s.delivered_date = date.today()
+        s._skip_order_sync = True  # sync_order_on_shipment_delivered 무한루프 방지
+        s.save(update_fields=['status', 'delivered_date', 'updated_at'])
+        count += 1
+    if count:
+        logger.info('Synced %d shipments to DELIVERED for order %s', count, order.order_number)
 
 
 def _auto_create_payment(order, deposit_amount=None, commission_amount=0):
@@ -787,6 +1050,8 @@ def _auto_create_payment(order, deposit_amount=None, commission_amount=0):
             bank.name, voucher.voucher_number,
         )
 
+    # 입금 처리 완료 → 수수료 자동 생성 + 종결 시도
+    _auto_create_commission(order)
     _try_close_order(order)
 
 
@@ -822,6 +1087,9 @@ def sync_order_on_shipment_delivered(sender, instance, **kwargs):
     """배송 DELIVERED → 주문도 DELIVERED (모든 배송 완료 시)"""
     if not instance.pk:
         return
+    # _sync_shipments_delivered에서 설정한 플래그 — 무한루프 방지
+    if getattr(instance, '_skip_order_sync', False):
+        return
     try:
         old = sender.all_objects.get(pk=instance.pk)
     except sender.DoesNotExist:
@@ -833,9 +1101,35 @@ def sync_order_on_shipment_delivered(sender, instance, **kwargs):
             is_active=True,
         ).exclude(pk=instance.pk).exclude(status='DELIVERED').exists()
         if not pending and order.status in ('SHIPPED', 'PARTIAL_SHIPPED'):
-            from apps.sales.models import Order
-            Order.objects.filter(pk=order.pk).update(status='DELIVERED')
+            order.refresh_from_db()
+            order.status = 'DELIVERED'
+            order.save(update_fields=['status', 'updated_at'])
             logger.info(
                 'All shipments delivered — order %s auto-set to DELIVERED',
                 order.order_number,
             )
+
+
+@receiver(pre_save, sender='sales.Shipment')
+def auto_create_shipment_tracking(sender, instance, **kwargs):
+    """배송 상태 변경 시 ShipmentTracking 자동 생성"""
+    if not instance.pk:
+        return
+    try:
+        old = sender.all_objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+    if old.status == instance.status:
+        return
+
+    from datetime import datetime
+    from apps.sales.models import ShipmentTracking
+
+    status_labels = dict(instance.Status.choices)
+    ShipmentTracking.objects.create(
+        shipment=instance,
+        status=instance.get_status_display(),
+        description=f'{status_labels.get(old.status, old.status)} → {status_labels.get(instance.status, instance.status)}',
+        tracked_at=timezone.now(),
+        created_by=instance.created_by,
+    )

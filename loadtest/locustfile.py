@@ -225,6 +225,64 @@ class ERPUser(HttpUser):
         """API 재고이동 조회"""
         self.client.get('/api/stock-movements/?format=json')
 
+    # === 자산 관리 (Phase 9) ===
+
+    @tag('asset')
+    @task(2)
+    def view_asset_list(self):
+        """자산 목록 조회"""
+        self.client.get('/asset/')
+
+    @tag('asset')
+    @task(1)
+    def view_asset_summary(self):
+        """자산 요약 조회"""
+        self.client.get('/asset/summary/')
+
+    @tag('asset')
+    @task(1)
+    def view_certification_list(self):
+        """인증 목록 조회"""
+        self.client.get('/asset/certifications/')
+
+    @tag('asset')
+    @task(1)
+    def view_lease_list(self):
+        """리스 계약 목록 조회"""
+        self.client.get('/asset/leases/')
+
+    @tag('asset')
+    @task(1)
+    def view_audit_list(self):
+        """자산 실사 목록 조회"""
+        self.client.get('/asset/audits/')
+
+    @tag('asset')
+    @task(1)
+    def view_register_report(self):
+        """자산대장 리포트 조회"""
+        self.client.get('/asset/report/register/')
+
+    @tag('asset')
+    @task(1)
+    def view_asset_categories(self):
+        """자산 분류 목록 조회"""
+        self.client.get('/asset/categories/')
+
+    # === 마켓플레이스 (Phase 9) ===
+
+    @tag('marketplace')
+    @task(1)
+    def view_marketplace_wizard(self):
+        """마켓플레이스 Import Wizard 조회"""
+        self.client.get('/marketplace/wizard/fetch/')
+
+    @tag('marketplace')
+    @task(1)
+    def view_marketplace_reconciliation(self):
+        """마켓플레이스 정산 대사 조회"""
+        self.client.get('/marketplace/reconciliation/')
+
     # === Excel 다운로드 ===
 
     @tag('excel')
@@ -292,3 +350,30 @@ class APIUser(HttpUser):
     def api_orders_pagination(self):
         """API 주문 페이지네이션"""
         self.client.get('/api/orders/?format=json&page=1&page_size=10')
+
+    # === 자산 API (Phase 9) ===
+
+    @task(2)
+    def api_fixed_assets(self):
+        """API 고정자산 목록"""
+        self.client.get('/api/fixed-assets/?format=json')
+
+    @task(1)
+    def api_certifications(self):
+        """API 인증 목록"""
+        self.client.get('/api/certifications/?format=json')
+
+    @task(1)
+    def api_lease_contracts(self):
+        """API 리스 계약 목록"""
+        self.client.get('/api/lease-contracts/?format=json')
+
+    @task(1)
+    def api_asset_audits(self):
+        """API 자산 실사 목록"""
+        self.client.get('/api/asset-audits/?format=json')
+
+    @task(1)
+    def api_asset_transfers(self):
+        """API 자산 이관 목록"""
+        self.client.get('/api/asset-transfers/?format=json')

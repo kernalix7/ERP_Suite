@@ -10,6 +10,7 @@ class SystemConfig(BaseModel):
 
     class Category(models.TextChoices):
         NTS = 'NTS', '국세청 API'
+        TAX = 'TAX', '세금/부가세'
         MARKETPLACE = 'MARKETPLACE', '마켓플레이스'
         SHIPPING = 'SHIPPING', '택배/배송'
         EMAIL = 'EMAIL', '이메일'
@@ -104,6 +105,10 @@ class SystemConfig(BaseModel):
             ('COMPANY', 'company_phone', '', '전화번호', '', False, 'text'),
             # 주소검색 API
             ('ADDRESS', 'JUSO_API_KEY', '', '도로명주소 API 키', '행안부 도로명주소 API 인증키 (juso.go.kr에서 발급)', True, 'password'),
+            # 세금/부가세
+            ('TAX', 'vat_rate', '10', '부가세율(%)', '기본 부가세율', False, 'number'),
+            ('TAX', 'vat_filing_period', 'quarterly', '부가세 신고주기', 'monthly=매월, quarterly=분기, yearly=연간', False, 'text'),
+            ('TAX', 'vat_filing_months', '1,4,7,10', '신고 기준월', '신고주기별 기준월 (분기: 1,4,7,10 / 연간: 1)', False, 'text'),
             # 국세청 API
             ('NTS', 'business_number', '', '사업자번호', '국세청 API 사업자번호', False, 'text'),
             ('NTS', 'cert_path', '', '인증서 경로', '공인인증서 파일 경로', False, 'file'),

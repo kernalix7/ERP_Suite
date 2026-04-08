@@ -60,6 +60,7 @@
                     <th class="px-4 py-3 text-right">{% trans "잔액" %}</th>
                     <th class="px-4 py-3">{% trans "납기일" %}</th>
                     <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "작성일" %}</th>
                     <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
                 </tr>
             </thead>
@@ -81,13 +82,14 @@
                             {% if ar.is_overdue and ar.status != 'PAID' %}{% trans "연체" %}{% else %}{{ ar.get_status_display }}{% endif %}
                         </span>
                     </td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ ar.created_at|date:"m-d H:i" }}</td>
                     <td class="px-4 py-3 text-center">
                         <a href="{% url 'accounting:ar_detail' ar.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">{% trans "상세" %}</a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 미수금이 없습니다." %}</td>
+                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 미수금이 없습니다." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

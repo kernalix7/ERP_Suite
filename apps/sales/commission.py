@@ -9,6 +9,10 @@ class CommissionRate(BaseModel):
         PERCENT = 'PERCENT', '정률(%)'
         FIXED = 'FIXED', '정액(원)'
 
+    class BaseType(models.TextChoices):
+        SUPPLY = 'SUPPLY', '공급가액(VAT 제외)'
+        TOTAL = 'TOTAL', '판매가(VAT 포함)'
+
     partner = models.ForeignKey(
         'sales.Partner', verbose_name='거래처',
         on_delete=models.PROTECT, related_name='commission_rates',
@@ -25,6 +29,11 @@ class CommissionRate(BaseModel):
     calc_type = models.CharField(
         '계산방식', max_length=10,
         choices=CalcType.choices, default=CalcType.PERCENT,
+    )
+    base_type = models.CharField(
+        '계산기준', max_length=10,
+        choices=BaseType.choices, default=BaseType.SUPPLY,
+        help_text='정률 수수료의 기준금액 (공급가액 or 판매가)',
     )
     rate = models.DecimalField(
         '수수료율(%)', max_digits=6, decimal_places=3,
@@ -48,11 +57,12 @@ class CommissionRate(BaseModel):
             return f'{self.partner.name} - {self.name}: {self.fixed_amount:,}원'
         return f'{self.partner.name} - {self.name}: {self.rate}%'
 
-    def calculate(self, base_amount):
-        """base_amount 기준 수수료 계산"""
+    def calculate(self, supply_amount, total_amount=None):
+        """수수료 계산 — base_type에 따라 기준금액 선택"""
         if self.calc_type == self.CalcType.FIXED:
             return int(self.fixed_amount)
-        return round(base_amount * self.rate / 100)
+        base = total_amount if (self.base_type == self.BaseType.TOTAL and total_amount is not None) else supply_amount
+        return round(base * self.rate / 100)
 
 
 class CommissionRecord(BaseModel):

@@ -1,5 +1,4 @@
 from django.db import models
-from simple_history.admin import SimpleHistoryAdmin  # noqa: F401
 from simple_history.models import HistoricalRecords
 
 from apps.core.fields import EncryptedCharField

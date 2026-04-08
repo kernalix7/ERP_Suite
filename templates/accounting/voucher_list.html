@@ -58,6 +58,7 @@
                     <th class="px-4 py-3 text-center">승인상태</th>
                     <th class="px-4 py-3 text-right">차변합계</th>
                     <th class="px-4 py-3 text-right">대변합계</th>
+                    <th class="px-4 py-3">작성일</th>
                     <th class="px-4 py-3 text-center">관리</th>
                 </tr>
             </thead>
@@ -93,6 +94,7 @@
                     </td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ voucher.total_debit|intcomma }}원</td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ voucher.total_credit|intcomma }}원</td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ voucher.created_at|date:"m-d H:i" }}</td>
                     <td class="px-4 py-3 text-center">
                         <a href="{% url 'accounting:voucher_detail' voucher.voucher_number %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
                         {% if voucher.approval_status == 'DRAFT' %}
@@ -102,7 +104,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">
                         등록된 전표가 없습니다.
                     </td>
                 </tr>

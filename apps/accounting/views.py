@@ -32,6 +32,7 @@ from .models import (
     CostSettlement, CostSettlementItem,
     SalesSettlement, SalesSettlementOrder,
     Budget, ClosingPeriod,
+    CreditCard, CardTransaction, CardBilling,
 )
 from .forms import (
     CurrencyForm, ExchangeRateForm,
@@ -39,6 +40,7 @@ from .forms import (
     AccountCodeForm, VoucherForm, VoucherLineFormSet,
     AccountReceivableForm, AccountPayableForm, PaymentForm, BankAccountForm,
     AccountTransferForm, PaymentDistributionFormSet,
+    CreditCardForm, CardTransactionForm,
 )
 
 
@@ -55,13 +57,14 @@ class AccountingDashboardView(ManagerRequiredMixin, TemplateView):
         monthly_costs = []
         monthly_fixed = []
         monthly_variable = []
+        monthly_purchases = []
         months = []
         for m in range(1, 13):
             months.append(f'{m}월')
             revenue = Order.objects.filter(
                 is_active=True,
                 order_date__year=year, order_date__month=m,
-                status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED'],
+                status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
             ).aggregate(total=Sum('total_amount'))['total'] or 0
             monthly_revenue.append(int(revenue))
 
@@ -71,21 +74,35 @@ class AccountingDashboardView(ManagerRequiredMixin, TemplateView):
                 month__year=year, month__month=m,
             ).aggregate(total=Sum('amount'))['total'] or 0
 
-            # 변동비: AP (미지급금 — 구매/발주 비용)
-            variable = AccountPayable.objects.filter(
+            # 변동비: 매출원가 (COGS — 판매 주문의 원가 × 수량)
+            variable = OrderItem.objects.filter(
                 is_active=True,
-                created_at__year=year, created_at__month=m,
-            ).aggregate(total=Sum('amount'))['total'] or 0
+                order__is_active=True,
+                order__order_date__year=year, order__order_date__month=m,
+                order__status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
+            ).aggregate(
+                total=Sum(F('cost_price') * F('quantity'))
+            )['total'] or 0
+
+            # 당기매입액: 해당 월 발주(입고완료 기준) 금액
+            from apps.purchase.models import PurchaseOrder
+            purchases = PurchaseOrder.objects.filter(
+                is_active=True,
+                order_date__year=year, order_date__month=m,
+                status__in=['RECEIVED', 'PARTIAL_RECEIVED', 'CONFIRMED'],
+            ).aggregate(total=Sum('grand_total'))['total'] or 0
 
             monthly_fixed.append(int(fixed))
             monthly_variable.append(int(variable))
             monthly_costs.append(int(fixed) + int(variable))
+            monthly_purchases.append(int(purchases))
 
         ctx['months_json'] = months
         ctx['revenue_json'] = monthly_revenue
         ctx['costs_json'] = monthly_costs
         ctx['fixed_costs_json'] = monthly_fixed
         ctx['variable_costs_json'] = monthly_variable
+        ctx['purchases_json'] = monthly_purchases
 
         # 올해 총 매출/비용/이익
         ctx['year_revenue'] = sum(monthly_revenue)
@@ -93,6 +110,7 @@ class AccountingDashboardView(ManagerRequiredMixin, TemplateView):
         ctx['year_profit'] = ctx['year_revenue'] - ctx['year_costs']
         ctx['year_fixed'] = sum(monthly_fixed)
         ctx['year_variable'] = sum(monthly_variable)
+        ctx['year_purchases'] = sum(monthly_purchases)
 
         # 제품별 이익률
         products = Product.objects.filter(product_type='FINISHED', unit_price__gt=0)
@@ -110,11 +128,13 @@ class AccountingDashboardView(ManagerRequiredMixin, TemplateView):
         quarter = (today.month - 1) // 3 + 1
         q_start_month = (quarter - 1) * 3 + 1
         sales_tax = TaxInvoice.objects.filter(
+            is_active=True,
             invoice_type='SALES', issue_date__year=year,
             issue_date__month__gte=q_start_month,
             issue_date__month__lte=q_start_month + 2,
         ).aggregate(total=Sum('tax_amount'))['total'] or 0
         purchase_tax = TaxInvoice.objects.filter(
+            is_active=True,
             invoice_type='PURCHASE', issue_date__year=year,
             issue_date__month__gte=q_start_month,
             issue_date__month__lte=q_start_month + 2,
@@ -276,6 +296,7 @@ class FixedCostListView(ManagerRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         today = date.today()
         ctx['monthly_total'] = FixedCost.objects.filter(
+            is_active=True,
             month__year=today.year, month__month=today.month,
         ).aggregate(total=Sum('amount'))['total'] or 0
         ctx['categories'] = FixedCost.CostCategory.choices
@@ -339,6 +360,7 @@ class BreakEvenView(ManagerRequiredMixin, TemplateView):
 
         # 월간 고정비 합계
         monthly_fixed = FixedCost.objects.filter(
+            is_active=True,
             month__year=today.year, month__month=today.month,
         ).aggregate(total=Sum('amount'))['total'] or 0
         ctx['monthly_fixed_cost'] = monthly_fixed
@@ -379,6 +401,7 @@ class BreakEvenView(ManagerRequiredMixin, TemplateView):
         ctx['breakeven_data'] = breakeven_data
         ctx['breakeven_json'] = breakeven_data
         ctx['fixed_cost_breakdown'] = FixedCost.objects.filter(
+            is_active=True,
             month__year=today.year, month__month=today.month,
         ).values('category').annotate(total=Sum('amount')).order_by('-total')
         return ctx
@@ -400,24 +423,19 @@ class MonthlyPLView(ManagerRequiredMixin, TemplateView):
             revenue = Order.objects.filter(
                 is_active=True,
                 order_date__year=year, order_date__month=m,
-                status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED'],
+                status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
             ).aggregate(total=Sum('total_amount'))['total'] or 0
 
-            # 매출원가 (판매된 제품의 원가)
-            cogs_items = OrderItem.objects.filter(
+            # 매출원가 (판매된 제품의 원가) — DB 레벨 집계
+            cogs = OrderItem.objects.filter(
                 is_active=True,
                 order__is_active=True,
                 order__order_date__year=year, order__order_date__month=m,
-                order__status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED'],
-            ).select_related('product')
-            cogs = int(sum(
-                item.quantity * (
-                    item.cost_price
-                    if item.cost_price
-                    else item.product.cost_price
-                )
-                for item in cogs_items
-            ))
+                order__status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
+            ).aggregate(
+                total=Sum(F('cost_price') * F('quantity'))
+            )['total'] or 0
+            cogs = int(cogs)
 
             gross_profit = int(revenue) - cogs
 
@@ -693,6 +711,18 @@ class TaxInvoicePDFView(ManagerRequiredMixin, DetailView):
         return generate_tax_invoice_pdf(invoice)
 
 
+# === 매출정산 PDF ===
+class SalesSettlementPDFView(ManagerRequiredMixin, DetailView):
+    model = SalesSettlement
+    slug_field = 'settlement_number'
+    slug_url_kwarg = 'slug'
+
+    def get(self, request, *args, **kwargs):
+        settlement = self.get_object()
+        from apps.core.pdf import generate_settlement_pdf
+        return generate_settlement_pdf(settlement)
+
+
 # === 미수금 (Accounts Receivable) ===
 class ARListView(ManagerRequiredMixin, ListView):
     model = AccountReceivable
@@ -701,13 +731,12 @@ class ARListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        # 자동 연체 전환: due_date가 지난 미납 AR만 OVERDUE로 (PARTIAL은 유지)
+        # 자동 연체 전환: due_date가 지난 미완납 AR을 OVERDUE로 갱신
         today = date.today()
         AccountReceivable.objects.filter(
             is_active=True,
             due_date__lt=today,
-            status='PENDING',
-            paid_amount=0,
+            status__in=['PENDING', 'PARTIAL'],
         ).update(status='OVERDUE')
 
         qs = super().get_queryset().filter(is_active=True).select_related('partner', 'order')
@@ -836,7 +865,9 @@ class APListView(ManagerRequiredMixin, ListView):
             status__in=['PENDING', 'PARTIAL'],
         ).update(status='OVERDUE')
 
-        qs = super().get_queryset().filter(is_active=True).select_related('partner')
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'partner', 'purchase_order',
+        )
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
@@ -867,7 +898,7 @@ class APDetailView(ManagerRequiredMixin, DetailView):
 
     def get_queryset(self):
         return super().get_queryset().select_related(
-            'partner',
+            'partner', 'purchase_order',
         )
 
     def get_context_data(self, **kwargs):
@@ -1518,7 +1549,7 @@ class CostSettlementCreateView(ManagerRequiredMixin, TemplateView):
             f'표준원가 갱신: {updated_count}건)',
         )
         return redirect(
-            'accounting:settlement_detail', pk=settlement.pk,
+            'accounting:settlement_detail', slug=settlement.settlement_number,
         )
 
 
@@ -1711,9 +1742,11 @@ class SalesSettlementCommissionPayView(ManagerRequiredMixin, View):
                 code='103',
             ).first()  # 보통예금
 
-            # 차변: 미지급금 (부채 감소)
-            deposit_desc = f' → {deposit_bank.name}' if deposit_bank else ''
-            if acct_payable:
+            if not acct_payable or not acct_deposit:
+                messages.warning(request, '수수료 전표 생성에 필요한 계정과목이 미등록되어 전표가 생성되지 않았습니다.')
+            else:
+                # 차변: 미지급금 (부채 감소)
+                deposit_desc = f' → {deposit_bank.name}' if deposit_bank else ''
                 VoucherLine.objects.create(
                     voucher=voucher,
                     account=acct_payable,
@@ -1723,8 +1756,7 @@ class SalesSettlementCommissionPayView(ManagerRequiredMixin, View):
                         f'{settlement.settlement_number} 수수료{deposit_desc}'
                     ),
                 )
-            # 대변: 보통예금 (자산 감소)
-            if acct_deposit:
+                # 대변: 보통예금 (자산 감소)
                 VoucherLine.objects.create(
                     voucher=voucher,
                     account=acct_deposit,
@@ -1836,13 +1868,12 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # 미정산 + 입금완료 주문만 표시
+        # 미정산 + 종결 주문만 표시
         orders = (
             Order.objects.filter(
                 is_active=True,
                 is_settled=False,
-                is_paid=True,
-                status__in=['DELIVERED', 'SHIPPED', 'CONFIRMED'],
+                status='CLOSED',
             )
             .select_related('partner', 'customer')
             .prefetch_related('items__product')
@@ -1865,8 +1896,8 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
             if r > 0:
                 rates[p.pk] = r
         ctx['orders'] = orders
-        ctx['order_costs'] = json.dumps({str(k): v for k, v in order_costs.items()})
-        ctx['commission_rates'] = json.dumps(rates)
+        ctx['order_costs'] = {str(k): v for k, v in order_costs.items()}
+        ctx['commission_rates'] = {str(k): v for k, v in rates.items()}
         ctx['bank_accounts'] = BankAccount.objects.filter(is_active=True)
         return ctx
 
@@ -1896,6 +1927,7 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
             total_cost = 0
             total_tax = 0
             total_shipping = 0
+            total_platform_commission = 0
             total_commission = 0
             total_profit = 0
             total_cost_variance = 0
@@ -1922,26 +1954,36 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
                 cost_variance_rate = (
                     round(cost_variance / cost * 100, 2) if cost else 0
                 )
-                # 수수료율: POST에서 개별 입력값 우선, 없으면 기본율
-                rate_key = f'rate_{order.pk}'
-                rate = request.POST.get(rate_key, '')
-                if rate:
+                # 수수료: 정률(%) or 정액(원)
+                platform_comm = int(order.platform_commission or 0)
+                comm_type = request.POST.get(f'comm_type_{order.pk}', 'rate')
+                rate_val = request.POST.get(f'rate_{order.pk}', '')
+                if comm_type == 'fixed' and rate_val:
+                    # 정액: 입력값 그대로 수수료
                     try:
-                        comm_rate = Decimal(rate)
+                        settle_commission = round(Decimal(rate_val))
                     except Exception:
-                        comm_rate = Decimal('0')
+                        settle_commission = 0
+                    comm_rate = Decimal('0')
                 else:
-                    comm_rate = rates_map.get(
-                        order.partner_id, Decimal('0'),
-                    )
-                # 수수료 기준: revenue(공급가액) 또는 profit(순이익=공급가액-원가-배송비)
-                comm_base_type = request.POST.get('commission_base', 'revenue')
-                if comm_base_type == 'profit':
-                    comm_base = max(revenue - cost - shipping, 0)
-                else:
-                    comm_base = revenue
-                commission = round(comm_base * comm_rate / 100)
-                profit = revenue - cost - shipping - commission
+                    # 정률: 기존 로직
+                    if rate_val:
+                        try:
+                            comm_rate = Decimal(rate_val)
+                        except Exception:
+                            comm_rate = Decimal('0')
+                    else:
+                        comm_rate = rates_map.get(
+                            order.partner_id, Decimal('0'),
+                        )
+                    net_revenue = max(revenue - platform_comm, 0)
+                    comm_base_type = request.POST.get('commission_base', 'revenue')
+                    if comm_base_type == 'profit':
+                        comm_base = max(net_revenue - cost - shipping, 0)
+                    else:
+                        comm_base = net_revenue
+                    settle_commission = round(comm_base * comm_rate / 100)
+                profit = revenue - cost - shipping - platform_comm - settle_commission
 
                 SalesSettlementOrder.objects.create(
                     settlement=settlement,
@@ -1953,8 +1995,9 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
                     cost_variance_rate=cost_variance_rate,
                     tax=tax,
                     shipping=shipping,
+                    platform_commission=platform_comm,
                     commission_rate=comm_rate,
-                    commission=commission,
+                    commission=settle_commission,
                     profit=profit,
                     created_by=request.user,
                 )
@@ -1963,7 +2006,8 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
                 total_cost += cost
                 total_tax += tax
                 total_shipping += shipping
-                total_commission += commission
+                total_platform_commission += platform_comm
+                total_commission += settle_commission
                 total_profit += profit
                 total_cost_variance += cost_variance
 
@@ -1971,13 +2015,15 @@ class SalesSettlementCreateView(ManagerRequiredMixin, TemplateView):
             settlement.total_cost = total_cost
             settlement.total_tax = total_tax
             settlement.total_shipping = total_shipping
+            settlement.total_platform_commission = total_platform_commission
             settlement.total_commission = total_commission
             settlement.total_profit = total_profit
             settlement.total_cost_variance = total_cost_variance
             settlement.save(update_fields=[
                 'total_revenue', 'total_cost', 'total_tax',
-                'total_shipping', 'total_commission',
-                'total_profit', 'total_cost_variance', 'updated_at',
+                'total_shipping', 'total_platform_commission',
+                'total_commission', 'total_profit',
+                'total_cost_variance', 'updated_at',
             ])
 
             # 주문 정산완료 마킹
@@ -2602,6 +2648,17 @@ class ClosingPeriodCloseView(AdminRequiredMixin, View):
             cp.save()
             messages.success(request, f'{year}년 {month}월 결산 마감이 해제되었습니다.')
         else:
+            # 마감 전 미승인 전표 검증
+            pending_vouchers = Voucher.objects.filter(
+                is_active=True,
+                voucher_date__year=year,
+                voucher_date__month=month,
+                approval_status__in=['DRAFT', 'SUBMITTED'],
+            ).exists()
+            if pending_vouchers:
+                messages.error(request, '미승인 전표가 있어 마감할 수 없습니다. 먼저 전표를 승인하거나 삭제하세요.')
+                return redirect(f'/accounting/closing/?year={year}')
+
             # 마감 실행
             cp.is_closed = True
             cp.closed_at = timezone.now()
@@ -2963,3 +3020,468 @@ class ElectronicInvoiceCancelView(ManagerRequiredMixin, View):
             messages.error(request, f'전자세금계산서 취소 실패: {e}')
 
         return redirect('accounting:taxinvoice_detail', slug=invoice.invoice_number)
+
+
+# === 재무제표 ===
+
+class BalanceSheetView(ManagerRequiredMixin, TemplateView):
+    """대차대조표 — 기준일 기준 자산/부채/자본 잔액"""
+    template_name = 'accounting/balance_sheet.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        as_of = self.request.GET.get('as_of', date.today().isoformat())
+        ctx['as_of'] = as_of
+
+        qs = VoucherLine.objects.filter(
+            is_active=True, voucher__is_active=True,
+            voucher__approval_status='APPROVED',
+            voucher__voucher_date__lte=as_of,
+        )
+
+        account_totals = qs.values(
+            'account__pk', 'account__code', 'account__name', 'account__account_type',
+        ).annotate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit'),
+        ).order_by('account__code')
+
+        assets = []
+        liabilities = []
+        equity = []
+        total_assets = 0
+        total_liabilities = 0
+        total_equity = 0
+
+        for row in account_totals:
+            debit = int(row['total_debit'] or 0)
+            credit = int(row['total_credit'] or 0)
+            acct_type = row['account__account_type']
+
+            if acct_type == 'ASSET':
+                balance = debit - credit
+                assets.append({
+                    'code': row['account__code'],
+                    'name': row['account__name'],
+                    'balance': balance,
+                })
+                total_assets += balance
+            elif acct_type == 'LIABILITY':
+                balance = credit - debit
+                liabilities.append({
+                    'code': row['account__code'],
+                    'name': row['account__name'],
+                    'balance': balance,
+                })
+                total_liabilities += balance
+            elif acct_type == 'EQUITY':
+                balance = credit - debit
+                equity.append({
+                    'code': row['account__code'],
+                    'name': row['account__name'],
+                    'balance': balance,
+                })
+                total_equity += balance
+
+        ctx['assets'] = assets
+        ctx['liabilities'] = liabilities
+        ctx['equity'] = equity
+        ctx['total_assets'] = total_assets
+        ctx['total_liabilities'] = total_liabilities
+        ctx['total_equity'] = total_equity
+        ctx['total_liabilities_equity'] = total_liabilities + total_equity
+        ctx['is_balanced'] = total_assets == (total_liabilities + total_equity)
+        return ctx
+
+
+class BalanceSheetExcelView(ManagerRequiredMixin, TemplateView):
+    """대차대조표 Excel 다운로드"""
+    template_name = 'accounting/balance_sheet.html'
+
+    def get(self, request, *args, **kwargs):
+        import openpyxl
+        from openpyxl.styles import Font
+
+        as_of = request.GET.get('as_of', date.today().isoformat())
+
+        qs = VoucherLine.objects.filter(
+            is_active=True, voucher__is_active=True,
+            voucher__approval_status='APPROVED',
+            voucher__voucher_date__lte=as_of,
+        )
+
+        account_totals = qs.values(
+            'account__code', 'account__name', 'account__account_type',
+        ).annotate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit'),
+        ).order_by('account__code')
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = '대차대조표'
+        bold = Font(bold=True)
+
+        ws.cell(row=1, column=1, value=f'대차대조표 (기준일: {as_of})').font = bold
+        headers = ['구분', '계정코드', '계정명', '잔액']
+        for col, h in enumerate(headers, 1):
+            ws.cell(row=3, column=col, value=h).font = bold
+
+        row_num = 4
+        for row in account_totals:
+            debit = int(row['total_debit'] or 0)
+            credit = int(row['total_credit'] or 0)
+            acct_type = row['account__account_type']
+            if acct_type not in ('ASSET', 'LIABILITY', 'EQUITY'):
+                continue
+            if acct_type == 'ASSET':
+                balance = debit - credit
+                label = '자산'
+            elif acct_type == 'LIABILITY':
+                balance = credit - debit
+                label = '부채'
+            else:
+                balance = credit - debit
+                label = '자본'
+            ws.cell(row=row_num, column=1, value=label)
+            ws.cell(row=row_num, column=2, value=row['account__code'])
+            ws.cell(row=row_num, column=3, value=row['account__name'])
+            ws.cell(row=row_num, column=4, value=balance)
+            row_num += 1
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename=balance_sheet_{as_of}.xlsx'
+        wb.save(response)
+        return response
+
+
+class CashFlowView(ManagerRequiredMixin, TemplateView):
+    """현금흐름표 — 영업/투자/재무 활동별 현금 흐름"""
+    template_name = 'accounting/cash_flow.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = date.today()
+        from_date = self.request.GET.get('from_date', date(today.year, 1, 1).isoformat())
+        to_date = self.request.GET.get('to_date', today.isoformat())
+        ctx['from_date'] = from_date
+        ctx['to_date'] = to_date
+
+        base_qs = VoucherLine.objects.filter(
+            is_active=True, voucher__is_active=True,
+            voucher__approval_status='APPROVED',
+            voucher__voucher_date__gte=from_date,
+            voucher__voucher_date__lte=to_date,
+        )
+
+        # 영업활동: 수익(REVENUE) - 비용(EXPENSE)
+        revenue_lines = base_qs.filter(account__account_type='REVENUE')
+        revenue_total = int(
+            (revenue_lines.aggregate(s=Sum('credit'))['s'] or 0)
+            - (revenue_lines.aggregate(s=Sum('debit'))['s'] or 0)
+        )
+
+        expense_lines = base_qs.filter(account__account_type='EXPENSE')
+        expense_total = int(
+            (expense_lines.aggregate(s=Sum('debit'))['s'] or 0)
+            - (expense_lines.aggregate(s=Sum('credit'))['s'] or 0)
+        )
+
+        # AR/AP 변동
+        ar_change = int(
+            AccountReceivable.objects.filter(
+                is_active=True,
+                created_at__date__gte=from_date,
+                created_at__date__lte=to_date,
+            ).aggregate(s=Sum('balance'))['s'] or 0
+        )
+        ap_change = int(
+            AccountPayable.objects.filter(
+                is_active=True,
+                created_at__date__gte=from_date,
+                created_at__date__lte=to_date,
+            ).aggregate(s=Sum('balance'))['s'] or 0
+        )
+
+        operating = revenue_total - expense_total - ar_change + ap_change
+
+        # 투자활동: 자산 취득(-), 처분(+)
+        from apps.asset.models import FixedAsset
+        acquisitions = int(
+            FixedAsset.objects.filter(
+                is_active=True,
+                acquisition_date__gte=from_date,
+                acquisition_date__lte=to_date,
+            ).aggregate(s=Sum('acquisition_cost'))['s'] or 0
+        )
+        disposals = int(
+            FixedAsset.objects.filter(
+                is_active=True,
+                disposal_date__gte=from_date,
+                disposal_date__lte=to_date,
+            ).aggregate(s=Sum('disposal_amount'))['s'] or 0
+        )
+        investing = disposals - acquisitions
+
+        # 재무활동: 자본 계정 변동
+        equity_lines = base_qs.filter(account__account_type='EQUITY')
+        financing = int(
+            (equity_lines.aggregate(s=Sum('credit'))['s'] or 0)
+            - (equity_lines.aggregate(s=Sum('debit'))['s'] or 0)
+        )
+
+        net_change = operating + investing + financing
+
+        # 기초 현금 (BankAccount 기초잔액 합계)
+        opening_cash = int(
+            BankAccount.objects.filter(is_active=True).aggregate(
+                s=Sum('opening_balance'),
+            )['s'] or 0
+        )
+        closing_cash = opening_cash + net_change
+
+        ctx.update({
+            'revenue_total': revenue_total,
+            'expense_total': expense_total,
+            'ar_change': ar_change,
+            'ap_change': ap_change,
+            'operating': operating,
+            'acquisitions': acquisitions,
+            'disposals': disposals,
+            'investing': investing,
+            'financing': financing,
+            'net_change': net_change,
+            'opening_cash': opening_cash,
+            'closing_cash': closing_cash,
+        })
+        return ctx
+
+
+# === 카드 관리 ===
+class CreditCardListView(ManagerRequiredMixin, ListView):
+    model = CreditCard
+    template_name = 'accounting/card_list.html'
+    context_object_name = 'cards'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(is_active=True)
+        card_type = self.request.GET.get('card_type')
+        if card_type:
+            qs = qs.filter(card_type=card_type)
+        card_issuer = self.request.GET.get('card_issuer')
+        if card_issuer:
+            qs = qs.filter(card_issuer=card_issuer)
+        q = self.request.GET.get('q')
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(cardholder__icontains=q))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['type_choices'] = CreditCard.CardType.choices
+        ctx['issuer_choices'] = CreditCard.CardIssuer.choices
+        return ctx
+
+
+class CreditCardCreateView(ManagerRequiredMixin, CreateView):
+    model = CreditCard
+    form_class = CreditCardForm
+    template_name = 'accounting/card_form.html'
+    success_url = reverse_lazy('accounting:card_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class CreditCardUpdateView(ManagerRequiredMixin, UpdateView):
+    model = CreditCard
+    form_class = CreditCardForm
+    template_name = 'accounting/card_form.html'
+    success_url = reverse_lazy('accounting:card_list')
+
+
+class CreditCardDetailView(ManagerRequiredMixin, DetailView):
+    model = CreditCard
+    template_name = 'accounting/card_detail.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['recent_transactions'] = CardTransaction.objects.filter(
+            card=self.object, is_active=True,
+        ).select_related('partner').order_by('-transaction_date', '-pk')[:10]
+        ctx['recent_billings'] = CardBilling.objects.filter(
+            card=self.object, is_active=True,
+        ).order_by('-billing_month')[:5]
+        return ctx
+
+
+# === 카드 거래 ===
+class CardTransactionListView(ManagerRequiredMixin, ListView):
+    model = CardTransaction
+    template_name = 'accounting/card_transaction_list.html'
+    context_object_name = 'transactions'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(
+            is_active=True,
+        ).select_related('card', 'partner')
+        date_from = self.request.GET.get('date_from')
+        date_to = self.request.GET.get('date_to')
+        if date_from:
+            qs = qs.filter(transaction_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(transaction_date__lte=date_to)
+        card_id = self.request.GET.get('card_id')
+        if card_id:
+            qs = qs.filter(card_id=card_id)
+        category = self.request.GET.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        q = self.request.GET.get('q')
+        if q:
+            qs = qs.filter(merchant_name__icontains=q)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['cards'] = CreditCard.objects.filter(is_active=True)
+        ctx['category_choices'] = CardTransaction.Category.choices
+        return ctx
+
+
+class CardTransactionCreateView(ManagerRequiredMixin, CreateView):
+    model = CardTransaction
+    form_class = CardTransactionForm
+    template_name = 'accounting/card_transaction_form.html'
+    success_url = reverse_lazy('accounting:card_transaction_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class CardTransactionUpdateView(ManagerRequiredMixin, UpdateView):
+    model = CardTransaction
+    form_class = CardTransactionForm
+    template_name = 'accounting/card_transaction_form.html'
+    success_url = reverse_lazy('accounting:card_transaction_list')
+
+
+# === 카드 청구 ===
+class CardBillingListView(ManagerRequiredMixin, ListView):
+    model = CardBilling
+    template_name = 'accounting/card_billing_list.html'
+    context_object_name = 'billings'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(
+            is_active=True,
+        ).select_related('card')
+        card_id = self.request.GET.get('card_id')
+        if card_id:
+            qs = qs.filter(card_id=card_id)
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['cards'] = CreditCard.objects.filter(is_active=True)
+        ctx['status_choices'] = CardBilling.Status.choices
+        return ctx
+
+
+class CardBillingDetailView(ManagerRequiredMixin, DetailView):
+    model = CardBilling
+    template_name = 'accounting/card_billing_detail.html'
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('card', 'payment')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['billing_transactions'] = CardTransaction.objects.filter(
+            billing=self.object, is_active=True,
+        ).select_related('card', 'partner').order_by('-transaction_date')
+        return ctx
+
+
+class CardBillingPayView(ManagerRequiredMixin, View):
+    """카드 청구 결제 처리 (POST only)"""
+
+    def post(self, request, pk):
+        with transaction.atomic():
+            billing = CardBilling.objects.select_for_update().get(
+                pk=pk, is_active=True,
+            )
+
+            if billing.status == 'PAID':
+                messages.error(request, '이미 결제 완료된 청구서입니다.')
+                return redirect('accounting:card_billing_detail', pk=pk)
+
+            card = billing.card
+            if not card.payment_account:
+                messages.error(request, '카드에 결제계좌가 설정되지 않았습니다.')
+                return redirect('accounting:card_billing_detail', pk=pk)
+
+            pay_amount = billing.remaining_amount
+            if pay_amount <= 0:
+                messages.error(request, '결제할 금액이 없습니다.')
+                return redirect('accounting:card_billing_detail', pk=pk)
+
+            # Payment(DISBURSEMENT) 생성 — 거래처는 카드 거래내역에서 추출
+            from apps.core.utils import generate_document_number
+            from apps.sales.models import Partner
+            # 카드 청구 결제용 거래처: 청구서 내 거래의 partner 또는 기본 거래처
+            billing_partner = (
+                CardTransaction.objects.filter(
+                    billing=billing, partner__isnull=False, is_active=True,
+                ).values_list('partner', flat=True).first()
+            )
+            if billing_partner:
+                pay_partner = Partner.objects.get(pk=billing_partner)
+            else:
+                pay_partner, _ = Partner.objects.get_or_create(
+                    code='CARD-ISSUER',
+                    defaults={
+                        'name': '카드사결제',
+                        'partner_type': 'SUPPLIER',
+                    },
+                )
+            payment = Payment.objects.create(
+                payment_number=generate_document_number(Payment, 'payment_number', 'PM'),
+                payment_type='DISBURSEMENT',
+                partner=pay_partner,
+                bank_account=card.payment_account,
+                amount=pay_amount,
+                payment_date=date.today(),
+                payment_method='CARD',
+                reference=f'카드청구결제: {card.name} {billing.billing_month.strftime("%Y-%m")}',
+                created_by=request.user,
+            )
+
+            # CardBilling 갱신 (F() 원자적 업데이트)
+            CardBilling.objects.filter(pk=billing.pk).update(
+                paid_amount=F('paid_amount') + pay_amount,
+                payment=payment,
+            )
+            billing.refresh_from_db()
+
+            if billing.paid_amount >= billing.total_amount:
+                new_status = 'PAID'
+            elif billing.paid_amount > 0:
+                new_status = 'PARTIAL'
+            else:
+                new_status = billing.status
+            if new_status != billing.status:
+                CardBilling.objects.filter(pk=billing.pk).update(status=new_status)
+
+        messages.success(request, f'{pay_amount:,}원 카드 청구 결제 처리 완료')
+        return redirect('accounting:card_billing_detail', pk=pk)

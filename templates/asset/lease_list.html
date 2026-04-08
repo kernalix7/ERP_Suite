@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}리스 계약 관리 - ERP Suite{% endblock %}
+{% block page_title %}리스 계약 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:lease_create' %}" class="btn btn-primary">계약 등록</a>
+<a href="{% url 'asset:asset_list' %}" class="btn btn-secondary">자산 목록</a>
+{% endblock %}
+
+{% block content %}
+<!-- 필터 -->
+<div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">리스유형</label>
+            <select name="lease_type" class="form-input text-sm">
+                <option value="">전체</option>
+                {% for val, label in lease_types %}
+                <option value="{{ val }}" {% if request.GET.lease_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">조회</button>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm">
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">계약번호</th>
+                    <th class="px-4 py-3">대상자산</th>
+                    <th class="px-4 py-3">리스유형</th>
+                    <th class="px-4 py-3">임대인</th>
+                    <th class="px-4 py-3">계약기간</th>
+                    <th class="px-4 py-3 text-right">월 리스료</th>
+                    <th class="px-4 py-3 text-right">총 계약금액</th>
+                    <th class="px-4 py-3">남은 월수</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for c in contracts %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono">
+                        <a href="{% url 'asset:lease_detail' c.pk %}" class="text-blue-600 hover:underline">{{ c.contract_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-900 font-medium">
+                        <a href="{% url 'asset:asset_detail' c.asset.asset_number %}" class="text-blue-600 hover:underline">{{ c.asset.name }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ c.get_lease_type_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ c.lessor|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ c.start_date }} ~ {{ c.end_date }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ c.monthly_payment|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ c.total_amount|intcomma }}원</td>
+                    <td class="px-4 py-3">
+                        {% if c.remaining_months > 0 %}
+                        <span class="text-green-600 font-medium">{{ c.remaining_months }}개월</span>
+                        {% else %}
+                        <span class="text-red-600 font-medium">만료</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">등록된 리스 계약이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_paginated %}
+{% include 'includes/pagination.html' %}
+{% endif %}
+{% endblock %}

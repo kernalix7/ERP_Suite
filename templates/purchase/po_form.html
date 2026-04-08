@@ -13,12 +13,50 @@
     {% csrf_token %}
 
     <!-- 발주 기본정보 -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6"
+         x-data="{ isTaxable: {% if form.is_taxable.value %}true{% else %}false{% endif %} }">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">{% trans "발주 정보" %}</h2>
         </div>
         <div class="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
             {% for field in form %}
+            {% if field.name == 'is_taxable' %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                <input type="checkbox" name="{{ field.html_name }}" id="{{ field.auto_id }}"
+                       x-model="isTaxable"
+                       {% if field.value %}checked{% endif %}
+                       class="{{ field.field.widget.attrs.class|default:'' }}">
+                {% if field.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% elif field.name == 'vat_included' %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                <input type="checkbox" name="{{ field.html_name }}" id="{{ field.auto_id }}"
+                       :disabled="!isTaxable"
+                       x-effect="if (!isTaxable) $el.checked = false"
+                       {% if field.value %}checked{% endif %}
+                       :class="!isTaxable ? 'opacity-50 cursor-not-allowed' : ''"
+                       class="{{ field.field.widget.attrs.class|default:'' }}">
+                {% if field.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% else %}
             <div {% if field.name == 'notes' %}class="md:col-span-2"{% endif %}>
                 <label class="block text-sm font-medium text-gray-700 mb-1">
                     {{ field.label }}
@@ -32,6 +70,7 @@
                 <p class="mt-1 text-xs text-red-600">{{ error }}</p>
                 {% endfor %}
             </div>
+            {% endif %}
             {% endfor %}
         </div>
     </div>

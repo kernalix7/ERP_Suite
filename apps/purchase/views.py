@@ -242,29 +242,51 @@ class GoodsReceiptCreateView(ManagerRequiredMixin, CreateView):
         ctx = super().get_context_data(**kwargs)
         ctx['purchase_order'] = self.purchase_order
         ctx['po_items'] = self.purchase_order.items.select_related('product').all()
+        from apps.asset.models import AssetCategory
+        ctx['asset_categories'] = AssetCategory.objects.filter(is_active=True)
         return ctx
 
     def form_valid(self, form):
-        form.instance.purchase_order = self.purchase_order
-        form.instance.created_by = self.request.user
-        self.object = form.save()
+        from django.contrib import messages
+        from apps.asset.models import AssetCategory
 
-        # 입고 항목 처리
+        # 입고 항목 수집 (GR 저장 전에 검증)
+        receipt_items = []
         po_items = self.purchase_order.items.all()
         for po_item in po_items:
             qty = self.request.POST.get(f'recv_qty_{po_item.pk}')
             inspected = self.request.POST.get(f'inspected_{po_item.pk}')
+            is_asset = self.request.POST.get(f'is_asset_{po_item.pk}')
+            asset_cat_id = self.request.POST.get(f'asset_category_{po_item.pk}')
             if qty and int(qty) > 0:
                 recv_qty = int(qty)
-                # 입고수량이 잔여수량을 초과하면 건너뜀
                 if recv_qty > po_item.remaining_quantity:
                     continue
-                GoodsReceiptItem.objects.create(
-                    goods_receipt=self.object,
-                    po_item=po_item,
-                    received_quantity=recv_qty,
-                    is_inspected=bool(inspected),
-                )
+                asset_category = None
+                if is_asset and asset_cat_id:
+                    try:
+                        asset_category = AssetCategory.objects.get(pk=asset_cat_id, is_active=True)
+                    except AssetCategory.DoesNotExist:
+                        pass
+                receipt_items.append((po_item, recv_qty, bool(inspected), bool(is_asset), asset_category))
+
+        if not receipt_items:
+            messages.error(self.request, '입고수량을 1개 이상 입력해주세요.')
+            return self.form_invalid(form)
+
+        form.instance.purchase_order = self.purchase_order
+        form.instance.created_by = self.request.user
+        self.object = form.save()
+
+        for po_item, recv_qty, inspected, is_asset, asset_category in receipt_items:
+            GoodsReceiptItem.objects.create(
+                goods_receipt=self.object,
+                po_item=po_item,
+                received_quantity=recv_qty,
+                is_inspected=inspected,
+                is_fixed_asset=is_asset and asset_category is not None,
+                asset_category=asset_category,
+            )
 
         return super().form_valid(form)
 
@@ -301,6 +323,20 @@ class GoodsReceiptDetailView(LoginRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx['items'] = self.object.items.select_related('po_item__product').all()
         return ctx
+
+
+class GoodsReceiptInspectView(ManagerRequiredMixin, View):
+    """입고 항목 검수 상태 일괄 저장"""
+
+    def post(self, request, slug):
+        receipt = get_object_or_404(GoodsReceipt, receipt_number=slug)
+        for item in receipt.items.all():
+            inspected = bool(request.POST.get(f'inspected_{item.pk}'))
+            if item.is_inspected != inspected:
+                item.is_inspected = inspected
+                item.save(update_fields=['is_inspected', 'updated_at'])
+        messages.success(request, '검수 상태가 저장되었습니다.')
+        return redirect('purchase:receipt_detail', slug=receipt.receipt_number)
 
 
 # ─── 일괄 가져오기 ─────────────────────────────────────────

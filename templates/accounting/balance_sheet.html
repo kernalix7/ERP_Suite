@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}대차대조표 - ERP Suite{% endblock %}
+{% block page_title %}대차대조표{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:balance_sheet_excel' %}?as_of={{ as_of }}" class="btn btn-secondary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    Excel
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 sm:gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">기준일</label>
+            <input type="date" name="as_of" value="{{ as_of }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">조회</button>
+        </div>
+    </form>
+</div>
+
+{% if is_balanced is not None %}
+<div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+    {% if is_balanced %}bg-green-50 text-green-800 border border-green-200{% else %}bg-red-50 text-red-800 border border-red-200{% endif %}">
+    {% if is_balanced %}
+        자산 = 부채 + 자본 균형 일치 ({{ total_assets|intcomma }}원)
+    {% else %}
+        균형 불일치 — 자산: {{ total_assets|intcomma }}원, 부채+자본: {{ total_liabilities_equity|intcomma }}원
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+    <!-- 자산 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-blue-50">
+            <h3 class="text-lg font-semibold text-blue-800">자산</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">코드</th>
+                        <th class="px-4 py-3">계정명</th>
+                        <th class="px-4 py-3 text-right">잔액</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in assets %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 font-mono text-gray-900">{{ item.code }}</td>
+                        <td class="px-4 py-3 text-gray-900">{{ item.name }}</td>
+                        <td class="px-4 py-3 text-right font-mono">{{ item.balance|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="px-4 py-8 text-center text-gray-400">자산 계정 없음</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-blue-50 font-semibold">
+                    <tr>
+                        <td colspan="2" class="px-4 py-3 text-right text-blue-800">자산 합계</td>
+                        <td class="px-4 py-3 text-right font-mono text-blue-900">{{ total_assets|intcomma }}원</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- 부채 + 자본 -->
+    <div>
+        <!-- 부채 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+            <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-red-50">
+                <h3 class="text-lg font-semibold text-red-800">부채</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                            <th class="px-4 py-3">코드</th>
+                            <th class="px-4 py-3">계정명</th>
+                            <th class="px-4 py-3 text-right">잔액</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for item in liabilities %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-3 font-mono text-gray-900">{{ item.code }}</td>
+                            <td class="px-4 py-3 text-gray-900">{{ item.name }}</td>
+                            <td class="px-4 py-3 text-right font-mono">{{ item.balance|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-4 py-8 text-center text-gray-400">부채 계정 없음</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-red-50 font-semibold">
+                        <tr>
+                            <td colspan="2" class="px-4 py-3 text-right text-red-800">부채 소계</td>
+                            <td class="px-4 py-3 text-right font-mono text-red-900">{{ total_liabilities|intcomma }}원</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 자본 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-green-50">
+                <h3 class="text-lg font-semibold text-green-800">자본</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                            <th class="px-4 py-3">코드</th>
+                            <th class="px-4 py-3">계정명</th>
+                            <th class="px-4 py-3 text-right">잔액</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for item in equity %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-3 font-mono text-gray-900">{{ item.code }}</td>
+                            <td class="px-4 py-3 text-gray-900">{{ item.name }}</td>
+                            <td class="px-4 py-3 text-right font-mono">{{ item.balance|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-4 py-8 text-center text-gray-400">자본 계정 없음</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-green-50 font-semibold">
+                        <tr>
+                            <td colspan="2" class="px-4 py-3 text-right text-green-800">자본 소계</td>
+                            <td class="px-4 py-3 text-right font-mono text-green-900">{{ total_equity|intcomma }}원</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 부채+자본 합계 -->
+        <div class="mt-4 px-4 py-3 bg-gray-100 rounded-lg text-right">
+            <span class="font-semibold text-gray-700">부채 + 자본 합계:</span>
+            <span class="ml-2 font-bold font-mono text-gray-900">{{ total_liabilities_equity|intcomma }}원</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

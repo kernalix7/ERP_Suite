@@ -22,8 +22,8 @@ class PurchaseOrder(BaseModel):
 
     STATUS_TRANSITIONS = {
         'DRAFT': ['CONFIRMED', 'CANCELLED'],
-        'CONFIRMED': ['CANCELLED'],
-        'PARTIAL_RECEIVED': ['CANCELLED'],
+        'CONFIRMED': ['PARTIAL_RECEIVED', 'RECEIVED', 'CANCELLED'],
+        'PARTIAL_RECEIVED': ['RECEIVED', 'CANCELLED'],
         'RECEIVED': [],
         'CANCELLED': [],
     }
@@ -53,6 +53,10 @@ class PurchaseOrder(BaseModel):
     vat_included = models.BooleanField(
         'VAT 포함 금액 입력', default=False,
         help_text='체크 시 입력 금액을 VAT 포함 금액으로 간주합니다.',
+    )
+    is_taxable = models.BooleanField(
+        '과세 거래', default=True,
+        help_text='면세(중고거래, 개인 간 현금거래 등)인 경우 해제',
     )
     approval_request = models.ForeignKey(
         'approval.ApprovalRequest',
@@ -145,8 +149,11 @@ class PurchaseOrderItem(BaseModel):
         # 금액 미입력 시 수량×단가로 자동 계산
         if not self.amount and self.quantity and self.unit_price:
             self.amount = int(self.quantity * self.unit_price)
-        # amount(총액)이 사용자 입력 원본 — 원단위 그대로 보존
-        if self.purchase_order.vat_included:
+        # 부가세 계산
+        if not self.purchase_order.is_taxable:
+            # 면세 거래: 부가세 없음
+            self.tax_amount = 0
+        elif self.purchase_order.vat_included:
             # amount = VAT 포함 총액 → 공급가액/부가세 역산
             input_total = int(self.amount)
             self.amount = int(Decimal(str(input_total)) / Decimal('1.1'))
@@ -206,6 +213,11 @@ class GoodsReceiptItem(BaseModel):
     )
     received_quantity = models.PositiveIntegerField('입고수량')
     is_inspected = models.BooleanField('검수완료', default=False)
+    is_fixed_asset = models.BooleanField('자산등록', default=False)
+    asset_category = models.ForeignKey(
+        'asset.AssetCategory', verbose_name='자산분류',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
     history = HistoricalRecords()
 
     class Meta:

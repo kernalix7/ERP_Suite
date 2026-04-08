@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}인증 관리 - ERP Suite{% endblock %}
+{% block page_title %}인증 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:certification_create' %}" class="btn btn-primary">인증 등록</a>
+<a href="{% url 'asset:asset_list' %}" class="btn btn-secondary">자산 목록</a>
+{% endblock %}
+
+{% block content %}
+<!-- 필터 -->
+<div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">인증유형</label>
+            <select name="cert_type" class="form-input text-sm">
+                <option value="">전체</option>
+                {% for val, label in cert_types %}
+                <option value="{{ val }}" {% if request.GET.cert_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">조회</button>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm">
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">인증명</th>
+                    <th class="px-4 py-3">유형</th>
+                    <th class="px-4 py-3">인증번호</th>
+                    <th class="px-4 py-3">발급기관</th>
+                    <th class="px-4 py-3">발급일</th>
+                    <th class="px-4 py-3">만료일</th>
+                    <th class="px-4 py-3 text-right">취득비용</th>
+                    <th class="px-4 py-3">자본화</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for cert in certifications %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-900 font-medium">
+                        <a href="{% url 'asset:certification_detail' cert.pk %}" class="text-blue-600 hover:underline">{{ cert.cert_name }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ cert.get_cert_type_display }}</td>
+                    <td class="px-4 py-3 font-mono text-gray-600">{{ cert.cert_number|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ cert.issuer|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ cert.issue_date }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ cert.expiry_date|default:"-" }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ cert.cost|intcomma }}원</td>
+                    <td class="px-4 py-3">
+                        {% if cert.is_capitalized %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">자본화</span>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">등록된 인증이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_paginated %}
+{% include 'includes/pagination.html' %}
+{% endif %}
+{% endblock %}

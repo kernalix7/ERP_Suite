@@ -1,0 +1,4 @@
+{% load i18n %}<div class="mt-6 pt-4 border-t border-gray-200 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400">
+    <span>{% trans "등록" %}: {{ obj.created_at|date:"Y-m-d H:i" }}{% if obj.created_by %} ({{ obj.created_by }}){% endif %}</span>
+    {% if obj.updated_at and obj.updated_at != obj.created_at %}<span>{% trans "수정" %}: {{ obj.updated_at|date:"Y-m-d H:i" }}</span>{% endif %}
+</div>

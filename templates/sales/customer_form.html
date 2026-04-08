@@ -20,8 +20,9 @@
             {% for field in form %}
             {% if field.name == 'address' %}
             <div class="md:col-span-2">
-                {% include "includes/address_field.html" with field=field field_type="auto" %}
+                {% include "includes/address_field.html" with field=field field_type="domestic" %}
             </div>
+            {% elif field.name == 'address_road' or field.name == 'address_detail' %}
             {% elif field.name == 'phone' %}
             {% include "includes/phone_field.html" with field=field %}
             {% else %}

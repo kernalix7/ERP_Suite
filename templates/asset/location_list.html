@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}자산 위치 관리 - ERP Suite{% endblock %}
+{% block page_title %}자산 위치 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:location_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    등록
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- 검색 -->
+<div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+    <form method="get" class="flex flex-col sm:flex-row gap-2">
+        <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="위치명, 코드, 건물 검색..."
+               class="form-input flex-1">
+        <button type="submit" class="btn btn-primary">검색</button>
+        {% if request.GET.q %}
+        <a href="{% url 'asset:location_list' %}" class="btn btn-secondary">초기화</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">위치코드</th>
+                    <th class="px-4 py-3">위치명</th>
+                    <th class="px-4 py-3">건물</th>
+                    <th class="px-4 py-3">층</th>
+                    <th class="px-4 py-3">호실/구역</th>
+                    <th class="px-4 py-3">상위위치</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for loc in locations %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-blue-600">{{ loc.code }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ loc.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ loc.building|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ loc.floor|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ loc.room|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ loc.parent|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'asset:location_update' loc.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">등록된 위치가 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

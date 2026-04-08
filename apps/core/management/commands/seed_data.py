@@ -49,6 +49,10 @@ class Command(BaseCommand):
         self._create_attendance(admin)
         self._create_boards(admin)
         self._create_investment(admin)
+        asset_categories = self._create_asset_categories(admin)
+        self._create_currencies(admin)
+        self._create_shipping_carriers(admin)
+        self._create_payroll_config(admin)
 
         if self.rich:
             self._create_stock_movements(admin, products, warehouses)
@@ -65,6 +69,7 @@ class Command(BaseCommand):
             self._create_leave_requests(admin)
             self._create_personnel_actions(admin, departments, positions)
             self._create_approval_steps(admin)
+            self._create_fixed_assets(admin, asset_categories)
 
         self.stdout.write(self.style.SUCCESS('데모 데이터 생성 완료!'))
 
@@ -91,6 +96,11 @@ class Command(BaseCommand):
         from apps.service.models import ServiceRequest, RepairRecord
         from apps.calendar_app.models import Event
         from apps.inquiry.models import InquiryChannel, Inquiry, InquiryReply, ReplyTemplate
+        from apps.asset.models import (
+            AssetCategory, FixedAsset, DepreciationRecord,
+            AssetTransfer, Certification, LeaseContract,
+            AssetAudit, AssetAuditItem,
+        )
 
         for model in [
             # Inquiry
@@ -113,6 +123,9 @@ class Command(BaseCommand):
             VoucherLine, Voucher,
             FixedCost, AccountReceivable, AccountPayable,
             TaxInvoice, BankAccount,
+            # Asset
+            AssetAuditItem, AssetAudit, LeaseContract, Certification,
+            AssetTransfer, DepreciationRecord, FixedAsset, AssetCategory,
             # Service / Warranty
             RepairRecord, ServiceRequest, ProductRegistration,
             # Sales
@@ -1840,3 +1853,167 @@ class Command(BaseCommand):
                     count += 1
 
         self.stdout.write(f'  결재단계: {count}건')
+
+    # =========================================================================
+    # ASSET CATEGORIES (자산분류 — 한국 회계기준)
+    # =========================================================================
+    def _create_asset_categories(self, admin):
+        from apps.asset.models import AssetCategory
+
+        # (code, name, useful_life_years, depreciation_method)
+        categories_data = [
+            # 유형자산
+            ('LAND', '토지', 0, 'STRAIGHT'),
+            ('BUILDING', '건물', 40, 'STRAIGHT'),
+            ('STRUCTURE', '구축물', 20, 'STRAIGHT'),
+            ('MACHINERY', '기계장치', 10, 'DECLINING'),
+            ('VEHICLE', '차량운반구', 5, 'DECLINING'),
+            ('SHIP', '선박', 12, 'STRAIGHT'),
+            ('TOOL', '공구', 5, 'STRAIGHT'),
+            ('FIXTURE', '비품', 5, 'STRAIGHT'),
+            ('COMPUTER', '전산장비', 4, 'STRAIGHT'),
+            ('LEASEHOLD', '시설장치', 5, 'STRAIGHT'),
+            # 무형자산
+            ('SOFTWARE', '소프트웨어', 5, 'STRAIGHT'),
+            ('PATENT', '특허권', 10, 'STRAIGHT'),
+            ('TRADEMARK', '상표권', 10, 'STRAIGHT'),
+            ('LICENSE', '인증/라이선스', 5, 'STRAIGHT'),
+        ]
+        result = {}
+        count = 0
+        for code, name, years, method in categories_data:
+            obj, created = AssetCategory.objects.get_or_create(
+                code=code,
+                defaults={
+                    'name': name,
+                    'useful_life_years': years,
+                    'depreciation_method': method,
+                    'created_by': admin,
+                },
+            )
+            result[code] = obj
+            if created:
+                count += 1
+        self.stdout.write(f'  자산분류: {count}건')
+        return result
+
+    # =========================================================================
+    # CURRENCIES (기본 통화)
+    # =========================================================================
+    def _create_currencies(self, admin):
+        from apps.accounting.models import Currency
+
+        currencies_data = [
+            ('KRW', '대한민국 원', '₩', 0, True),
+            ('USD', '미국 달러', '$', 2, False),
+            ('EUR', '유로', '€', 2, False),
+            ('JPY', '일본 엔', '¥', 0, False),
+            ('CNY', '중국 위안', '¥', 2, False),
+            ('GBP', '영국 파운드', '£', 2, False),
+        ]
+        result = {}
+        count = 0
+        for code, name, symbol, decimal_places, is_base in currencies_data:
+            obj, created = Currency.objects.get_or_create(
+                code=code,
+                defaults={
+                    'name': name,
+                    'symbol': symbol,
+                    'decimal_places': decimal_places,
+                    'is_base': is_base,
+                    'created_by': admin,
+                },
+            )
+            result[code] = obj
+            if created:
+                count += 1
+        self.stdout.write(f'  통화: {count}건')
+        return result
+
+    # =========================================================================
+    # SHIPPING CARRIERS (한국 택배사)
+    # =========================================================================
+    def _create_shipping_carriers(self, admin):
+        from apps.sales.models import ShippingCarrier
+
+        carriers_data = [
+            ('CJ', 'CJ대한통운', 'https://trace.cjlogistics.com/next/tracking.html?wblNo={tracking_number}', True),
+            ('HANJIN', '한진택배', 'https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mession_key=&wblnb={tracking_number}', False),
+            ('LOTTE', '롯데택배', 'https://www.lotteglogis.com/home/reservation/tracking/link498?InvNo={tracking_number}', False),
+            ('LOGEN', '로젠택배', 'https://www.ilogen.com/web/personal/trace/{tracking_number}', False),
+            ('POST', '우체국택배', 'https://service.epost.go.kr/trace.RetrieveDomRi498.postal?sid1={tracking_number}', False),
+            ('KDEXP', '경동택배', 'https://kdexp.com/basicNew498.kd?barcode={tracking_number}', False),
+        ]
+        count = 0
+        for code, name, tracking_url, is_default in carriers_data:
+            _, created = ShippingCarrier.objects.get_or_create(
+                code=code,
+                defaults={
+                    'name': name,
+                    'tracking_url_template': tracking_url,
+                    'is_default': is_default,
+                    'created_by': admin,
+                },
+            )
+            if created:
+                count += 1
+        self.stdout.write(f'  택배사: {count}건')
+
+    # =========================================================================
+    # PAYROLL CONFIG (급여설정 — 2026년 기준)
+    # =========================================================================
+    def _create_payroll_config(self, admin):
+        from apps.hr.models import PayrollConfig
+
+        _, created = PayrollConfig.objects.get_or_create(
+            year=2026,
+            defaults={
+                'minimum_wage_hourly': 10310,
+                # 4대보험율은 모델 기본값 사용
+                # 국민연금 4.50%, 건강보험 3.545%, 장기요양 12.81%, 고용보험 0.90%
+                'created_by': admin,
+            },
+        )
+        if created:
+            self.stdout.write('  급여설정: 2026년 기본값 생성')
+        else:
+            self.stdout.write('  급여설정: 이미 존재')
+
+    # =========================================================================
+    # FIXED ASSETS (샘플 고정자산 — rich mode only)
+    # =========================================================================
+    def _create_fixed_assets(self, admin, asset_categories):
+        from apps.asset.models import FixedAsset
+
+        assets_data = [
+            ('FA-2025-0001', '사무실 에어컨', 'FIXTURE', '2025-03-15', 2500000, 250000, 5, 'STRAIGHT'),
+            ('FA-2025-0002', '업무용 노트북 (Dell)', 'COMPUTER', '2025-04-01', 1800000, 0, 4, 'STRAIGHT'),
+            ('FA-2025-0003', '3D 프린터', 'MACHINERY', '2025-06-10', 15000000, 1500000, 10, 'DECLINING'),
+            ('FA-2025-0004', '업무용 승용차', 'VEHICLE', '2025-01-20', 35000000, 3500000, 5, 'DECLINING'),
+            ('FA-2025-0005', '사무실 가구 세트', 'FIXTURE', '2025-02-01', 5000000, 500000, 5, 'STRAIGHT'),
+            ('FA-2026-0001', 'ERP 소프트웨어 라이선스', 'SOFTWARE', '2026-01-01', 6000000, 0, 5, 'STRAIGHT'),
+        ]
+        count = 0
+        for asset_no, name, cat_code, acq_date, cost, residual, years, method in assets_data:
+            cat = asset_categories.get(cat_code)
+            if not cat:
+                continue
+            asset_type = 'INTANGIBLE' if cat_code in ('SOFTWARE', 'PATENT', 'TRADEMARK', 'LICENSE') else 'TANGIBLE'
+            _, created = FixedAsset.objects.get_or_create(
+                asset_number=asset_no,
+                defaults={
+                    'name': name,
+                    'category': cat,
+                    'asset_type': asset_type,
+                    'acquisition_date': acq_date,
+                    'acquisition_cost': cost,
+                    'residual_value': residual,
+                    'useful_life_years': years,
+                    'depreciation_method': method,
+                    'book_value': cost,
+                    'created_by': admin,
+                },
+            )
+            if created:
+                count += 1
+        self.stdout.write(f'  고정자산: {count}건')

@@ -169,6 +169,7 @@ AXES_COOLOFF_TIME = 1  # 1시간 잠금
 AXES_LOCKOUT_TEMPLATE = 'accounts/lockout.html'
 AXES_RESET_ON_SUCCESS = True
 AXES_ENABLE_ACCESS_LOG = True  # 로그인 성공 기록
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 
 # Logging
 LOGGING = {

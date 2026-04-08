@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -50,10 +51,10 @@ class Partner(BaseModel):
         null=True, blank=True, on_delete=models.SET_NULL,
     )
     default_bank_account = models.ForeignKey(
-        'accounting.BankAccount', verbose_name='기본 입금계좌',
+        'accounting.BankAccount', verbose_name='기본 거래계좌',
         null=True, blank=True, on_delete=models.SET_NULL,
         related_name='default_partners',
-        help_text='주문 생성 시 자동 설정되는 입금계좌',
+        help_text='고객: 입금계좌 / 공급처: 출금계좌',
     )
     commission_bank_account = models.ForeignKey(
         'accounting.BankAccount', verbose_name='수수료 계좌',
@@ -65,6 +66,18 @@ class Partner(BaseModel):
         '스토어 모듈', max_length=50, blank=True, default='',
         help_text='연결된 스토어 모듈 ID (예: naver_smartstore, coupang, direct_sale)',
     )
+
+    class ApprovalStatus(models.TextChoices):
+        PENDING = 'PENDING', '승인대기'
+        APPROVED = 'APPROVED', '승인'
+        SUSPENDED = 'SUSPENDED', '정지'
+        REJECTED = 'REJECTED', '거절'
+
+    approval_status = models.CharField(
+        '승인상태', max_length=20,
+        choices=ApprovalStatus.choices, default=ApprovalStatus.APPROVED,
+    )
+
     history = HistoricalRecords()
 
     class Meta:
@@ -95,24 +108,26 @@ class Partner(BaseModel):
         )
         return sum(int(i.fixed_amount) for i in items)
 
-    def calculate_commission(self, base_amount, product=None):
-        """수수료 합산 계산 — product 지정 시 제품별 수수료 우선, 없으면 거래처 전체 수수료"""
+    def calculate_commission(self, base_amount, total_amount=None, product=None):
+        """수수료 합산 계산 — product 지정 시 제품별 수수료 우선, 없으면 거래처 전체 수수료
+
+        base_amount: 공급가액(VAT 제외)
+        total_amount: 판매가(VAT 포함) — base_type=TOTAL인 수수료율에 사용
+        """
         from apps.sales.commission import CommissionRate
         total = 0
         if product:
-            # 제품별 수수료가 있으면 제품별로 계산
             product_rates = CommissionRate.objects.filter(
                 partner=self, is_active=True, product=product,
             )
             if product_rates.exists():
                 for item in product_rates:
-                    total += item.calculate(base_amount)
+                    total += item.calculate(base_amount, total_amount)
                 return total
-        # 제품별 수수료 없으면 거래처 전체 수수료
         for item in CommissionRate.objects.filter(
             partner=self, is_active=True, product__isnull=True,
         ):
-            total += item.calculate(base_amount)
+            total += item.calculate(base_amount, total_amount)
         return total
 
     @classmethod
@@ -263,6 +278,11 @@ class Order(BaseModel):
         '배송비', max_digits=12, decimal_places=0, default=0,
         validators=[MinValueValidator(0)],
     )
+    platform_commission = models.DecimalField(
+        '플랫폼 수수료', max_digits=15, decimal_places=0, default=0,
+        validators=[MinValueValidator(0)],
+        help_text='플랫폼(네이버, 쿠팡 등)에서 공제한 수수료',
+    )
     bank_account = models.ForeignKey(
         'accounting.BankAccount', verbose_name='입금계좌',
         null=True, blank=True, on_delete=models.SET_NULL,
@@ -275,6 +295,12 @@ class Order(BaseModel):
     exchange_rate = models.DecimalField(
         '적용환율', max_digits=15, decimal_places=4, default=1,
     )
+    original_order = models.ForeignKey(
+        'self', verbose_name='원본주문',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='return_orders',
+    )
+    return_reason = models.TextField('반품/교환 사유', blank=True, default='')
     is_paid = models.BooleanField('입금완료', default=False)
     paid_date = models.DateField('입금일', null=True, blank=True)
     is_settled = models.BooleanField('정산완료', default=False)
@@ -355,7 +381,37 @@ class OrderItem(BaseModel):
         """미출고 수량"""
         return self.quantity - self.shipped_quantity
 
+    def _apply_price_rule(self):
+        """unit_price가 0이면 PriceRule에서 자동 조회하여 적용"""
+        if self.unit_price == 0 and self.product_id:
+            today = date.today()
+            rule = PriceRule.objects.filter(
+                product_id=self.product_id,
+                is_active=True,
+            ).filter(
+                models.Q(valid_from__isnull=True) | models.Q(valid_from__lte=today),
+            ).filter(
+                models.Q(valid_to__isnull=True) | models.Q(valid_to__gte=today),
+            )
+            if self.order.partner_id:
+                rule = rule.filter(
+                    models.Q(partner_id=self.order.partner_id)
+                    | models.Q(partner__isnull=True),
+                )
+            else:
+                rule = rule.filter(partner__isnull=True)
+            rule = rule.order_by('-priority').first()
+            if rule and rule.unit_price is not None:
+                self.unit_price = rule.unit_price
+            elif rule and rule.discount_rate > 0:
+                self.unit_price = int(
+                    self.product.unit_price * (1 - rule.discount_rate / 100)
+                )
+            elif self.product.unit_price:
+                self.unit_price = self.product.unit_price
+
     def save(self, *args, **kwargs):
+        self._apply_price_rule()
         subtotal = self.quantity * self.unit_price
         # 할인: 할인율 우선, 할인금액은 직접 지정 시 사용
         if self.discount_rate > 0:
@@ -398,6 +454,16 @@ class Quotation(BaseModel):
         REJECTED = 'REJECTED', '거절'
         CONVERTED = 'CONVERTED', '주문전환'
         EXPIRED = 'EXPIRED', '만료'
+
+    # 허용되는 상태 전환 맵
+    STATUS_TRANSITIONS = {
+        'DRAFT': ['SENT', 'CONVERTED'],
+        'SENT': ['ACCEPTED', 'REJECTED', 'EXPIRED', 'CONVERTED'],
+        'ACCEPTED': ['CONVERTED', 'EXPIRED'],
+        'REJECTED': [],
+        'CONVERTED': [],
+        'EXPIRED': [],
+    }
 
     quote_number = models.CharField('견적번호', max_length=30, unique=True, blank=True)
     partner = models.ForeignKey(
@@ -456,6 +522,13 @@ class Quotation(BaseModel):
     def save(self, *args, **kwargs):
         if not self.quote_number:
             self.quote_number = generate_document_number(Quotation, 'quote_number', 'QT')
+        # 유효기한 초과 시 자동 만료 전환 (DRAFT/SENT/ACCEPTED → EXPIRED)
+        if (
+            self.valid_until
+            and self.valid_until < date.today()
+            and self.status in ('DRAFT', 'SENT', 'ACCEPTED')
+        ):
+            self.status = self.Status.EXPIRED
         super().save(*args, **kwargs)
 
     def update_total(self):
@@ -516,7 +589,37 @@ class QuotationItem(BaseModel):
     def __str__(self):
         return f'{self.product.name} x {self.quantity}'
 
+    def _apply_price_rule(self):
+        """unit_price가 0이면 PriceRule에서 자동 조회하여 적용"""
+        if self.unit_price == 0 and self.product_id:
+            today = date.today()
+            rule = PriceRule.objects.filter(
+                product_id=self.product_id,
+                is_active=True,
+            ).filter(
+                models.Q(valid_from__isnull=True) | models.Q(valid_from__lte=today),
+            ).filter(
+                models.Q(valid_to__isnull=True) | models.Q(valid_to__gte=today),
+            )
+            if self.quotation.partner_id:
+                rule = rule.filter(
+                    models.Q(partner_id=self.quotation.partner_id)
+                    | models.Q(partner__isnull=True),
+                )
+            else:
+                rule = rule.filter(partner__isnull=True)
+            rule = rule.order_by('-priority').first()
+            if rule and rule.unit_price is not None:
+                self.unit_price = rule.unit_price
+            elif rule and rule.discount_rate > 0:
+                self.unit_price = int(
+                    self.product.unit_price * (1 - rule.discount_rate / 100)
+                )
+            elif self.product.unit_price:
+                self.unit_price = self.product.unit_price
+
     def save(self, *args, **kwargs):
+        self._apply_price_rule()
         subtotal = self.quantity * self.unit_price
         if self.discount_rate > 0:
             self.discount_amount = round(subtotal * self.discount_rate / 100)

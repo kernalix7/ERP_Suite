@@ -3,13 +3,14 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 
 from apps.core.excel import export_to_excel
+from apps.core.mixins import ManagerRequiredMixin
 
 
 # ═══════════════════════════════════════════════════
 # 영업 — 거래처, 고객, 견적, 배송
 # ═══════════════════════════════════════════════════
 
-class PartnerExcelView(LoginRequiredMixin, View):
+class PartnerExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.sales.models import Partner
         qs = Partner.objects.filter(is_active=True).order_by('code')
@@ -25,7 +26,7 @@ class PartnerExcelView(LoginRequiredMixin, View):
         return export_to_excel('거래처 목록', headers, rows)
 
 
-class CustomerExcelView(LoginRequiredMixin, View):
+class CustomerExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.sales.models import Customer
         qs = Customer.objects.filter(is_active=True).order_by('code')
@@ -39,7 +40,7 @@ class CustomerExcelView(LoginRequiredMixin, View):
         return export_to_excel('고객 목록', headers, rows)
 
 
-class CustomerPurchaseExcelView(LoginRequiredMixin, View):
+class CustomerPurchaseExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.sales.models import CustomerPurchase
         qs = CustomerPurchase.objects.filter(
@@ -75,7 +76,7 @@ class QuotationExcelView(LoginRequiredMixin, View):
         return export_to_excel('견적서 목록', headers, rows, money_columns=[6, 7, 8])
 
 
-class ShipmentExcelView(LoginRequiredMixin, View):
+class ShipmentExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.sales.models import Shipment
         qs = Shipment.objects.filter(is_active=True).select_related('order')
@@ -417,7 +418,7 @@ class WithholdingTaxExcelView(LoginRequiredMixin, View):
 # 투자
 # ═══════════════════════════════════════════════════
 
-class InvestorExcelView(LoginRequiredMixin, View):
+class InvestorExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.investment.models import Investor
         qs = Investor.objects.filter(is_active=True)
@@ -471,7 +472,7 @@ class DistributionExcelView(LoginRequiredMixin, View):
 # 보증
 # ═══════════════════════════════════════════════════
 
-class WarrantyExcelView(LoginRequiredMixin, View):
+class WarrantyExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.warranty.models import ProductRegistration
         qs = ProductRegistration.objects.filter(is_active=True).select_related('product')
@@ -515,7 +516,7 @@ class MarketplaceOrderExcelView(LoginRequiredMixin, View):
 # 문의
 # ═══════════════════════════════════════════════════
 
-class InquiryExcelView(LoginRequiredMixin, View):
+class InquiryExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.inquiry.models import Inquiry
         qs = Inquiry.objects.filter(is_active=True).select_related('assigned_to')
@@ -561,7 +562,7 @@ class ServiceRequestExcelView(LoginRequiredMixin, View):
 # 인사
 # ═══════════════════════════════════════════════════
 
-class EmployeeExcelView(LoginRequiredMixin, View):
+class EmployeeExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.hr.models import EmployeeProfile
         qs = EmployeeProfile.objects.filter(is_active=True).select_related(

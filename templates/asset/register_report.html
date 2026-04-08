@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}자산대장 리포트 - ERP Suite{% endblock %}
+{% block page_title %}자산대장 리포트{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:asset_list' %}" class="btn btn-secondary">자산목록</a>
+{% endblock %}
+
+{% block content %}
+<!-- 필터 -->
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+        {% for field in form %}
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
+            {{ field }}
+        </div>
+        {% endfor %}
+        <div class="flex gap-2">
+            <button type="submit" class="btn btn-primary">조회</button>
+            {% if has_data %}
+            <a href="{% url 'asset:register_report_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">Excel</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if has_data %}
+<!-- 요약 카드 -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-gray-500">기초잔액</p>
+        <p class="mt-1 text-xl font-bold text-gray-900">{{ opening_balance|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-gray-500">당기취득</p>
+        <p class="mt-1 text-xl font-bold text-green-600">+{{ acquisitions|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-gray-500">당기처분</p>
+        <p class="mt-1 text-xl font-bold text-red-600">-{{ disposals|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-gray-500">당기감가상각</p>
+        <p class="mt-1 text-xl font-bold text-orange-600">-{{ depreciation|intcomma }}원</p>
+    </div>
+    <div class="bg-blue-50 rounded-lg shadow-sm p-4 sm:p-6">
+        <p class="text-sm font-medium text-blue-700">기말잔액</p>
+        <p class="mt-1 text-xl font-bold text-blue-800">{{ closing_balance|intcomma }}원</p>
+    </div>
+</div>
+
+<!-- 당기취득 자산 -->
+{% if acquired_assets %}
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">당기 취득 자산</h3>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">자산번호</th>
+                    <th class="px-4 py-3">자산명</th>
+                    <th class="px-4 py-3">분류</th>
+                    <th class="px-4 py-3">취득일</th>
+                    <th class="px-4 py-3 text-right">취득원가</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for a in acquired_assets %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">
+                        <a href="{% url 'asset:asset_detail' a.asset_number %}" class="text-blue-600 hover:underline">{{ a.asset_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">{{ a.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ a.category }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ a.acquisition_date }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ a.acquisition_cost|intcomma }}원</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 당기처분 자산 -->
+{% if disposed_assets %}
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">당기 처분 자산</h3>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">자산번호</th>
+                    <th class="px-4 py-3">자산명</th>
+                    <th class="px-4 py-3">분류</th>
+                    <th class="px-4 py-3">처분일</th>
+                    <th class="px-4 py-3 text-right">장부가액</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for a in disposed_assets %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">
+                        <a href="{% url 'asset:asset_detail' a.asset_number %}" class="text-blue-600 hover:underline">{{ a.asset_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">{{ a.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ a.category }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ a.disposal_date }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ a.book_value|intcomma }}원</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="bg-white rounded-lg shadow-sm p-12 text-center text-gray-400">
+    기간을 선택하고 조회 버튼을 눌러주세요.
+</div>
+{% endif %}
+{% endblock %}

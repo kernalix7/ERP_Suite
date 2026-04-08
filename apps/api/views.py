@@ -10,7 +10,10 @@ from apps.approval.models import ApprovalRequest, ApprovalStep
 from apps.hr.models import EmployeeProfile, Payroll
 from apps.service.models import ServiceRequest
 from apps.inquiry.models import Inquiry
-from apps.asset.models import FixedAsset
+from apps.asset.models import (
+    AssetCategory, FixedAsset, AssetTransfer,
+    Certification, LeaseContract, AssetAudit,
+)
 from apps.marketplace.models import MarketplaceOrder
 from apps.purchase.models import PurchaseOrder
 
@@ -22,7 +25,9 @@ from apps.api.serializers import (
     ApprovalRequestSerializer, ApprovalStepSerializer,
     EmployeeProfileSerializer, PayrollSerializer,
     ServiceRequestSerializer, InquirySerializer,
-    FixedAssetSerializer, MarketplaceOrderSerializer,
+    FixedAssetSerializer, AssetCategorySerializer, AssetTransferSerializer,
+    CertificationSerializer, LeaseContractSerializer, AssetAuditSerializer,
+    MarketplaceOrderSerializer,
     VoucherSerializer, AccountReceivableSerializer,
     AccountPayableSerializer, BudgetSerializer,
     PurchaseOrderSerializer, ShippingCarrierSerializer,
@@ -223,6 +228,45 @@ class FixedAssetViewSet(BaseModelViewSet):
     permission_classes = [IsManagerOrReadOnly]
     search_fields = ['asset_number', 'name']
     filterset_fields = ['category', 'status', 'depreciation_method']
+
+
+class AssetCategoryViewSet(BaseModelViewSet):
+    queryset = AssetCategory.objects.all()
+    serializer_class = AssetCategorySerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name', 'code']
+
+
+class AssetTransferViewSet(BaseModelViewSet):
+    queryset = AssetTransfer.objects.select_related(
+        'asset', 'from_department', 'to_department', 'from_person', 'to_person',
+    ).all()
+    serializer_class = AssetTransferSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['asset', 'transfer_date', 'from_department', 'to_department']
+
+
+class CertificationViewSet(BaseModelViewSet):
+    queryset = Certification.objects.select_related('product', 'asset').all()
+    serializer_class = CertificationSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['cert_name', 'cert_number']
+    filterset_fields = ['cert_type', 'product', 'asset', 'is_capitalized']
+
+
+class LeaseContractViewSet(BaseModelViewSet):
+    queryset = LeaseContract.objects.select_related('asset', 'lessor').all()
+    serializer_class = LeaseContractSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['contract_number', 'asset__name']
+    filterset_fields = ['lease_type', 'asset']
+
+
+class AssetAuditViewSet(BaseModelViewSet):
+    queryset = AssetAudit.objects.select_related('auditor', 'department').all()
+    serializer_class = AssetAuditSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['audit_date', 'auditor', 'department']
 
 
 # === Marketplace ===

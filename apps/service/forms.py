@@ -8,7 +8,7 @@ class ServiceRequestForm(BaseForm):
         model = ServiceRequest
         fields = [
             'request_number', 'customer', 'product', 'serial_number',
-            'request_type', 'status', 'symptom', 'received_date',
+            'request_type', 'status', 'order', 'symptom', 'received_date',
             'completed_date', 'is_warranty', 'notes',
         ]
         widgets = {

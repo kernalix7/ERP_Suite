@@ -48,6 +48,7 @@ urlpatterns = [
     path('sales-settlements/<str:slug>/payment/', views.SalesSettlementPaymentView.as_view(), name='sales_settlement_payment'),
     path('sales-settlements/<str:slug>/commission-pay/', views.SalesSettlementCommissionPayView.as_view(), name='sales_settlement_commission_pay'),
     path('sales-settlements/<str:slug>/commission-manual/', views.SalesSettlementCommissionManualView.as_view(), name='sales_settlement_commission_manual'),
+    path('sales-settlements/<str:slug>/pdf/', views.SalesSettlementPDFView.as_view(), name='sales_settlement_pdf'),
     path('breakeven/', views.BreakEvenView.as_view(), name='breakeven'),
     path('monthly-pl/', views.MonthlyPLView.as_view(), name='monthly_pl'),
     path('withholding/', views.WithholdingTaxListView.as_view(), name='withholding_list'),
@@ -61,6 +62,10 @@ urlpatterns = [
     path('budget/', views.BudgetListView.as_view(), name='budget_list'),
     path('budget/create/', views.BudgetCreateView.as_view(), name='budget_create'),
     path('budget/report/', views.BudgetReportView.as_view(), name='budget_report'),
+    # 재무제표
+    path('report/balance-sheet/', views.BalanceSheetView.as_view(), name='balance_sheet'),
+    path('report/balance-sheet/excel/', views.BalanceSheetExcelView.as_view(), name='balance_sheet_excel'),
+    path('report/cash-flow/', views.CashFlowView.as_view(), name='cash_flow'),
     # 결산 마감
     path('closing/', views.ClosingPeriodListView.as_view(), name='closing_list'),
     path('closing/<int:year>/<int:month>/close/', views.ClosingPeriodCloseView.as_view(), name='closing_close'),
@@ -106,6 +111,19 @@ urlpatterns = [
     # 원천징수 일괄 가져오기
     path('withholding/import/', views.WithholdingImportView.as_view(), name='withholding_import'),
     path('withholding/import/sample/', views.WithholdingImportSampleView.as_view(), name='withholding_import_sample'),
+    # 카드
+    path('cards/', views.CreditCardListView.as_view(), name='card_list'),
+    path('cards/create/', views.CreditCardCreateView.as_view(), name='card_create'),
+    path('cards/<int:pk>/', views.CreditCardDetailView.as_view(), name='card_detail'),
+    path('cards/<int:pk>/edit/', views.CreditCardUpdateView.as_view(), name='card_update'),
+    # 카드 거래
+    path('cards/transactions/', views.CardTransactionListView.as_view(), name='card_transaction_list'),
+    path('cards/transactions/create/', views.CardTransactionCreateView.as_view(), name='card_transaction_create'),
+    path('cards/transactions/<int:pk>/edit/', views.CardTransactionUpdateView.as_view(), name='card_transaction_update'),
+    # 카드 청구
+    path('cards/billings/', views.CardBillingListView.as_view(), name='card_billing_list'),
+    path('cards/billings/<int:pk>/', views.CardBillingDetailView.as_view(), name='card_billing_detail'),
+    path('cards/billings/<int:pk>/pay/', views.CardBillingPayView.as_view(), name='card_billing_pay'),
     # Excel 내보내기
     path('invoices/excel/', excel_views.TaxInvoiceExcelView.as_view(), name='taxinvoice_excel'),
     path('vouchers/excel/', excel_views.VoucherExcelView.as_view(), name='voucher_excel'),

@@ -34,6 +34,7 @@
                     <th class="px-4 py-3 text-right">합계</th>
                     <th class="px-4 py-3">실적일</th>
                     <th class="px-4 py-3">작업자</th>
+                    <th class="px-4 py-3">작성일</th>
                     <th class="px-4 py-3 w-16"></th>
                 </tr>
             </thead>
@@ -57,13 +58,14 @@
                     <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ record.total_quantity|intcomma }}</td>
                     <td class="px-4 py-3 text-gray-700">{{ record.record_date|date:"Y-m-d" }}</td>
                     <td class="px-4 py-3 text-gray-700">{{ record.worker.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ record.created_at|date:"m-d H:i" }}</td>
                     <td class="px-4 py-3 text-right">
                         <a href="{% url 'production:record_update' record.pk %}" class="text-blue-600 hover:text-blue-800 text-xs">수정</a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="9" class="px-6 py-12 text-center text-gray-400">
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                         </svg>

@@ -21,9 +21,19 @@
                 <h2 class="text-lg font-semibold text-gray-800">{% trans "배송 정보" %}</h2>
             </div>
             <div class="p-4 sm:p-6 space-y-5">
+                {% if orderer_info %}
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" id="copy-orderer" class="text-blue-600 rounded" checked>
+                        <span class="font-medium text-gray-700">주문자 정보와 동일</span>
+                        <span class="text-gray-500">({{ orderer_info.name }})</span>
+                    </label>
+                </div>
+                {% endif %}
                 {% for field in form %}
                 {% if field.name == 'receiver_address' %}
                 {% include "includes/address_field.html" with field=field field_type="domestic" %}
+                {% elif field.name == 'receiver_address_road' or field.name == 'receiver_address_detail' %}
                 {% elif field.name == 'receiver_phone' %}
                 {% include "includes/phone_field.html" with field=field %}
                 {% else %}
@@ -50,4 +60,73 @@
         </div>
     </form>
 </div>
+
+<script>
+(function() {
+    const typeSelect = document.getElementById('id_shipping_type');
+    if (!typeSelect) return;
+    const NO_ADDR_TYPES = ['DIRECT', 'PICKUP'];
+
+    const addrWrap = document.getElementById('addr-wrap-id_receiver_address');
+    const carrierWrap = document.getElementById('id_carrier')?.closest('div');
+    const trackingWrap = document.getElementById('id_tracking_number')?.closest('div');
+
+    function toggleByType() {
+        const show = !NO_ADDR_TYPES.includes(typeSelect.value);
+        if (addrWrap) addrWrap.style.display = show ? '' : 'none';
+        if (carrierWrap) carrierWrap.style.display = show ? '' : 'none';
+        if (trackingWrap) trackingWrap.style.display = show ? '' : 'none';
+        if (!show) {
+            const hiddenEl = document.getElementById('id_receiver_address');
+            if (hiddenEl) hiddenEl.value = '';
+        }
+    }
+
+    typeSelect.addEventListener('change', toggleByType);
+    toggleByType();
+})();
+</script>
+{% if orderer_info %}
+{{ orderer_info|json_script:"orderer-data" }}
+<script>
+(function() {
+    const cb = document.getElementById('copy-orderer');
+    if (!cb) return;
+    const data = JSON.parse(document.getElementById('orderer-data').textContent);
+
+    function applyOrderer(checked) {
+        const nameEl = document.getElementById('id_receiver_name');
+        const phoneEl = document.getElementById('id_receiver_phone');
+        const hiddenEl = document.getElementById('id_receiver_address');
+        const roadWrap = document.getElementById('addr-road-id_receiver_address');
+        const roadText = document.getElementById('addr-road-text-id_receiver_address');
+        const detailWrap = document.getElementById('addr-detail-wrap-id_receiver_address');
+        const detailInput = document.getElementById('addr-detail-id_receiver_address');
+
+        if (checked) {
+            if (nameEl) { nameEl.value = data.name; nameEl.readOnly = true; nameEl.classList.add('bg-gray-100'); }
+            if (phoneEl) { phoneEl.value = data.phone; phoneEl.readOnly = true; phoneEl.classList.add('bg-gray-100'); }
+            if (data.address_road) {
+                if (roadText) { roadText.textContent = data.address_road; roadText.dataset.road = data.address_road; }
+                if (roadWrap) roadWrap.classList.remove('hidden');
+                if (detailWrap) detailWrap.classList.remove('hidden');
+                if (detailInput) { detailInput.value = data.address_detail || ''; detailInput.readOnly = true; detailInput.classList.add('bg-gray-100'); }
+                if (hiddenEl) hiddenEl.value = data.address_detail ? data.address_road + '\n' + data.address_detail : data.address_road;
+            }
+        } else {
+            if (nameEl) { nameEl.value = ''; nameEl.readOnly = false; nameEl.classList.remove('bg-gray-100'); }
+            if (phoneEl) { phoneEl.value = ''; phoneEl.readOnly = false; phoneEl.classList.remove('bg-gray-100'); }
+            if (roadText) { roadText.textContent = ''; roadText.dataset.road = ''; }
+            if (roadWrap) roadWrap.classList.add('hidden');
+            if (detailWrap) detailWrap.classList.remove('hidden');
+            if (detailInput) { detailInput.value = ''; detailInput.readOnly = false; detailInput.classList.remove('bg-gray-100'); }
+            if (hiddenEl) hiddenEl.value = '';
+        }
+    }
+
+    cb.addEventListener('change', () => applyOrderer(cb.checked));
+    if (cb.checked) applyOrderer(true);
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -10,7 +10,10 @@ from apps.approval.models import ApprovalRequest, ApprovalStep
 from apps.hr.models import EmployeeProfile, Payroll
 from apps.service.models import ServiceRequest
 from apps.inquiry.models import Inquiry
-from apps.asset.models import FixedAsset
+from apps.asset.models import (
+    AssetCategory as AssetCategoryModel, FixedAsset, AssetTransfer,
+    Certification, LeaseContract, AssetAudit,
+)
 from apps.marketplace.models import MarketplaceOrder
 from apps.purchase.models import PurchaseOrder
 
@@ -347,6 +350,69 @@ class FixedAssetSerializer(serializers.ModelSerializer):
             'accumulated_depreciation', 'book_value',
             'created_at', 'updated_at',
         ]
+
+
+class AssetCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssetCategoryModel
+        fields = [
+            'id', 'code', 'name', 'useful_life_years', 'depreciation_method',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class AssetTransferSerializer(serializers.ModelSerializer):
+    asset_name = serializers.CharField(source='asset.name', read_only=True, default=None)
+
+    class Meta:
+        model = AssetTransfer
+        fields = [
+            'id', 'asset', 'asset_name', 'transfer_date',
+            'from_department', 'to_department',
+            'from_person', 'to_person',
+            'from_location', 'to_location', 'reason',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class CertificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Certification
+        fields = [
+            'id', 'product', 'asset', 'cert_type', 'cert_number',
+            'cert_name', 'issuer', 'issue_date', 'expiry_date',
+            'cost', 'is_capitalized',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class LeaseContractSerializer(serializers.ModelSerializer):
+    asset_name = serializers.CharField(source='asset.name', read_only=True, default=None)
+
+    class Meta:
+        model = LeaseContract
+        fields = [
+            'id', 'contract_number', 'asset', 'asset_name',
+            'lessor', 'lease_type', 'start_date', 'end_date',
+            'monthly_payment', 'deposit', 'total_amount', 'auto_voucher',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['contract_number', 'total_amount', 'created_at', 'updated_at']
+
+
+class AssetAuditSerializer(serializers.ModelSerializer):
+    auditor_name = serializers.CharField(source='auditor.name', read_only=True, default=None)
+
+    class Meta:
+        model = AssetAudit
+        fields = [
+            'id', 'audit_date', 'auditor', 'auditor_name', 'department',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
 
 
 # === Marketplace ===

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}자산 QR 스캔 - ERP Suite{% endblock %}
+{% block page_title %}자산 QR 스캔{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white rounded-lg shadow-sm p-6">
+        <p class="text-sm text-gray-600 mb-4">QR코드를 스캔하거나 자산번호를 직접 입력하세요.</p>
+
+        <!-- 수동 입력 -->
+        <form id="scanForm" class="mb-6">
+            <label for="assetCode" class="block text-sm font-medium text-gray-700 mb-1">자산번호</label>
+            <div class="flex gap-2">
+                <input type="text" id="assetCode" placeholder="예: FA-001"
+                       class="form-input flex-1" autofocus>
+                <button type="submit" class="btn btn-primary">조회</button>
+            </div>
+        </form>
+
+        <!-- 파일 업로드 (QR 이미지 스캔) -->
+        <div class="border-t border-gray-200 pt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">QR 이미지 파일로 스캔</label>
+            <input type="file" id="qrFile" accept="image/*" capture="environment"
+                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            <p id="scanResult" class="mt-3 text-sm text-gray-600 hidden"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('scanForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var code = document.getElementById('assetCode').value.trim();
+    if (code) {
+        // QR 데이터 형식: "자산번호|자산명" — 자산번호만 추출
+        var assetNumber = code.split('|')[0].trim();
+        window.location.href = '{% url "asset:asset_list" %}' + assetNumber + '/';
+    }
+});
+
+document.getElementById('qrFile').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+
+    var resultEl = document.getElementById('scanResult');
+    resultEl.classList.remove('hidden');
+    resultEl.textContent = 'QR 이미지를 업로드했습니다. 자산번호를 수동으로 입력해주세요.';
+    resultEl.className = 'mt-3 text-sm text-blue-600';
+});
+</script>
+{% endblock %}

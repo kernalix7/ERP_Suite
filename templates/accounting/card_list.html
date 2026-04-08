@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block page_title %}{% trans "카드 관리" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:card_create' %}" class="btn btn-primary">+ {% trans "카드 등록" %}</a>
+{% endblock %}
+
+{% block content %}
+<!-- 검색/필터 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "검색" %}</label>
+            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="카드명/소유자" class="w-full rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "카드유형" %}</label>
+            <select name="card_type" class="rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+                <option value="">전체</option>
+                {% for val, label in type_choices %}
+                <option value="{{ val }}" {% if request.GET.card_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "카드사" %}</label>
+            <select name="card_issuer" class="rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+                <option value="">전체</option>
+                {% for val, label in issuer_choices %}
+                <option value="{{ val }}" {% if request.GET.card_issuer == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn btn-secondary">{% trans "검색" %}</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white shadow-sm rounded-lg overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">{% trans "카드별칭" %}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">{% trans "카드사" %}</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">{% trans "유형" %}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">{% trans "끝4자리" %}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">{% trans "소유자" %}</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-600">{% trans "한도" %}</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-600">{% trans "사용액" %}</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">{% trans "사용률" %}</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for card in cards %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ card.name }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ card.get_card_issuer_display }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if card.card_type == 'CORPORATE' %}bg-blue-100 text-blue-700
+                            {% elif card.card_type == 'PERSONAL' %}bg-green-100 text-green-700
+                            {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                            {{ card.get_card_type_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-gray-500 text-xs">{{ card.card_number_last4 }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ card.cardholder }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ card.monthly_limit|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ card.used_amount|intcomma }}원</td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 bg-gray-200 rounded-full h-2 min-w-[60px]">
+                                <div class="h-2 rounded-full {% if card.usage_rate >= 90 %}bg-red-500{% elif card.usage_rate >= 70 %}bg-yellow-500{% else %}bg-blue-500{% endif %}"
+                                     style="width: {{ card.usage_rate }}%"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 whitespace-nowrap">{{ card.usage_rate }}%</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-center space-x-2">
+                        <a href="{% url 'accounting:card_detail' card.pk %}" class="text-blue-600 hover:text-blue-800 text-xs font-medium">상세</a>
+                        <a href="{% url 'accounting:card_update' card.pk %}" class="text-blue-600 hover:text-blue-800 text-xs font-medium">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 카드가 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% include 'includes/pagination.html' %}
+{% endblock %}

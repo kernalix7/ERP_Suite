@@ -47,7 +47,7 @@
                     <th class="px-4 py-3">거래처</th>
                     <th class="px-4 py-3">주문</th>
                     <th class="px-4 py-3 text-right">주문금액</th>
-                    <th class="px-4 py-3 text-right">수수료율</th>
+                    <th class="px-4 py-3 text-right">수수료 구성</th>
                     <th class="px-4 py-3 text-right">수수료금액</th>
                     <th class="px-4 py-3 text-center">상태</th>
                     <th class="px-4 py-3">정산일</th>
@@ -66,7 +66,7 @@
                         {% else %}-{% endif %}
                     </td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ commission.order_amount|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right text-gray-600">{{ commission.commission_rate }}%</td>
+                    <td class="px-4 py-3 text-right text-gray-600 text-xs">{{ commission.commission_desc|default:"-" }}</td>
                     <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ commission.commission_amount|intcomma }}원</td>
                     <td class="px-4 py-3 text-center">
                         {% if commission.status == 'PENDING' %}

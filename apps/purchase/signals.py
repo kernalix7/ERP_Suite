@@ -1,7 +1,7 @@
 import logging
 
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import F, Q, Sum
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
@@ -23,29 +23,31 @@ def handle_goods_receipt(sender, instance, created, **kwargs):
         goods_receipt = instance.goods_receipt
         po = goods_receipt.purchase_order
 
-        # 1. StockMovement(IN) 자동 생성
+        # 1. StockMovement(IN) 자동 생성 (재고 추적 대상만)
         from apps.inventory.models import StockMovement, Warehouse
 
-        warehouse = goods_receipt.warehouse or Warehouse.get_default()
-        if not warehouse:
-            logger.error(
-                'No warehouse configured — cannot create stock movement for %s',
-                instance,
-            )
-        else:
-            # 고유한 movement_number 생성
-            movement_number = f'GR-{goods_receipt.receipt_number}-{instance.pk}'
-            StockMovement.objects.create(
-                movement_number=movement_number,
-                movement_type='IN',
-                product=po_item.product,
-                warehouse=warehouse,
-                quantity=instance.received_quantity,
-                unit_price=po_item.unit_price,
-                movement_date=goods_receipt.receipt_date,
-                reference=f'발주입고: {po.po_number}',
-                created_by=goods_receipt.created_by,
-            )
+        product = po_item.product
+        if product.is_stockable:
+            warehouse = goods_receipt.warehouse or Warehouse.get_default()
+            if not warehouse:
+                logger.error(
+                    'No warehouse configured — cannot create stock movement for %s',
+                    instance,
+                )
+            else:
+                # 고유한 movement_number 생성
+                movement_number = f'GR-{goods_receipt.receipt_number}-{instance.pk}'
+                StockMovement.objects.create(
+                    movement_number=movement_number,
+                    movement_type='IN',
+                    product=product,
+                    warehouse=warehouse,
+                    quantity=instance.received_quantity,
+                    unit_price=po_item.unit_price,
+                    movement_date=goods_receipt.receipt_date,
+                    reference=f'발주입고: {po.po_number}',
+                    created_by=goods_receipt.created_by,
+                )
 
         # 2. 이동평균 원가 갱신은 inventory signals의 _update_weighted_avg_cost에 일원화
         #    (StockMovement 생성 시 unit_price=po_item.unit_price로 전달됨)
@@ -76,6 +78,71 @@ def handle_goods_receipt(sender, instance, created, **kwargs):
         if fully_received:
             _auto_create_ap(po)
             _auto_create_purchase_tax_invoice(po)
+
+        # 6. 고정자산 등록 (자산 추적 대상만)
+        if instance.is_fixed_asset and instance.asset_category:
+            _auto_create_fixed_asset(instance, po_item, product, goods_receipt)
+
+
+def _auto_create_fixed_asset(receipt_item, po_item, product, goods_receipt):
+    """입고항목이 자산등록 대상인 경우 FixedAsset + 취득전표 자동 생성"""
+    from apps.asset.models import FixedAsset
+    from apps.core.utils import generate_document_number
+
+    asset_number = generate_document_number(FixedAsset, 'asset_number', 'FA')
+    cat = receipt_item.asset_category
+    acquisition_cost = int(po_item.unit_price * receipt_item.received_quantity)
+
+    FixedAsset.objects.create(
+        asset_number=asset_number,
+        name=product.name,
+        category=cat,
+        acquisition_date=goods_receipt.receipt_date,
+        acquisition_cost=acquisition_cost,
+        residual_value=0,
+        useful_life_years=cat.useful_life_years,
+        depreciation_method=cat.depreciation_method,
+        book_value=acquisition_cost,
+        source_receipt_item=receipt_item,
+        created_by=goods_receipt.created_by,
+    )
+
+    # 취득 전표: 차변 150(유형자산), 대변 253(미지급금)
+    from apps.accounting.models import AccountCode, Voucher, VoucherLine
+    import uuid
+
+    try:
+        acct_asset = AccountCode.objects.get(code='150', is_active=True)
+        acct_payable = AccountCode.objects.get(code='253', is_active=True)
+    except AccountCode.DoesNotExist:
+        logger.warning('자산취득 전표 생성 실패: 계정과목 150 또는 253 없음')
+        return
+
+    voucher_number = f'V{goods_receipt.receipt_date.strftime("%Y%m%d")}-{uuid.uuid4().hex[:6].upper()}'
+    voucher = Voucher.objects.create(
+        voucher_number=voucher_number,
+        voucher_type='TRANSFER',
+        voucher_date=goods_receipt.receipt_date,
+        description=f'자산취득: {product.name} ({asset_number})',
+        approval_status='APPROVED',
+        created_by=goods_receipt.created_by,
+    )
+    VoucherLine.objects.create(
+        voucher=voucher, account=acct_asset,
+        debit=acquisition_cost, credit=0,
+        description=f'{product.name} 유형자산 취득',
+        created_by=goods_receipt.created_by,
+    )
+    VoucherLine.objects.create(
+        voucher=voucher, account=acct_payable,
+        debit=0, credit=acquisition_cost,
+        description=f'{product.name} 미지급금',
+        created_by=goods_receipt.created_by,
+    )
+    logger.info(
+        'Auto-created FixedAsset %s + voucher %s for GoodsReceiptItem %s',
+        asset_number, voucher_number, receipt_item.pk,
+    )
 
 
 def _auto_create_ap(po):
@@ -118,6 +185,10 @@ def _auto_create_purchase_tax_invoice(po):
     from apps.accounting.models import TaxInvoice
 
     if not po.partner:
+        return
+
+    # 면세 거래는 세금계산서 생성하지 않음
+    if not po.is_taxable:
         return
 
     supply_amount = int(po.total_amount) if po.total_amount else 0
@@ -183,11 +254,12 @@ def handle_po_cancellation(sender, instance, **kwargs):
             received_quantity__gt=0,
         ).exists()
         if has_received_items:
-            from django.core.exceptions import ValidationError
-            raise ValidationError(
-                '이미 입고된 항목이 있어 발주를 취소할 수 없습니다. '
-                '입고를 먼저 취소(삭제)해 주세요.'
+            logger.warning(
+                'PO %s: 입고 존재 — 취소 차단, 상태 복원',
+                instance.po_number,
             )
+            instance.status = old.status
+            return
 
     with transaction.atomic():
         # 2. 관련 AP soft delete
@@ -216,3 +288,40 @@ def handle_po_cancellation(sender, instance, **kwargs):
                 'Soft-deleted %d purchase TaxInvoice(s) for cancelled PO %s',
                 cancelled_invoices, instance.po_number,
             )
+
+
+@receiver(pre_save, sender=GoodsReceiptItem)
+def cascade_receipt_item_soft_delete(sender, instance, **kwargs):
+    """입고항목 soft delete 시 연결된 StockMovement soft delete + PO received_quantity 차감"""
+    if not instance.pk:
+        return
+    try:
+        old = sender.all_objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+
+    if old.is_active and not instance.is_active:
+        with transaction.atomic():
+            from apps.inventory.models import StockMovement
+
+            goods_receipt = instance.goods_receipt
+            # 재고 추적 대상만 StockMovement soft delete
+            product = instance.po_item.product
+            if product.is_stockable:
+                # 개별 save()로 inventory pre_save 시그널(재고 복원) 발동
+                # movement_number로 정확히 매칭 (동일 PO/제품 분할입고 시 다른 item 보호)
+                movements = StockMovement.objects.filter(
+                    movement_number=f'GR-{goods_receipt.receipt_number}-{instance.pk}',
+                    is_active=True,
+                )
+                for mv in movements:
+                    mv.is_active = False
+                    mv.save(update_fields=['is_active', 'updated_at'])
+
+            # PO received_quantity 차감 (F() + update로 simple_history INSERT 에러 방지)
+            from apps.purchase.models import PurchaseOrderItem
+            PurchaseOrderItem.objects.filter(
+                purchase_order=goods_receipt.purchase_order,
+                product=instance.po_item.product,
+                is_active=True,
+            ).update(received_quantity=F('received_quantity') - instance.received_quantity)

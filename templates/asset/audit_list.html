@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}자산 실사 - ERP Suite{% endblock %}
+{% block page_title %}자산 실사{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:audit_create' %}" class="btn btn-primary">실사 등록</a>
+<a href="{% url 'asset:asset_list' %}" class="btn btn-secondary">자산 목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm">
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">#</th>
+                    <th class="px-4 py-3">실사일</th>
+                    <th class="px-4 py-3">대상부서</th>
+                    <th class="px-4 py-3">실사자</th>
+                    <th class="px-4 py-3">항목수</th>
+                    <th class="px-4 py-3 w-20"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for a in audits %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-400">{{ a.pk }}</td>
+                    <td class="px-4 py-3 text-gray-900 font-medium">{{ a.audit_date }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ a.department|default:"전체" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ a.auditor }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ a.items.count }}건</td>
+                    <td class="px-4 py-3">
+                        <a href="{% url 'asset:audit_detail' a.pk %}" class="text-blue-600 hover:underline text-sm">상세</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">등록된 실사가 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_paginated %}
+{% include 'includes/pagination.html' %}
+{% endif %}
+{% endblock %}

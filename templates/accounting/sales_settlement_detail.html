@@ -5,6 +5,12 @@
 {% block page_title %}매출정산 상세{% endblock %}
 
 {% block header_actions %}
+<a href="{% url 'accounting:sales_settlement_pdf' object.settlement_number %}" class="btn btn-secondary" target="_blank">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    PDF
+</a>
 <a href="{% url 'accounting:sales_settlement_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
@@ -46,14 +52,32 @@
     </div>
 
     <!-- 요약 카드 -->
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <dt class="text-xs text-gray-500">공급가액</dt>
             <dd class="mt-1 text-lg font-bold text-gray-900">{{ object.total_revenue|intcomma }}원</dd>
         </div>
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-            <dt class="text-xs text-gray-500">원가(주문)</dt>
+            <dt class="text-xs text-gray-500">원가</dt>
             <dd class="mt-1 text-lg font-bold text-gray-700">{{ object.total_cost|intcomma }}원</dd>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+            <dt class="text-xs text-gray-500">배송비</dt>
+            <dd class="mt-1 text-lg font-bold text-gray-700">{{ object.total_shipping|intcomma }}원</dd>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+            <dt class="text-xs text-gray-500">부가세</dt>
+            <dd class="mt-1 text-lg font-bold text-gray-700">{{ object.total_tax|intcomma }}원</dd>
+        </div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-red-50 rounded-lg shadow-sm border border-red-200 p-4 text-center">
+            <dt class="text-xs font-medium text-red-700">플랫폼 수수료</dt>
+            <dd class="mt-1 text-lg font-bold text-red-600">{{ object.total_platform_commission|intcomma }}원</dd>
+        </div>
+        <div class="bg-orange-50 rounded-lg shadow-sm border border-orange-200 p-4 text-center">
+            <dt class="text-xs font-medium text-orange-700">정산 수수료</dt>
+            <dd class="mt-1 text-lg font-bold text-orange-600">{{ object.total_commission|intcomma }}원</dd>
         </div>
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <dt class="text-xs text-gray-500">원가차이</dt>
@@ -61,21 +85,9 @@
                 {% if object.total_cost_variance > 0 %}+{% endif %}{{ object.total_cost_variance|intcomma }}원
             </dd>
         </div>
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-            <dt class="text-xs text-gray-500">부가세</dt>
-            <dd class="mt-1 text-lg font-bold text-gray-700">{{ object.total_tax|intcomma }}원</dd>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-            <dt class="text-xs text-gray-500">배송비</dt>
-            <dd class="mt-1 text-lg font-bold text-gray-700">{{ object.total_shipping|intcomma }}원</dd>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-            <dt class="text-xs text-gray-500">수수료</dt>
-            <dd class="mt-1 text-lg font-bold text-red-600">{{ object.total_commission|intcomma }}원</dd>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-            <dt class="text-xs text-gray-500">순이익</dt>
-            <dd class="mt-1 text-lg font-bold {% if object.total_profit >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
+        <div class="bg-green-50 rounded-lg shadow-sm border border-green-200 p-4 text-center">
+            <dt class="text-xs font-medium text-green-700">순이익</dt>
+            <dd class="mt-1 text-lg font-bold {% if object.total_profit >= 0 %}text-green-700{% else %}text-red-600{% endif %}">
                 {{ object.total_profit|intcomma }}원
                 <span class="text-sm">({{ object.profit_rate }}%)</span>
             </dd>
@@ -222,8 +234,9 @@
                         <th class="px-4 py-3 text-right">원가(주문)</th>
                         <th class="px-4 py-3 text-right">원가차이</th>
                         <th class="px-4 py-3 text-right">배송비</th>
-                        <th class="px-4 py-3 text-right">수수료율</th>
-                        <th class="px-4 py-3 text-right">수수료</th>
+                        <th class="px-4 py-3 text-right">플랫폼 수수료</th>
+                        <th class="px-4 py-3 text-right">정산 수수료율</th>
+                        <th class="px-4 py-3 text-right">정산 수수료</th>
                         <th class="px-4 py-3 text-right">이익</th>
                     </tr>
                 </thead>
@@ -250,15 +263,16 @@
                             {% if item.cost_variance_rate %}<span class="text-xs">({{ item.cost_variance_rate }}%)</span>{% endif %}
                         </td>
                         <td class="px-4 py-3 text-right text-gray-500">{{ item.shipping|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right {% if item.platform_commission %}text-red-600 font-medium{% else %}text-gray-400{% endif %}">{% if item.platform_commission %}{{ item.platform_commission|intcomma }}원{% else %}-{% endif %}</td>
                         <td class="px-4 py-3 text-right text-gray-600">{{ item.commission_rate }}%</td>
-                        <td class="px-4 py-3 text-right font-medium text-red-600">{{ item.commission|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right font-medium text-orange-600">{{ item.commission|intcomma }}원</td>
                         <td class="px-4 py-3 text-right font-medium {% if item.profit >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
                             {{ item.profit|intcomma }}원
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="12" class="px-4 py-8 text-center text-gray-400">정산 항목이 없습니다.</td>
+                        <td colspan="13" class="px-4 py-8 text-center text-gray-400">정산 항목이 없습니다.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -266,4 +280,5 @@
         </div>
     </div>
 </div>
+{% include 'includes/timestamps.html' with obj=object %}
 {% endblock %}

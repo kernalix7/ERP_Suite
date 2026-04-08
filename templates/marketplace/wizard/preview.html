@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}가져오기 - 미리보기 - ERP Suite{% endblock %}
+{% block page_title %}외부 스토어 주문 가져오기{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'marketplace:wizard_fetch' %}" class="btn btn-secondary">처음부터</a>
+<a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">대시보드</a>
+{% endblock %}
+
+{% block content %}
+{% include "marketplace/wizard/_steps.html" with current_stage="PREVIEW" %}
+
+<div class="bg-white shadow rounded-lg p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-2">2단계: 미리보기 및 선택</h2>
+    <p class="text-sm text-gray-600 mb-4">
+        총 <strong>{{ summary.total }}건</strong> 조회됨.
+        가져올 주문을 선택하세요. 체크 해제한 주문은 건너뜁니다.
+    </p>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="bg-white shadow rounded-lg overflow-x-auto mb-6">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left">
+                        <input type="checkbox" id="select-all" checked
+                               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                               onchange="document.querySelectorAll('.order-check').forEach(c=>c.checked=this.checked)">
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상품명</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">수량</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">금액</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문자</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상품매칭</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">고객</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for item in preview %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3">
+                        <input type="hidden" name="all_order_ids" value="{{ item.order.pk }}">
+                        <input type="checkbox" name="selected_orders" value="{{ item.order.pk }}"
+                               class="order-check rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
+                    </td>
+                    <td class="px-4 py-3 text-sm font-mono">{{ item.order.store_order_id }}</td>
+                    <td class="px-4 py-3 text-sm">
+                        {{ item.order.product_name }}
+                        {% if item.order.option_name %}
+                        <span class="text-xs text-gray-400">({{ item.order.option_name }})</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-right">{{ item.order.quantity }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ item.order.price|intcomma }}원</td>
+                    <td class="px-4 py-3 text-sm">{{ item.order.buyer_name }}</td>
+                    <td class="px-4 py-3 text-sm">
+                        {% if item.match_type == 'exact' or item.match_type == 'saved' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {{ item.matched_product.name }}
+                        </span>
+                        {% elif item.match_type == 'partial' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            유사: {{ item.matched_product.name }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">미매칭</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        {% if item.is_new_customer %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">신규</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">기존</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">조회된 주문이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if preview %}
+    <div class="flex justify-end">
+        <button type="submit" class="btn btn-primary">선택 완료 &rarr; 고객등록</button>
+    </div>
+    {% endif %}
+</form>
+{% endblock %}

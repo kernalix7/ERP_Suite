@@ -400,6 +400,11 @@ class AccountPayable(BaseModel):
         'sales.Partner', verbose_name='거래처',
         on_delete=models.PROTECT, related_name='payables',
     )
+    purchase_order = models.ForeignKey(
+        'purchase.PurchaseOrder', verbose_name='발주서',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='payables',
+    )
     invoice = models.ForeignKey(
         TaxInvoice, verbose_name='세금계산서',
         null=True, blank=True, on_delete=models.SET_NULL,
@@ -490,6 +495,172 @@ class BankAccount(BaseModel):
                 is_default=True,
             ).exclude(pk=self.pk).update(is_default=False)
         super().save(*args, **kwargs)
+
+
+class CreditCard(BaseModel):
+    """법인카드/개인카드"""
+    BUSINESS_KEY_FIELD = 'name'
+
+    class CardType(models.TextChoices):
+        CORPORATE = 'CORPORATE', '법인카드'
+        PERSONAL = 'PERSONAL', '개인카드'
+        CHECK = 'CHECK', '체크카드'
+
+    class CardIssuer(models.TextChoices):
+        KB = 'KB', '국민카드'
+        SHINHAN = 'SHINHAN', '신한카드'
+        SAMSUNG = 'SAMSUNG', '삼성카드'
+        HYUNDAI = 'HYUNDAI', '현대카드'
+        LOTTE = 'LOTTE', '롯데카드'
+        WOORI = 'WOORI', '우리카드'
+        HANA = 'HANA', '하나카드'
+        NH = 'NH', 'NH농협카드'
+        BC = 'BC', 'BC카드'
+        OTHER = 'OTHER', '기타'
+
+    name = models.CharField('카드별칭', max_length=100)
+    card_type = models.CharField('카드유형', max_length=20, choices=CardType.choices)
+    card_issuer = models.CharField('카드사', max_length=20, choices=CardIssuer.choices)
+    card_number_last4 = models.CharField('카드번호 끝4자리', max_length=4)
+    cardholder = models.CharField('카드소유자', max_length=50)
+    employee = models.ForeignKey(
+        'hr.EmployeeProfile', verbose_name='사용자',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='credit_cards',
+    )
+    expiry_date = models.CharField('유효기간', max_length=5, blank=True, help_text='MM/YY')
+    monthly_limit = models.DecimalField('월간한도', max_digits=15, decimal_places=0, default=0)
+    used_amount = models.DecimalField('당월사용액', max_digits=15, decimal_places=0, default=0)
+    billing_day = models.IntegerField('결제일', default=25, help_text='매월 결제일 (1~28)')
+    payment_account = models.ForeignKey(
+        'BankAccount', verbose_name='결제계좌',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='linked_cards',
+    )
+    account_code = models.ForeignKey(
+        'AccountCode', verbose_name='계정과목',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='credit_cards',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '카드'
+        verbose_name_plural = '카드'
+        ordering = ['-pk']
+
+    def __str__(self):
+        return f'{self.name} ({self.get_card_issuer_display()} {self.card_number_last4})'
+
+    @property
+    def remaining_limit(self):
+        return self.monthly_limit - self.used_amount
+
+    @property
+    def usage_rate(self):
+        if self.monthly_limit <= 0:
+            return 0
+        return round(self.used_amount / self.monthly_limit * 100, 1)
+
+
+class CardTransaction(BaseModel):
+    """카드 사용내역"""
+    BUSINESS_KEY_FIELD = 'authorization_number'
+
+    class Category(models.TextChoices):
+        PURCHASE = 'PURCHASE', '구매/매입'
+        TRAVEL = 'TRAVEL', '출장/교통'
+        ENTERTAINMENT = 'ENTERTAINMENT', '접대/회의'
+        SUPPLIES = 'SUPPLIES', '사무용품'
+        FUEL = 'FUEL', '유류비'
+        SUBSCRIPTION = 'SUBSCRIPTION', '정기구독'
+        OTHER = 'OTHER', '기타'
+
+    card = models.ForeignKey(
+        CreditCard, verbose_name='카드',
+        on_delete=models.PROTECT, related_name='transactions',
+    )
+    transaction_date = models.DateField('거래일')
+    merchant_name = models.CharField('가맹점명', max_length=100)
+    amount = models.DecimalField(
+        '거래금액', max_digits=15, decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0, default=0)
+    installments = models.IntegerField('할부개월', default=0, help_text='0=일시불')
+    authorization_number = models.CharField('승인번호', max_length=30, blank=True)
+    category = models.CharField(
+        '카테고리', max_length=20,
+        choices=Category.choices, default=Category.OTHER,
+    )
+    partner = models.ForeignKey(
+        'sales.Partner', verbose_name='거래처',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='card_transactions',
+    )
+    voucher = models.ForeignKey(
+        'Voucher', verbose_name='자동전표',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='card_transactions',
+    )
+    is_cancelled = models.BooleanField('취소여부', default=False)
+    cancelled_date = models.DateField('취소일', null=True, blank=True)
+    billing = models.ForeignKey(
+        'CardBilling', verbose_name='청구서',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='transactions',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '카드거래'
+        verbose_name_plural = '카드거래'
+        ordering = ['-transaction_date', '-pk']
+
+    def __str__(self):
+        return f'{self.card.name} {self.merchant_name} {self.amount:,}원'
+
+
+class CardBilling(BaseModel):
+    """카드 월별 청구"""
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', '결제대기'
+        PAID = 'PAID', '결제완료'
+        PARTIAL = 'PARTIAL', '부분결제'
+        OVERDUE = 'OVERDUE', '연체'
+
+    card = models.ForeignKey(
+        CreditCard, verbose_name='카드',
+        on_delete=models.PROTECT, related_name='billings',
+    )
+    billing_month = models.DateField('청구월', help_text='해당월 1일')
+    total_amount = models.DecimalField('청구금액', max_digits=15, decimal_places=0, default=0)
+    paid_amount = models.DecimalField('결제금액', max_digits=15, decimal_places=0, default=0)
+    payment_due_date = models.DateField('결제기한')
+    status = models.CharField(
+        '상태', max_length=20,
+        choices=Status.choices, default=Status.PENDING,
+    )
+    payment = models.ForeignKey(
+        'Payment', verbose_name='결제',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='card_billings',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '카드청구'
+        verbose_name_plural = '카드청구'
+        ordering = ['-billing_month', '-pk']
+        unique_together = [['card', 'billing_month']]
+
+    def __str__(self):
+        return f'{self.card.name} {self.billing_month.strftime("%Y-%m")} ({self.get_status_display()})'
+
+    @property
+    def remaining_amount(self):
+        return self.total_amount - self.paid_amount
 
 
 class Payment(BaseModel):
@@ -719,7 +890,7 @@ class SalesSettlement(BaseModel):
         related_name='sales_settlements',
     )
     total_revenue = models.DecimalField(
-        '총매출', max_digits=15, decimal_places=0, default=0,
+        '총공급가액', max_digits=15, decimal_places=0, default=0,
     )
     total_cost = models.DecimalField(
         '총원가', max_digits=15, decimal_places=0, default=0,
@@ -730,8 +901,13 @@ class SalesSettlement(BaseModel):
     total_shipping = models.DecimalField(
         '총배송비', max_digits=15, decimal_places=0, default=0,
     )
+    total_platform_commission = models.DecimalField(
+        '총플랫폼수수료', max_digits=15, decimal_places=0, default=0,
+        help_text='플랫폼(네이버, 쿠팡 등)에서 이미 공제된 수수료',
+    )
     total_commission = models.DecimalField(
-        '총수수료', max_digits=15, decimal_places=0, default=0,
+        '총정산수수료', max_digits=15, decimal_places=0, default=0,
+        help_text='정산 시 수수료율로 추가 계산된 수수료',
     )
     total_profit = models.DecimalField(
         '총이익', max_digits=15, decimal_places=0, default=0,
@@ -809,7 +985,7 @@ class SalesSettlementOrder(BaseModel):
         on_delete=models.PROTECT, related_name='settlement_items',
     )
     revenue = models.DecimalField(
-        '매출(공급가)', max_digits=15, decimal_places=0, default=0,
+        '공급가액', max_digits=15, decimal_places=0, default=0,
     )
     cost = models.DecimalField(
         '원가(주문시점)', max_digits=15, decimal_places=0, default=0,
@@ -831,11 +1007,15 @@ class SalesSettlementOrder(BaseModel):
     shipping = models.DecimalField(
         '배송비', max_digits=15, decimal_places=0, default=0,
     )
+    platform_commission = models.DecimalField(
+        '플랫폼 수수료', max_digits=15, decimal_places=0, default=0,
+        help_text='플랫폼에서 이미 공제된 수수료',
+    )
     commission_rate = models.DecimalField(
-        '수수료율(%)', max_digits=5, decimal_places=2, default=0,
+        '정산 수수료율(%)', max_digits=5, decimal_places=2, default=0,
     )
     commission = models.DecimalField(
-        '수수료', max_digits=15, decimal_places=0, default=0,
+        '정산 수수료', max_digits=15, decimal_places=0, default=0,
     )
     profit = models.DecimalField(
         '이익', max_digits=15, decimal_places=0, default=0,

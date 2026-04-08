@@ -20,7 +20,7 @@ class ServiceRequestListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(is_active=True).select_related('product', 'customer')
+        qs = super().get_queryset().filter(is_active=True).select_related('product', 'customer', 'order')
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
@@ -60,6 +60,7 @@ class ServiceRequestCreateView(ManagerRequiredMixin, CreateView):
 class ServiceRequestDetailView(LoginRequiredMixin, DetailView):
     model = ServiceRequest
     template_name = 'service/request_detail.html'
+    context_object_name = 'service_request'
     slug_field = 'request_number'
     slug_url_kwarg = 'slug'
 

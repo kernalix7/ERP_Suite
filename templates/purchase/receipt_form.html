@@ -72,11 +72,13 @@
                         <th class="px-4 py-3 text-right">{% trans "잔량" %}</th>
                         <th class="px-4 py-3 w-32">{% trans "입고수량" %}</th>
                         <th class="px-4 py-3 w-24 text-center">{% trans "검수" %}</th>
+                        <th class="px-4 py-3 w-24 text-center">{% trans "자산등록" %}</th>
+                        <th class="px-4 py-3 w-40">{% trans "자산분류" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for item in po_items %}
-                    <tr class="hover:bg-gray-50 transition-colors">
+                    <tr class="hover:bg-gray-50 transition-colors" x-data="{ isAsset: false }">
                         <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
                         <td class="px-4 py-3 text-gray-900 font-medium">{{ item.product }}</td>
                         <td class="px-4 py-3 text-right text-gray-600">{{ item.unit_price|intcomma }}{% trans "원" %}</td>
@@ -91,12 +93,27 @@
                         </td>
                         <td class="px-4 py-3">
                             <input type="number" name="recv_qty_{{ item.pk }}"
-                                   value="{% if item.remaining_quantity > 0 %}{{ item.remaining_quantity }}{% else %}0{% endif %}"
+                                   value="0"
                                    min="0" max="{{ item.remaining_quantity }}"
-                                   class="form-input text-right w-full">
+                                   class="form-input text-right w-full"
+                                   placeholder="{{ item.remaining_quantity }}">
                         </td>
                         <td class="px-4 py-3 text-center">
                             <input type="checkbox" name="inspected_{{ item.pk }}" class="form-checkbox" checked>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <input type="checkbox" name="is_asset_{{ item.pk }}" class="form-checkbox"
+                                   x-model="isAsset">
+                        </td>
+                        <td class="px-4 py-3">
+                            <div x-show="isAsset" x-cloak>
+                                <select name="asset_category_{{ item.pk }}" class="form-input w-full text-sm">
+                                    <option value="">-- 선택 --</option>
+                                    {% for cat in asset_categories %}
+                                    <option value="{{ cat.pk }}">{{ cat }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

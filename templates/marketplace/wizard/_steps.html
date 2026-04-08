@@ -1,0 +1,42 @@
+<!-- 6단계 위자드 진행 표시 바 -->
+{% with stages="FETCH,PREVIEW,CUSTOMER,QUOTATION,ORDER,DONE" %}
+<nav class="bg-white shadow rounded-lg p-4 mb-6">
+    <ol class="flex items-center w-full text-sm">
+        {# 1. 데이터 수집 #}
+        <li class="flex items-center {% if current_stage == 'FETCH' %}text-blue-600 font-semibold{% elif current_stage != 'FETCH' %}text-green-600{% else %}text-gray-400{% endif %}">
+            <span class="flex items-center justify-center w-6 h-6 rounded-full {% if current_stage == 'FETCH' %}bg-blue-600 text-white{% elif current_stage != 'FETCH' %}bg-green-500 text-white{% else %}bg-gray-200{% endif %} text-xs mr-2">1</span>
+            <span class="hidden sm:inline">데이터 수집</span>
+        </li>
+        <li class="flex-1 border-t-2 mx-2 {% if current_stage == 'PREVIEW' or current_stage == 'CUSTOMER' or current_stage == 'QUOTATION' or current_stage == 'ORDER' or current_stage == 'DONE' %}border-green-400{% else %}border-gray-200{% endif %}"></li>
+        {# 2. 미리보기 #}
+        <li class="flex items-center {% if current_stage == 'PREVIEW' %}text-blue-600 font-semibold{% elif current_stage == 'CUSTOMER' or current_stage == 'QUOTATION' or current_stage == 'ORDER' or current_stage == 'DONE' %}text-green-600{% else %}text-gray-400{% endif %}">
+            <span class="flex items-center justify-center w-6 h-6 rounded-full {% if current_stage == 'PREVIEW' %}bg-blue-600 text-white{% elif current_stage == 'CUSTOMER' or current_stage == 'QUOTATION' or current_stage == 'ORDER' or current_stage == 'DONE' %}bg-green-500 text-white{% else %}bg-gray-200{% endif %} text-xs mr-2">2</span>
+            <span class="hidden sm:inline">미리보기</span>
+        </li>
+        <li class="flex-1 border-t-2 mx-2 {% if current_stage == 'CUSTOMER' or current_stage == 'QUOTATION' or current_stage == 'ORDER' or current_stage == 'DONE' %}border-green-400{% else %}border-gray-200{% endif %}"></li>
+        {# 3. 고객등록 #}
+        <li class="flex items-center {% if current_stage == 'CUSTOMER' %}text-blue-600 font-semibold{% elif current_stage == 'QUOTATION' or current_stage == 'ORDER' or current_stage == 'DONE' %}text-green-600{% else %}text-gray-400{% endif %}">
+            <span class="flex items-center justify-center w-6 h-6 rounded-full {% if current_stage == 'CUSTOMER' %}bg-blue-600 text-white{% elif current_stage == 'QUOTATION' or current_stage == 'ORDER' or current_stage == 'DONE' %}bg-green-500 text-white{% else %}bg-gray-200{% endif %} text-xs mr-2">3</span>
+            <span class="hidden sm:inline">고객등록</span>
+        </li>
+        <li class="flex-1 border-t-2 mx-2 {% if current_stage == 'QUOTATION' or current_stage == 'ORDER' or current_stage == 'DONE' %}border-green-400{% else %}border-gray-200{% endif %}"></li>
+        {# 4. 견적생성 #}
+        <li class="flex items-center {% if current_stage == 'QUOTATION' %}text-blue-600 font-semibold{% elif current_stage == 'ORDER' or current_stage == 'DONE' %}text-green-600{% else %}text-gray-400{% endif %}">
+            <span class="flex items-center justify-center w-6 h-6 rounded-full {% if current_stage == 'QUOTATION' %}bg-blue-600 text-white{% elif current_stage == 'ORDER' or current_stage == 'DONE' %}bg-green-500 text-white{% else %}bg-gray-200{% endif %} text-xs mr-2">4</span>
+            <span class="hidden sm:inline">견적생성</span>
+        </li>
+        <li class="flex-1 border-t-2 mx-2 {% if current_stage == 'ORDER' or current_stage == 'DONE' %}border-green-400{% else %}border-gray-200{% endif %}"></li>
+        {# 5. 주문전환 #}
+        <li class="flex items-center {% if current_stage == 'ORDER' %}text-blue-600 font-semibold{% elif current_stage == 'DONE' %}text-green-600{% else %}text-gray-400{% endif %}">
+            <span class="flex items-center justify-center w-6 h-6 rounded-full {% if current_stage == 'ORDER' %}bg-blue-600 text-white{% elif current_stage == 'DONE' %}bg-green-500 text-white{% else %}bg-gray-200{% endif %} text-xs mr-2">5</span>
+            <span class="hidden sm:inline">주문전환</span>
+        </li>
+        <li class="flex-1 border-t-2 mx-2 {% if current_stage == 'DONE' %}border-green-400{% else %}border-gray-200{% endif %}"></li>
+        {# 6. 완료 #}
+        <li class="flex items-center {% if current_stage == 'DONE' %}text-blue-600 font-semibold{% else %}text-gray-400{% endif %}">
+            <span class="flex items-center justify-center w-6 h-6 rounded-full {% if current_stage == 'DONE' %}bg-blue-600 text-white{% else %}bg-gray-200{% endif %} text-xs mr-2">6</span>
+            <span class="hidden sm:inline">완료</span>
+        </li>
+    </ol>
+</nav>
+{% endwith %}

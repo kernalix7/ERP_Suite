@@ -60,11 +60,12 @@
             <thead>
                 <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
                     <th class="px-4 py-3">주문번호</th>
+                    <th class="px-4 py-3">스토어번호</th>
                     <th class="px-4 py-3">거래처/고객</th>
-                    <th class="px-4 py-3">주문일</th>
-                    <th class="px-4 py-3">주문 전환일</th>
+                    <th class="px-4 py-3">견적일 / 전환일</th>
                     <th class="px-4 py-3 text-center">상태</th>
                     <th class="px-4 py-3 text-right">합계금액</th>
+                    <th class="px-4 py-3">작성일</th>
                     <th class="px-4 py-3 text-center">관리</th>
                 </tr>
             </thead>
@@ -76,16 +77,21 @@
                             {{ order.order_number }}
                         </a>
                     </td>
+                    <td class="px-4 py-3 text-xs text-gray-500 font-mono">{% with mp=order.marketplace_orders.first %}{% if mp %}{{ mp.store_order_id }}{% else %}-{% endif %}{% endwith %}</td>
                     <td class="px-4 py-3 text-gray-900">
                         {% if order.partner %}{{ order.partner.name }}{% endif %}
                         {% if order.customer %}{{ order.customer.name }}{% endif %}
                     </td>
-                    <td class="px-4 py-3 text-gray-600">
-                        {% with sq=order.source_quotation.first %}
-                            {% if sq %}{{ sq.quote_date|date:"Y-m-d" }}{% else %}-{% endif %}
+                    <td class="px-4 py-3">
+                        {% with q=order.source_quotation.first %}
+                        {% if q %}
+                        <div class="text-gray-900 font-medium">{{ q.quote_date|date:"Y-m-d" }}</div>
+                        <div class="text-gray-400 text-xs mt-0.5">전환 {{ order.order_date|date:"m-d" }}</div>
+                        {% else %}
+                        <div class="text-gray-600">{{ order.order_date|date:"Y-m-d" }}</div>
+                        {% endif %}
                         {% endwith %}
                     </td>
-                    <td class="px-4 py-3 text-gray-600">{{ order.order_date|date:"Y-m-d" }}</td>
                     <td class="px-4 py-3 text-center">
                         {% if order.status == 'DRAFT' %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">작성중</span>
@@ -104,6 +110,7 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ order.total_amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ order.created_at|date:"m-d H:i" }}</td>
                     <td class="px-4 py-3 text-center">
                         <a href="{% url 'sales:order_detail' order.order_number %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
                         {% if order.status == 'DRAFT' %}
@@ -113,7 +120,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
                         등록된 주문이 없습니다.
                     </td>
                 </tr>

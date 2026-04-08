@@ -7,8 +7,10 @@
 {% block header_actions %}
 <a href="{% url 'asset:asset_update' asset.asset_number %}" class="btn btn-primary">수정</a>
 {% if asset.status == 'ACTIVE' %}
+<a href="{% url 'asset:asset_transfer' asset.asset_number %}" class="btn btn-info">이관</a>
 <a href="{% url 'asset:asset_dispose' asset.asset_number %}" class="btn btn-danger">처분</a>
 {% endif %}
+<a href="{% url 'asset:qr_print' %}?ids={{ asset.pk }}" class="btn btn-secondary">QR 인쇄</a>
 <a href="{% url 'asset:asset_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
@@ -65,12 +67,26 @@
                 </span>
             </p>
         </div>
+        {% if asset.source_receipt_item %}
+        <div>
+            <p class="text-sm text-gray-500">입고출처</p>
+            <p class="mt-1 font-medium text-gray-900">
+                <a href="{% url 'purchase:receipt_detail' asset.source_receipt_item.goods_receipt.receipt_number %}" class="text-blue-600 hover:underline">
+                    {{ asset.source_receipt_item.goods_receipt.receipt_number }}
+                </a>
+            </p>
+        </div>
+        {% endif %}
         {% if asset.notes %}
         <div class="md:col-span-3">
             <p class="text-sm text-gray-500">비고</p>
             <p class="mt-1 font-medium text-gray-900">{{ asset.notes }}</p>
         </div>
         {% endif %}
+        <div>
+            <p class="text-sm text-gray-500">QR 코드</p>
+            <img src="{% url 'asset:asset_qr' asset.asset_number %}" alt="QR" class="mt-1 w-24 h-24">
+        </div>
     </div>
 </div>
 
@@ -115,6 +131,74 @@
 </div>
 {% endif %}
 
+<!-- 자산 이관 이력 -->
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">자산 이관 이력</h3>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">이관일</th>
+                    <th class="px-4 py-3">이전부서</th>
+                    <th class="px-4 py-3">이관부서</th>
+                    <th class="px-4 py-3">이전관리자</th>
+                    <th class="px-4 py-3">이관관리자</th>
+                    <th class="px-4 py-3">사유</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for t in transfers %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-900">{{ t.transfer_date }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ t.from_department|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-900 font-medium">{{ t.to_department }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ t.from_person|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ t.to_person|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ t.reason|truncatewords:10 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-400">이관 이력이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 리스 계약 -->
+{% if lease_contracts %}
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">리스 계약</h3>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">계약번호</th>
+                    <th class="px-4 py-3">리스유형</th>
+                    <th class="px-4 py-3">임대인</th>
+                    <th class="px-4 py-3">계약기간</th>
+                    <th class="px-4 py-3 text-right">월 리스료</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for lc in lease_contracts %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono">
+                        <a href="{% url 'asset:lease_detail' lc.pk %}" class="text-blue-600 hover:underline">{{ lc.contract_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ lc.get_lease_type_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ lc.lessor|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ lc.start_date }} ~ {{ lc.end_date }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ lc.monthly_payment|intcomma }}원</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- 감가상각 내역 -->
 <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">감가상각 내역</h3>
@@ -145,4 +229,5 @@
         </table>
     </div>
 </div>
+{% include 'includes/timestamps.html' with obj=object %}
 {% endblock %}

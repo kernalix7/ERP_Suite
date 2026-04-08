@@ -28,13 +28,74 @@
             <h2 class="text-lg font-semibold text-gray-800">주문 정보</h2>
         </div>
         <div class="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- 고객 정보 (읽기전용) -->
+            <div id="customer-info-box" class="md:col-span-2 bg-gray-50 rounded-lg p-4 border border-gray-200 hidden">
+                <p class="text-sm font-medium text-gray-700 mb-2">고객 정보</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <span class="text-xs text-gray-500">연락처</span>
+                        <p id="customer-phone" class="text-sm text-gray-900">-</p>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-500">주소</span>
+                        <p id="customer-address" class="text-sm text-gray-900">-</p>
+                    </div>
+                </div>
+            </div>
+
             {% for field in form %}
             {% if field.name == 'shipping_address' %}
+            <!-- 배송주소: 고객정보 동일 / 수동입력 선택 -->
             <div class="md:col-span-2">
-                {% include "includes/address_field.html" with field=field field_type="domestic" %}
+                <label class="block text-sm font-medium text-gray-700 mb-2">배송주소</label>
+                <div class="flex flex-wrap gap-3 mb-2">
+                    <label class="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                        <input type="radio" name="address_mode" value="customer" class="text-blue-600" id="addr-mode-customer" checked>
+                        고객정보와 동일
+                    </label>
+                    <label class="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                        <input type="radio" name="address_mode" value="manual" class="text-blue-600" id="addr-mode-manual">
+                        수동입력
+                    </label>
+                    <label class="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                        <input type="radio" name="address_mode" value="other" class="text-blue-600" id="addr-mode-other">
+                        기타
+                    </label>
+                </div>
+                <div id="address-manual-area">
+                    {% include "includes/address_field.html" with field=field field_type="domestic" %}
+                </div>
+                <div id="address-other-area" class="hidden">
+                    <input type="text" id="address-other-text" class="form-input w-full" placeholder="방문수령, 전달 등">
+                </div>
+            </div>
+            {% elif field.name == 'shipping_address_road' or field.name == 'shipping_address_detail' %}
+            {% elif field.name == 'notes' %}
+            <!-- 비고: 견적과 동일 / 수동입력 선택 -->
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">비고</label>
+                {% if quote_notes %}
+                <div class="flex gap-3 mb-2">
+                    <label class="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                        <input type="radio" name="notes_mode" value="quote" class="text-blue-600" id="notes-mode-quote" checked>
+                        견적과 동일
+                    </label>
+                    <label class="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                        <input type="radio" name="notes_mode" value="manual" class="text-blue-600" id="notes-mode-manual">
+                        수동입력
+                    </label>
+                </div>
+                {% endif %}
+                {{ field }}
+                {% if field.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
             </div>
             {% else %}
-            <div {% if field.name == 'notes' %}class="md:col-span-2"{% endif %}>
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">
                     {{ field.label }}
                     {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
@@ -167,6 +228,7 @@
 
 {{ product_units_json|json_script:"product-units-data" }}
 {{ product_costs_json|json_script:"product-costs-data" }}
+{{ quote_notes|default:""|json_script:"quote-notes-data" }}
 <script>
 const _productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
 const _productCosts = JSON.parse(document.getElementById('product-costs-data').textContent);
@@ -335,6 +397,102 @@ function orderForm() {
                     document.querySelectorAll('.formset-row').forEach(row => _priceLookup(row));
                 }
             });
+
+            // 고객 선택 시 주소 표시
+            const customerSel = document.getElementById('id_customer');
+            if (customerSel) {
+                customerSel.addEventListener('change', () => this.fetchCustomerInfo(customerSel.value));
+                if (customerSel.value) this.fetchCustomerInfo(customerSel.value);
+            }
+
+            // 배송주소 모드 전환
+            const addrCustomer = document.getElementById('addr-mode-customer');
+            const addrManual = document.getElementById('addr-mode-manual');
+            const addrOther = document.getElementById('addr-mode-other');
+            const addrManualArea = document.getElementById('address-manual-area');
+            const addrOtherArea = document.getElementById('address-other-area');
+            const addrOtherText = document.getElementById('address-other-text');
+            if (addrCustomer && addrManual) {
+                this._setAddrMode = (mode) => {
+                    // address_field.html의 실제 DOM 구조에 맞춤
+                    const hiddenEl = document.getElementById('id_shipping_address');
+                    const roadWrap = document.getElementById('addr-road-id_shipping_address');
+                    const roadText = document.getElementById('addr-road-text-id_shipping_address');
+                    const detailWrap = document.getElementById('addr-detail-wrap-id_shipping_address');
+                    const detailInput = document.getElementById('addr-detail-id_shipping_address');
+                    if (mode === 'customer') {
+                        addrManualArea.classList.remove('hidden');
+                        addrOtherArea.classList.add('hidden');
+                        const road = this._customerRoad || '';
+                        const detail = this._customerDetail || '';
+                        if (roadText) { roadText.textContent = road; roadText.dataset.road = road; }
+                        if (roadWrap) roadWrap.classList.remove('hidden');
+                        if (detailWrap) detailWrap.classList.remove('hidden');
+                        if (detailInput) { detailInput.value = detail; detailInput.readOnly = true; detailInput.classList.add('bg-gray-100'); }
+                        if (hiddenEl) hiddenEl.value = detail ? road + '\n' + detail : road;
+                    } else if (mode === 'other') {
+                        addrManualArea.classList.add('hidden');
+                        addrOtherArea.classList.remove('hidden');
+                        addrOtherText.addEventListener('input', () => {
+                            if (hiddenEl) hiddenEl.value = addrOtherText.value;
+                        }, { once: false });
+                    } else {
+                        addrManualArea.classList.remove('hidden');
+                        addrOtherArea.classList.add('hidden');
+                        if (roadText) { roadText.textContent = ''; roadText.dataset.road = ''; }
+                        if (roadWrap) roadWrap.classList.add('hidden');
+                        if (detailWrap) detailWrap.classList.remove('hidden');
+                        if (detailInput) { detailInput.value = ''; detailInput.readOnly = false; detailInput.classList.remove('bg-gray-100'); }
+                        if (hiddenEl) hiddenEl.value = '';
+                    }
+                };
+                addrCustomer.addEventListener('change', () => this._setAddrMode('customer'));
+                addrManual.addEventListener('change', () => this._setAddrMode('manual'));
+                addrOther.addEventListener('change', () => this._setAddrMode('other'));
+            }
+
+            // 비고 모드 전환
+            const notesQuote = document.getElementById('notes-mode-quote');
+            const notesManual = document.getElementById('notes-mode-manual');
+            const notesField = document.getElementById('id_notes');
+            const quoteNotes = JSON.parse(document.getElementById('quote-notes-data')?.textContent || '""');
+            if (notesQuote && notesManual && notesField) {
+                notesQuote.addEventListener('change', () => {
+                    notesField.value = quoteNotes;
+                    notesField.readOnly = true;
+                    notesField.classList.add('bg-gray-100');
+                });
+                notesManual.addEventListener('change', () => {
+                    notesField.readOnly = false;
+                    notesField.classList.remove('bg-gray-100');
+                });
+                // 기본: 견적과 동일
+                if (quoteNotes && notesQuote.checked) {
+                    notesField.value = quoteNotes;
+                    notesField.readOnly = true;
+                    notesField.classList.add('bg-gray-100');
+                }
+            }
+        },
+        fetchCustomerInfo(customerId) {
+            const box = document.getElementById('customer-info-box');
+            const addrEl = document.getElementById('customer-address');
+            const phoneEl = document.getElementById('customer-phone');
+            if (!customerId) { box.classList.add('hidden'); return; }
+            fetch('{% url "sales:customer_address" %}?customer_id=' + customerId)
+                .then(r => r.json())
+                .then(data => {
+                    this._customerRoad = data.address_road || '';
+                    this._customerDetail = data.address_detail || '';
+                    addrEl.textContent = data.address || '-';
+                    phoneEl.textContent = data.phone || '-';
+                    box.classList.remove('hidden');
+                    // 고객정보 동일 모드면 주소 갱신
+                    if (document.getElementById('addr-mode-customer')?.checked) {
+                        this._setAddrMode('customer');
+                    }
+                })
+                .catch(() => box.classList.add('hidden'));
         }
     }
 }

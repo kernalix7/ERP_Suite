@@ -38,6 +38,7 @@
                     <th class="px-4 py-3">{% trans "발주번호" %}</th>
                     <th class="px-4 py-3">{% trans "공급처" %}</th>
                     <th class="px-4 py-3">{% trans "입고일" %}</th>
+                    <th class="px-4 py-3">{% trans "작성일" %}</th>
                     <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
                 </tr>
             </thead>
@@ -56,13 +57,14 @@
                     </td>
                     <td class="px-4 py-3 text-gray-900">{{ receipt.purchase_order.partner.name }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ receipt.receipt_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ receipt.created_at|date:"m-d H:i" }}</td>
                     <td class="px-4 py-3 text-center">
                         <a href="{% url 'purchase:receipt_detail' receipt.receipt_number %}" class="text-blue-600 hover:text-blue-800 text-sm">{% trans "상세" %}</a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                         </svg>

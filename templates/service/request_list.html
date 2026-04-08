@@ -61,6 +61,7 @@
                     <th class="px-4 py-3">AS번호</th>
                     <th class="px-4 py-3">고객</th>
                     <th class="px-4 py-3">제품</th>
+                    <th class="px-4 py-3">주문번호</th>
                     <th class="px-4 py-3">요청유형</th>
                     <th class="px-4 py-3 text-center">상태</th>
                     <th class="px-4 py-3">접수일</th>
@@ -78,6 +79,11 @@
                     </td>
                     <td class="px-4 py-3 text-gray-900">{{ req.customer.name|default:"-" }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ req.product.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">
+                        {% if req.order %}
+                        <a href="{% url 'sales:order_detail' req.order.order_number %}" class="text-blue-600 hover:text-blue-800">{{ req.order.order_number }}</a>
+                        {% else %}-{% endif %}
+                    </td>
                     <td class="px-4 py-3 text-gray-600">{{ req.get_request_type_display }}</td>
                     <td class="px-4 py-3 text-center">
                         {% if req.status == 'RECEIVED' %}

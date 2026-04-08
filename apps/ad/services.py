@@ -257,6 +257,9 @@ class ADService:
                             'is_active': ad_enabled,
                         },
                     )
+                    if created:
+                        user.set_unusable_password()
+                        user.save(update_fields=['password'])
 
                     ADUserMapping.objects.create(
                         user=user,

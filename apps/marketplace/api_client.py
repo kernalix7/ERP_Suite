@@ -31,6 +31,43 @@ class NaverCommerceClient:
     BASE_URL = 'https://api.commerce.naver.com/external'
     TOKEN_URL = 'https://api.commerce.naver.com/external/v1/oauth2/token'
 
+    # 네이버 커머스API 택배사 코드 매핑
+    DELIVERY_COMPANY_CODES = {
+        'CJ대한통운': 'CJGLS',
+        'CJ': 'CJGLS',
+        '한진택배': 'HANJIN',
+        '한진': 'HANJIN',
+        '롯데택배': 'LOTTE',
+        '롯데': 'LOTTE',
+        '로젠택배': 'LOGEN',
+        '로젠': 'LOGEN',
+        '우체국택배': 'EPOST',
+        '우체국': 'EPOST',
+        '경동택배': 'KDEXP',
+        '경동': 'KDEXP',
+        '대신택배': 'DAESIN',
+        '대신': 'DAESIN',
+        '일양로지스': 'ILYANG',
+        '일양': 'ILYANG',
+        'GS Postbox': 'GSPOSTBOX',
+        '합동택배': 'HDEXP',
+        '합동': 'HDEXP',
+        '건영택배': 'KUNYOUNG',
+        '건영': 'KUNYOUNG',
+        '천일택배': 'CHUNIL',
+        '천일': 'CHUNIL',
+        '한의사방택배': 'HANIPS',
+        'SLX': 'SLX',
+        'EMS': 'EMS',
+        'DHL': 'DHL',
+        'FedEx': 'FEDEX',
+        'UPS': 'UPS',
+        'TNT': 'TNT',
+    }
+
+    # 역방향 매핑 (코드 → 택배사명)
+    DELIVERY_CODE_TO_NAME = {v: k for k, v in DELIVERY_COMPANY_CODES.items()}
+
     def __init__(self, client_id: str, client_secret: str):
         self.client_id = client_id.strip()
         self.client_secret = client_secret.strip()
@@ -40,7 +77,7 @@ class NaverCommerceClient:
         self._cb = circuit_breakers['naver']
 
     def _get_access_token(self) -> str:
-        """OAuth 토큰 발급 (BCrypt 서명 방식)"""
+        """OAuth 토큰 발급 (BCrypt 서명 방식, 최대 3회 재시도)"""
         if self._access_token and time.time() < self._token_expires_at:
             return self._access_token
 
@@ -63,23 +100,30 @@ class NaverCommerceClient:
             'type': 'SELF',
         }
 
-        try:
-            resp = self._session.post(self.TOKEN_URL, data=data, timeout=10)
-            if resp.status_code != 200:
-                logger.error(
-                    '네이버 토큰 발급 실패 상세 — status=%s, body=%s',
-                    resp.status_code, resp.text[:500],
-                )
-            resp.raise_for_status()
-            result = resp.json()
-            self._access_token = result['access_token']
-            self._token_expires_at = time.time() + result.get('expires_in', 3600) - 60
-            self._cb.record_success()
-            return self._access_token
-        except requests.RequestException as e:
-            self._cb.record_failure()
-            logger.error('네이버 토큰 발급 실패: %s', e)
-            raise
+        last_error = None
+        for attempt in range(3):
+            try:
+                resp = self._session.post(self.TOKEN_URL, data=data, timeout=10)
+                if resp.status_code != 200:
+                    logger.error(
+                        '네이버 토큰 발급 실패 상세 (시도 %d/3) — status=%s, body=%s',
+                        attempt + 1, resp.status_code, resp.text[:500],
+                    )
+                resp.raise_for_status()
+                result = resp.json()
+                self._access_token = result['access_token']
+                self._token_expires_at = time.time() + result.get('expires_in', 3600) - 60
+                self._cb.record_success()
+                return self._access_token
+            except requests.RequestException as e:
+                last_error = e
+                logger.warning('네이버 토큰 발급 실패 (시도 %d/3): %s', attempt + 1, e)
+                if attempt < 2:
+                    time.sleep(1 * (attempt + 1))
+
+        self._cb.record_failure()
+        logger.error('네이버 토큰 발급 최종 실패 (3회 재시도 후): %s', last_error)
+        raise last_error
 
     def _headers(self) -> dict:
         return {
@@ -96,7 +140,7 @@ class NaverCommerceClient:
             list[dict]: 주문 데이터 리스트
         """
         if not from_date:
-            from_date = datetime.now() - timedelta(days=1)
+            from_date = datetime.now() - timedelta(days=7)
         if not to_date:
             to_date = datetime.now()
 
@@ -171,17 +215,21 @@ class NaverCommerceClient:
         delivery = raw_order.get('delivery', {})
 
         status_map = {
+            'PAYMENT_WAITING': 'NEW',
             'PAYED': 'NEW',
             'DELIVERING': 'SHIPPED',
             'DELIVERED': 'DELIVERED',
             'PURCHASE_DECIDED': 'DELIVERED',
+            'EXCHANGED': 'RETURNED',
             'CANCELED': 'CANCELLED',
             'RETURNED': 'RETURNED',
-            'EXCHANGED': 'RETURNED',
+            'CANCELED_BY_NOPAYMENT': 'CANCELLED',
         }
 
         return {
             'store_order_id': product_order.get('productOrderId', ''),
+            'platform_order_id': order_info.get('orderId', ''),
+            'platform_product_order_id': product_order.get('productOrderId', ''),
             'product_name': product_order.get('productName', ''),
             'option_name': product_order.get('optionContent', ''),
             'quantity': product_order.get('quantity', 1),
@@ -190,10 +238,96 @@ class NaverCommerceClient:
             'buyer_phone': order_info.get('ordererTel', ''),
             'receiver_name': delivery.get('name', ''),
             'receiver_phone': delivery.get('tel1', ''),
-            'receiver_address': delivery.get('baseAddress', '') + ' ' + delivery.get('detailedAddress', ''),
+            'receiver_address': (delivery.get('baseAddress', '') + '\n' + delivery.get('detailedAddress', '')).strip(),
             'status': status_map.get(product_order.get('productOrderStatus'), 'NEW'),
             'ordered_at': product_order.get('orderDate', ''),
+            'delivery_company': self.DELIVERY_CODE_TO_NAME.get(
+                delivery.get('deliveryCompanyCode', ''), '',
+            ),
+            'tracking_number': delivery.get('trackingNumber', ''),
         }
+
+    def dispatch_shipment(self, product_order_ids: list[str]) -> dict:
+        """발주확인 처리 (발송 전 필수 단계)
+
+        Args:
+            product_order_ids: 발주확인할 상품주문번호 리스트
+
+        Returns:
+            dict: API 응답 결과
+        """
+        url = f'{self.BASE_URL}/v1/pay-order/seller/product-orders/confirm'
+
+        if not self._cb.is_available:
+            raise requests.RequestException('네이버 API 일시 차단 (서킷브레이커 OPEN)')
+
+        try:
+            resp = self._session.post(
+                url,
+                headers=self._headers(),
+                json={'productOrderIds': product_order_ids},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            self._cb.record_success()
+            result = resp.json()
+            logger.info('네이버 발주확인 완료: %s', product_order_ids)
+            return result
+        except requests.RequestException as e:
+            self._cb.record_failure()
+            logger.error('네이버 발주확인 실패: %s', e)
+            raise
+
+    def ship_order(self, product_order_id: str,
+                   delivery_company: str, tracking_number: str) -> dict:
+        """배송정보 등록 (발주확인 후 호출)
+
+        Args:
+            product_order_id: 상품주문번호
+            delivery_company: 택배사명 (한글 또는 코드)
+            tracking_number: 운송장번호
+
+        Returns:
+            dict: API 응답 결과
+        """
+        url = (
+            f'{self.BASE_URL}/v1/pay-order/seller/product-orders'
+            f'/{product_order_id}/ship'
+        )
+
+        # 택배사명 → 네이버 코드 변환
+        company_code = self.DELIVERY_COMPANY_CODES.get(
+            delivery_company, delivery_company,
+        )
+
+        if not self._cb.is_available:
+            raise requests.RequestException('네이버 API 일시 차단 (서킷브레이커 OPEN)')
+
+        try:
+            resp = self._session.post(
+                url,
+                headers=self._headers(),
+                json={
+                    'deliveryMethod': 'DELIVERY',
+                    'deliveryCompanyCode': company_code,
+                    'trackingNumber': tracking_number,
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            self._cb.record_success()
+            result = resp.json()
+            logger.info(
+                '네이버 배송정보 등록 완료: %s (택배사: %s, 운송장: %s)',
+                product_order_id, company_code, tracking_number,
+            )
+            return result
+        except requests.RequestException as e:
+            self._cb.record_failure()
+            logger.error(
+                '네이버 배송정보 등록 실패 (%s): %s', product_order_id, e,
+            )
+            raise
 
 
 class CoupangClient:
@@ -237,7 +371,7 @@ class CoupangClient:
             list[dict]: 주문 데이터 리스트
         """
         if not from_date:
-            from_date = datetime.now() - timedelta(days=1)
+            from_date = datetime.now() - timedelta(days=7)
         if not to_date:
             to_date = datetime.now()
 
@@ -283,6 +417,8 @@ class CoupangClient:
 
         return {
             'store_order_id': str(raw_order.get('orderId', '')),
+            'platform_order_id': str(raw_order.get('orderId', '')),
+            'platform_product_order_id': str(raw_order.get('orderItemId', '')),
             'product_name': raw_order.get('sellerProductName', ''),
             'option_name': raw_order.get('sellerProductItemName', ''),
             'quantity': raw_order.get('shippingCount', 1),
@@ -294,7 +430,87 @@ class CoupangClient:
             'receiver_address': raw_order.get('receiver', {}).get('addr1', '') + ' ' + raw_order.get('receiver', {}).get('addr2', ''),
             'status': status_map.get(raw_order.get('status'), 'NEW'),
             'ordered_at': raw_order.get('orderedAt', ''),
+            'delivery_company': raw_order.get('deliveryCompanyName', ''),
+            'tracking_number': raw_order.get('invoiceNumber', ''),
         }
+
+    def confirm_order(self, shipment_box_ids: list[int]) -> dict:
+        """발주확인 처리
+
+        Args:
+            shipment_box_ids: 발주확인할 shipmentBoxId 리스트
+
+        Returns:
+            dict: API 응답 결과
+        """
+        path = '/v2/providers/openapi/apis/api/v4/vendors/A00000001/ordersheets/confirmation'
+        query_string = ''
+
+        if not self._cb.is_available:
+            raise requests.RequestException('쿠팡 API 일시 차단 (서킷브레이커 OPEN)')
+
+        try:
+            headers = self._generate_signature('PUT', path, query_string)
+            resp = self._session.put(
+                f'{self.BASE_URL}{path}',
+                headers=headers,
+                json={'shipmentBoxIds': shipment_box_ids},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            self._cb.record_success()
+            result = resp.json()
+            logger.info('쿠팡 발주확인 완료: %s', shipment_box_ids)
+            return result
+        except requests.RequestException as e:
+            self._cb.record_failure()
+            logger.error('쿠팡 발주확인 실패: %s', e)
+            raise
+
+    def ship_order(self, shipment_box_id: int,
+                   delivery_company: str, tracking_number: str) -> dict:
+        """배송정보 등록
+
+        Args:
+            shipment_box_id: 출고 박스 ID
+            delivery_company: 택배사명
+            tracking_number: 운송장번호
+
+        Returns:
+            dict: API 응답 결과
+        """
+        path = '/v2/providers/openapi/apis/api/v4/vendors/A00000001/ordersheets/invoices'
+        query_string = ''
+
+        if not self._cb.is_available:
+            raise requests.RequestException('쿠팡 API 일시 차단 (서킷브레이커 OPEN)')
+
+        try:
+            headers = self._generate_signature('POST', path, query_string)
+            resp = self._session.post(
+                f'{self.BASE_URL}{path}',
+                headers=headers,
+                json=[{
+                    'shipmentBoxId': shipment_box_id,
+                    'deliveryCompanyCode': delivery_company,
+                    'invoiceNumber': tracking_number,
+                }],
+                timeout=30,
+            )
+            resp.raise_for_status()
+            self._cb.record_success()
+            result = resp.json()
+            logger.info(
+                '쿠팡 배송정보 등록 완료: box=%s (택배사: %s, 운송장: %s)',
+                shipment_box_id, delivery_company, tracking_number,
+            )
+            return result
+        except requests.RequestException as e:
+            self._cb.record_failure()
+            logger.error(
+                '쿠팡 배송정보 등록 실패 (box=%s): %s', shipment_box_id, e,
+            )
+            raise
 
 
 def get_client(config=None):

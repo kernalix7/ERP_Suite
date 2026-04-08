@@ -5,7 +5,7 @@
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
-    {% if quote.status != 'CONVERTED' %}
+    {% if quote.status != 'CONVERTED' and quote.status != 'EXPIRED' and quote.status != 'REJECTED' %}
     <a href="{% url 'sales:quote_update' quote.quote_number %}" class="btn btn-primary">수정</a>
     <form method="post" action="{% url 'sales:quote_convert' quote.quote_number %}" class="inline" onsubmit="return confirm('이 견적서를 주문으로 전환하시겠습니까?')">
         {% csrf_token %}
@@ -31,6 +31,11 @@
             <div class="flex"><dt class="w-28 text-gray-500">상태</dt><dd>{{ quote.get_status_display }}</dd></div>
             <div class="flex"><dt class="w-28 text-gray-500">작성자</dt><dd>{{ quote.created_by|default:"-" }}</dd></div>
             <div class="flex"><dt class="w-28 text-gray-500">비고</dt><dd>{{ quote.notes|default:"-" }}</dd></div>
+            {% with mp_order=quote.marketplace_quotations.first %}
+            {% if mp_order %}
+            <div class="flex"><dt class="w-28 text-gray-500">스토어 주문</dt><dd><a href="{% url 'marketplace:order_detail' mp_order.store_order_id %}" class="text-blue-600 hover:text-blue-800 font-mono">{{ mp_order.store_order_id }}</a></dd></div>
+            {% endif %}
+            {% endwith %}
         </dl>
     </div>
     <div class="bg-white shadow rounded-lg p-4 sm:p-6">
@@ -110,4 +115,5 @@
         </table>
     </div>
 </div>
+{% include 'includes/timestamps.html' with obj=object %}
 {% endblock %}

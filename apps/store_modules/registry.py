@@ -32,7 +32,7 @@ class ModuleRegistry:
         return dict(self._modules)
 
     def choices(self) -> list[tuple[str, str]]:
-        result = [('', '---------')]
+        result = [('', '-- 선택 --')]
         result.extend(
             (mid, cls.module_name)
             for mid, cls in sorted(self._modules.items())

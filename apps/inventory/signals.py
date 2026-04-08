@@ -196,9 +196,13 @@ def update_stock_on_save(sender, instance, created, **kwargs):
     if not created:
         return
 
+    # 서비스/무형상품은 재고 미추적
+    product = Product.all_objects.get(pk=instance.product_id)
+    if not product.is_stockable:
+        return
+
     # C1: 출고 시 재고 부족 경고 로깅
     if instance.movement_type in OUTBOUND_TYPES:
-        product = Product.all_objects.get(pk=instance.product_id)
         if product.current_stock < instance.quantity:
             logger.warning(
                 'Stock going negative: %s (current: %s, out: %s)',
@@ -247,6 +251,9 @@ def update_stock_on_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=StockMovement)
 def update_stock_on_delete(sender, instance, **kwargs):
     """입출고 삭제 시 원자적 재고 복원"""
+    product = Product.all_objects.get(pk=instance.product_id)
+    if not product.is_stockable:
+        return
     with transaction.atomic():
         if instance.movement_type in INBOUND_TYPES:
             Product.objects.filter(pk=instance.product_id).update(
@@ -290,11 +297,11 @@ def _restore_lots_on_outbound_cancel(movement):
     product = Product.all_objects.get(pk=movement.product_id)
     remaining_to_restore = movement.quantity
 
-    # 소진 시 사용한 것과 같은 정렬
+    # 소진 역순으로 복원: FIFO 소진(오래된→최근) → 복원은 최근→오래된
     if product.valuation_method == 'LIFO':
-        ordering = ['-received_date', '-pk']
-    else:
         ordering = ['received_date', 'pk']
+    else:
+        ordering = ['-received_date', '-pk']
 
     lots = (
         StockLot.objects
@@ -341,6 +348,11 @@ def reverse_stock_on_soft_delete(sender, instance, **kwargs):
     except StockMovement.DoesNotExist:
         return
 
+    # 서비스/무형상품은 재고 미추적
+    product = Product.all_objects.get(pk=instance.product_id)
+    if not product.is_stockable:
+        return
+
     # Only trigger when is_active changes from True to False
     if old.is_active and not instance.is_active:
         with transaction.atomic():
@@ -358,6 +370,7 @@ def reverse_stock_on_soft_delete(sender, instance, **kwargs):
                         product = Product.objects.select_for_update().get(
                             pk=old.product_id,
                         )
+                        product.refresh_from_db()
                         old_stock = product.current_stock
                         old_cost = product.cost_price or Decimal('0')
                         new_stock = old_stock - old.quantity
@@ -369,6 +382,7 @@ def reverse_stock_on_soft_delete(sender, instance, **kwargs):
                             ).quantize(
                                 Decimal('1'), rounding=ROUND_HALF_UP,
                             )
+                            new_cost = max(new_cost, Decimal('0'))
                             Product.objects.filter(
                                 pk=old.product_id,
                             ).update(cost_price=new_cost)
@@ -395,10 +409,42 @@ def reverse_stock_on_soft_delete(sender, instance, **kwargs):
                 _restore_lots_on_outbound_cancel(old)
 
 
+@receiver(pre_save, sender=StockTransfer)
+def reverse_transfer_on_soft_delete(sender, instance, **kwargs):
+    """창고간이동 soft delete 시 관련 StockMovement도 soft delete + 재고 복원"""
+    if not instance.pk:
+        return
+    try:
+        old = sender.all_objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+
+    if old.is_active and not instance.is_active:
+        with transaction.atomic():
+            movements = list(StockMovement.objects.filter(
+                reference__startswith=f'창고이동 {old.transfer_number}',
+                is_active=True,
+            ))
+            count = len(movements)
+            # 개별 save()로 reverse_stock_on_soft_delete 시그널 발동
+            # → 재고 복원 + LOT 처리(inbound cancel / outbound restore) 자동 수행
+            for mv in movements:
+                mv.is_active = False
+                mv.save(update_fields=['is_active', 'updated_at'])
+            logger.info(
+                'StockTransfer %s soft deleted — %d movements reversed',
+                old.transfer_number, count,
+            )
+
+
 @receiver(post_save, sender=StockTransfer)
 def create_transfer_movements(sender, instance, created, **kwargs):
     """창고간이동 시 출발창고 OUT + 도착창고 IN 자동 생성"""
     if not created:
+        return
+    # 서비스/무형상품은 재고 미추적
+    product = instance.product
+    if not product.is_stockable:
         return
     with transaction.atomic():
         # OUT from source warehouse

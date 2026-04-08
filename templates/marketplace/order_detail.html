@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load humanize phone_filters %}
 
-{% block title %}스토어 주문상세 - {{ object.order_number }} - ERP Suite{% endblock %}
+{% block title %}스토어 주문상세 - {{ object.store_order_id }} - ERP Suite{% endblock %}
 {% block page_title %}스토어 주문상세{% endblock %}
 
 {% block header_actions %}
@@ -14,24 +14,26 @@
     <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h2 class="text-lg font-semibold text-gray-800">주문 정보</h2>
-            {% if object.status == '신규주문' %}
+            {% if object.status == 'NEW' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">신규주문</span>
-            {% elif object.status == '확인' %}
+            {% elif object.status == 'CONFIRMED' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">확인</span>
-            {% elif object.status == '발송완료' %}
+            {% elif object.status == 'SHIPPED' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">발송완료</span>
-            {% elif object.status == '배송완료' %}
+            {% elif object.status == 'DELIVERED' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">배송완료</span>
-            {% elif object.status == '취소' %}
+            {% elif object.status == 'CANCELLED' %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">취소</span>
+            {% elif object.status == 'RETURNED' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">반품</span>
             {% else %}
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ object.status }}</span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ object.get_status_display }}</span>
             {% endif %}
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div>
                 <dt class="text-sm text-gray-500">주문번호</dt>
-                <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ object.order_number }}</dd>
+                <dd class="mt-1 text-sm font-mono font-medium text-gray-900">{{ object.store_order_id }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">상품명</dt>
@@ -43,7 +45,7 @@
             </div>
             <div>
                 <dt class="text-sm text-gray-500">금액</dt>
-                <dd class="mt-1 text-sm font-bold text-gray-900">{{ object.amount|intcomma }}원</dd>
+                <dd class="mt-1 text-sm font-bold text-gray-900">{{ object.price|intcomma }}원</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">주문자</dt>
@@ -51,7 +53,7 @@
             </div>
             <div>
                 <dt class="text-sm text-gray-500">주문일</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ object.order_date|date:"Y-m-d H:i" }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.ordered_at|date:"Y-m-d H:i" }}</dd>
             </div>
             <div class="md:col-span-2 lg:col-span-3">
                 <dt class="text-sm text-gray-500">비고</dt>
@@ -82,7 +84,7 @@
             </div>
             <div class="md:col-span-2">
                 <dt class="text-sm text-gray-500">배송지</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ object.shipping_address|default:"-" }}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{{ object.receiver_address|default:"-" }}</dd>
             </div>
         </div>
     </div>
@@ -100,4 +102,5 @@
     </div>
     {% endif %}
 </div>
+{% include 'includes/timestamps.html' with obj=object %}
 {% endblock %}

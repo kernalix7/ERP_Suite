@@ -303,6 +303,8 @@
                             <li><a href="{% url 'accounting:closing_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결산 마감" %}</a></li>
                             <li><a href="{% url 'accounting:bank_reconciliation' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "은행 대사" %}</a></li>
                             <li><a href="{% url 'accounting:monthly_pl' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "월별 손익" %}</a></li>
+                            <li><a href="{% url 'accounting:balance_sheet' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "대차대조표" %}</a></li>
+                            <li><a href="{% url 'accounting:cash_flow' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "현금흐름표" %}</a></li>
                             <li><a href="{% url 'accounting:breakeven' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "손익분기점" %}</a></li>
                             <li><a href="{% url 'accounting:settlement_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "원가정산" %}</a></li>
                             <li><a href="{% url 'accounting:sales_settlement_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "매출정산" %}</a></li>
@@ -310,6 +312,9 @@
                             <li><a href="{% url 'accounting:bankaccount_dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계좌 현황" %}</a></li>
                             <li><a href="{% url 'accounting:bankaccount_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결제계좌" %}</a></li>
                             <li><a href="{% url 'accounting:transfer_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "계좌이체" %}</a></li>
+                            <li><a href="{% url 'accounting:card_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "카드 목록" %}</a></li>
+                            <li><a href="{% url 'accounting:card_transaction_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "카드 사용내역" %}</a></li>
+                            <li><a href="{% url 'accounting:card_billing_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "카드 청구" %}</a></li>
                             <li class="pt-1"><span class="block px-3 py-1 text-xs text-slate-500">{% trans "채권/채무" %}</span></li>
                             <li><a href="{% url 'accounting:ar_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "미수금" %}</a></li>
                             <li><a href="{% url 'accounting:ar_aging' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "미수금 경과분석" %}</a></li>
@@ -367,6 +372,13 @@
                             <li><a href="{% url 'asset:depreciation_run' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "감가상각 실행" %}</a></li>
                             <li><a href="{% url 'asset:summary' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 현황" %}</a></li>
                             <li><a href="{% url 'asset:category_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 분류" %}</a></li>
+                            <li><a href="{% url 'asset:certification_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "인증 관리" %}</a></li>
+                            <li><a href="{% url 'asset:lease_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "리스 계약" %}</a></li>
+                            <li><a href="{% url 'asset:location_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "위치 관리" %}</a></li>
+                            <li><a href="{% url 'asset:transfer_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 이관" %}</a></li>
+                            <li><a href="{% url 'asset:audit_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산 실사" %}</a></li>
+                            <li><a href="{% url 'asset:register_report' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "자산대장" %}</a></li>
+                            <li><a href="{% url 'asset:department_summary' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "부서별 현황" %}</a></li>
                         </ul>
                     </li>
                     {% endif %}
@@ -408,6 +420,8 @@
                         <ul x-show="open && sidebarOpen" x-cloak class="mt-1 ml-4 space-y-1">
                             <li><a href="{% url 'marketplace:dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 현황" %}</a></li>
                             <li><a href="{% url 'marketplace:order_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 주문" %}</a></li>
+                            <li><a href="{% url 'marketplace:wizard_fetch' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "가져오기" %}</a></li>
+                            <li><a href="{% url 'marketplace:reconciliation_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "정산 대사" %}</a></li>
                             {% if effective_role == 'manager' or effective_role == 'admin' %}
                             <li><a href="{% url 'marketplace:config' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "스토어 설정" %}</a></li>
                             {% endif %}

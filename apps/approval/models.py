@@ -23,6 +23,7 @@ class ApprovalRequest(BaseModel):
         OVERTIME = 'OVERTIME', '초과근무'
         TRAVEL = 'TRAVEL', '출장신청'
         IT_REQUEST = 'IT_REQUEST', 'IT요청'
+        ASSET_DISPOSAL = 'ASSET_DISPOSAL', '자산처분'
 
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', '작성중'

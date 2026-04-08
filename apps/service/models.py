@@ -46,6 +46,11 @@ class ServiceRequest(BaseModel):
     symptom = models.TextField('증상/내용')
     received_date = models.DateField('접수일')
     completed_date = models.DateField('완료일', null=True, blank=True)
+    order = models.ForeignKey(
+        'sales.Order', verbose_name='관련주문',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='service_requests',
+    )
     is_warranty = models.BooleanField('보증기간내', default=False)
     history = HistoricalRecords()
 

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}자산 실사 실행 - ERP Suite{% endblock %}
+{% block page_title %}자산 실사 실행{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:audit_detail' audit.pk %}" class="btn btn-secondary">상세로 돌아가기</a>
+<a href="{% url 'asset:audit_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<!-- 실사 정보 요약 -->
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div>
+            <p class="text-sm text-gray-500">실사일</p>
+            <p class="mt-1 font-medium text-gray-900">{{ audit.audit_date }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">대상부서</p>
+            <p class="mt-1 font-medium text-gray-900">{{ audit.department|default:"전체" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-500">실사자</p>
+            <p class="mt-1 font-medium text-gray-900">{{ audit.auditor }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- 실사 항목 입력 -->
+<div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">실사 결과 입력</h3>
+    <form method="post">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">#</th>
+                        <th class="px-4 py-3">자산번호</th>
+                        <th class="px-4 py-3">자산명</th>
+                        <th class="px-4 py-3">분류</th>
+                        <th class="px-4 py-3">장부상 부서</th>
+                        <th class="px-4 py-3 w-36">실사상태</th>
+                        <th class="px-4 py-3 w-28">상태</th>
+                        <th class="px-4 py-3 w-40">실제위치</th>
+                        <th class="px-4 py-3 w-40">비고</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in items %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-gray-400">{{ forloop.counter }}</td>
+                        <td class="px-4 py-3 font-mono">{{ item.asset.asset_number }}</td>
+                        <td class="px-4 py-3 text-gray-900 font-medium">{{ item.asset.name }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ item.asset.category|default:"-" }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ item.asset.department|default:"-" }}</td>
+                        <td class="px-4 py-3">
+                            <select name="status_{{ item.pk }}" class="form-input text-sm w-full">
+                                {% for val, label in status_choices %}
+                                <option value="{{ val }}" {% if item.status == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="px-4 py-3">
+                            <select name="condition_{{ item.pk }}" class="form-input text-sm w-full">
+                                {% for val, label in condition_choices %}
+                                <option value="{{ val }}" {% if item.condition == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="px-4 py-3">
+                            <input type="text" name="location_{{ item.pk }}" value="{{ item.actual_location }}" class="form-input text-sm w-full" placeholder="실제위치">
+                        </td>
+                        <td class="px-4 py-3">
+                            <input type="text" name="remark_{{ item.pk }}" value="{{ item.remark }}" class="form-input text-sm w-full" placeholder="비고">
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-4 py-12 text-center text-gray-400">실사 항목이 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if items %}
+        <div class="mt-4 flex justify-end">
+            <button type="submit" class="btn btn-primary">실사결과 저장</button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

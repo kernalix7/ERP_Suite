@@ -24,4 +24,5 @@ urlpatterns = [
     path('receipts/', views.GoodsReceiptListView.as_view(), name='receipt_list'),
     path('receipts/excel/', excel_views.GoodsReceiptExcelView.as_view(), name='receipt_excel'),
     path('receipts/<str:slug>/', views.GoodsReceiptDetailView.as_view(), name='receipt_detail'),
+    path('receipts/<str:slug>/inspect/', views.GoodsReceiptInspectView.as_view(), name='receipt_inspect'),
 ]

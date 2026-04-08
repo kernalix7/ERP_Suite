@@ -47,6 +47,7 @@
                     <th class="px-4 py-3 text-right">{% trans "입고단가" %}</th>
                     <th class="px-4 py-3">{% trans "입고일" %}</th>
                     <th class="px-4 py-3">{% trans "유효기한" %}</th>
+                    <th class="px-4 py-3">{% trans "작성일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -69,10 +70,11 @@
                     <td class="px-4 py-3 text-right text-gray-600">{{ lot.unit_cost|floatformat:0 }}{% trans "원" %}</td>
                     <td class="px-4 py-3 text-gray-500">{{ lot.received_date|date:"Y-m-d" }}</td>
                     <td class="px-4 py-3 text-gray-500">{{ lot.expiry_date|date:"Y-m-d"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ lot.created_at|date:"m-d H:i" }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="9" class="px-6 py-12 text-center text-gray-400">
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                         </svg>

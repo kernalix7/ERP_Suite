@@ -20,9 +20,11 @@ def _delete_old_movements(record):
 
     개별 save() 대신 QuerySet.update()로 bulk 처리하되,
     inventory pre_save 시그널이 발동하지 않으므로 재고 복원을 수동으로 수행.
+    StockLot도 함께 처리: PROD_IN LOT soft delete, PROD_OUT LOT remaining_quantity 복원.
     """
+    from decimal import Decimal, ROUND_HALF_UP
     from django.db.models import F as F_expr
-    from apps.inventory.models import Product, WarehouseStock
+    from apps.inventory.models import Product, WarehouseStock, StockLot
 
     prefix = _record_ref_prefix(record.work_order, record)
     movements = StockMovement.all_objects.filter(
@@ -37,6 +39,11 @@ def _delete_old_movements(record):
     INBOUND = {'IN', 'ADJ_PLUS', 'PROD_IN', 'RETURN'}
     OUTBOUND = {'OUT', 'ADJ_MINUS', 'PROD_OUT'}
     for mv in movements:
+        # 서비스/무형상품은 재고 복원 스킵
+        product_obj = Product.all_objects.get(pk=mv.product_id)
+        if not product_obj.is_stockable:
+            continue
+
         if mv.movement_type in INBOUND:
             Product.objects.filter(pk=mv.product_id).update(
                 current_stock=F_expr('current_stock') - mv.quantity,
@@ -51,6 +58,27 @@ def _delete_old_movements(record):
                 )
             except WarehouseStock.DoesNotExist:
                 pass
+            # PROD_IN: 연결된 StockLot soft delete
+            StockLot.objects.filter(
+                stock_movement=mv, is_active=True,
+            ).update(is_active=False)
+            # PROD_IN: 이동평균단가 역산
+            # 주의: 위에서 current_stock을 이미 F()로 차감했으므로, 원래 재고를 복원하여 계산
+            if mv.movement_type == 'PROD_IN' and mv.unit_price:
+                product = Product.objects.select_for_update().get(pk=mv.product_id)
+                product.refresh_from_db()
+                current = product.current_stock + mv.quantity  # 차감 전 원래 재고
+                if current > mv.quantity:
+                    old_total = (product.cost_price or Decimal('0')) * current
+                    removed_total = mv.unit_price * mv.quantity
+                    new_stock = current - mv.quantity
+                    new_cost = ((old_total - removed_total) / new_stock).quantize(
+                        Decimal('1'), rounding=ROUND_HALF_UP,
+                    )
+                    new_cost = max(new_cost, Decimal('0'))
+                    Product.objects.filter(pk=mv.product_id).update(
+                        cost_price=new_cost,
+                    )
         elif mv.movement_type in OUTBOUND:
             Product.objects.filter(pk=mv.product_id).update(
                 current_stock=F_expr('current_stock') + mv.quantity,
@@ -65,6 +93,32 @@ def _delete_old_movements(record):
                 )
             except WarehouseStock.DoesNotExist:
                 pass
+            # PROD_OUT: 소진된 StockLot의 remaining_quantity 복원 (소진 역순)
+            remaining_to_restore = mv.quantity
+            if product_obj.valuation_method == 'LIFO':
+                ordering = ['received_date', 'pk']      # LIFO 소진 역순
+            else:
+                ordering = ['-received_date', '-pk']    # FIFO 소진 역순
+            lots = (
+                StockLot.objects
+                .filter(
+                    product_id=mv.product_id,
+                    warehouse_id=mv.warehouse_id,
+                    is_active=True,
+                )
+                .exclude(remaining_quantity=F_expr('initial_quantity'))
+                .order_by(*ordering)
+                .select_for_update()
+            )
+            for lot in lots:
+                if remaining_to_restore <= 0:
+                    break
+                consumed = lot.initial_quantity - lot.remaining_quantity
+                restore_qty = min(consumed, remaining_to_restore)
+                remaining_to_restore -= restore_qty
+                StockLot.objects.filter(pk=lot.pk).update(
+                    remaining_quantity=F_expr('remaining_quantity') + restore_qty,
+                )
 
     # bulk soft delete (시그널 우회)
     movements.update(is_active=False)
@@ -76,8 +130,8 @@ def _create_movements(instance, warehouse):
     plan = work_order.production_plan
     product = plan.product
 
-    # 완제품 생산입고
-    if instance.good_quantity > 0:
+    # 완제품 생산입고 (재고 추적 대상만)
+    if instance.good_quantity > 0 and product.is_stockable:
         StockMovement.objects.create(
             movement_number=f'PI-{_record_ref_prefix(work_order, instance)}',
             movement_type='PROD_IN',
@@ -90,11 +144,11 @@ def _create_movements(instance, warehouse):
             created_by=instance.created_by,
         )
 
-    # BOM 기반 원자재 출고
+    # BOM 기반 원자재 출고 (재고 추적 대상만)
     bom = plan.bom
     for bom_item in bom.items.select_related('material').all():
         consumed = bom_item.effective_quantity * instance.good_quantity
-        if consumed > 0:
+        if consumed > 0 and bom_item.material.is_stockable:
             StockMovement.objects.create(
                 movement_number=(
                     f'PO-{_record_ref_prefix(work_order, instance)}'
@@ -135,16 +189,31 @@ def _update_work_order_status(work_order):
 
 def _update_plan_status(plan):
     """생산계획 상태 자동 전환"""
+    from apps.production.models import ProductionRecord
+
     all_complete = all(
         wo.status == 'COMPLETED'
         for wo in plan.work_orders.all()
     )
     if all_complete and plan.status == 'IN_PROGRESS':
-        bom = plan.bom
         plan.status = 'COMPLETED'
-        plan.actual_cost = int(
-            bom.total_material_cost * plan.produced_quantity
+        records = ProductionRecord.objects.filter(
+            work_order__production_plan=plan, is_active=True,
         )
+        actual_total = int(sum(
+            (r.actual_material_cost or 0)
+            + (r.actual_labor_cost or 0)
+            + (r.actual_overhead_cost or 0)
+            for r in records
+        ))
+        if actual_total > 0:
+            plan.actual_cost = actual_total
+        else:
+            # 실제원가 미입력 시 BOM 표준원가 기반 폴백
+            bom = plan.bom
+            plan.actual_cost = int(
+                bom.total_material_cost * plan.produced_quantity
+            )
         plan.save(update_fields=[
             'status', 'actual_cost', 'updated_at',
         ])

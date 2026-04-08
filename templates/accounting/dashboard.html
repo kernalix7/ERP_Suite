@@ -28,9 +28,12 @@
             <div>
                 <p class="text-sm font-medium text-gray-500">올해 비용</p>
                 <p class="mt-2 text-2xl font-bold text-gray-900">{{ year_costs|intcomma }}원</p>
-                <div class="mt-1 flex gap-3 text-xs text-gray-400">
+                <div class="mt-1 flex flex-wrap gap-3 text-xs text-gray-400">
                     <span>고정비 {{ year_fixed|intcomma }}원</span>
-                    <span>변동비 {{ year_variable|intcomma }}원</span>
+                    <span>변동비(COGS) {{ year_variable|intcomma }}원</span>
+                </div>
+                <div class="mt-1 text-xs text-blue-400">
+                    참고: 당기매입액 {{ year_purchases|intcomma }}원
                 </div>
             </div>
             <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
