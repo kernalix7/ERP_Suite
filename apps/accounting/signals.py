@@ -32,8 +32,9 @@ def _generate_voucher_number():
     return f'{prefix}-{suffix}'
 
 
-def _get_closing_safe_date(target_date):
-    """마감된 월이면 다음 월 1일자 반환, 아니면 원본 반환"""
+def _validate_closing_period(target_date):
+    """마감된 월이면 ValidationError 발생, 아니면 원본 반환"""
+    from django.core.exceptions import ValidationError
     from .models import ClosingPeriod
     if ClosingPeriod.objects.filter(
         year=target_date.year,
@@ -41,12 +42,9 @@ def _get_closing_safe_date(target_date):
         is_closed=True,
         is_active=True,
     ).exists():
-        if target_date.month == 12:
-            from datetime import date
-            return date(target_date.year + 1, 1, 1)
-        else:
-            from datetime import date
-            return date(target_date.year, target_date.month + 1, 1)
+        raise ValidationError(
+            f'{target_date.year}년 {target_date.month:02d}월은 마감된 기간입니다. 전표를 생성할 수 없습니다.'
+        )
     return target_date
 
 
@@ -84,7 +82,14 @@ def payment_update_balance_and_voucher(sender, instance, created, **kwargs):
         acct = instance.bank_account
         acct.refresh_from_db()
         if acct.account_code and not instance.voucher:
-            voucher_date = _get_closing_safe_date(instance.payment_date)
+            try:
+                voucher_date = _validate_closing_period(instance.payment_date)
+            except Exception:
+                logger.warning(
+                    'Payment %s — closing period blocked, skipping voucher',
+                    instance.payment_number,
+                )
+                return
             voucher = Voucher.objects.create(
                 voucher_number=_generate_voucher_number(),
                 voucher_type='RECEIPT' if instance.payment_type == 'RECEIPT' else 'PAYMENT',
@@ -165,7 +170,14 @@ def transfer_update_balance_and_voucher(sender, instance, created, **kwargs):
         to_acct.refresh_from_db()
 
         if from_acct.account_code and to_acct.account_code and not instance.voucher:
-            voucher_date = _get_closing_safe_date(instance.transfer_date)
+            try:
+                voucher_date = _validate_closing_period(instance.transfer_date)
+            except Exception:
+                logger.warning(
+                    'AccountTransfer %s — closing period blocked, skipping voucher',
+                    instance.transfer_number,
+                )
+                return
             voucher = Voucher.objects.create(
                 voucher_number=_generate_voucher_number(),
                 voucher_type='TRANSFER',
@@ -340,7 +352,14 @@ def card_transaction_voucher(sender, instance, created, **kwargs):
             )
             return
 
-        voucher_date = _get_closing_safe_date(instance.transaction_date)
+        try:
+            voucher_date = _validate_closing_period(instance.transaction_date)
+        except Exception:
+            logger.warning(
+                'CardTransaction %s — closing period blocked, skipping voucher',
+                instance.pk,
+            )
+            return
         voucher = Voucher.objects.create(
             voucher_number=_generate_voucher_number(),
             voucher_type='PAYMENT',
@@ -400,9 +419,15 @@ def card_transaction_cancel(sender, instance, **kwargs):
             )
             return
 
-        voucher_date = _get_closing_safe_date(
-            instance.cancelled_date or instance.transaction_date,
-        )
+        cancel_date = instance.cancelled_date or instance.transaction_date
+        try:
+            voucher_date = _validate_closing_period(cancel_date)
+        except Exception:
+            logger.warning(
+                'CardTransaction %s cancel — closing period blocked, skipping reverse voucher',
+                instance.pk,
+            )
+            return
         voucher = Voucher.objects.create(
             voucher_number=_generate_voucher_number(),
             voucher_type='PAYMENT',
@@ -424,5 +449,107 @@ def card_transaction_cancel(sender, instance, **kwargs):
             account=expense_acct,
             debit=0, credit=old.amount,
             description=f'{old.card.name} 미지급금 취소',
+            created_by=instance.created_by,
+        )
+
+
+# === AR/AP 자동전표 시그널 ===
+
+@receiver(post_save, sender=AccountReceivable)
+def ar_auto_voucher_on_create(sender, instance, created, **kwargs):
+    """AR 생성 시 자동전표: 차변 120(미수금) / 대변 401(매출)"""
+    if not created or not instance.is_active:
+        return
+
+    with transaction.atomic():
+        acct_120 = _get_account_code('120')  # 미수금
+        acct_401 = _get_account_code('401')  # 매출
+
+        if not acct_120 or not acct_401:
+            logger.warning(
+                'AR %s — missing account codes (120 or 401), skipping auto voucher',
+                instance.pk,
+            )
+            return
+
+        try:
+            voucher_date = _validate_closing_period(instance.due_date)
+        except Exception:
+            logger.warning(
+                'AR %s — closing period blocked, skipping auto voucher',
+                instance.pk,
+            )
+            return
+
+        voucher = Voucher.objects.create(
+            voucher_number=_generate_voucher_number(),
+            voucher_type='RECEIPT',
+            voucher_date=voucher_date,
+            description=f'자동전표: 미수금 발생 ({instance.partner})',
+            approval_status='APPROVED',
+            created_by=instance.created_by,
+        )
+        VoucherLine.objects.create(
+            voucher=voucher,
+            account=acct_120,
+            debit=instance.amount, credit=0,
+            description=f'{instance.partner} 미수금',
+            created_by=instance.created_by,
+        )
+        VoucherLine.objects.create(
+            voucher=voucher,
+            account=acct_401,
+            debit=0, credit=instance.amount,
+            description=f'{instance.partner} 매출',
+            created_by=instance.created_by,
+        )
+
+
+@receiver(post_save, sender=AccountPayable)
+def ap_auto_voucher_on_create(sender, instance, created, **kwargs):
+    """AP 생성 시 자동전표: 차변 501(매입원가) / 대변 253(미지급금)"""
+    if not created or not instance.is_active:
+        return
+
+    with transaction.atomic():
+        acct_501 = _get_account_code('501')  # 매입원가
+        acct_253 = _get_account_code('253')  # 미지급금
+
+        if not acct_501 or not acct_253:
+            logger.warning(
+                'AP %s — missing account codes (501 or 253), skipping auto voucher',
+                instance.pk,
+            )
+            return
+
+        try:
+            voucher_date = _validate_closing_period(instance.due_date)
+        except Exception:
+            logger.warning(
+                'AP %s — closing period blocked, skipping auto voucher',
+                instance.pk,
+            )
+            return
+
+        voucher = Voucher.objects.create(
+            voucher_number=_generate_voucher_number(),
+            voucher_type='PAYMENT',
+            voucher_date=voucher_date,
+            description=f'자동전표: 미지급금 발생 ({instance.partner})',
+            approval_status='APPROVED',
+            created_by=instance.created_by,
+        )
+        VoucherLine.objects.create(
+            voucher=voucher,
+            account=acct_501,
+            debit=instance.amount, credit=0,
+            description=f'{instance.partner} 매입원가',
+            created_by=instance.created_by,
+        )
+        VoucherLine.objects.create(
+            voucher=voucher,
+            account=acct_253,
+            debit=0, credit=instance.amount,
+            description=f'{instance.partner} 미지급금',
             created_by=instance.created_by,
         )

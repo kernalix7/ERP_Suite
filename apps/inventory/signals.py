@@ -1,6 +1,7 @@
 import logging
 from decimal import Decimal, ROUND_HALF_UP
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F
 from django.db.models.signals import post_save, post_delete, pre_save
@@ -190,6 +191,20 @@ def _consume_lots_on_outbound(instance):
     return None
 
 
+def _validate_outbound_stock(product_id, quantity, movement_type):
+    """출고 시 재고 부족 검증 — select_for_update()로 잠금 후 확인
+
+    재고가 부족하면 ValidationError를 발생시켜 출고를 차단한다.
+    서비스/무형상품은 is_stockable=False이므로 호출 전에 걸러진다.
+    """
+    product = Product.objects.select_for_update().get(pk=product_id)
+    if product.current_stock < quantity:
+        raise ValidationError(
+            f'재고 부족: {product.code} {product.name} '
+            f'(현재고: {product.current_stock}, 출고요청: {quantity})',
+        )
+
+
 @receiver(post_save, sender=StockMovement)
 def update_stock_on_save(sender, instance, created, **kwargs):
     """입출고 생성 시 F() 표현식으로 원자적 재고 갱신 (레이스 컨디션 방지)"""
@@ -200,14 +215,6 @@ def update_stock_on_save(sender, instance, created, **kwargs):
     product = Product.all_objects.get(pk=instance.product_id)
     if not product.is_stockable:
         return
-
-    # C1: 출고 시 재고 부족 경고 로깅
-    if instance.movement_type in OUTBOUND_TYPES:
-        if product.current_stock < instance.quantity:
-            logger.warning(
-                'Stock going negative: %s (current: %s, out: %s)',
-                product.code, product.current_stock, instance.quantity,
-            )
 
     with transaction.atomic():
         if instance.movement_type in INBOUND_TYPES:
@@ -339,6 +346,25 @@ def _restore_lots_on_outbound_cancel(movement):
 
 
 @receiver(pre_save, sender=StockMovement)
+def validate_outbound_stock(sender, instance, **kwargs):
+    """출고 시 재고 부족 검증 — 새 출고 전표 생성 시만 작동"""
+    if instance.pk:
+        return  # 기존 레코드 수정(soft delete 등)은 여기서 처리 안 함
+
+    if instance.movement_type not in OUTBOUND_TYPES:
+        return
+
+    product = Product.all_objects.get(pk=instance.product_id)
+    if not product.is_stockable:
+        return
+
+    with transaction.atomic():
+        _validate_outbound_stock(
+            instance.product_id, instance.quantity, instance.movement_type,
+        )
+
+
+@receiver(pre_save, sender=StockMovement)
 def reverse_stock_on_soft_delete(sender, instance, **kwargs):
     """입출고 soft-delete(비활성화) 시 재고 복원"""
     if not instance.pk:
@@ -447,6 +473,24 @@ def create_transfer_movements(sender, instance, created, **kwargs):
     if not product.is_stockable:
         return
     with transaction.atomic():
+        # 출발창고 재고 확인 (select_for_update로 잠금)
+        try:
+            ws = WarehouseStock.objects.select_for_update().get(
+                warehouse=instance.from_warehouse,
+                product=instance.product,
+            )
+            if ws.quantity < instance.quantity:
+                raise ValidationError(
+                    f'출발창고 재고 부족: {instance.from_warehouse.name} '
+                    f'({instance.product.code} 현재고: {ws.quantity}, '
+                    f'이동요청: {instance.quantity})',
+                )
+        except WarehouseStock.DoesNotExist:
+            raise ValidationError(
+                f'출발창고에 재고 없음: {instance.from_warehouse.name} '
+                f'({instance.product.code})',
+            )
+
         # OUT from source warehouse
         StockMovement.objects.create(
             movement_number=f'TF-OUT-{instance.transfer_number}',

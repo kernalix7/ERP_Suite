@@ -1,5 +1,6 @@
 import logging
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, Q, Sum
 from django.db.models.signals import post_save, pre_save
@@ -10,6 +11,22 @@ from .models import GoodsReceiptItem, GoodsReceipt, PurchaseOrder
 from datetime import date, timedelta
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(pre_save, sender=GoodsReceiptItem)
+def validate_receipt_quantity(sender, instance, **kwargs):
+    """입고항목 생성 시 PO 잔여 수량 초과 검증"""
+    if instance.pk:
+        return  # 기존 레코드 수정은 스킵
+
+    po_item = instance.po_item
+    remaining = po_item.quantity - po_item.received_quantity
+    if instance.received_quantity > remaining:
+        raise ValidationError(
+            f'입고 초과: {po_item.product.name} '
+            f'(발주수량: {po_item.quantity}, 기입고: {po_item.received_quantity}, '
+            f'잔여: {remaining}, 입고요청: {instance.received_quantity})',
+        )
 
 
 @receiver(post_save, sender=GoodsReceiptItem)

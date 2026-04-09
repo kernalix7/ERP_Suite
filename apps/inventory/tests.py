@@ -5,7 +5,8 @@ from django.test import TestCase
 
 from apps.accounts.models import User
 from apps.inventory.models import (
-    Product, Category, Warehouse, StockMovement,
+    Product, Category, Warehouse, StockMovement, StockTransfer,
+    WarehouseStock,
 )
 
 
@@ -381,6 +382,11 @@ class StockTransferModelTest(TestCase):
             code='TF-PRD-001', name='이동제품',
             product_type='FINISHED', unit_price=1000, cost_price=500,
             current_stock=100, created_by=self.user,
+        )
+        # 출발창고 재고 설정 (창고이동 검증용)
+        WarehouseStock.objects.create(
+            warehouse=self.wh1, product=self.product,
+            quantity=100, created_by=self.user,
         )
 
     def test_transfer_creation(self):
@@ -1055,3 +1061,169 @@ class InventoryValuationViewTest(TestCase):
         """/inventory/valuation/ 페이지 접근 가능"""
         response = self.client.get('/inventory/valuation/')
         self.assertEqual(response.status_code, 200)
+
+
+class StockNegativePreventionTest(TestCase):
+    """재고 마이너스 방지 + 창고이동 재고 검증 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='neguser', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-NEG', name='마이너스테스트창고', created_by=self.user,
+        )
+        self.warehouse2 = Warehouse.objects.create(
+            code='WH-NEG2', name='도착창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='NEG-PRD-001', name='재고검증제품',
+            product_type='FINISHED', unit_price=10000, cost_price=5000,
+            current_stock=0, created_by=self.user,
+        )
+        self._seq = 0
+
+    def _create_movement(self, movement_type, quantity, product=None,
+                         warehouse=None, unit_price=1000):
+        self._seq += 1
+        return StockMovement.objects.create(
+            movement_number=f'NEG-{self._seq:04d}',
+            movement_type=movement_type,
+            product=product or self.product,
+            warehouse=warehouse or self.warehouse,
+            quantity=quantity,
+            unit_price=unit_price,
+            movement_date=date.today(),
+            created_by=self.user,
+        )
+
+    # ── 재고 마이너스 방지 ─────────────────────────────────
+
+    def test_stock_negative_prevention(self):
+        """재고 부족 시 OUT 출고 차단 검증"""
+        from django.core.exceptions import ValidationError
+        # 재고 10개
+        self._create_movement('IN', 10)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.current_stock, Decimal('10'))
+
+        # 15개 출고 시도 → ValidationError
+        with self.assertRaises(ValidationError):
+            self._create_movement('OUT', 15)
+
+        # 재고 변동 없음 확인
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.current_stock, Decimal('10'))
+
+    def test_stock_negative_prevention_adj_minus(self):
+        """ADJ_MINUS 타입도 재고 부족 시 차단"""
+        from django.core.exceptions import ValidationError
+        self._create_movement('IN', 5)
+        with self.assertRaises(ValidationError):
+            self._create_movement('ADJ_MINUS', 10)
+
+    def test_stock_negative_prevention_prod_out(self):
+        """PROD_OUT 타입도 재고 부족 시 차단"""
+        from django.core.exceptions import ValidationError
+        # 재고 0인 상태에서 생산출고 시도
+        with self.assertRaises(ValidationError):
+            self._create_movement('PROD_OUT', 5)
+
+    def test_stock_negative_allowed_for_service(self):
+        """SERVICE 타입 제품은 재고 추적 안 함 — 음수 허용(시그널 스킵)"""
+        service = Product.objects.create(
+            code='SVC-NEG-001', name='서비스제품',
+            product_type='SERVICE', unit_price=5000, cost_price=0,
+            current_stock=0, created_by=self.user,
+        )
+        # SERVICE 타입은 is_stockable=False → 시그널이 재고 갱신/검증 스킵
+        self._seq += 1
+        movement = StockMovement.objects.create(
+            movement_number=f'NEG-SVC-{self._seq:04d}',
+            movement_type='OUT',
+            product=service,
+            warehouse=self.warehouse,
+            quantity=10,
+            unit_price=0,
+            movement_date=date.today(),
+            created_by=self.user,
+        )
+        self.assertIsNotNone(movement.pk)
+        # SERVICE 제품은 current_stock 미갱신
+        service.refresh_from_db()
+        self.assertEqual(service.current_stock, Decimal('0'))
+
+    def test_normal_outbound_succeeds(self):
+        """정상 출고 성공 확인 — 재고 충분 시 출고 가능"""
+        self._create_movement('IN', 100)
+        self._create_movement('OUT', 30)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.current_stock, Decimal('70'))
+
+    def test_exact_stock_outbound_succeeds(self):
+        """재고와 정확히 같은 수량 출고 가능"""
+        self._create_movement('IN', 50)
+        self._create_movement('OUT', 50)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.current_stock, Decimal('0'))
+
+    # ── 창고간이동 재고 검증 ───────────────────────────────
+
+    def test_transfer_insufficient_stock(self):
+        """창고이동 시 출발창고 재고 부족 차단"""
+        from django.core.exceptions import ValidationError
+        # 출발창고에 10개 입고
+        self._create_movement('IN', 10, warehouse=self.warehouse)
+        # 20개 이동 시도 → 출발창고 재고 부족
+        with self.assertRaises(ValidationError):
+            StockTransfer.objects.create(
+                transfer_number='TF-FAIL-001',
+                from_warehouse=self.warehouse,
+                to_warehouse=self.warehouse2,
+                product=self.product,
+                quantity=20,
+                transfer_date=date.today(),
+                created_by=self.user,
+            )
+
+    def test_transfer_no_warehouse_stock(self):
+        """출발창고에 WarehouseStock 레코드 없을 때 이동 차단"""
+        from django.core.exceptions import ValidationError
+        # WarehouseStock 없는 상태에서 이동 시도
+        with self.assertRaises(ValidationError):
+            StockTransfer.objects.create(
+                transfer_number='TF-FAIL-002',
+                from_warehouse=self.warehouse2,  # 입고한 적 없는 창고
+                to_warehouse=self.warehouse,
+                product=self.product,
+                quantity=5,
+                transfer_date=date.today(),
+                created_by=self.user,
+            )
+
+    def test_transfer_sufficient_stock_succeeds(self):
+        """창고이동 — 재고 충분 시 정상 이동"""
+        self._create_movement('IN', 50, warehouse=self.warehouse)
+        transfer = StockTransfer.objects.create(
+            transfer_number='TF-OK-001',
+            from_warehouse=self.warehouse,
+            to_warehouse=self.warehouse2,
+            product=self.product,
+            quantity=30,
+            transfer_date=date.today(),
+            created_by=self.user,
+        )
+        self.assertIsNotNone(transfer.pk)
+        # 글로벌 재고 변동 없음 (OUT + IN 상쇄)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.current_stock, Decimal('50'))
+        # 출발창고 재고 감소
+        ws_from = WarehouseStock.objects.get(
+            warehouse=self.warehouse, product=self.product,
+        )
+        self.assertEqual(ws_from.quantity, Decimal('20'))
+        # 도착창고 재고 증가
+        ws_to = WarehouseStock.objects.get(
+            warehouse=self.warehouse2, product=self.product,
+        )
+        self.assertEqual(ws_to.quantity, Decimal('30'))

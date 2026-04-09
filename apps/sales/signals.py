@@ -855,6 +855,29 @@ def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
     )
 
 
+@receiver(pre_save, sender='sales.ShipmentItem')
+def restore_reserved_on_shipment_item_soft_delete(sender, instance, **kwargs):
+    """ShipmentItem soft delete 시 예약재고 복원"""
+    if not instance.pk:
+        return
+    try:
+        old = sender.all_objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+    # is_active True → False (soft delete) 시 예약재고 복원
+    if old.is_active and not instance.is_active:
+        order_item = instance.order_item
+        if order_item.product.is_stockable:
+            with transaction.atomic():
+                Product.objects.filter(pk=order_item.product_id).update(
+                    reserved_stock=F('reserved_stock') + instance.quantity,
+                )
+            logger.info(
+                'Restored reserved_stock +%s for product %s (ShipmentItem soft delete)',
+                instance.quantity, order_item.product.code,
+            )
+
+
 def _try_close_order(order):
     """배송완료 + 입금완료 시 자동 종결 (history 보존을 위해 save() 사용)
 

@@ -1565,3 +1565,260 @@ class CardLimitTests(TestCase):
         )
         self.assertEqual(card.usage_rate, 0)
         self.assertEqual(card.remaining_limit, Decimal('-100000'))
+
+
+class ARAutoVoucherTests(TestCase):
+    """AR 생성 시 자동전표 생성 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='AR-AV-001', name='미수금전표 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.acct_120 = AccountCode.objects.create(
+            code='120', name='미수금',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        self.acct_401 = AccountCode.objects.create(
+            code='401', name='매출',
+            account_type=AccountCode.AccountType.REVENUE,
+        )
+
+    def test_ar_auto_voucher_on_create(self):
+        """AR 생성 시 차변 120(미수금) / 대변 401(매출) 자동전표 생성"""
+        initial_count = Voucher.objects.count()
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            due_date=date(2026, 6, 1),
+        )
+        self.assertEqual(Voucher.objects.count(), initial_count + 1)
+        voucher = Voucher.objects.order_by('-pk').first()
+        self.assertTrue(voucher.is_balanced)
+        self.assertIn('미수금 발생', voucher.description)
+        # 차변: 120 미수금
+        debit_line = voucher.lines.filter(debit__gt=0).first()
+        self.assertEqual(debit_line.account.code, '120')
+        self.assertEqual(debit_line.debit, Decimal('1000000'))
+        # 대변: 401 매출
+        credit_line = voucher.lines.filter(credit__gt=0).first()
+        self.assertEqual(credit_line.account.code, '401')
+        self.assertEqual(credit_line.credit, Decimal('1000000'))
+
+    def test_ar_auto_voucher_skips_without_account_codes(self):
+        """계정과목 없으면 자동전표 생성 안 함"""
+        self.acct_120.delete()
+        initial_count = Voucher.objects.count()
+        AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            due_date=date(2026, 6, 1),
+        )
+        self.assertEqual(Voucher.objects.count(), initial_count)
+
+
+class APAutoVoucherTests(TestCase):
+    """AP 생성 시 자동전표 생성 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='AP-AV-001', name='미지급전표 거래처',
+            partner_type=Partner.PartnerType.SUPPLIER,
+        )
+        self.acct_501 = AccountCode.objects.create(
+            code='501', name='매입원가',
+            account_type=AccountCode.AccountType.EXPENSE,
+        )
+        self.acct_253 = AccountCode.objects.create(
+            code='253', name='미지급금',
+            account_type=AccountCode.AccountType.LIABILITY,
+        )
+
+    def test_ap_auto_voucher_on_create(self):
+        """AP 생성 시 차변 501(매입원가) / 대변 253(미지급금) 자동전표 생성"""
+        initial_count = Voucher.objects.count()
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('2000000'),
+            due_date=date(2026, 6, 1),
+        )
+        self.assertEqual(Voucher.objects.count(), initial_count + 1)
+        voucher = Voucher.objects.order_by('-pk').first()
+        self.assertTrue(voucher.is_balanced)
+        self.assertIn('미지급금 발생', voucher.description)
+        # 차변: 501 매입원가
+        debit_line = voucher.lines.filter(debit__gt=0).first()
+        self.assertEqual(debit_line.account.code, '501')
+        self.assertEqual(debit_line.debit, Decimal('2000000'))
+        # 대변: 253 미지급금
+        credit_line = voucher.lines.filter(credit__gt=0).first()
+        self.assertEqual(credit_line.account.code, '253')
+        self.assertEqual(credit_line.credit, Decimal('2000000'))
+
+    def test_ap_auto_voucher_skips_without_account_codes(self):
+        """계정과목 없으면 자동전표 생성 안 함"""
+        self.acct_253.delete()
+        initial_count = Voucher.objects.count()
+        AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            due_date=date(2026, 6, 1),
+        )
+        self.assertEqual(Voucher.objects.count(), initial_count)
+
+
+class AROverdueTransitionTests(TestCase):
+    """AR 연체 자동 전환 테스트 (ListView 기반)"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='AR-OD-001', name='연체전환 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+
+    def test_ar_overdue_auto_transition(self):
+        """due_date가 지난 PENDING/PARTIAL AR이 OVERDUE로 전환"""
+        from datetime import timedelta
+        ar_pending = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            due_date=date.today() - timedelta(days=5),
+            status='PENDING',
+        )
+        ar_partial = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            paid_amount=Decimal('100000'),
+            due_date=date.today() - timedelta(days=1),
+            status='PARTIAL',
+        )
+        # Simulate what ARListView.get_queryset does
+        today = date.today()
+        AccountReceivable.objects.filter(
+            is_active=True,
+            due_date__lt=today,
+            status__in=['PENDING', 'PARTIAL'],
+        ).update(status='OVERDUE')
+
+        ar_pending.refresh_from_db()
+        ar_partial.refresh_from_db()
+        self.assertEqual(ar_pending.status, 'OVERDUE')
+        self.assertEqual(ar_partial.status, 'OVERDUE')
+
+    def test_paid_ar_not_overdue(self):
+        """PAID 상태 AR은 OVERDUE로 전환되지 않음"""
+        from datetime import timedelta
+        ar_paid = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            paid_amount=Decimal('1000000'),
+            due_date=date.today() - timedelta(days=10),
+            status='PAID',
+        )
+        today = date.today()
+        AccountReceivable.objects.filter(
+            is_active=True,
+            due_date__lt=today,
+            status__in=['PENDING', 'PARTIAL'],
+        ).update(status='OVERDUE')
+
+        ar_paid.refresh_from_db()
+        self.assertEqual(ar_paid.status, 'PAID')
+
+
+class ClosingPeriodBlocksVoucherTests(TestCase):
+    """마감된 기간 전표 생성 차단 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='CP-001', name='마감차단 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        AccountCode.objects.create(
+            code='120', name='미수금',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        AccountCode.objects.create(
+            code='401', name='매출',
+            account_type=AccountCode.AccountType.REVENUE,
+        )
+        # 2026년 1월 마감
+        ClosingPeriod.objects.create(
+            year=2026, month=1, is_closed=True,
+        )
+
+    def test_closing_period_blocks_ar_voucher(self):
+        """마감된 월에 해당하는 AR 생성 시 전표 생성이 차단됨"""
+        initial_count = Voucher.objects.count()
+        # due_date가 마감된 월(2026-01)
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            due_date=date(2026, 1, 15),
+        )
+        # 전표가 생성되지 않아야 함 (마감 차단)
+        self.assertEqual(Voucher.objects.count(), initial_count)
+
+    def test_open_period_allows_ar_voucher(self):
+        """마감되지 않은 월은 전표 정상 생성"""
+        initial_count = Voucher.objects.count()
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            due_date=date(2026, 6, 15),
+        )
+        self.assertEqual(Voucher.objects.count(), initial_count + 1)
+
+
+class PaymentSoftDeleteRestoresFullBalanceTests(TestCase):
+    """Payment soft delete 시 AR/AP + BankAccount 전체 복원 통합 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='PSDR-001', name='복원통합 거래처',
+            partner_type=Partner.PartnerType.BOTH,
+        )
+        self.account_code = AccountCode.objects.create(
+            code='110', name='보통예금',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+        self.bank_account = BankAccount.objects.create(
+            name='복원통합 계좌',
+            account_type='BUSINESS',
+            owner='테스트',
+            account_code=self.account_code,
+            balance=Decimal('5000000'),
+        )
+
+    def test_payment_soft_delete_restores_balance(self):
+        """입금 Payment soft delete → AR paid_amount 복원 + 계좌잔액 복원 + status 재계산"""
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('1000000'),
+            paid_amount=Decimal('600000'),
+            due_date=date.today(),
+            status='PARTIAL',
+        )
+        payment = Payment.objects.create(
+            payment_type='RECEIPT',
+            partner=self.partner,
+            bank_account=self.bank_account,
+            receivable=ar,
+            amount=Decimal('600000'),
+            payment_date=date.today(),
+        )
+        # post_save adds 600000 to bank
+        self.bank_account.refresh_from_db()
+        bank_after = self.bank_account.balance
+
+        # Soft delete
+        payment.soft_delete()
+
+        ar.refresh_from_db()
+        self.bank_account.refresh_from_db()
+        # AR paid_amount 복원
+        self.assertEqual(ar.paid_amount, Decimal('0'))
+        # AR status 재계산 → PENDING
+        self.assertEqual(ar.status, 'PENDING')
+        # Bank balance 복원
+        self.assertEqual(self.bank_account.balance, bank_after - Decimal('600000'))

@@ -1463,3 +1463,81 @@ class ServiceRequestOrderFKTest(TestCase):
             created_by=self.user,
         )
         self.assertEqual(self.order.service_requests.count(), 1)
+
+
+class ShipmentItemReservedStockTest(TestCase):
+    """ShipmentItem 생성/삭제 시 예약재고 해제/복원 테스트"""
+
+    def setUp(self):
+        from apps.sales.models import ShipmentItem
+        self.user = User.objects.create_user(
+            username='resuser', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-RES', name='예약창고', created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='PRD-RES-001', name='예약제품', product_type='FINISHED',
+            unit_price=10000, cost_price=7000, current_stock=100,
+            reserved_stock=0, created_by=self.user,
+        )
+        self.partner = Partner.objects.create(
+            code='RES-P001', name='예약거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        self.order = Order.objects.create(
+            order_number='ORD-RES-001',
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            created_by=self.user,
+        )
+        self.order_item = OrderItem.objects.create(
+            order=self.order, product=self.product,
+            quantity=10, unit_price=10000, created_by=self.user,
+        )
+        self.order.update_total()
+        # CONFIRMED → 예약재고 증가
+        self.order.status = 'CONFIRMED'
+        self.order.save(update_fields=['status', 'updated_at'])
+        self.product.refresh_from_db()
+        self.reserved_after_confirm = self.product.reserved_stock
+
+    def test_shipment_item_releases_reserved(self):
+        """ShipmentItem 생성 시 예약재고 해제"""
+        from apps.sales.models import ShipmentItem
+        shipment = Shipment.objects.create(
+            order=self.order, shipment_number='SH-RES-001',
+            carrier=Shipment.Carrier.CJ, created_by=self.user,
+        )
+        ShipmentItem.objects.create(
+            shipment=shipment, order_item=self.order_item,
+            quantity=3, created_by=self.user,
+        )
+        self.product.refresh_from_db()
+        self.assertEqual(
+            self.product.reserved_stock,
+            self.reserved_after_confirm - 3,
+        )
+
+    def test_shipment_item_soft_delete_restores_reserved(self):
+        """ShipmentItem soft delete 시 예약재고 복원"""
+        from apps.sales.models import ShipmentItem
+        shipment = Shipment.objects.create(
+            order=self.order, shipment_number='SH-RES-002',
+            carrier=Shipment.Carrier.CJ, created_by=self.user,
+        )
+        si = ShipmentItem.objects.create(
+            shipment=shipment, order_item=self.order_item,
+            quantity=5, created_by=self.user,
+        )
+        self.product.refresh_from_db()
+        reserved_after_ship = self.product.reserved_stock
+
+        si.soft_delete()
+        self.product.refresh_from_db()
+        self.assertEqual(
+            self.product.reserved_stock,
+            reserved_after_ship + 5,
+        )
