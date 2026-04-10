@@ -10,15 +10,15 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 
 | Module | Description |
 |--------|-------------|
-| **Inventory** | Products (raw/semi/finished), warehouses, stock movements, inter-warehouse transfers, barcode/QR scanning, safety stock alerts, StockLot (FIFO/LIFO inventory valuation), WarehouseStock (per-warehouse stock), reserved stock management |
-| **Production** | BOM management, production planning, work orders, production records with auto stock adjustments, MRP (Material Requirements Planning), StandardCost (standard costing), QualityInspection (quality control) |
-| **Sales** | Partners, customers, orders, quotes (with one-click order conversion), ShipmentItem (partial shipments), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), commission management, partner analytics |
+| **Inventory** | Products (raw/semi/finished), warehouses, stock movements, inter-warehouse transfers, barcode/QR scanning, safety stock alerts, StockLot (FIFO/LIFO inventory valuation), WarehouseStock (per-warehouse stock), reserved stock management, SerialNumber tracking (per-product opt-in, auto-generation on production, FIFO shipment assignment) |
+| **Production** | BOM management (multi-level Sub-assembly explosion), production planning, work orders, production records with auto stock adjustments, scrap quantity tracking, MRP (Material Requirements Planning), StandardCost (standard costing), QualityInspection (quality control) |
+| **Sales** | Partners, customers, orders (with CONFIRMED order modification), quotes (with one-click order conversion), return/exchange order workflows, ShipmentItem (partial shipments with serial range tracking), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), commission management, partner analytics |
 | **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking, reverse cascade on PO cancellation |
-| **Service** | Service requests, repair history tracking, warranty period verification |
-| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement, vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management), Currency/ExchangeRate (multi-currency), AR/AP Aging, bank reconciliation, settlements |
+| **Service** | Service requests, repair history tracking, warranty period verification, paid repair auto-AR generation, cancellation with AR reversal |
+| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement (with account classification), vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management with overspend warnings), Currency/ExchangeRate (multi-currency), exchange gain/loss reporting, AR/AP Aging (auto-overdue transition), bank reconciliation, settlements |
 | **Investment** | Investors, funding rounds, equity tracking (donut charts), dividend/distribution records |
 | **Asset** | Fixed asset management, depreciation (straight-line / declining balance), asset transfers, certifications (KC/CE/FCC/ISO/RoHS), lease contracts (operating/finance), asset audits, barcode/QR tag generation |
-| **Marketplace** | Naver/Coupang store integration, order sync, 6-stage Import Wizard, settlement reconciliation (auto-matching), sync history |
+| **Marketplace** | Naver/Coupang store integration, order sync (bidirectional — ERP→marketplace shipping status push), 6-stage Import Wizard, settlement reconciliation (auto-matching), sync history |
 | **Inquiry** | Multi-channel inquiry management, Claude AI auto-reply drafts, reply templates |
 | **Warranty** | Serial number authentication, warranty period management, QR verification |
 | **Approval** | Multi-step approval workflows, document categories (purchase/expense/budget/contract/leave/travel/IT), per-step approvers, file attachments |
@@ -40,7 +40,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 |--------|-------------|
 | **Core** | Dashboard (KPI widgets, asset/certification/lease summaries), real-time notifications (WebSocket push), Excel/PDF export, barcode generation, backup/restore, audit trail, access logs |
 | **Accounts** | Authentication, RBAC (admin/manager/staff), login protection (django-axes) |
-| **API** | REST API (33 DRF ViewSets), JWT authentication (SimpleJWT), OpenAPI/Swagger docs |
+| **API** | REST API (34 DRF ViewSets), JWT authentication (SimpleJWT), OpenAPI/Swagger docs |
 | **Store Modules** | Modular store architecture (pluggable per-channel modules: Naver SmartStore, Coupang, direct sales) |
 | **Active Directory** | LDAP/AD integration, user/group sync, group policy-based role mapping |
 
@@ -52,7 +52,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | Frontend | Django Templates + Tailwind CSS (local build) + HTMX + Alpine.js + Chart.js + FullCalendar.js (all served from static/vendor/) |
 | Database | SQLite (dev) / PostgreSQL 16 (prod) |
 | Real-time | Django Channels + WebSocket (Daphne ASGI) |
-| Async Tasks | Celery + Redis (task queue, scheduled backups, certification expiry alerts, lease voucher auto-generation, monthly depreciation) |
+| Async Tasks | Celery + Redis (task queue, scheduled backups, certification expiry alerts, lease voucher auto-generation, monthly depreciation, quotation expiry, safety stock alerts, overdue PO alerts, AR overdue transition) |
 | Caching | Redis (django-redis) |
 | API | Django REST Framework + JWT (SimpleJWT) |
 | Security | django-axes (login throttling), RBAC, HSTS/CSP, django-prometheus |
@@ -160,7 +160,7 @@ ERP_Suite/
 │   ├── approval/        # Standalone approval workflows
 │   ├── store_modules/   # Modular store architecture (pluggable per-channel)
 │   ├── modules/         # Channel modules (Naver SmartStore, Coupang, direct sales)
-│   └── api/             # REST API (33 DRF ViewSets, JWT auth)
+│   └── api/             # REST API (34 DRF ViewSets, JWT auth)
 ├── config/              # Django settings (base/dev/prod), celery, asgi, wsgi
 ├── templates/           # 250+ HTML templates (Tailwind CSS, responsive)
 ├── static/              # CSS, JS, PWA (manifest.json, sw.js)
@@ -198,7 +198,7 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**Test coverage: 1124+ tests (unit + verification)**
+**Test coverage: 1073+ tests (unit)**
 
 Verification criteria cover 152 items across 10 categories:
 - SEC-001~035: Security (OWASP Top 10)
@@ -233,6 +233,15 @@ Verification criteria cover 152 items across 10 categories:
 - **Lease Contracts**: `LeaseContract.save()` → auto total_amount calculation (monthly_payment x months)
 - **Settlement Reconciliation**: Marketplace settlements auto-matched with orders (amount/date/channel)
 - **Financial Statements**: P&L + balance sheet + cash flow statement generation from voucher data
+- **Serial Tracking**: Production record → auto serial generation (opt-in per product) → shipment FIFO assignment → serial range per shipment
+- **Return Orders**: Return order CONFIRMED → AR refund + SHIPPED → RETURN stock movement (inventory restored)
+- **Exchange Orders**: Exchange order → return inbound + new outbound + price difference settlement
+- **Order Modification**: CONFIRMED order → qty/price change → reserved_stock + AR + tax invoice auto-recalculation
+- **Service AR**: Paid repair COMPLETED → AR auto-creation; service CANCELLED → AR soft delete
+- **Budget Warning**: VoucherLine saved → budget overspend check → warning notification
+- **Exchange Gain/Loss**: Foreign currency AR/AP → exchange rate variance calculation at closing
+- **Safety Stock**: Daily batch → products below safety_stock → notification alerts
+- **Marketplace Push**: Shipment SHIPPED → auto push tracking info to Naver/Coupang APIs
 
 ## Security
 
@@ -255,9 +264,9 @@ Verification criteria cover 152 items across 10 categories:
 - **24 apps**, **120+ models** (all with history tracking)
 - **450+ views**, **260+ templates**, **380+ URL endpoints**
 - **~35,000 lines** of Python (excluding migrations)
-- **1124+ tests** (unit + verification), **17 E2E test files**, **load test suite**
+- **1073+ tests** (unit), **17 E2E test files**, **load test suite**
 - **130+ migrations**, **25+ packages**
-- **33 REST API ViewSets** with JWT authentication
+- **34 REST API ViewSets** with JWT authentication
 
 ## Contributing
 

@@ -272,27 +272,27 @@ ReturnRequest (Order과 별도 모델?)
 ## 10. 종합 갭 요약
 
 ### 🔴 CRITICAL (즉시 해결 필요)
-1. **주문 수정 불가** — CONFIRMED 후 수량/가격 변경 불가
-2. **Return/Exchange 자동화 완전 부재** — 상태만 정의, 프로세스 미구현
-3. **AR/AP←Order/PO 직접 연결 없음** — 부분 결제/추적 불가능
-4. **Payment←Order 직접 연결 없음** — 결제 추적 불명확
-5. **Service 취소 시 회계 자동화 없음** — 원가 조정 미구현
+1. ~~**주문 수정 불가**~~ ✅ **해결 (Phase 12)** — OrderModifyView 구현, reserved_stock/AR/세금계산서 재계산
+2. ~~**Return/Exchange 자동화 완전 부재**~~ ✅ **해결 (Phase 12)** — 반품/교환 주문 생성 뷰, 시그널 자동화
+3. ~~**AR/AP←Order/PO 직접 연결 없음**~~ ✅ **기존 구현 확인** — AR.order FK, AP.purchase_order FK 이미 존재
+4. ~~**Payment←Order 직접 연결 없음**~~ ✅ **기존 구현 확인** — Payment.ar/ap FK로 추적
+5. ~~**Service 취소 시 회계 자동화 없음**~~ ✅ **해결 (Phase 12)** — 서비스 취소 시그널, AR soft delete
 
 ### 🟡 HIGH (근중기 개선)
 1. **PARTIAL_SHIPPED 상태 처리 미흡** — 부분 출고 후 남은 수량 추적 불명확
 2. **배송비/플랫폼 수수료 → 전표 연결 없음** — 수동 조정만 가능
-3. **견적 만료 자동화 없음** — 만료 상태 전환 배치 필요
-4. **안전재고 경고/MRP 없음** — 자동 발주 제안 불가
-5. **입고 지연 시 알림 없음** — 예상 입고일 경과 시 미처리
-6. **AR 자동 연체 전환** — 배치 작업 미구현
-7. **마켓플레이스 상태 역동기** — 출고/배송 정보 ERP→마켓 미동기
+3. ~~**견적 만료 자동화 없음**~~ ✅ **해결 (Phase 12)** — Celery 배치 매일 새벽 1시 자동 EXPIRED 전환
+4. ~~**안전재고 경고/MRP 없음**~~ ✅ **해결 (Phase 12)** — Celery 배치 매일 오전 7시 + Notification
+5. ~~**입고 지연 시 알림 없음**~~ ✅ **해결 (Phase 12)** — Celery 배치 매일 오전 7:30
+6. ~~**AR 자동 연체 전환**~~ ✅ **해결 (Phase 12)** — Celery 배치 AR OVERDUE 자동 전환
+7. ~~**마켓플레이스 상태 역동기**~~ ✅ **해결 (Phase 12)** — Shipment SHIPPED → 네이버/쿠팡 API push
 
 ### 🟠 MEDIUM (선택적 개선)
 1. **Warranty 자동 검증** — is_warranty 수동 입력
 2. **FixedAsset 자동 생성 검증** — 구분 기준 불명확
-3. **다단계 BOM (Sub-assembly)** — MRP 미지원
-4. **환율 변동 손익** — 환차 계정 미구현
-5. **Partner 승인 프로세스** — 미구현
+3. ~~**다단계 BOM (Sub-assembly)**~~ ✅ **해결 (Phase 12)** — BOM.explode_multilevel() 재귀 전개
+4. ~~**환율 변동 손익**~~ ✅ **해결 (Phase 12)** — ExchangeGainLossView 구현
+5. ~~**Partner 승인 프로세스**~~ ✅ **해결 (Phase 12)** — PO 생성 시 approval_status 체크
 6. **가격 규칙 자동 적용** — 뷰 레벨 미확인
 
 ---
