@@ -355,3 +355,116 @@ class GoodsReceiptModelTest(TestCase):
                 receipt_date=date.today(),
                 created_by=self.user,
             )
+
+
+class ReceiptOverQuantityTest(TestCase):
+    """입고 초과 방지 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='overuser', password='testpass123', role='manager',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-OVER', name='초과테스트창고', is_default=True,
+            created_by=self.user,
+        )
+        self.partner = Partner.objects.create(
+            code='SUP-OVER', name='초과공급처',
+            partner_type=Partner.PartnerType.SUPPLIER,
+        )
+        self.product = Product.objects.create(
+            code='OVER-PRD-001', name='초과제품',
+            product_type='RAW', cost_price=1000,
+            current_stock=0, created_by=self.user,
+        )
+        self.po = PurchaseOrder.objects.create(
+            po_number='PO-OVER-001',
+            partner=self.partner,
+            order_date=date.today(),
+            status=PurchaseOrder.Status.CONFIRMED,
+            created_by=self.user,
+        )
+        self.po_item = PurchaseOrderItem.objects.create(
+            purchase_order=self.po,
+            product=self.product,
+            quantity=100,
+            unit_price=Decimal('1000'),
+            created_by=self.user,
+        )
+        self.receipt = GoodsReceipt.objects.create(
+            receipt_number='GR-OVER-001',
+            purchase_order=self.po,
+            receipt_date=date.today(),
+            created_by=self.user,
+        )
+
+    def test_receipt_exceeds_po_quantity(self):
+        """입고수량이 발주 잔여수량 초과 시 차단"""
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            GoodsReceiptItem.objects.create(
+                goods_receipt=self.receipt,
+                po_item=self.po_item,
+                received_quantity=150,  # 발주 100개 초과
+                created_by=self.user,
+            )
+
+    def test_receipt_partial_then_exceed(self):
+        """부분입고 후 잔여 초과 시 차단"""
+        from django.core.exceptions import ValidationError
+        # 1차 입고: 80개
+        GoodsReceiptItem.objects.create(
+            goods_receipt=self.receipt,
+            po_item=self.po_item,
+            received_quantity=80,
+            created_by=self.user,
+        )
+        self.po_item.refresh_from_db()
+        self.assertEqual(self.po_item.received_quantity, 80)
+
+        # 2차 입고 시도: 30개 (잔여 20개 초과)
+        receipt2 = GoodsReceipt.objects.create(
+            receipt_number='GR-OVER-002',
+            purchase_order=self.po,
+            receipt_date=date.today(),
+            created_by=self.user,
+        )
+        with self.assertRaises(ValidationError):
+            GoodsReceiptItem.objects.create(
+                goods_receipt=receipt2,
+                po_item=self.po_item,
+                received_quantity=30,
+                created_by=self.user,
+            )
+
+    def test_receipt_exact_quantity_succeeds(self):
+        """발주수량과 정확히 같은 입고 성공"""
+        item = GoodsReceiptItem.objects.create(
+            goods_receipt=self.receipt,
+            po_item=self.po_item,
+            received_quantity=100,
+            created_by=self.user,
+        )
+        self.assertIsNotNone(item.pk)
+
+    def test_receipt_partial_within_limit(self):
+        """잔여 범위 내 부분입고 성공"""
+        GoodsReceiptItem.objects.create(
+            goods_receipt=self.receipt,
+            po_item=self.po_item,
+            received_quantity=60,
+            created_by=self.user,
+        )
+        receipt2 = GoodsReceipt.objects.create(
+            receipt_number='GR-OVER-003',
+            purchase_order=self.po,
+            receipt_date=date.today(),
+            created_by=self.user,
+        )
+        item2 = GoodsReceiptItem.objects.create(
+            goods_receipt=receipt2,
+            po_item=self.po_item,
+            received_quantity=40,  # 잔여 정확히 40
+            created_by=self.user,
+        )
+        self.assertIsNotNone(item2.pk)
