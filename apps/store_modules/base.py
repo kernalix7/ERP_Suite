@@ -66,6 +66,36 @@ class BaseStoreModule(ABC):
             total += partner.calculate_commission(item_amount, product=item.product)
         return total
 
+    # --- 5) 역동기화 (ERP → 마켓) ---
+
+    def push_shipment(self, client, platform_order_id: str,
+                      delivery_company: str, tracking_number: str) -> dict:
+        """배송정보를 마켓플레이스에 전송
+
+        Args:
+            client: API 클라이언트
+            platform_order_id: 플랫폼 상품주문번호
+            delivery_company: 택배사명
+            tracking_number: 운송장번호
+
+        Returns:
+            dict: {'success': bool, 'message': str}
+        """
+        raise NotImplementedError
+
+    def push_return(self, client, platform_order_id: str, reason: str = '') -> dict:
+        """반품 처리를 마켓플레이스에 전송
+
+        Args:
+            client: API 클라이언트
+            platform_order_id: 플랫폼 상품주문번호
+            reason: 반품 사유
+
+        Returns:
+            dict: {'success': bool, 'message': str}
+        """
+        raise NotImplementedError
+
     def get_settlement_bank_account(self, order, partner):
         """기본: order.bank_account -> 기본계좌"""
         if order and order.bank_account:

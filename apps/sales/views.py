@@ -285,6 +285,9 @@ class OrderListView(LoginRequiredMixin, ListView):
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
+        order_type = self.request.GET.get('order_type')
+        if order_type:
+            qs = qs.filter(order_type=order_type)
         q = self.request.GET.get('q', '').strip()
         if q:
             qs = qs.filter(
@@ -378,6 +381,13 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
             round(total_profit / total_amount * 100, 1)
             if total_amount else 0
         )
+        # 연결된 반품/교환 주문
+        ctx['return_orders'] = Order.objects.filter(
+            original_order=self.object, is_active=True,
+        ).order_by('-created_at')
+        # 원본 주문 (반품/교환인 경우)
+        if self.object.original_order:
+            ctx['original_order'] = self.object.original_order
         # 거래처 수수료 (입금 시 차감용)
         if not self.object.is_paid and self.object.partner:
             partner = self.object.partner
@@ -624,6 +634,120 @@ class ExchangeOrderCreateView(ManagerRequiredMixin, CreateView):
                 )
             order.update_total()
         messages.success(self.request, f'교환주문 {order.order_number}이(가) 생성되었습니다.')
+        return redirect('sales:order_detail', slug=order.order_number)
+
+
+class OrderModifyView(ManagerRequiredMixin, UpdateView):
+    """CONFIRMED 주문의 항목 수량/가격 수정"""
+    model = Order
+    form_class = OrderForm
+    template_name = 'sales/order_form.html'
+    slug_field = 'order_number'
+    slug_url_kwarg = 'slug'
+
+    def dispatch(self, request, *args, **kwargs):
+        order = get_object_or_404(
+            Order, order_number=kwargs['slug'], is_active=True,
+        )
+        if order.status != 'CONFIRMED':
+            messages.error(request, '확정(CONFIRMED) 상태의 주문만 수정할 수 있습니다.')
+            return redirect('sales:order_detail', slug=order.order_number)
+        # 출고 시작된 항목이 있으면 수정 불가
+        if order.items.filter(shipped_quantity__gt=0).exists():
+            messages.error(request, '출고가 시작된 항목이 있어 수정할 수 없습니다.')
+            return redirect('sales:order_detail', slug=order.order_number)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if self.request.POST:
+            ctx['formset'] = OrderItemFormSet(self.request.POST, instance=self.object)
+        else:
+            ctx['formset'] = OrderItemFormSet(instance=self.object)
+        ctx['product_units_json'] = _product_units_json()
+        ctx['product_costs_json'] = _product_costs_json()
+        ctx['is_modify'] = True
+        return ctx
+
+    def form_valid(self, form):
+        ctx = self.get_context_data()
+        formset = ctx['formset']
+        if not formset.is_valid():
+            return self.form_invalid(form)
+
+        from apps.accounting.models import AccountReceivable, TaxInvoice
+
+        with transaction.atomic():
+            order = self.object
+
+            # 1. 기존 reserved_stock 해제
+            for item in order.items.select_related('product').all():
+                if item.product.is_stockable:
+                    product = Product.objects.get(pk=item.product_id)
+                    actual_release = min(item.quantity, product.reserved_stock)
+                    if actual_release > 0:
+                        Product.objects.filter(pk=item.product_id).update(
+                            reserved_stock=F('reserved_stock') - actual_release,
+                        )
+
+            # 2. OrderItem 수정 저장
+            self.object = form.save()
+            formset.instance = self.object
+            formset.save()
+            # VAT 재계산
+            for item in self.object.items.filter(is_active=True):
+                item.save()
+            self.object.update_total()
+            order.refresh_from_db()
+
+            # 3. 새 reserved_stock 예약
+            for item in order.items.select_related('product').filter(is_active=True):
+                if item.product.is_stockable:
+                    Product.objects.filter(pk=item.product_id).update(
+                        reserved_stock=F('reserved_stock') + item.quantity,
+                    )
+
+            # 4. AR 재계산
+            grand_total = int(order.grand_total) if order.grand_total else 0
+            ar = AccountReceivable.objects.filter(
+                order=order, is_active=True,
+            ).first()
+            if ar:
+                ar.amount = grand_total
+                ar.save(update_fields=['amount', 'updated_at'])
+            elif grand_total > 0 and order.partner:
+                from datetime import timedelta
+                AccountReceivable.objects.create(
+                    partner=order.partner,
+                    order=order,
+                    amount=grand_total,
+                    due_date=order.delivery_date or (date.today() + timedelta(days=30)),
+                    status='PENDING',
+                    created_by=self.request.user,
+                )
+
+            # 5. 세금계산서 재발행 (기존 soft delete + 신규 생성)
+            old_invoices = TaxInvoice.objects.filter(order=order, is_active=True)
+            for inv in old_invoices:
+                inv.is_active = False
+                inv.save(update_fields=['is_active', 'updated_at'])
+
+            supply_amount = int(order.total_amount) if order.total_amount else 0
+            tax_amount = int(order.tax_total) if order.tax_total else 0
+            if supply_amount > 0 and order.partner:
+                TaxInvoice.objects.create(
+                    invoice_type='SALES',
+                    partner=order.partner,
+                    order=order,
+                    issue_date=date.today(),
+                    supply_amount=supply_amount,
+                    tax_amount=tax_amount,
+                    total_amount=supply_amount + tax_amount,
+                    description=f'주문 {order.order_number} 수정 세금계산서',
+                    created_by=self.request.user,
+                )
+
+        messages.success(self.request, f'주문 {order.order_number}이(가) 수정되었습니다.')
         return redirect('sales:order_detail', slug=order.order_number)
 
 
@@ -2745,6 +2869,28 @@ class ShipmentDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'shipment'
     slug_field = 'shipment_number'
     slug_url_kwarg = 'slug'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.inventory.models import SerialNumber
+        serial_info = []
+        items = self.object.items.filter(
+            is_active=True,
+        ).select_related('order_item__product')
+        for item in items:
+            serials = SerialNumber.objects.filter(
+                shipment_item=item, is_active=True,
+            ).order_by('serial') if hasattr(SerialNumber, 'shipment_item') else SerialNumber.objects.none()
+            if serials.exists():
+                serial_info.append({
+                    'item': item,
+                    'serials': serials,
+                    'range_start': serials.first().serial,
+                    'range_end': serials.last().serial,
+                    'count': serials.count(),
+                })
+        ctx['serial_info'] = serial_info
+        return ctx
 
 
 class ShipmentUpdateView(ManagerRequiredMixin, UpdateView):

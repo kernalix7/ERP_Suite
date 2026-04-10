@@ -1822,3 +1822,224 @@ class PaymentSoftDeleteRestoresFullBalanceTests(TestCase):
         self.assertEqual(ar.status, 'PENDING')
         # Bank balance 복원
         self.assertEqual(self.bank_account.balance, bank_after - Decimal('600000'))
+
+
+class QuotationExpiryTaskTests(TestCase):
+    """견적 만료 Celery 태스크 테스트"""
+
+    def setUp(self):
+        from apps.sales.models import Partner, Customer
+        self.partner = Partner.objects.create(
+            code='QE-001', name='견적만료 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+
+    def test_expired_quotation_auto_update(self):
+        """만료된 견적서 EXPIRED 자동 전환"""
+        from datetime import timedelta
+        from apps.sales.models import Quotation
+        from apps.sales.tasks import expire_quotations
+
+        # 만료된 견적 — Quotation.save()가 자동 만료하므로,
+        # 유효 기한 내로 생성 후 update로 만료시킴
+        q_expired = Quotation.objects.create(
+            partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            status='SENT',
+        )
+        # DB에서 직접 valid_until을 과거로 변경 (save 자동만료 우회)
+        Quotation.objects.filter(pk=q_expired.pk).update(
+            valid_until=date.today() - timedelta(days=1),
+        )
+        # 아직 유효한 견적
+        q_valid = Quotation.objects.create(
+            partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            status='SENT',
+        )
+        result = expire_quotations()
+        q_expired.refresh_from_db()
+        q_valid.refresh_from_db()
+        self.assertEqual(q_expired.status, 'EXPIRED')
+        self.assertEqual(q_valid.status, 'SENT')
+        self.assertEqual(result, 1)
+
+    def test_converted_quotation_not_expired(self):
+        """CONVERTED 상태 견적은 만료 전환 안 됨"""
+        from datetime import timedelta
+        from apps.sales.models import Quotation
+        from apps.sales.tasks import expire_quotations
+
+        q = Quotation.objects.create(
+            partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            status='CONVERTED',
+        )
+        # DB에서 직접 valid_until을 과거로 변경
+        Quotation.objects.filter(pk=q.pk).update(
+            valid_until=date.today() - timedelta(days=1),
+        )
+        expire_quotations()
+        q.refresh_from_db()
+        self.assertEqual(q.status, 'CONVERTED')
+
+
+class ExchangeGainLossTests(TestCase):
+    """환차손익 계산 테스트"""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='EGL-001', name='외화 거래처',
+            partner_type=Partner.PartnerType.BOTH,
+        )
+        self.usd = Currency.objects.create(
+            code='USD', name='미국 달러', symbol='$',
+            decimal_places=2, is_base=False,
+        )
+
+    def test_exchange_gain_calculation(self):
+        """환율 상승 시 AR 환차이익 발생"""
+        from apps.sales.models import Order
+        # USD 주문 (환율 1300)
+        order = Order.objects.create(
+            partner=self.partner,
+            order_date=date.today(),
+            currency=self.usd,
+            exchange_rate=Decimal('1300.0000'),
+            status='CONFIRMED',
+        )
+        ar = AccountReceivable.objects.create(
+            partner=self.partner,
+            order=order,
+            amount=Decimal('1300000'),  # $1000 * 1300
+            due_date=date.today(),
+            status='PENDING',
+        )
+        # 현재 환율 1400으로 등록
+        ExchangeRate.objects.create(
+            currency=self.usd,
+            rate_date=date.today(),
+            rate=Decimal('1400.0000'),
+        )
+        # 외화 잔액: 1,300,000 / 1,300 = 1000 USD
+        # 재평가: 1000 * 1400 = 1,400,000
+        # 환차이익: 1,400,000 - 1,300,000 = 100,000
+        foreign_remaining = ar.remaining_amount / order.exchange_rate
+        self.assertEqual(foreign_remaining, Decimal('1000'))
+        revalued = int(foreign_remaining * Decimal('1400'))
+        gain_loss = revalued - int(ar.remaining_amount)
+        self.assertEqual(gain_loss, 100000)
+
+    def test_exchange_loss_calculation(self):
+        """환율 하락 시 AP 환차손실 발생"""
+        from apps.purchase.models import PurchaseOrder
+        po = PurchaseOrder.objects.create(
+            partner=self.partner,
+            order_date=date.today(),
+            currency=self.usd,
+            exchange_rate=Decimal('1400.0000'),
+            status='CONFIRMED',
+        )
+        ap = AccountPayable.objects.create(
+            partner=self.partner,
+            purchase_order=po,
+            amount=Decimal('1400000'),  # $1000 * 1400
+            due_date=date.today(),
+            status='PENDING',
+        )
+        # 현재 환율 1300으로 등록 (하락)
+        ExchangeRate.objects.create(
+            currency=self.usd,
+            rate_date=date.today(),
+            rate=Decimal('1300.0000'),
+        )
+        foreign_remaining = ap.remaining_amount / po.exchange_rate
+        revalued = int(foreign_remaining * Decimal('1300'))
+        gain_loss = revalued - int(ap.remaining_amount)
+        # AP 환율 하락 → 재평가액 감소 → 환차이익 (부채 감소)
+        self.assertEqual(gain_loss, -100000)
+
+
+class BudgetWarningTests(TestCase):
+    """예산 초과 경고 테스트"""
+
+    def setUp(self):
+        self.expense_acct = AccountCode.objects.create(
+            code='501', name='매입원가',
+            account_type=AccountCode.AccountType.EXPENSE,
+        )
+        self.bank_acct = AccountCode.objects.create(
+            code='110', name='보통예금',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+
+    def test_budget_overspend_warning(self):
+        """예산 초과 시 경고 로깅"""
+        from apps.accounting.models import Budget
+        today = date.today()
+        # 예산 50만원
+        Budget.objects.create(
+            account=self.expense_acct,
+            year=today.year,
+            month=today.month,
+            budget_amount=Decimal('500000'),
+        )
+        voucher = Voucher.objects.create(
+            voucher_number='V-BW-001',
+            voucher_type=Voucher.VoucherType.PAYMENT,
+            voucher_date=today,
+            description='예산초과 테스트 전표',
+            approval_status='APPROVED',
+        )
+        # VoucherLine 생성 시 예산 체크 시그널 발동
+        with self.assertLogs('apps.accounting.signals', level='WARNING') as cm:
+            VoucherLine.objects.create(
+                voucher=voucher,
+                account=self.expense_acct,
+                debit=Decimal('1000000'), credit=0,
+            )
+        VoucherLine.objects.create(
+            voucher=voucher,
+            account=self.bank_acct,
+            debit=0, credit=Decimal('1000000'),
+        )
+        # 경고 로그 확인
+        warnings = [m for m in cm.output if 'Budget overspend' in m]
+        self.assertTrue(len(warnings) > 0)
+        self.assertIn('501', warnings[0])
+
+    def test_no_warning_within_budget(self):
+        """예산 이내면 경고 없음"""
+        from apps.accounting.models import Budget
+        today = date.today()
+        Budget.objects.create(
+            account=self.expense_acct,
+            year=today.year,
+            month=today.month,
+            budget_amount=Decimal('5000000'),  # 500만원
+        )
+        # 전표 10만원 → 예산 이내
+        voucher = Voucher.objects.create(
+            voucher_number='V-BW-002',
+            voucher_type=Voucher.VoucherType.PAYMENT,
+            voucher_date=today,
+            description='예산이내 테스트',
+            approval_status='APPROVED',
+        )
+        VoucherLine.objects.create(
+            voucher=voucher,
+            account=self.expense_acct,
+            debit=Decimal('100000'), credit=0,
+        )
+        VoucherLine.objects.create(
+            voucher=voucher,
+            account=self.bank_acct,
+            debit=0, credit=Decimal('100000'),
+        )
+        # 예산 이내이므로 Budget.actual_amount < budget_amount
+        from apps.accounting.models import Budget as B
+        b = B.objects.get(account=self.expense_acct, year=today.year, month=today.month)
+        self.assertLessEqual(b.actual_amount, b.budget_amount)

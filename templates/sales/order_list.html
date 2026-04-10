@@ -50,6 +50,13 @@
                 <option value="CLOSED" {% if request.GET.status == 'CLOSED' %}selected{% endif %}>종결</option>
                 <option value="CANCELLED" {% if request.GET.status == 'CANCELLED' %}selected{% endif %}>취소</option>
             </select>
+            <select name="order_type" class="form-input w-auto">
+                <option value="">전체 유형</option>
+                <option value="NORMAL" {% if request.GET.order_type == 'NORMAL' %}selected{% endif %}>일반주문</option>
+                <option value="SAMPLE" {% if request.GET.order_type == 'SAMPLE' %}selected{% endif %}>샘플주문</option>
+                <option value="RETURN" {% if request.GET.order_type == 'RETURN' %}selected{% endif %}>반품주문</option>
+                <option value="EXCHANGE" {% if request.GET.order_type == 'EXCHANGE' %}selected{% endif %}>교환주문</option>
+            </select>
             <button type="submit" class="btn btn-primary">검색</button>
         </form>
     </div>
@@ -76,6 +83,13 @@
                         <a href="{% url 'sales:order_detail' order.order_number %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                             {{ order.order_number }}
                         </a>
+                        {% if order.order_type == 'RETURN' %}
+                        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">반품</span>
+                        {% elif order.order_type == 'EXCHANGE' %}
+                        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">교환</span>
+                        {% elif order.order_type == 'SAMPLE' %}
+                        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">샘플</span>
+                        {% endif %}
                     </td>
                     <td class="px-4 py-3 text-xs text-gray-500 font-mono">{% with mp=order.marketplace_orders.first %}{% if mp %}{{ mp.store_order_id }}{% else %}-{% endif %}{% endwith %}</td>
                     <td class="px-4 py-3 text-gray-900">
@@ -137,16 +151,16 @@
         </p>
         <nav class="flex flex-wrap gap-1">
             {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}&order_type={{ request.GET.order_type }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
-            <a href="?page={{ num }}&q={{ request.GET.q }}&status={{ request.GET.status }}"
+            <a href="?page={{ num }}&q={{ request.GET.q }}&status={{ request.GET.status }}&order_type={{ request.GET.order_type }}"
                class="px-3 py-1 text-sm rounded border {% if page_obj.number == num %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 hover:bg-gray-50{% endif %}">
                 {{ num }}
             </a>
             {% endfor %}
             {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>
+            <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}&order_type={{ request.GET.order_type }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>
             {% endif %}
         </nav>
     </div>

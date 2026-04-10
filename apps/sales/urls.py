@@ -43,6 +43,7 @@ urlpatterns = [
     path('orders/<str:slug>/partial-ship/', views.PartialShipmentView.as_view(), name='partial_shipment'),
     path('orders/<str:slug>/return/', views.ReturnOrderCreateView.as_view(), name='order_return'),
     path('orders/<str:slug>/exchange/', views.ExchangeOrderCreateView.as_view(), name='order_exchange'),
+    path('orders/<str:slug>/modify/', views.OrderModifyView.as_view(), name='order_modify'),
     # 견적서 — 고정 경로 먼저
     path('quotes/', views.QuotationListView.as_view(), name='quote_list'),
     path('quotes/create/', views.QuotationCreateView.as_view(), name='quote_create'),

@@ -1,13 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}주문 {{ form.instance.pk|yesno:"수정,등록" }} - ERP Suite{% endblock %}
-{% block page_title %}주문 {{ form.instance.pk|yesno:"수정,등록" }}{% endblock %}
+{% block title %}주문 {% if is_modify %}항목 수정{% elif form.instance.pk %}수정{% else %}등록{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}주문 {% if is_modify %}항목 수정{% elif form.instance.pk %}수정{% else %}등록{% endif %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'sales:order_list' %}" class="btn btn-secondary">목록</a>
 {% endblock %}
 
 {% block content %}
+{% if is_modify %}
+<div class="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-6 flex items-center gap-3">
+    <svg class="w-6 h-6 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <div>
+        <p class="text-sm font-semibold text-blue-800">확정 주문 수정 모드</p>
+        <p class="text-xs text-blue-700">항목 수량/가격을 수정하면 예약재고, 매출채권(AR), 세금계산서가 자동으로 재계산됩니다.</p>
+    </div>
+</div>
+{% endif %}
 {% if is_settled %}
 <div class="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-6 flex items-center gap-3">
     <svg class="w-6 h-6 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

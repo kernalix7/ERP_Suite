@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{% trans "환차손익" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "환차손익 현황" %}{% endblock %}
+
+{% block content %}
+<!-- 요약 카드 -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "환차이익" %}</p>
+        <p class="text-2xl font-bold text-green-600">{{ total_gain|intcomma }}{% trans "원" %}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "환차손실" %}</p>
+        <p class="text-2xl font-bold text-red-600">{{ total_loss|intcomma }}{% trans "원" %}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "순환차손익" %}</p>
+        <p class="text-2xl font-bold {% if net_gain_loss >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ net_gain_loss|intcomma }}{% trans "원" %}
+        </p>
+    </div>
+</div>
+
+<!-- AR 환차손익 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+    <div class="p-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold">{% trans "미수금(AR) 환차손익" %}</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "통화" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "외화잔액" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "기장환율" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "기장원화" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "현재환율" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "재평가원화" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "환차손익" %}</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for row in ar_rows %}
+                <tr>
+                    <td class="px-4 py-3 text-sm">{{ row.partner }}</td>
+                    <td class="px-4 py-3 text-sm">{{ row.currency }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.foreign_amount|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.original_rate|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.original_krw|intcomma }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.current_rate|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.revalued_krw|intcomma }}</td>
+                    <td class="px-4 py-3 text-sm text-right font-semibold {% if row.gain_loss >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        {{ row.gain_loss|intcomma }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">{% trans "외화 미수금이 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- AP 환차손익 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold">{% trans "미지급금(AP) 환차손익" %}</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "통화" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "외화잔액" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "기장환율" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "기장원화" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "현재환율" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "재평가원화" %}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "환차손익" %}</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for row in ap_rows %}
+                <tr>
+                    <td class="px-4 py-3 text-sm">{{ row.partner }}</td>
+                    <td class="px-4 py-3 text-sm">{{ row.currency }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.foreign_amount|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.original_rate|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.original_krw|intcomma }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.current_rate|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-sm text-right">{{ row.revalued_krw|intcomma }}</td>
+                    <td class="px-4 py-3 text-sm text-right font-semibold {% if row.gain_loss >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        {{ row.gain_loss|intcomma }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">{% trans "외화 미지급금이 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

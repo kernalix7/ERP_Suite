@@ -468,3 +468,109 @@ class ReceiptOverQuantityTest(TestCase):
             created_by=self.user,
         )
         self.assertIsNotNone(item2.pk)
+
+
+class OverduePOTaskTest(TestCase):
+    """입고 지연 Celery 태스크 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='overdue_user', password='testpass123', role='admin',
+        )
+        Warehouse.objects.create(
+            code='WH-OD', name='지연창고', is_default=True, created_by=self.user,
+        )
+        self.partner = Partner.objects.create(
+            code='SUP-OD1', name='지연공급처', partner_type='SUPPLIER',
+            created_by=self.user,
+        )
+
+    def test_overdue_po_detected(self):
+        """입고 예정일 경과 PO가 감지되어야 한다"""
+        from apps.purchase.tasks import check_overdue_purchase_orders
+
+        # 지연된 PO
+        PurchaseOrder.objects.create(
+            partner=self.partner,
+            order_date=date.today() - timedelta(days=30),
+            expected_date=date.today() - timedelta(days=5),
+            status='CONFIRMED',
+            created_by=self.user,
+        )
+        # 정상 PO
+        PurchaseOrder.objects.create(
+            partner=self.partner,
+            order_date=date.today(),
+            expected_date=date.today() + timedelta(days=10),
+            status='CONFIRMED',
+            created_by=self.user,
+        )
+
+        result = check_overdue_purchase_orders()
+        self.assertIn('1 overdue POs', result)
+
+    def test_no_overdue(self):
+        """예정일 전이면 0건이어야 한다"""
+        from apps.purchase.tasks import check_overdue_purchase_orders
+
+        PurchaseOrder.objects.create(
+            partner=self.partner,
+            order_date=date.today(),
+            expected_date=date.today() + timedelta(days=10),
+            status='CONFIRMED',
+            created_by=self.user,
+        )
+        result = check_overdue_purchase_orders()
+        self.assertIn('0 overdue POs', result)
+
+
+class APDuplicatePreventionTest(TestCase):
+    """AP 중복 생성 방지 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='ap_dup_user', password='testpass123', role='admin',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-AP', name='AP창고', is_default=True, created_by=self.user,
+        )
+        self.partner = Partner.objects.create(
+            code='SUP-AP1', name='AP공급처', partner_type='SUPPLIER',
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='PRD-AP1', name='AP제품', product_type='RAW',
+            cost_price=10000, current_stock=0, created_by=self.user,
+        )
+
+    def test_ap_uses_purchase_order_fk(self):
+        """AP가 purchase_order FK로 생성되어야 한다"""
+        from apps.accounting.models import AccountPayable
+
+        po = PurchaseOrder.objects.create(
+            partner=self.partner, order_date=date.today(),
+            expected_date=date.today() + timedelta(days=30),
+            status='CONFIRMED', created_by=self.user,
+        )
+        PurchaseOrderItem.objects.create(
+            purchase_order=po, product=self.product,
+            quantity=10, unit_price=10000,
+            amount=100000, created_by=self.user,
+        )
+        po.update_total()
+
+        # 전량 입고
+        receipt = GoodsReceipt.objects.create(
+            purchase_order=po, receipt_date=date.today(),
+            warehouse=self.warehouse, created_by=self.user,
+        )
+        GoodsReceiptItem.objects.create(
+            goods_receipt=receipt, po_item=po.items.first(),
+            received_quantity=10, created_by=self.user,
+        )
+
+        # AP가 purchase_order FK로 생성되었는지 확인
+        ap = AccountPayable.objects.filter(
+            purchase_order=po, is_active=True,
+        )
+        self.assertEqual(ap.count(), 1)

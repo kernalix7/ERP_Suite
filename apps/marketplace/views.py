@@ -15,7 +15,10 @@ from .models import (
     ImportSession, ImportTemplate, MarketplaceOrder, ProductMapping,
     SettlementReconciliation, SyncLog,
 )
-from .sync_service import sync_orders, fetch_orders_preview, import_selected_orders
+from .sync_service import (
+    sync_orders, fetch_orders_preview, import_selected_orders,
+    push_shipping_info, push_return_info,
+)
 
 
 class MarketplaceDashboardView(ManagerRequiredMixin, TemplateView):
@@ -504,6 +507,70 @@ class WizardDoneView(ManagerRequiredMixin, TemplateView):
             is_active=True, import_status='ERROR',
         ) if session else []
         return context
+
+
+# === Reverse Sync (ERP → Marketplace) ===
+
+
+class PushShipmentView(ManagerRequiredMixin, View):
+    """배송정보를 마켓플레이스로 역전송"""
+
+    def post(self, request, slug):
+        order = MarketplaceOrder.objects.filter(
+            store_order_id=slug, is_active=True,
+        ).first()
+        if not order:
+            messages.error(request, '주문을 찾을 수 없습니다.')
+            return HttpResponseRedirect(reverse_lazy('marketplace:order_list'))
+
+        if not order.delivery_company or not order.tracking_number:
+            messages.error(request, '택배사와 운송장번호가 입력되어야 합니다.')
+            return HttpResponseRedirect(
+                reverse_lazy('marketplace:order_detail', kwargs={'slug': slug}),
+            )
+
+        success = push_shipping_info(order)
+        if success:
+            MarketplaceOrder.objects.filter(pk=order.pk).update(
+                status=MarketplaceOrder.Status.SHIPPED,
+            )
+            messages.success(request, f'배송정보 전송 완료: {order.store_order_id}')
+        else:
+            messages.error(request, f'배송정보 전송 실패: {order.store_order_id}')
+
+        return HttpResponseRedirect(
+            reverse_lazy('marketplace:order_detail', kwargs={'slug': slug}),
+        )
+
+
+class PushReturnView(ManagerRequiredMixin, View):
+    """반품정보를 마켓플레이스로 역전송"""
+
+    def post(self, request, slug):
+        order = MarketplaceOrder.objects.filter(
+            store_order_id=slug, is_active=True,
+        ).first()
+        if not order:
+            messages.error(request, '주문을 찾을 수 없습니다.')
+            return HttpResponseRedirect(reverse_lazy('marketplace:order_list'))
+
+        reason = request.POST.get('reason', '')
+        success = push_return_info(order, reason=reason)
+        if success:
+            MarketplaceOrder.objects.filter(pk=order.pk).update(
+                status=MarketplaceOrder.Status.RETURNED,
+            )
+            messages.success(request, f'반품정보 전송 완료: {order.store_order_id}')
+        else:
+            messages.warning(
+                request,
+                f'반품 전송 결과를 확인해주세요: {order.store_order_id} '
+                '(수동 처리가 필요할 수 있습니다)',
+            )
+
+        return HttpResponseRedirect(
+            reverse_lazy('marketplace:order_detail', kwargs={'slug': slug}),
+        )
 
 
 # === Store Order Search ===

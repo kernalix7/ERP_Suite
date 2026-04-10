@@ -190,15 +190,24 @@ class ProductionSignalTest(TestCase):
     # ── 예외 케이스 테스트 ───────────────────────────────────
 
     def test_no_stock_movement_when_zero_good_quantity(self):
-        """양품수량이 0이면 PROD_IN 전표가 생성되지 않는지 확인"""
+        """양품수량이 0이면 PROD_IN 전표가 생성되지 않는지 확인
+        단, 불량 수량이 있으면 원자재 소모(PROD_OUT)는 발생함"""
         self._create_record(good_quantity=0, defect_quantity=5)
 
         prod_in = StockMovement.objects.filter(movement_type='PROD_IN')
         self.assertEqual(prod_in.count(), 0)
 
-        # 원자재 소모도 없어야 함 (int(effective_qty * 0) = 0)
+        # 불량 5개 생산 → 원자재 소모 발생 (양품+불량 기준)
         prod_out = StockMovement.objects.filter(movement_type='PROD_OUT')
-        self.assertEqual(prod_out.count(), 0)
+        self.assertEqual(prod_out.count(), 2)  # BOM 항목 2개
+
+        # 원자재1: 소요량 2 * 불량 5 = 10
+        rm1_out = prod_out.get(product=self.raw_material_1)
+        self.assertEqual(rm1_out.quantity, 10)
+
+        # 원자재2: 소요량 3 * 불량 5 = 15
+        rm2_out = prod_out.get(product=self.raw_material_2)
+        self.assertEqual(rm2_out.quantity, 15)
 
     # ── 다중 실적 테스트 ─────────────────────────────────────
 
@@ -948,3 +957,194 @@ class CostSyncTest(TestCase):
         bom.save()
         self.finished.refresh_from_db()
         self.assertEqual(self.finished.cost_price, 10000)
+
+
+class BOMMultiLevelTest(TestCase):
+    """BOM 다단계 전개 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='bom_ml_user', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-ML', name='다단계창고', is_default=True, created_by=self.user,
+        )
+        # 원자재
+        self.raw_a = Product.objects.create(
+            code='RAW-MLA', name='원자재A', product_type='RAW',
+            cost_price=1000, current_stock=100, created_by=self.user,
+        )
+        self.raw_b = Product.objects.create(
+            code='RAW-MLB', name='원자재B', product_type='RAW',
+            cost_price=2000, current_stock=100, created_by=self.user,
+        )
+        # 반제품
+        self.semi = Product.objects.create(
+            code='ASM-ML1', name='반제품1', product_type='SEMI',
+            cost_price=5000, current_stock=50, created_by=self.user,
+        )
+        # 완제품
+        self.finished = Product.objects.create(
+            code='FIN-ML1', name='완제품1', product_type='FINISHED',
+            cost_price=0, current_stock=0, created_by=self.user,
+        )
+        # 반제품 BOM: 원자재A x2, 원자재B x1
+        self.semi_bom = BOM.objects.create(
+            product=self.semi, version='1.0', is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.semi_bom, material=self.raw_a,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.semi_bom, material=self.raw_b,
+            quantity=Decimal('1.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        # 완제품 BOM: 반제품 x1, 원자재B x3
+        self.fin_bom = BOM.objects.create(
+            product=self.finished, version='1.0', is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.fin_bom, material=self.semi,
+            quantity=Decimal('1.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.fin_bom, material=self.raw_b,
+            quantity=Decimal('3.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+
+    def test_explode_multilevel(self):
+        """다단계 전개 시 반제품이 원자재로 분해되어야 한다"""
+        result = self.fin_bom.explode_multilevel(quantity=1)
+        # 레벨0: 반제품(is_leaf=False), 원자재B(is_leaf=True)
+        # 레벨1: 원자재A(is_leaf=True), 원자재B(is_leaf=True)
+        self.assertEqual(len(result), 4)
+
+        # 반제품 항목 (is_leaf=False)
+        semi_items = [r for r in result if not r['is_leaf']]
+        self.assertEqual(len(semi_items), 1)
+        self.assertEqual(semi_items[0]['material'], self.semi)
+        self.assertEqual(semi_items[0]['level'], 0)
+
+        # 최말단 원자재 항목들 (is_leaf=True)
+        leaf_items = [r for r in result if r['is_leaf']]
+        self.assertEqual(len(leaf_items), 3)
+
+    def test_explode_multilevel_quantity(self):
+        """수량 10개 전개 시 소요량이 정확해야 한다"""
+        result = self.fin_bom.explode_multilevel(quantity=10)
+        leaf_items = [r for r in result if r['is_leaf']]
+
+        # 원자재A: 반제품 1개당 2개 x 완제품 10개 = 20
+        raw_a_items = [r for r in leaf_items if r['material'] == self.raw_a]
+        self.assertEqual(len(raw_a_items), 1)
+        self.assertEqual(raw_a_items[0]['quantity'], Decimal('20'))
+
+        # 원자재B: 반제품 1개당 1개 + 완제품 직접 3개 = (1*10 + 3*10) = 10 + 30
+        raw_b_items = [r for r in leaf_items if r['material'] == self.raw_b]
+        total_b = sum(r['quantity'] for r in raw_b_items)
+        self.assertEqual(total_b, Decimal('40'))
+
+    def test_max_depth_prevents_infinite(self):
+        """max_depth 제한이 무한루프를 방지해야 한다"""
+        result = self.fin_bom.explode_multilevel(quantity=1, max_depth=0)
+        self.assertEqual(len(result), 0)
+
+        result = self.fin_bom.explode_multilevel(quantity=1, max_depth=1)
+        # 레벨0만 전개: 반제품(is_leaf=False이지만 하위 전개 안됨)과 원자재B
+        # max_depth=1이면 level=0은 처리하되 level=1은 진입 불가
+        # 반제품은 sub_bom이 있지만 level+1=1 >= max_depth=1이므로 하위 비전개
+        # 그래도 반제품은 결과에 is_leaf=False로 포함되고, 하위 전개만 안됨
+        self.assertEqual(len(result), 2)
+
+
+class ScrapHandlingTest(TestCase):
+    """불량품 재고 자동 차감 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='scrap_user', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-SC', name='스크랩창고', is_default=True, created_by=self.user,
+        )
+        self.raw = Product.objects.create(
+            code='RAW-SC1', name='스크랩원자재', product_type='RAW',
+            cost_price=1000, current_stock=100, created_by=self.user,
+        )
+        self.finished = Product.objects.create(
+            code='FIN-SC1', name='스크랩완제품', product_type='FINISHED',
+            cost_price=5000, current_stock=0, created_by=self.user,
+        )
+        self.bom = BOM.objects.create(
+            product=self.finished, version='1.0', is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.raw,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0'),
+            created_by=self.user,
+        )
+        self.plan = ProductionPlan.objects.create(
+            product=self.finished, bom=self.bom,
+            planned_quantity=20, planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=7),
+            status='CONFIRMED', created_by=self.user,
+        )
+        self.wo = WorkOrder.objects.create(
+            production_plan=self.plan, quantity=20,
+            status='IN_PROGRESS', created_by=self.user,
+        )
+
+    def test_scrap_does_not_create_finished_adjustment(self):
+        """불량은 완제품 입고에 포함되지 않으므로 별도 차감이 없어야 한다"""
+        record = ProductionRecord.objects.create(
+            work_order=self.wo, good_quantity=8, defect_quantity=2,
+            record_date=date.today(), warehouse=self.warehouse,
+            created_by=self.user,
+        )
+        # PROD_IN은 양품만 (8개)
+        prod_in = StockMovement.objects.filter(
+            movement_type='PROD_IN', product=self.finished, is_active=True,
+        )
+        self.assertEqual(prod_in.count(), 1)
+        self.assertEqual(prod_in.first().quantity, Decimal('8'))
+
+    def test_scrap_material_consumption(self):
+        """불량 포함 총생산수량 기준으로 원자재 소모되어야 한다"""
+        record = ProductionRecord.objects.create(
+            work_order=self.wo, good_quantity=8, defect_quantity=2,
+            record_date=date.today(), warehouse=self.warehouse,
+            created_by=self.user,
+        )
+        # 원자재 소모: (양품8 + 불량2) x BOM소요량2 = 20
+        prod_out = StockMovement.objects.filter(
+            movement_type='PROD_OUT',
+            product=self.raw,
+            is_active=True,
+        )
+        self.assertEqual(prod_out.count(), 1)
+        self.assertEqual(prod_out.first().quantity, Decimal('20'))
+
+    def test_no_defect_only_good_quantity_in_prod_in(self):
+        """불량 수량 0이면 PROD_IN에 양품만 반영되어야 한다"""
+        record = ProductionRecord.objects.create(
+            work_order=self.wo, good_quantity=10, defect_quantity=0,
+            record_date=date.today(), warehouse=self.warehouse,
+            created_by=self.user,
+        )
+        prod_in = StockMovement.objects.filter(
+            movement_type='PROD_IN', product=self.finished, is_active=True,
+        )
+        self.assertEqual(prod_in.count(), 1)
+        self.assertEqual(prod_in.first().quantity, Decimal('10'))
+
+        # 원자재 소모: 양품 10 x BOM소요량 2 = 20
+        prod_out = StockMovement.objects.filter(
+            movement_type='PROD_OUT', product=self.raw, is_active=True,
+        )
+        self.assertEqual(prod_out.count(), 1)
+        self.assertEqual(prod_out.first().quantity, Decimal('20'))

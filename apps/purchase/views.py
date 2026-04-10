@@ -81,6 +81,17 @@ class PurchaseOrderCreateView(ManagerRequiredMixin, CreateView):
         return ctx
 
     def form_valid(self, form):
+        # 거래처 승인 상태 체크
+        partner = form.cleaned_data.get('partner')
+        if partner and hasattr(partner, 'approval_status'):
+            if partner.approval_status not in ('APPROVED', ''):
+                messages.error(
+                    self.request,
+                    f'거래처 "{partner.name}"이(가) 승인 상태가 아닙니다. '
+                    f'(현재: {partner.get_approval_status_display()})',
+                )
+                return self.form_invalid(form)
+
         ctx = self.get_context_data()
         formset = ctx['formset']
         if formset.is_valid():

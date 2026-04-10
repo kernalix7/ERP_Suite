@@ -394,8 +394,30 @@ def _create_quotation_for_import(order, product_id, user=None):
     )
 
 
+def _get_store_modules_with_clients():
+    """API가 있는 스토어 모듈과 클라이언트 쌍을 반환합니다.
+
+    Returns:
+        list[tuple[BaseStoreModule, client]]: (모듈 인스턴스, API 클라이언트) 리스트
+    """
+    from apps.store_modules.registry import registry
+
+    pairs = []
+    for module_id, module_cls in registry.all().items():
+        module = module_cls()
+        if not module.has_api:
+            continue
+        try:
+            client = module.get_api_client()
+            if client:
+                pairs.append((module, client))
+        except Exception as e:
+            logger.debug('스토어 모듈 %s 클라이언트 생성 실패: %s', module_id, e)
+    return pairs
+
+
 def push_shipping_info(marketplace_order) -> bool:
-    """마켓플레이스 주문의 배송정보를 API로 전송합니다.
+    """마켓플레이스 주문의 배송정보를 스토어 모듈을 통해 API로 전송합니다.
 
     Args:
         marketplace_order: MarketplaceOrder 인스턴스
@@ -417,12 +439,10 @@ def push_shipping_info(marketplace_order) -> bool:
         )
         return False
 
-    clients = get_all_clients()
-    if not clients:
+    pairs = _get_store_modules_with_clients()
+    if not pairs:
         logger.error('마켓플레이스 API 설정 없음 — PUSH 불가')
         return False
-
-    from .api_client import NaverCommerceClient, CoupangClient
 
     sync_log = SyncLog(
         direction=SyncLog.Direction.PUSH,
@@ -431,48 +451,96 @@ def push_shipping_info(marketplace_order) -> bool:
     )
     sync_log.save()
 
-    for client in clients:
-        try:
-            if isinstance(client, NaverCommerceClient):
-                # 발주확인 → 배송정보 등록
-                client.dispatch_shipment(
-                    [marketplace_order.platform_product_order_id],
-                )
-                client.ship_order(
-                    product_order_id=marketplace_order.platform_product_order_id,
-                    delivery_company=marketplace_order.delivery_company,
-                    tracking_number=marketplace_order.tracking_number,
-                )
-            elif isinstance(client, CoupangClient):
-                shipment_box_id = int(marketplace_order.platform_product_order_id)
-                client.confirm_order([shipment_box_id])
-                client.ship_order(
-                    shipment_box_id=shipment_box_id,
-                    delivery_company=marketplace_order.delivery_company,
-                    tracking_number=marketplace_order.tracking_number,
-                )
-
+    for module, client in pairs:
+        result = module.push_shipment(
+            client,
+            marketplace_order.platform_product_order_id,
+            marketplace_order.delivery_company,
+            marketplace_order.tracking_number,
+        )
+        if result.get('success'):
             sync_log.success_count = 1
             sync_log.completed_at = timezone.now()
             sync_log.save(update_fields=[
                 'success_count', 'completed_at', 'updated_at',
             ])
             logger.info(
-                '배송정보 전송 완료: %s (택배사: %s, 운송장: %s)',
+                '배송정보 전송 완료: %s (모듈: %s, 택배사: %s, 운송장: %s)',
                 marketplace_order.store_order_id,
+                module.module_id,
                 marketplace_order.delivery_company,
                 marketplace_order.tracking_number,
             )
             return True
-        except Exception as e:
-            logger.error(
-                '배송정보 전송 실패 (%s): %s',
-                marketplace_order.store_order_id, e,
-            )
-            continue
+        logger.warning(
+            '배송정보 전송 실패 (%s, 모듈: %s): %s',
+            marketplace_order.store_order_id, module.module_id,
+            result.get('message', ''),
+        )
 
     sync_log.error_count = 1
-    sync_log.error_message = f'{marketplace_order.store_order_id}: 모든 클라이언트 전송 실패'
+    sync_log.error_message = f'{marketplace_order.store_order_id}: 모든 모듈 전송 실패'
+    sync_log.completed_at = timezone.now()
+    sync_log.save(update_fields=[
+        'error_count', 'error_message', 'completed_at', 'updated_at',
+    ])
+    return False
+
+
+def push_return_info(marketplace_order, reason='') -> bool:
+    """마켓플레이스 주문의 반품정보를 스토어 모듈을 통해 API로 전송합니다.
+
+    Args:
+        marketplace_order: MarketplaceOrder 인스턴스
+        reason: 반품 사유
+
+    Returns:
+        bool: 전송 성공 여부
+    """
+    if not marketplace_order.platform_product_order_id:
+        logger.warning(
+            '플랫폼 상품주문번호 없음 (주문: %s) — 반품 PUSH 불가',
+            marketplace_order.store_order_id,
+        )
+        return False
+
+    pairs = _get_store_modules_with_clients()
+    if not pairs:
+        logger.error('마켓플레이스 API 설정 없음 — 반품 PUSH 불가')
+        return False
+
+    sync_log = SyncLog(
+        direction=SyncLog.Direction.PUSH,
+        started_at=timezone.now(),
+        total_count=1,
+    )
+    sync_log.save()
+
+    for module, client in pairs:
+        result = module.push_return(
+            client,
+            marketplace_order.platform_product_order_id,
+            reason,
+        )
+        if result.get('success'):
+            sync_log.success_count = 1
+            sync_log.completed_at = timezone.now()
+            sync_log.save(update_fields=[
+                'success_count', 'completed_at', 'updated_at',
+            ])
+            logger.info(
+                '반품정보 전송 완료: %s (모듈: %s)',
+                marketplace_order.store_order_id, module.module_id,
+            )
+            return True
+        logger.warning(
+            '반품정보 전송 결과 (%s, 모듈: %s): %s',
+            marketplace_order.store_order_id, module.module_id,
+            result.get('message', ''),
+        )
+
+    sync_log.error_count = 1
+    sync_log.error_message = f'{marketplace_order.store_order_id}: 반품 전송 실패'
     sync_log.completed_at = timezone.now()
     sync_log.save(update_fields=[
         'error_count', 'error_message', 'completed_at', 'updated_at',
@@ -481,7 +549,7 @@ def push_shipping_info(marketplace_order) -> bool:
 
 
 def push_order_status(marketplace_order, new_status: str) -> bool:
-    """마켓플레이스 주문 상태 변경을 API로 전송합니다.
+    """마켓플레이스 주문 상태 변경을 스토어 모듈을 통해 API로 전송합니다.
 
     Args:
         marketplace_order: MarketplaceOrder 인스턴스
@@ -497,36 +565,33 @@ def push_order_status(marketplace_order, new_status: str) -> bool:
         )
         return False
 
-    clients = get_all_clients()
-    if not clients:
+    if new_status == 'SHIPPED':
+        return push_shipping_info(marketplace_order)
+    if new_status in ('RETURNED', 'CANCELLED'):
+        return push_return_info(marketplace_order)
+
+    pairs = _get_store_modules_with_clients()
+    if not pairs:
         logger.error('마켓플레이스 API 설정 없음 — 상태 PUSH 불가')
         return False
 
-    from .api_client import NaverCommerceClient, CoupangClient
-
-    for client in clients:
+    for module, client in pairs:
         try:
-            if isinstance(client, NaverCommerceClient) and new_status == 'CONFIRMED':
-                client.dispatch_shipment(
-                    [marketplace_order.platform_product_order_id],
-                )
+            result = module.push_shipment(
+                client,
+                marketplace_order.platform_product_order_id,
+                '', '',
+            )
+            if result.get('success'):
                 logger.info(
-                    '상태 전송 완료: %s → %s',
-                    marketplace_order.store_order_id, new_status,
-                )
-                return True
-            elif isinstance(client, CoupangClient) and new_status == 'CONFIRMED':
-                shipment_box_id = int(marketplace_order.platform_product_order_id)
-                client.confirm_order([shipment_box_id])
-                logger.info(
-                    '상태 전송 완료: %s → %s',
-                    marketplace_order.store_order_id, new_status,
+                    '상태 전송 완료: %s → %s (모듈: %s)',
+                    marketplace_order.store_order_id, new_status, module.module_id,
                 )
                 return True
         except Exception as e:
             logger.error(
-                '상태 전송 실패 (%s → %s): %s',
-                marketplace_order.store_order_id, new_status, e,
+                '상태 전송 실패 (%s → %s, 모듈: %s): %s',
+                marketplace_order.store_order_id, new_status, module.module_id, e,
             )
             continue
 

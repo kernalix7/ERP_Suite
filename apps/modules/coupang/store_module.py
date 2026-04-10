@@ -155,6 +155,31 @@ class CoupangModule(BaseStoreModule):
             )
         return Decimal('0')
 
+    # --- 5) 역동기화 (ERP → 마켓) ---
+
+    def push_shipment(self, client, platform_order_id, delivery_company, tracking_number):
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            shipment_box_id = int(platform_order_id)
+            client.ship_order(shipment_box_id, delivery_company, tracking_number)
+            return {'success': True, 'message': f'쿠팡 배송등록 완료: {platform_order_id}'}
+        except (ValueError, TypeError):
+            return {'success': False, 'message': f'유효하지 않은 주문번호: {platform_order_id}'}
+        except Exception as e:
+            logger.error('쿠팡 배송등록 실패 (%s): %s', platform_order_id, e)
+            return {'success': False, 'message': str(e)}
+
+    def push_return(self, client, platform_order_id, reason=''):
+        import logging
+        logger = logging.getLogger(__name__)
+        # 쿠팡 반품 접수 API — 현재 미구현 (수동 처리 안내)
+        logger.info('쿠팡 반품은 Wing에서 수동 처리 필요: %s', platform_order_id)
+        return {
+            'success': False,
+            'message': f'쿠팡 반품은 Wing에서 수동 처리가 필요합니다 ({platform_order_id})',
+        }
+
     # --- 3) 운송장 ---
 
     def fetch_shipments(self, client, from_date=None, to_date=None) -> list[dict]:

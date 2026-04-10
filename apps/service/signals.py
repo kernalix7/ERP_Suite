@@ -77,3 +77,48 @@ def auto_ar_on_service_completed(sender, instance, **kwargs):
             'ServiceRequest %s COMPLETED → AR 자동 생성: %s원 (거래처: %s)',
             instance.request_number, total_cost, partner.name,
         )
+
+
+@receiver(pre_save, sender='service.ServiceRequest')
+def cancel_ar_on_service_cancelled(sender, instance, **kwargs):
+    """AS 요청 취소 시 관련 AR/전표 soft delete
+
+    - CANCELLED 상태로 전환될 때만
+    - notes에 request_number가 포함된 AR을 soft delete
+    - AR에 연결된 전표도 soft delete
+    """
+    if not instance.pk:
+        return
+
+    try:
+        old = sender.objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+
+    if old.status == 'CANCELLED' or instance.status != 'CANCELLED':
+        return
+
+    from apps.accounting.models import AccountReceivable, Voucher
+
+    with transaction.atomic():
+        # request_number로 연결된 AR 찾기
+        ars = AccountReceivable.objects.filter(
+            notes__contains=instance.request_number,
+            is_active=True,
+        )
+        for ar in ars:
+            # AR에 연결된 전표 soft delete
+            vouchers = Voucher.objects.filter(
+                description__contains=instance.request_number,
+                is_active=True,
+            )
+            for v in vouchers:
+                v.is_active = False
+                v.save(update_fields=['is_active', 'updated_at'])
+
+            ar.is_active = False
+            ar.save(update_fields=['is_active', 'updated_at'])
+            logger.info(
+                'ServiceRequest %s CANCELLED → AR soft deleted (pk=%s)',
+                instance.request_number, ar.pk,
+            )

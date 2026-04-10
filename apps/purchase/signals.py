@@ -173,11 +173,9 @@ def _auto_create_ap(po):
     if grand_total <= 0:
         return
 
-    # 이미 AP가 있으면 스킵
+    # purchase_order FK 기반 중복 체크 (notes 기반보다 정확)
     if AccountPayable.objects.filter(
-        partner=po.partner,
-        notes=f'발주 {po.po_number} 입고완료',
-        is_active=True,
+        purchase_order=po, is_active=True,
     ).exists():
         return
 
@@ -185,6 +183,7 @@ def _auto_create_ap(po):
 
     AccountPayable.objects.create(
         partner=po.partner,
+        purchase_order=po,
         amount=grand_total,
         due_date=due_date,
         status='PENDING',
@@ -279,11 +278,13 @@ def handle_po_cancellation(sender, instance, **kwargs):
             return
 
     with transaction.atomic():
-        # 2. 관련 AP soft delete
+        # 2. 관련 AP soft delete (purchase_order FK 기반)
         from apps.accounting.models import AccountPayable
         cancelled_ap = AccountPayable.objects.filter(
-            partner=instance.partner,
-            notes=f'발주 {instance.po_number} 입고완료',
+            Q(purchase_order=instance) | Q(
+                partner=instance.partner,
+                notes=f'발주 {instance.po_number} 입고완료',
+            ),
             is_active=True,
         ).update(is_active=False)
         if cancelled_ap:

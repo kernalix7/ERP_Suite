@@ -12,7 +12,7 @@ class BOM(BaseModel):
     product = models.ForeignKey(
         Product, verbose_name='완제품',
         on_delete=models.PROTECT,
-        limit_choices_to={'product_type': 'FINISHED'},
+        limit_choices_to={'product_type__in': ['FINISHED', 'SEMI']},
         related_name='boms',
     )
     version = models.CharField('버전', max_length=20, default='1.0')
@@ -36,6 +36,52 @@ class BOM(BaseModel):
     @property
     def total_material_cost(self):
         return sum(item.material_cost for item in self.items.all())
+
+    def explode_multilevel(self, quantity=1, level=0, max_depth=10):
+        """BOM 다단계 전개 -- 반제품 재귀 분해
+
+        Args:
+            quantity: 생산할 수량
+            level: 현재 전개 깊이
+            max_depth: 최대 전개 깊이 (무한 루프 방지)
+        Returns:
+            list of dict: [{material, quantity, level, is_leaf, parent_bom}]
+        """
+        if level >= max_depth:
+            return []
+
+        result = []
+        for item in self.items.select_related('material').filter(is_active=True):
+            effective_qty = item.effective_quantity * quantity
+            material = item.material
+
+            # 반제품인 경우 하위 BOM 전개
+            sub_bom = None
+            if material.product_type == 'SEMI':
+                sub_bom = BOM.objects.filter(
+                    product=material, is_active=True,
+                ).first()
+
+            if sub_bom:
+                result.append({
+                    'material': material,
+                    'quantity': effective_qty,
+                    'level': level,
+                    'is_leaf': False,
+                    'parent_bom': self,
+                })
+                result.extend(
+                    sub_bom.explode_multilevel(effective_qty, level + 1, max_depth)
+                )
+            else:
+                result.append({
+                    'material': material,
+                    'quantity': effective_qty,
+                    'level': level,
+                    'is_leaf': True,
+                    'parent_bom': self,
+                })
+        return result
 
     def check_material_availability(self, quantity):
         """BOM 자재 가용성 체크 — 부족 자재 목록 반환

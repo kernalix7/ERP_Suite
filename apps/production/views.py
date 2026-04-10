@@ -82,6 +82,8 @@ class BOMDetailView(LoginRequiredMixin, DetailView):
         ctx['items'] = self.object.items.select_related(
             'material',
         ).all()
+        # 다단계 BOM 전개 결과
+        ctx['exploded_items'] = self.object.explode_multilevel(quantity=1)
         return ctx
 
 
@@ -516,15 +518,14 @@ class MRPView(ManagerRequiredMixin, TemplateView):
             if remaining_qty <= 0:
                 continue
 
-            for item in plan.bom.items.select_related('material').filter(is_active=True):
-                # 소요량 = BOMItem.quantity * (1 + loss_rate/100) * 남은생산량
-                required = (
-                    item.quantity
-                    * (1 + item.loss_rate / 100)
-                    * Decimal(str(remaining_qty))
-                )
-                material_requirements[item.material_id] += required
-                material_plans[item.material_id].append(plan.plan_number)
+            # 다단계 BOM 전개로 최말단 원자재까지 소요량 산출
+            exploded = plan.bom.explode_multilevel(
+                quantity=Decimal(str(remaining_qty)),
+            )
+            for entry in exploded:
+                if entry['is_leaf']:
+                    material_requirements[entry['material'].pk] += entry['quantity']
+                    material_plans[entry['material'].pk].append(plan.plan_number)
 
         if not material_requirements:
             return []

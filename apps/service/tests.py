@@ -280,3 +280,54 @@ class ServiceRequestSignalTests(TestCase):
             notes__contains='AS-SIG-004',
         ).count()
         self.assertEqual(ar_count, 0)
+
+    def test_cancel_service_deletes_ar(self):
+        """AS 취소 시 관련 AR soft delete"""
+        sr = ServiceRequest.objects.create(
+            request_number='AS-SIG-005',
+            customer=self.customer,
+            product=self.product,
+            request_type=ServiceRequest.RequestType.PAID,
+            symptom='화면 불량',
+            received_date=date(2026, 3, 1),
+            is_warranty=False,
+        )
+        RepairRecord.objects.create(
+            service_request=sr,
+            repair_date=date(2026, 3, 5),
+            description='LCD 교체',
+            cost=Decimal('200000'),
+        )
+        # COMPLETED → AR 생성
+        sr.status = ServiceRequest.Status.COMPLETED
+        sr.completed_date = date(2026, 3, 5)
+        sr.save()
+
+        ar = AccountReceivable.objects.filter(
+            notes__contains='AS-SIG-005',
+            is_active=True,
+        ).first()
+        self.assertIsNotNone(ar)
+
+        # CANCELLED → AR soft delete
+        sr.status = ServiceRequest.Status.CANCELLED
+        sr.save()
+
+        ar.refresh_from_db()
+        self.assertFalse(ar.is_active)
+
+    def test_cancel_service_without_ar_no_error(self):
+        """AR 없는 AS 취소 시 에러 없음"""
+        sr = ServiceRequest.objects.create(
+            request_number='AS-SIG-006',
+            customer=self.customer,
+            product=self.product,
+            symptom='점검만',
+            received_date=date(2026, 3, 1),
+            is_warranty=True,
+        )
+        sr.status = ServiceRequest.Status.COMPLETED
+        sr.save()
+        # 보증수리이므로 AR 없음
+        sr.status = ServiceRequest.Status.CANCELLED
+        sr.save()  # 에러 없이 통과해야 함

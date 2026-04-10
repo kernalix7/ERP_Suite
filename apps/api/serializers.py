@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.inventory.models import Product, Category, Warehouse, StockMovement
+from apps.inventory.models import Product, Category, Warehouse, StockMovement, SerialNumber
 from apps.sales.models import Partner, Customer, CustomerPurchase, Order, OrderItem, Shipment, ShippingCarrier, PriceRule
 from apps.production.models import BOM, BOMItem, ProductionPlan, WorkOrder
 from apps.accounting.models import (
@@ -62,6 +62,21 @@ class StockMovementSerializer(serializers.ModelSerializer):
             'id', 'movement_number', 'movement_type',
             'product', 'product_name', 'warehouse', 'warehouse_name',
             'quantity', 'unit_price', 'movement_date', 'reference',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class SerialNumberSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    warehouse_name = serializers.CharField(source='warehouse.name', read_only=True, default=None)
+
+    class Meta:
+        model = SerialNumber
+        fields = [
+            'id', 'serial', 'product', 'product_name',
+            'status', 'warehouse', 'warehouse_name',
+            'production_date',
             'is_active', 'notes', 'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']

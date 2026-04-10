@@ -1219,3 +1219,158 @@ class ReconciliationViewTest(TestCase):
         self.client.force_login(staff)
         response = self.client.get(reverse('marketplace:reconciliation_list'))
         self.assertEqual(response.status_code, 403)
+
+
+class ReverseSyncServiceTest(TestCase):
+    """역동기화 서비스 테스트 (push_shipping_info, push_return_info)"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='pushuser', password='testpass123', role='manager',
+        )
+        self.now = timezone.now()
+
+    def test_push_shipping_info_missing_tracking(self):
+        """운송장번호 없으면 False 반환"""
+        from apps.marketplace.sync_service import push_shipping_info
+        order = MarketplaceOrder.objects.create(
+            store_order_id='PUSH-NO-TRACK-001',
+            product_name='테스트 상품',
+            quantity=1,
+            price=Decimal('50000'),
+            buyer_name='구매자',
+            receiver_name='수취인',
+            ordered_at=self.now,
+            delivery_company='CJ대한통운',
+            tracking_number='',
+            platform_product_order_id='PPO-001',
+            created_by=self.user,
+        )
+        self.assertFalse(push_shipping_info(order))
+
+    def test_push_shipping_info_missing_platform_id(self):
+        """플랫폼 주문번호 없으면 False 반환"""
+        from apps.marketplace.sync_service import push_shipping_info
+        order = MarketplaceOrder.objects.create(
+            store_order_id='PUSH-NO-PID-001',
+            product_name='테스트 상품',
+            quantity=1,
+            price=Decimal('50000'),
+            buyer_name='구매자',
+            receiver_name='수취인',
+            ordered_at=self.now,
+            delivery_company='CJ대한통운',
+            tracking_number='1234567890',
+            platform_product_order_id='',
+            created_by=self.user,
+        )
+        self.assertFalse(push_shipping_info(order))
+
+    def test_push_return_info_missing_platform_id(self):
+        """플랫폼 주문번호 없으면 반품 전송 False"""
+        from apps.marketplace.sync_service import push_return_info
+        order = MarketplaceOrder.objects.create(
+            store_order_id='PUSH-RET-NO-PID-001',
+            product_name='테스트 상품',
+            quantity=1,
+            price=Decimal('50000'),
+            buyer_name='구매자',
+            receiver_name='수취인',
+            ordered_at=self.now,
+            platform_product_order_id='',
+            created_by=self.user,
+        )
+        self.assertFalse(push_return_info(order))
+
+    def test_push_shipping_no_modules(self):
+        """API 모듈 없으면 False + SyncLog 에러"""
+        from apps.marketplace.sync_service import push_shipping_info
+        order = MarketplaceOrder.objects.create(
+            store_order_id='PUSH-NO-MOD-001',
+            product_name='테스트 상품',
+            quantity=1,
+            price=Decimal('50000'),
+            buyer_name='구매자',
+            receiver_name='수취인',
+            ordered_at=self.now,
+            delivery_company='CJ대한통운',
+            tracking_number='9999999999',
+            platform_product_order_id='PPO-002',
+            created_by=self.user,
+        )
+        result = push_shipping_info(order)
+        # API 키 미설정이므로 모듈 클라이언트가 없어 False
+        self.assertFalse(result)
+
+
+class ReverseSyncViewTest(TestCase):
+    """역동기화 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='pushviewuser', password='testpass123', role='manager',
+        )
+        self.client.force_login(self.user)
+        self.now = timezone.now()
+        self.order = MarketplaceOrder.objects.create(
+            store_order_id='VIEW-PUSH-001',
+            product_name='역동기 뷰 테스트',
+            quantity=1,
+            price=Decimal('30000'),
+            buyer_name='구매자',
+            receiver_name='수취인',
+            ordered_at=self.now,
+            delivery_company='CJ대한통운',
+            tracking_number='1234567890',
+            platform_product_order_id='PPO-VIEW-001',
+            status=MarketplaceOrder.Status.CONFIRMED,
+            created_by=self.user,
+        )
+
+    def test_push_shipment_view_post(self):
+        """배송정보 전송 뷰 POST"""
+        from django.urls import reverse
+        response = self.client.post(
+            reverse('marketplace:push_shipment', kwargs={'slug': self.order.store_order_id}),
+        )
+        # API 키 미설정이므로 실패 메시지가 나오지만 리다이렉트는 됨
+        self.assertEqual(response.status_code, 302)
+
+    def test_push_shipment_missing_tracking_redirects(self):
+        """운송장 미입력 시 에러 메시지와 리다이렉트"""
+        from django.urls import reverse
+        self.order.tracking_number = ''
+        self.order.save(update_fields=['tracking_number'])
+        response = self.client.post(
+            reverse('marketplace:push_shipment', kwargs={'slug': self.order.store_order_id}),
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_push_return_view_post(self):
+        """반품정보 전송 뷰 POST"""
+        from django.urls import reverse
+        response = self.client.post(
+            reverse('marketplace:push_return', kwargs={'slug': self.order.store_order_id}),
+            {'reason': '고객 변심'},
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_push_shipment_nonexistent_order(self):
+        """존재하지 않는 주문 → 에러 메시지"""
+        from django.urls import reverse
+        response = self.client.post(
+            reverse('marketplace:push_shipment', kwargs={'slug': 'NONEXIST-999'}),
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_push_shipment_staff_denied(self):
+        """staff 권한 접근 거부"""
+        from django.urls import reverse
+        staff = User.objects.create_user(
+            username='pushstaff', password='testpass123', role='staff',
+        )
+        self.client.force_login(staff)
+        response = self.client.post(
+            reverse('marketplace:push_shipment', kwargs={'slug': self.order.store_order_id}),
+        )
+        self.assertEqual(response.status_code, 403)

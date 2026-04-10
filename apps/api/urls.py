@@ -8,7 +8,8 @@ from rest_framework_simplejwt.views import (
 
 from apps.api.views import (
     ProductViewSet, CategoryViewSet, WarehouseViewSet,
-    StockMovementViewSet, PartnerViewSet, CustomerViewSet,
+    StockMovementViewSet, SerialNumberViewSet,
+    PartnerViewSet, CustomerViewSet,
     OrderViewSet, OrderItemViewSet, BOMViewSet, BOMItemViewSet,
     ProductionPlanViewSet, WorkOrderViewSet, TaxInvoiceViewSet,
     ApprovalRequestViewSet, ApprovalStepViewSet,
@@ -29,6 +30,7 @@ router.register('products', ProductViewSet)
 router.register('categories', CategoryViewSet)
 router.register('warehouses', WarehouseViewSet)
 router.register('stock-movements', StockMovementViewSet)
+router.register('serial-numbers', SerialNumberViewSet)
 router.register('partners', PartnerViewSet)
 router.register('customers', CustomerViewSet)
 router.register('orders', OrderViewSet)

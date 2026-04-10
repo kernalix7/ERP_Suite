@@ -5,7 +5,7 @@ from django.db.models import Q, Sum
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from apps.inventory.models import Product, StockMovement, Warehouse
+from apps.inventory.models import Product, SerialNumber, StockMovement, Warehouse
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,65 @@ def _delete_old_movements(record):
     movements.update(is_active=False)
 
 
+def _create_serial_numbers(instance, warehouse):
+    """시리얼 추적 제품의 생산 시 시리얼번호 자동 생성"""
+    from django.utils import timezone
+    from django.db.models import Max
+
+    product = instance.work_order.production_plan.product
+    if not product.serial_tracking or instance.good_quantity <= 0:
+        return
+
+    today_str = timezone.now().strftime('%Y%m%d')
+    prefix = product.serial_prefix or ''
+
+    # 해당 제품의 기존 시리얼번호에서 최대 순번 추출
+    last_serial = (
+        SerialNumber.all_objects
+        .filter(product=product)
+        .aggregate(max_pk=Max('pk'))
+    )
+    start_seq = (last_serial['max_pk'] or 0) + 1
+
+    # 실제 순번은 동일 접두사+날짜 패턴의 마지막 번호 기반
+    pattern_prefix = f'{prefix}{today_str}-'
+    last_in_pattern = (
+        SerialNumber.all_objects
+        .filter(serial__startswith=pattern_prefix)
+        .order_by('-serial')
+        .values_list('serial', flat=True)
+        .first()
+    )
+    if last_in_pattern:
+        try:
+            last_seq = int(last_in_pattern.split('-')[-1])
+        except (ValueError, IndexError):
+            last_seq = 0
+    else:
+        last_seq = 0
+
+    serials = []
+    for i in range(instance.good_quantity):
+        seq = last_seq + i + 1
+        serial_str = f'{prefix}{today_str}-{seq:04d}'
+        serials.append(SerialNumber(
+            serial=serial_str,
+            product=product,
+            status=SerialNumber.Status.IN_STOCK,
+            production_record=instance,
+            production_date=timezone.now().date(),
+            warehouse=warehouse,
+            created_by=instance.created_by,
+        ))
+
+    if serials:
+        SerialNumber.objects.bulk_create(serials)
+        logger.info(
+            'Created %d serial numbers for product %s (record %s)',
+            len(serials), product.code, instance.pk,
+        )
+
+
 def _create_movements(instance, warehouse):
     """생산실적 기반 재고이동 생성"""
     work_order = instance.work_order
@@ -145,9 +204,11 @@ def _create_movements(instance, warehouse):
         )
 
     # BOM 기반 원자재 출고 (재고 추적 대상만)
+    # 불량품도 자재를 소모하므로 총수량(양품+불량) 기준으로 소모
+    total_produced = instance.good_quantity + instance.defect_quantity
     bom = plan.bom
     for bom_item in bom.items.select_related('material').all():
-        consumed = bom_item.effective_quantity * instance.good_quantity
+        consumed = bom_item.effective_quantity * total_produced
         if consumed > 0 and bom_item.material.is_stockable:
             StockMovement.objects.create(
                 movement_number=(
@@ -163,6 +224,16 @@ def _create_movements(instance, warehouse):
                 reference=f'작업지시 {work_order.order_number} 자재소모',
                 created_by=instance.created_by,
             )
+
+    # 불량품 로깅 (불량품은 PROD_IN에 포함되지 않으므로 재고 차감 불필요,
+    # 원자재 소모는 위의 PROD_OUT에서 total_produced 기준으로 이미 반영됨)
+    if instance.defect_quantity > 0:
+        logger.info(
+            'Scrap recorded: %s x %d for WO %s '
+            '(materials consumed for %d total units)',
+            product.code, instance.defect_quantity,
+            work_order.order_number, total_produced,
+        )
 
 
 def _update_work_order_status(work_order):
@@ -289,6 +360,11 @@ def auto_stock_on_production(sender, instance, created, **kwargs):
             _delete_old_movements(instance)
 
         _create_movements(instance, warehouse)
+
+        # 시리얼 추적 제품: 최초 등록 시 시리얼번호 자동 생성
+        if created:
+            _create_serial_numbers(instance, warehouse)
+
         _update_work_order_status(work_order)
         _update_plan_status(plan)
 

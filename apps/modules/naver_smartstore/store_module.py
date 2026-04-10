@@ -170,6 +170,31 @@ class NaverSmartStoreModule(BaseStoreModule):
             )
         return Decimal('0')
 
+    # --- 5) 역동기화 (ERP → 마켓) ---
+
+    def push_shipment(self, client, platform_order_id, delivery_company, tracking_number):
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            # 1) 발주확인
+            client.dispatch_shipment([platform_order_id])
+            # 2) 배송정보 등록
+            client.ship_order(platform_order_id, delivery_company, tracking_number)
+            return {'success': True, 'message': f'네이버 배송등록 완료: {platform_order_id}'}
+        except Exception as e:
+            logger.error('네이버 배송등록 실패 (%s): %s', platform_order_id, e)
+            return {'success': False, 'message': str(e)}
+
+    def push_return(self, client, platform_order_id, reason=''):
+        import logging
+        logger = logging.getLogger(__name__)
+        # 네이버 반품 접수 API는 별도 엔드포인트 — 현재 미구현 (수동 처리 안내)
+        logger.info('네이버 반품은 셀러센터에서 수동 처리 필요: %s', platform_order_id)
+        return {
+            'success': False,
+            'message': f'네이버 반품은 셀러센터에서 수동 처리가 필요합니다 ({platform_order_id})',
+        }
+
     # --- 3) 운송장 ---
 
     def fetch_shipments(self, client, from_date=None, to_date=None) -> list[dict]:

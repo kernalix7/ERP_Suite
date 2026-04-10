@@ -31,6 +31,9 @@ urlpatterns = [
     # StockLot 관리
     path('stock-lots/', views.StockLotListView.as_view(), name='stocklot_list'),
     path('stock-lots/<str:slug>/', views.StockLotDetailView.as_view(), name='stocklot_detail'),
+    # 시리얼번호
+    path('serials/', views.SerialNumberListView.as_view(), name='serial_list'),
+    path('serials/<int:pk>/', views.SerialNumberDetailView.as_view(), name='serial_detail'),
     # 재고현황
     path('stock/', views.StockStatusView.as_view(), name='stock_status'),
     # 창고간 이동

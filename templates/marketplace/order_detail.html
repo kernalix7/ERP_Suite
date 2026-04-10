@@ -89,6 +89,38 @@
         </div>
     </div>
 
+    <!-- 역동기화 (ERP -> 마켓) -->
+    {% if object.delivery_company and object.tracking_number and object.status != 'DELIVERED' and object.status != 'CANCELLED' %}
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">마켓플레이스 역전송</h2>
+        <div class="flex flex-wrap gap-3">
+            <form method="post" action="{% url 'marketplace:push_shipment' object.store_order_id %}"
+                  onsubmit="return confirm('배송정보를 마켓플레이스로 전송하시겠습니까?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+                    </svg>
+                    배송정보 전송
+                </button>
+            </form>
+            {% if object.status == 'SHIPPED' or object.status == 'DELIVERED' %}
+            <form method="post" action="{% url 'marketplace:push_return' object.store_order_id %}"
+                  onsubmit="return confirm('반품 요청을 마켓플레이스로 전송하시겠습니까?');">
+                {% csrf_token %}
+                <input type="hidden" name="reason" value="">
+                <button type="submit" class="btn btn-warning">
+                    <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                    </svg>
+                    반품 전송
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ERP 연결 주문 -->
     {% if object.erp_order %}
     <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">

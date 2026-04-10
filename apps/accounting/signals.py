@@ -505,6 +505,46 @@ def ar_auto_voucher_on_create(sender, instance, created, **kwargs):
         )
 
 
+@receiver(post_save, sender=VoucherLine)
+def check_budget_overspend_on_voucher_line(sender, instance, created, **kwargs):
+    """전표항목 저장 시 해당 계정의 예산 초과 여부 체크
+
+    VoucherLine의 account가 Budget에 등록된 계정이면,
+    해당 월 실적이 예산을 초과할 때 경고 로깅.
+    """
+    if not created or not instance.is_active:
+        return
+    if not instance.voucher or not instance.account:
+        return
+
+    from .models import Budget
+    from django.utils.dateparse import parse_date
+
+    voucher_date = instance.voucher.voucher_date
+    if isinstance(voucher_date, str):
+        voucher_date = parse_date(voucher_date)
+    if not voucher_date:
+        return
+    year = voucher_date.year
+    month = voucher_date.month
+
+    budgets = Budget.objects.filter(
+        year=year, month=month, is_active=True,
+        account=instance.account,
+    ).select_related('account')
+
+    for budget in budgets:
+        actual = budget.actual_amount
+        if actual > budget.budget_amount:
+            overspend = actual - budget.budget_amount
+            logger.warning(
+                'Budget overspend: [%s] %s — %d년 %02d월 예산 %s원 초과 (예산: %s, 실적: %s)',
+                budget.account.code, budget.account.name,
+                year, month, overspend,
+                budget.budget_amount, actual,
+            )
+
+
 @receiver(post_save, sender=AccountPayable)
 def ap_auto_voucher_on_create(sender, instance, created, **kwargs):
     """AP 생성 시 자동전표: 차변 501(매입원가) / 대변 253(미지급금)"""

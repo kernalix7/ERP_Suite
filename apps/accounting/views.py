@@ -3485,3 +3485,100 @@ class CardBillingPayView(ManagerRequiredMixin, View):
 
         messages.success(request, f'{pay_amount:,}원 카드 청구 결제 처리 완료')
         return redirect('accounting:card_billing_detail', pk=pk)
+
+
+# === 환차손익 ===
+
+class ExchangeGainLossView(ManagerRequiredMixin, TemplateView):
+    """환율 변동에 따른 외화 미수/미지급 환차손익 계산"""
+    template_name = 'accounting/exchange_gain_loss.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        # 외화 주문 기반 AR (KRW가 아닌 통화)
+        from apps.sales.models import Order
+        from apps.purchase.models import PurchaseOrder
+
+        ar_rows = []
+        for ar in AccountReceivable.objects.filter(
+            is_active=True, status__in=['PENDING', 'PARTIAL', 'OVERDUE'],
+            order__isnull=False, order__currency__isnull=False,
+        ).select_related('partner', 'order__currency'):
+            order = ar.order
+            if not order.currency or order.currency.is_base:
+                continue
+            # 잔액 (외화 기준)
+            remaining_krw = ar.remaining_amount
+            original_rate = order.exchange_rate or 1
+            if original_rate <= 0:
+                continue
+            foreign_remaining = remaining_krw / original_rate
+
+            # 현재 환율 조회
+            current_rate_obj = ExchangeRate.objects.filter(
+                currency=order.currency, is_active=True,
+            ).order_by('-rate_date').first()
+            current_rate = current_rate_obj.rate if current_rate_obj else original_rate
+
+            revalued_krw = int(foreign_remaining * current_rate)
+            gain_loss = revalued_krw - int(remaining_krw)
+
+            ar_rows.append({
+                'partner': ar.partner.name,
+                'currency': order.currency.code,
+                'foreign_amount': round(foreign_remaining, 2),
+                'original_rate': original_rate,
+                'original_krw': int(remaining_krw),
+                'current_rate': current_rate,
+                'revalued_krw': revalued_krw,
+                'gain_loss': gain_loss,
+                'type': 'AR',
+            })
+
+        ap_rows = []
+        for ap in AccountPayable.objects.filter(
+            is_active=True, status__in=['PENDING', 'PARTIAL', 'OVERDUE'],
+            purchase_order__isnull=False,
+            purchase_order__currency__isnull=False,
+        ).select_related('partner', 'purchase_order__currency'):
+            po = ap.purchase_order
+            if not po.currency or po.currency.is_base:
+                continue
+            remaining_krw = ap.remaining_amount
+            original_rate = po.exchange_rate or 1
+            if original_rate <= 0:
+                continue
+            foreign_remaining = remaining_krw / original_rate
+
+            current_rate_obj = ExchangeRate.objects.filter(
+                currency=po.currency, is_active=True,
+            ).order_by('-rate_date').first()
+            current_rate = current_rate_obj.rate if current_rate_obj else original_rate
+
+            revalued_krw = int(foreign_remaining * current_rate)
+            gain_loss = revalued_krw - int(remaining_krw)
+
+            ap_rows.append({
+                'partner': ap.partner.name,
+                'currency': po.currency.code,
+                'foreign_amount': round(foreign_remaining, 2),
+                'original_rate': original_rate,
+                'original_krw': int(remaining_krw),
+                'current_rate': current_rate,
+                'revalued_krw': revalued_krw,
+                'gain_loss': gain_loss,
+                'type': 'AP',
+            })
+
+        all_rows = ar_rows + ap_rows
+        total_gain = sum(r['gain_loss'] for r in all_rows if r['gain_loss'] > 0)
+        total_loss = sum(r['gain_loss'] for r in all_rows if r['gain_loss'] < 0)
+        net_gain_loss = total_gain + total_loss
+
+        ctx['ar_rows'] = ar_rows
+        ctx['ap_rows'] = ap_rows
+        ctx['total_gain'] = total_gain
+        ctx['total_loss'] = total_loss
+        ctx['net_gain_loss'] = net_gain_loss
+        return ctx

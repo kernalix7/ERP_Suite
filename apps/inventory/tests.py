@@ -6,7 +6,7 @@ from django.test import TestCase
 from apps.accounts.models import User
 from apps.inventory.models import (
     Product, Category, Warehouse, StockMovement, StockTransfer,
-    WarehouseStock,
+    WarehouseStock, SerialNumber,
 )
 
 
@@ -1227,3 +1227,276 @@ class StockNegativePreventionTest(TestCase):
             warehouse=self.warehouse2, product=self.product,
         )
         self.assertEqual(ws_to.quantity, Decimal('30'))
+
+
+class SerialTrackingTest(TestCase):
+    """시리얼번호 자동 생성 테스트 — 생산실적 등록 시 시리얼 추적 검증"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-001', name='메인창고', is_default=True, created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='FIN-0001',
+            name='시리얼 추적 제품',
+            product_type='FINISHED',
+            unit_price=10000,
+            cost_price=7000,
+            safety_stock=10,
+            current_stock=100,
+            serial_tracking=True,
+            serial_prefix='SN-FIN0001-',
+            created_by=self.user,
+        )
+        self.product_no_serial = Product.objects.create(
+            code='FIN-0002',
+            name='비추적 제품',
+            product_type='FINISHED',
+            unit_price=5000,
+            cost_price=3000,
+            current_stock=50,
+            serial_tracking=False,
+            created_by=self.user,
+        )
+        # BOM + 생산계획 + 작업지시 세팅
+        from apps.production.models import BOM, BOMItem, ProductionPlan, WorkOrder
+        self.raw_material = Product.objects.create(
+            code='RAW-0001',
+            name='원자재A',
+            product_type='RAW',
+            cost_price=1000,
+            current_stock=1000,
+            created_by=self.user,
+        )
+        self.bom = BOM.objects.create(
+            product=self.product,
+            version='v1',
+            is_default=True,
+            created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom,
+            material=self.raw_material,
+            quantity=2,
+            created_by=self.user,
+        )
+        self.plan = ProductionPlan.objects.create(
+            product=self.product,
+            bom=self.bom,
+            planned_quantity=100,
+            planned_start=date.today(),
+            planned_end=date.today(),
+            status='IN_PROGRESS',
+            created_by=self.user,
+        )
+        self.work_order = WorkOrder.objects.create(
+            production_plan=self.plan,
+            quantity=50,
+            status='IN_PROGRESS',
+            created_by=self.user,
+        )
+        # 비추적 제품용
+        self.bom2 = BOM.objects.create(
+            product=self.product_no_serial,
+            version='v1',
+            is_default=True,
+            created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom2,
+            material=self.raw_material,
+            quantity=1,
+            created_by=self.user,
+        )
+        self.plan2 = ProductionPlan.objects.create(
+            product=self.product_no_serial,
+            bom=self.bom2,
+            planned_quantity=50,
+            planned_start=date.today(),
+            planned_end=date.today(),
+            status='IN_PROGRESS',
+            created_by=self.user,
+        )
+        self.work_order2 = WorkOrder.objects.create(
+            production_plan=self.plan2,
+            quantity=20,
+            status='IN_PROGRESS',
+            created_by=self.user,
+        )
+
+    def test_serial_auto_generation(self):
+        """생산 시 serial_tracking=True 제품은 시리얼번호가 자동 생성되어야 한다"""
+        from apps.production.models import ProductionRecord
+        record = ProductionRecord.objects.create(
+            work_order=self.work_order,
+            good_quantity=5,
+            record_date=date.today(),
+            created_by=self.user,
+        )
+        serials = SerialNumber.objects.filter(
+            production_record=record,
+            product=self.product,
+        )
+        self.assertEqual(serials.count(), 5)
+        for sn in serials:
+            self.assertEqual(sn.status, SerialNumber.Status.IN_STOCK)
+            self.assertEqual(sn.production_date, date.today())
+            self.assertIsNotNone(sn.warehouse)
+
+    def test_serial_not_generated_for_non_tracking(self):
+        """serial_tracking=False 제품은 시리얼번호가 생성되지 않아야 한다"""
+        from apps.production.models import ProductionRecord
+        record = ProductionRecord.objects.create(
+            work_order=self.work_order2,
+            good_quantity=3,
+            record_date=date.today(),
+            created_by=self.user,
+        )
+        serials = SerialNumber.objects.filter(production_record=record)
+        self.assertEqual(serials.count(), 0)
+
+    def test_serial_unique(self):
+        """시리얼번호는 unique 제약을 가져야 한다"""
+        from django.db import IntegrityError
+        SerialNumber.objects.create(
+            serial='UNIQUE-001',
+            product=self.product,
+            status=SerialNumber.Status.IN_STOCK,
+            created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            SerialNumber.objects.create(
+                serial='UNIQUE-001',
+                product=self.product,
+                status=SerialNumber.Status.IN_STOCK,
+                created_by=self.user,
+            )
+
+    def test_serial_prefix_format(self):
+        """시리얼번호가 접두사 + 날짜 + 순번 형식이어야 한다"""
+        from apps.production.models import ProductionRecord
+        from django.utils import timezone
+
+        record = ProductionRecord.objects.create(
+            work_order=self.work_order,
+            good_quantity=3,
+            record_date=date.today(),
+            created_by=self.user,
+        )
+        serials = SerialNumber.objects.filter(
+            production_record=record,
+        ).order_by('serial')
+
+        today_str = timezone.now().strftime('%Y%m%d')
+        prefix = self.product.serial_prefix
+
+        for i, sn in enumerate(serials, start=1):
+            expected = f'{prefix}{today_str}-{i:04d}'
+            self.assertEqual(sn.serial, expected)
+
+    def test_serial_list_view(self):
+        """시리얼 목록 뷰 접근 및 필터 동작"""
+        sn = SerialNumber.objects.create(
+            serial='VIEW-LIST-001',
+            product=self.product,
+            status=SerialNumber.Status.IN_STOCK,
+            warehouse=self.warehouse,
+            created_by=self.user,
+        )
+        self.client.force_login(self.user)
+
+        # 기본 목록 접근
+        response = self.client.get('/inventory/serials/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'VIEW-LIST-001')
+
+        # 상태 필터
+        response = self.client.get('/inventory/serials/?status=IN_STOCK')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'VIEW-LIST-001')
+
+        # 제품 필터
+        response = self.client.get(f'/inventory/serials/?product={self.product.pk}')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'VIEW-LIST-001')
+
+        # 창고 필터
+        response = self.client.get(f'/inventory/serials/?warehouse={self.warehouse.pk}')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'VIEW-LIST-001')
+
+        # 검색 (시리얼번호)
+        response = self.client.get('/inventory/serials/?q=VIEW-LIST')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'VIEW-LIST-001')
+
+        # 존재하지 않는 필터 — 결과 없음
+        response = self.client.get('/inventory/serials/?status=DISPOSED')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'VIEW-LIST-001')
+
+    def test_serial_detail_view(self):
+        """시리얼 상세 뷰 접근"""
+        sn = SerialNumber.objects.create(
+            serial='VIEW-DETAIL-001',
+            product=self.product,
+            status=SerialNumber.Status.IN_STOCK,
+            warehouse=self.warehouse,
+            production_date=date.today(),
+            created_by=self.user,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(f'/inventory/serials/{sn.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'VIEW-DETAIL-001')
+        self.assertContains(response, self.product.name)
+
+
+class SafetyStockTaskTest(TestCase):
+    """안전재고 Celery 태스크 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='safety_user', password='testpass123', role='admin',
+        )
+        Warehouse.objects.create(
+            code='WH-SF', name='안전재고창고', is_default=True, created_by=self.user,
+        )
+
+    def test_safety_stock_alert(self):
+        """안전재고 미달 제품이 올바르게 감지되어야 한다"""
+        from apps.inventory.tasks import check_safety_stock
+
+        # 안전재고 미달 제품
+        Product.objects.create(
+            code='SAFE-001', name='부족제품', product_type='FINISHED',
+            current_stock=5, safety_stock=10, created_by=self.user,
+        )
+        # 안전재고 충분 제품
+        Product.objects.create(
+            code='SAFE-002', name='충분제품', product_type='FINISHED',
+            current_stock=20, safety_stock=10, created_by=self.user,
+        )
+        # 서비스 제품 (미추적 대상)
+        Product.objects.create(
+            code='SAFE-003', name='서비스', product_type='SERVICE',
+            current_stock=0, safety_stock=10, created_by=self.user,
+        )
+
+        result = check_safety_stock()
+        self.assertIn('1 products below safety stock', result)
+
+    def test_no_alert_when_all_sufficient(self):
+        """모든 제품이 안전재고 이상이면 0건이어야 한다"""
+        from apps.inventory.tasks import check_safety_stock
+
+        Product.objects.create(
+            code='SAFE-OK1', name='충분1', product_type='FINISHED',
+            current_stock=20, safety_stock=10, created_by=self.user,
+        )
+        result = check_safety_stock()
+        self.assertIn('0 products below safety stock', result)

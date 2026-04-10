@@ -94,11 +94,11 @@ class Product(BaseModel):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(current_stock__gte=0),
+                condition=models.Q(current_stock__gte=0),
                 name='stock_non_negative',
             ),
             models.CheckConstraint(
-                check=models.Q(reserved_stock__gte=0),
+                condition=models.Q(reserved_stock__gte=0),
                 name='reserved_stock_non_negative',
             ),
         ]
@@ -139,6 +139,15 @@ class Product(BaseModel):
     def is_stockable(self):
         """재고 관리 대상 여부 (서비스/무형상품은 재고 미추적)"""
         return self.product_type not in (self.ProductType.SERVICE, self.ProductType.INTANGIBLE)
+
+    serial_tracking = models.BooleanField(
+        '시리얼추적', default=False,
+        help_text='활성화 시 생산 완료 시 자동으로 시리얼번호 생성',
+    )
+    serial_prefix = models.CharField(
+        '시리얼접두사', max_length=20, blank=True, default='',
+        help_text='예: SN-PRD001-',
+    )
 
     @property
     def profit_margin(self):
@@ -363,7 +372,7 @@ class WarehouseStock(BaseModel):
                 name='uq_warehouse_product',
             ),
             models.CheckConstraint(
-                check=models.Q(quantity__gte=0),
+                condition=models.Q(quantity__gte=0),
                 name='warehouse_stock_non_negative',
             ),
         ]
@@ -403,10 +412,64 @@ class StockLot(BaseModel):
         ordering = ['received_date', 'pk']
         constraints = [
             models.CheckConstraint(
-                check=models.Q(remaining_quantity__gte=0),
+                condition=models.Q(remaining_quantity__gte=0),
                 name='lot_remaining_non_negative',
             ),
         ]
 
     def __str__(self):
         return f'{self.lot_number} ({self.product.name} / 잔여: {self.remaining_quantity})'
+
+
+class SerialNumber(BaseModel):
+    """개별 제품 시리얼번호"""
+    BUSINESS_KEY_FIELD = 'serial'
+
+    class Status(models.TextChoices):
+        PRODUCED = 'PRODUCED', '생산완료'
+        IN_STOCK = 'IN_STOCK', '재고'
+        RESERVED = 'RESERVED', '예약'
+        SHIPPED = 'SHIPPED', '출고'
+        RETURNED = 'RETURNED', '반품'
+        DISPOSED = 'DISPOSED', '폐기'
+
+    serial = models.CharField('시리얼번호', max_length=100, unique=True, db_index=True)
+    product = models.ForeignKey(
+        Product, verbose_name='제품',
+        on_delete=models.PROTECT, related_name='serial_numbers',
+    )
+    status = models.CharField(
+        '상태', max_length=20,
+        choices=Status.choices, default=Status.IN_STOCK,
+    )
+    production_record = models.ForeignKey(
+        'production.ProductionRecord', verbose_name='생산기록',
+        null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='serial_numbers',
+    )
+    production_date = models.DateField('생산일', null=True, blank=True)
+    warehouse = models.ForeignKey(
+        Warehouse, verbose_name='보관창고',
+        null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='serial_numbers',
+    )
+    stock_lot = models.ForeignKey(
+        StockLot, verbose_name='재고LOT',
+        null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='serial_numbers',
+    )
+    shipped_date = models.DateField('출고일', null=True, blank=True)
+    shipment_item = models.ForeignKey(
+        'sales.ShipmentItem', verbose_name='출고항목',
+        null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='serial_numbers',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '시리얼번호'
+        verbose_name_plural = '시리얼번호'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.serial} ({self.product.name})'

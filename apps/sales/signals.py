@@ -844,6 +844,10 @@ def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
             order.status = 'PARTIAL_SHIPPED'
             order.save(update_fields=['status', 'updated_at'])
 
+        # 시리얼 추적 제품: FIFO 순서로 시리얼 자동 할당
+        if getattr(product, 'serial_tracking', False):
+            _assign_serials_to_shipment_item(instance, product)
+
     logger.info(
         'Partial shipment: %s item %s qty=%s '
         '(shipped %s/%s)',
@@ -855,16 +859,94 @@ def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
     )
 
 
+def _assign_serials_to_shipment_item(shipment_item, product):
+    """시리얼 추적 제품의 ShipmentItem에 FIFO 순서로 시리얼 자동 할당
+
+    IN_STOCK 상태의 시리얼을 created_at 오름차순(FIFO)으로 수량만큼 선택하여
+    SHIPPED 상태로 변경하고, shipment_item / shipped_date를 설정한다.
+    """
+    from apps.inventory.models import SerialNumber
+
+    available_serials = list(
+        SerialNumber.objects.filter(
+            product=product,
+            status=SerialNumber.Status.IN_STOCK,
+            is_active=True,
+        ).order_by('created_at')[:shipment_item.quantity]
+    )
+
+    if not available_serials:
+        logger.warning(
+            'No IN_STOCK serials for product %s — serial assignment skipped',
+            product.code,
+        )
+        return
+
+    today = timezone.now().date()
+    update_fields = ['status', 'shipped_date', 'updated_at']
+    # shipment_item FK가 SerialNumber에 존재하면 함께 갱신
+    has_shipment_item_fk = hasattr(SerialNumber, 'shipment_item')
+    if has_shipment_item_fk:
+        update_fields.append('shipment_item')
+
+    for sn in available_serials:
+        sn.status = SerialNumber.Status.SHIPPED
+        sn.shipped_date = today
+        if has_shipment_item_fk:
+            sn.shipment_item = shipment_item
+        sn.save(update_fields=update_fields)
+
+    logger.info(
+        'Assigned %d serials to ShipmentItem pk=%s (product %s, FIFO)',
+        len(available_serials), shipment_item.pk, product.code,
+    )
+
+
+def _restore_serials_on_shipment_item_delete(shipment_item):
+    """ShipmentItem soft delete 시 연결된 시리얼을 IN_STOCK으로 복원"""
+    from apps.inventory.models import SerialNumber
+
+    has_shipment_item_fk = hasattr(SerialNumber, 'shipment_item')
+    if not has_shipment_item_fk:
+        # shipment_item FK가 없으면 shipped_date + product 기준으로 역추적 불가 — 스킵
+        logger.warning(
+            'SerialNumber.shipment_item FK not found — '
+            'cannot restore serials for ShipmentItem pk=%s',
+            shipment_item.pk,
+        )
+        return
+
+    linked_serials = SerialNumber.objects.filter(
+        shipment_item=shipment_item,
+        status=SerialNumber.Status.SHIPPED,
+        is_active=True,
+    )
+    count = linked_serials.count()
+    if count == 0:
+        return
+
+    for sn in linked_serials:
+        sn.status = SerialNumber.Status.IN_STOCK
+        sn.shipment_item = None
+        sn.shipped_date = None
+        sn.save(update_fields=['status', 'shipment_item', 'shipped_date', 'updated_at'])
+
+    logger.info(
+        'Restored %d serials to IN_STOCK (ShipmentItem pk=%s soft delete)',
+        count, shipment_item.pk,
+    )
+
+
 @receiver(pre_save, sender='sales.ShipmentItem')
 def restore_reserved_on_shipment_item_soft_delete(sender, instance, **kwargs):
-    """ShipmentItem soft delete 시 예약재고 복원"""
+    """ShipmentItem soft delete 시 예약재고 복원 + 시리얼 복원"""
     if not instance.pk:
         return
     try:
         old = sender.all_objects.get(pk=instance.pk)
     except sender.DoesNotExist:
         return
-    # is_active True → False (soft delete) 시 예약재고 복원
+    # is_active True → False (soft delete) 시 예약재고 복원 + 시리얼 복원
     if old.is_active and not instance.is_active:
         order_item = instance.order_item
         if order_item.product.is_stockable:
@@ -876,6 +958,10 @@ def restore_reserved_on_shipment_item_soft_delete(sender, instance, **kwargs):
                 'Restored reserved_stock +%s for product %s (ShipmentItem soft delete)',
                 instance.quantity, order_item.product.code,
             )
+        # 시리얼 추적 제품: 연결된 시리얼 IN_STOCK 복원
+        product = Product.all_objects.get(pk=order_item.product_id)
+        if getattr(product, 'serial_tracking', False):
+            _restore_serials_on_shipment_item_delete(instance)
 
 
 def _try_close_order(order):

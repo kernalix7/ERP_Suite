@@ -62,6 +62,8 @@ urlpatterns = [
     path('budget/', views.BudgetListView.as_view(), name='budget_list'),
     path('budget/create/', views.BudgetCreateView.as_view(), name='budget_create'),
     path('budget/report/', views.BudgetReportView.as_view(), name='budget_report'),
+    # 환차손익
+    path('exchange-gain-loss/', views.ExchangeGainLossView.as_view(), name='exchange_gain_loss'),
     # 재무제표
     path('report/balance-sheet/', views.BalanceSheetView.as_view(), name='balance_sheet'),
     path('report/balance-sheet/excel/', views.BalanceSheetExcelView.as_view(), name='balance_sheet_excel'),

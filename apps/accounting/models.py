@@ -223,10 +223,19 @@ class AccountCode(BaseModel):
         REVENUE = 'REVENUE', '수익'
         EXPENSE = 'EXPENSE', '비용'
 
+    class CashFlowCategory(models.TextChoices):
+        OPERATING = 'OPERATING', '영업활동'
+        INVESTING = 'INVESTING', '투자활동'
+        FINANCING = 'FINANCING', '재무활동'
+
     code = models.CharField('계정코드', max_length=20, unique=True)
     name = models.CharField('계정명', max_length=100)
     account_type = models.CharField('계정유형', max_length=20, choices=AccountType.choices)
     parent = models.ForeignKey('self', verbose_name='상위계정', null=True, blank=True, on_delete=models.SET_NULL)
+    cash_flow_category = models.CharField(
+        '현금흐름 분류', max_length=20,
+        choices=CashFlowCategory.choices, blank=True, default='',
+    )
     history = HistoricalRecords()
 
     class Meta:

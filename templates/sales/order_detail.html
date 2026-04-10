@@ -163,11 +163,27 @@
         </div>
     </div>
 
-    <!-- 반품/교환 -->
+    <!-- 원본 주문 (반품/교환인 경우) -->
+    {% if original_order %}
+    <div class="bg-orange-50 shadow rounded-lg border border-orange-200 p-4 sm:p-6">
+        <h2 class="text-lg font-semibold text-orange-800 mb-2">원본 주문</h2>
+        <p class="text-sm text-orange-700">
+            <a href="{% url 'sales:order_detail' original_order.order_number %}" class="font-mono text-orange-800 hover:underline">{{ original_order.order_number }}</a>
+            <span class="ml-2">{{ original_order.get_status_display }}</span>
+            <span class="ml-2">{{ original_order.grand_total|intcomma }}원</span>
+        </p>
+        {% if order.return_reason %}
+        <p class="text-sm text-orange-600 mt-2"><strong>사유:</strong> {{ order.return_reason }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 반품/교환 접수 + 주문 수정 -->
     {% if order.order_type == 'NORMAL' and order.status != 'DRAFT' and order.status != 'CANCELLED' %}
     <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">반품/교환</h2>
         <div class="flex flex-wrap gap-3">
+            {% if order.status in 'SHIPPED,DELIVERED,CLOSED' %}
             <a href="{% url 'sales:order_return' order.order_number %}" class="btn btn-secondary border-orange-300 text-orange-700 hover:bg-orange-50">
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
@@ -180,6 +196,56 @@
                 </svg>
                 교환 접수
             </a>
+            {% endif %}
+            {% if order.status == 'CONFIRMED' %}
+            <a href="{% url 'sales:order_modify' order.order_number %}" class="btn btn-secondary border-blue-300 text-blue-700 hover:bg-blue-50">
+                <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                주문 수정
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 연결된 반품/교환 주문 -->
+    {% if return_orders %}
+    <div class="bg-white shadow rounded-lg border border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">반품/교환 내역</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                        <th class="px-4 py-3">주문번호</th>
+                        <th class="px-4 py-3">유형</th>
+                        <th class="px-4 py-3">상태</th>
+                        <th class="px-4 py-3 text-right">합계금액</th>
+                        <th class="px-4 py-3">등록일</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for ro in return_orders %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3">
+                            <a href="{% url 'sales:order_detail' ro.order_number %}" class="text-blue-600 hover:text-blue-800 font-mono">{{ ro.order_number }}</a>
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if ro.order_type == 'RETURN' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">반품</span>
+                            {% elif ro.order_type == 'EXCHANGE' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">교환</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">{{ ro.get_status_display }}</td>
+                        <td class="px-4 py-3 text-right font-medium">{{ ro.grand_total|intcomma }}원</td>
+                        <td class="px-4 py-3 text-gray-500">{{ ro.created_at|date:"Y-m-d" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
     {% endif %}

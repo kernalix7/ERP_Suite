@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 
-from apps.inventory.models import Product, Category, Warehouse, StockMovement
+from apps.inventory.models import Product, Category, Warehouse, StockMovement, SerialNumber
 from apps.sales.models import Partner, Customer, Order, OrderItem, ShippingCarrier, PriceRule
 from apps.production.models import BOM, BOMItem, ProductionPlan, WorkOrder
 from apps.accounting.models import (
@@ -19,7 +19,8 @@ from apps.purchase.models import PurchaseOrder
 
 from apps.api.serializers import (
     ProductSerializer, CategorySerializer, WarehouseSerializer,
-    StockMovementSerializer, PartnerSerializer, CustomerSerializer,
+    StockMovementSerializer, SerialNumberSerializer,
+    PartnerSerializer, CustomerSerializer,
     OrderSerializer, OrderItemSerializer, BOMSerializer, BOMItemSerializer,
     ProductionPlanSerializer, WorkOrderSerializer, TaxInvoiceSerializer,
     ApprovalRequestSerializer, ApprovalStepSerializer,
@@ -82,6 +83,15 @@ class StockMovementViewSet(BaseModelViewSet):
     permission_classes = [IsManagerOrReadOnly]
     search_fields = ['movement_number', 'reference']
     filterset_fields = ['movement_type', 'product', 'warehouse']
+
+
+class SerialNumberViewSet(viewsets.ReadOnlyModelViewSet):
+    """시리얼번호 읽기 전용 API"""
+    queryset = SerialNumber.objects.select_related('product', 'warehouse').filter(is_active=True)
+    serializer_class = SerialNumberSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['serial', 'product__name']
+    filterset_fields = ['status', 'product', 'warehouse']
 
 
 class PartnerViewSet(BaseModelViewSet):

@@ -1,4 +1,3 @@
-import tablib
 from decimal import Decimal
 
 from django.contrib import messages
@@ -15,7 +14,7 @@ from apps.core.barcode import generate_barcode_image, generate_qr_image, generat
 from apps.core.import_views import BaseImportView
 from apps.core.mixins import ManagerRequiredMixin
 
-from .models import Category, Product, Warehouse, StockMovement, StockTransfer, StockCount, StockCountItem, StockLot
+from .models import Category, Product, Warehouse, StockMovement, StockTransfer, StockCount, StockCountItem, StockLot, SerialNumber
 from .forms import ProductForm, CategoryForm, WarehouseForm, StockMovementForm, StockTransferForm, StockInForm, StockOutForm
 from .resources import ProductResource
 
@@ -807,6 +806,66 @@ class WarehouseStockView(LoginRequiredMixin, TemplateView):
         context['selected_warehouse'] = warehouse_id
         context['q'] = q
         return context
+
+
+class SerialNumberListView(LoginRequiredMixin, ListView):
+    model = SerialNumber
+    template_name = 'inventory/serial_list.html'
+    context_object_name = 'serials'
+    paginate_by = 50
+
+    def get_queryset(self):
+        qs = SerialNumber.objects.filter(
+            is_active=True,
+        ).select_related('product', 'warehouse', 'production_record')
+
+        q = self.request.GET.get('q', '')
+        status = self.request.GET.get('status', '')
+        product_id = self.request.GET.get('product', '')
+        warehouse_id = self.request.GET.get('warehouse', '')
+
+        if q:
+            qs = qs.filter(
+                Q(serial__icontains=q) | Q(product__name__icontains=q)
+            )
+        if status:
+            qs = qs.filter(status=status)
+        if product_id:
+            qs = qs.filter(product_id=product_id)
+        if warehouse_id:
+            qs = qs.filter(warehouse_id=warehouse_id)
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['status_choices'] = SerialNumber.Status.choices
+        ctx['products'] = Product.objects.filter(is_active=True, serial_tracking=True).order_by('name')
+        ctx['warehouses'] = Warehouse.objects.filter(is_active=True)
+        ctx['q'] = self.request.GET.get('q', '')
+        ctx['selected_status'] = self.request.GET.get('status', '')
+        ctx['selected_product'] = self.request.GET.get('product', '')
+        ctx['selected_warehouse'] = self.request.GET.get('warehouse', '')
+        return ctx
+
+
+class SerialNumberDetailView(LoginRequiredMixin, DetailView):
+    model = SerialNumber
+    template_name = 'inventory/serial_detail.html'
+    context_object_name = 'serial'
+
+    def get_queryset(self):
+        return SerialNumber.objects.filter(
+            is_active=True,
+        ).select_related(
+            'product', 'warehouse', 'production_record', 'stock_lot',
+            'shipment_item', 'shipment_item__shipment__order__partner',
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['history'] = self.object.history.all()[:20]
+        return ctx
 
 
 class InventoryValuationView(LoginRequiredMixin, TemplateView):

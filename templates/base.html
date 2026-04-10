@@ -221,6 +221,7 @@
                             <li><a href="{% url 'inventory:warehouse_stock' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'warehouse_stock' %}text-white bg-slate-600{% endif %}">{% trans "창고별 재고" %}</a></li>
                             <li><a href="{% url 'inventory:stockcount_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'stockcount_list' %}text-white bg-slate-600{% endif %}">{% trans "재고실사" %}</a></li>
                             <li><a href="{% url 'inventory:valuation' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'valuation' %}text-white bg-slate-600{% endif %}">{% trans "재고평가" %}</a></li>
+                            <li><a href="{% url 'inventory:serial_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'serial_list' %}text-white bg-slate-600{% endif %}">{% trans "시리얼번호" %}</a></li>
                         </ul>
                     </li>
 
@@ -302,6 +303,7 @@
                             <li><a href="{% url 'accounting:budget_report' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "예산 보고서" %}</a></li>
                             <li><a href="{% url 'accounting:closing_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "결산 마감" %}</a></li>
                             <li><a href="{% url 'accounting:bank_reconciliation' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "은행 대사" %}</a></li>
+                            <li><a href="{% url 'accounting:exchange_gain_loss' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "환차손익" %}</a></li>
                             <li><a href="{% url 'accounting:monthly_pl' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "월별 손익" %}</a></li>
                             <li><a href="{% url 'accounting:balance_sheet' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "대차대조표" %}</a></li>
                             <li><a href="{% url 'accounting:cash_flow' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "현금흐름표" %}</a></li>
