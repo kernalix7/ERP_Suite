@@ -76,6 +76,10 @@ class Product(BaseModel):
         '조달리드타임(일)', default=0,
         help_text='주문~입고 평균 소요일',
     )
+    reorder_point = models.PositiveIntegerField(
+        '재주문점', default=0,
+        help_text='현재고가 이 수량 이하이면 발주 알림',
+    )
     specification = models.TextField('규격/사양', blank=True)
     image = models.ImageField(
         '이미지', upload_to=hashed_upload_path('products'),

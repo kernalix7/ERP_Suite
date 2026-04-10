@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from simple_history.models import HistoricalRecords
@@ -132,7 +133,24 @@ class FixedAsset(BaseModel):
     def __str__(self):
         return f'[{self.asset_number}] {self.name}'
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.acquisition_cost is None or self.acquisition_cost <= 0:
+            errors['acquisition_cost'] = '취득원가는 0보다 커야 합니다.'
+        if self.residual_value is None or self.residual_value < 0:
+            errors['residual_value'] = '잔존가치는 0 이상이어야 합니다.'
+        if (self.acquisition_cost is not None and self.residual_value is not None
+                and self.acquisition_cost > 0 and self.residual_value >= self.acquisition_cost):
+            errors['residual_value'] = '잔존가치는 취득원가보다 작아야 합니다.'
+        if self.useful_life_years is None or self.useful_life_years <= 0:
+            errors['useful_life_years'] = '내용연수는 0보다 커야 합니다.'
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
+        if self.category_id and (self.useful_life_years is None or self.useful_life_years == 0):
+            self.useful_life_years = self.category.useful_life_years
         self.book_value = self.acquisition_cost - self.accumulated_depreciation
         super().save(*args, **kwargs)
 

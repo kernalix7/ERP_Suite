@@ -775,6 +775,31 @@ def _auto_cancel_order(order, old_status):
     logger.info('Order %s cancelled — AR/commission/stock/invoice reversed', order.order_number)
 
 
+def _check_order_shipment_status(order):
+    """주문의 출고수량을 집계하여 PARTIAL_SHIPPED / SHIPPED 자동 전환.
+
+    시그널 루프 방지를 위해 Order.objects.filter().update() 사용.
+    """
+    from apps.sales.models import Order
+
+    all_items = order.items.filter(is_active=True)
+    total_ordered = sum(i.quantity for i in all_items)
+    total_shipped = sum(i.shipped_quantity for i in all_items)
+
+    if total_ordered <= 0:
+        return
+
+    if total_shipped >= total_ordered:
+        new_status = Order.Status.SHIPPED
+    elif total_shipped > 0:
+        new_status = Order.Status.PARTIAL_SHIPPED
+    else:
+        return
+
+    if order.status != new_status:
+        Order.objects.filter(pk=order.pk).update(status=new_status)
+
+
 @receiver(post_save, sender='sales.ShipmentItem')
 def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
     """배송항목 생성 시 부분 출고 처리"""
@@ -831,18 +856,9 @@ def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
             shipped_quantity=F('shipped_quantity') + instance.quantity,
         )
 
-        # 주문 상태 자동 전환
+        # 주문 상태 자동 전환 (시그널 루프 방지를 위해 .update() 사용)
         order_item.refresh_from_db()
-        all_items = order.items.all()
-        total_ordered = sum(i.quantity for i in all_items)
-        total_shipped = sum(i.shipped_quantity for i in all_items)
-
-        if total_shipped >= total_ordered:
-            order.status = 'SHIPPED'
-            order.save(update_fields=['status', 'updated_at'])
-        elif total_shipped > 0:
-            order.status = 'PARTIAL_SHIPPED'
-            order.save(update_fields=['status', 'updated_at'])
+        _check_order_shipment_status(order)
 
         # 시리얼 추적 제품: FIFO 순서로 시리얼 자동 할당
         if getattr(product, 'serial_tracking', False):

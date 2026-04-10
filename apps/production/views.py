@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView, View
 
 from apps.core.excel import export_to_excel
@@ -475,6 +476,42 @@ class QualityInspectionUpdateView(ManagerRequiredMixin, UpdateView):
         )
 
 
+class ConditionalApproveView(ManagerRequiredMixin, View):
+    """조건부합격 검수 승인/반려 처리"""
+
+    def post(self, request, slug):
+        inspection = QualityInspection.objects.select_related('product').get(
+            inspection_number=slug, is_active=True,
+        )
+        if inspection.result != QualityInspection.Result.CONDITIONAL:
+            messages.error(request, '조건부합격 상태인 검수만 처리할 수 있습니다.')
+            return redirect('production:qc_detail', slug=slug)
+
+        action = request.POST.get('action')
+        if action == 'approve':
+            inspection.result = QualityInspection.Result.PASS
+            inspection.conditional_approved_by = request.user
+            inspection.conditional_approved_at = timezone.now()
+            inspection.save(update_fields=[
+                'result', 'conditional_approved_by',
+                'conditional_approved_at', 'updated_at',
+            ])
+            messages.success(request, f'{inspection.inspection_number} 조건부합격이 승인되었습니다.')
+        elif action == 'reject':
+            inspection.result = QualityInspection.Result.FAIL
+            inspection.conditional_approved_by = request.user
+            inspection.conditional_approved_at = timezone.now()
+            inspection.save(update_fields=[
+                'result', 'conditional_approved_by',
+                'conditional_approved_at', 'updated_at',
+            ])
+            messages.warning(request, f'{inspection.inspection_number} 조건부합격이 반려(불합격)되었습니다.')
+        else:
+            messages.error(request, '잘못된 요청입니다.')
+
+        return redirect('production:qc_detail', slug=slug)
+
+
 # ── MRP (자재 소요량 계획) ──
 
 class MRPView(ManagerRequiredMixin, TemplateView):
@@ -550,12 +587,21 @@ class MRPView(ManagerRequiredMixin, TemplateView):
             if shortage < 0:
                 shortage = Decimal('0')
 
+            # 재주문점 기반 추가 발주 제안량 산출
+            reorder_point = getattr(material, 'reorder_point', 0) or 0
+            suggested_order_qty = shortage
+            if reorder_point > 0 and (available - total_required) < reorder_point:
+                # 부족분 + 재주문점까지 채우는 수량
+                suggested_order_qty = max(shortage, Decimal(str(reorder_point)) - available + total_required)
+
             result.append({
                 'material': material,
                 'total_required': total_required,
                 'current_stock': material.current_stock,
                 'available_stock': available,
                 'shortage': shortage,
+                'reorder_point': reorder_point,
+                'suggested_order_qty': suggested_order_qty,
                 'lead_time_days': material.lead_time_days,
                 'cost_price': material.cost_price,
                 'plans': ', '.join(sorted(set(material_plans[material_id]))),

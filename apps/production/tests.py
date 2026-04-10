@@ -1148,3 +1148,124 @@ class ScrapHandlingTest(TestCase):
         )
         self.assertEqual(prod_out.count(), 1)
         self.assertEqual(prod_out.first().quantity, Decimal('20'))
+
+
+class ConditionalApprovalTest(TestCase):
+    """조건부합격 후속 처리 테스트"""
+
+    def setUp(self):
+        from apps.production.models import QualityInspection
+        self.user = User.objects.create_user(
+            username='qc_user', password='testpass123', role='staff',
+        )
+        self.manager = User.objects.create_user(
+            username='qc_manager', password='testpass123', role='manager',
+        )
+        self.product = Product.objects.create(
+            code='QC-001', name='검수제품',
+            product_type='FINISHED', unit_price=10000, cost_price=5000,
+            created_by=self.user,
+        )
+        self.inspection = QualityInspection.objects.create(
+            inspection_type='PRODUCTION',
+            product=self.product,
+            inspected_quantity=100,
+            pass_quantity=90,
+            fail_quantity=10,
+            inspection_date=date.today(),
+            result='CONDITIONAL',
+            conditional_notes='표면 미세 스크래치 — 사용 가능 판단 필요',
+            inspector=self.user,
+            created_by=self.user,
+        )
+
+    def test_conditional_fields_saved(self):
+        """조건부합격 필드가 정상 저장되는지 확인"""
+        from apps.production.models import QualityInspection
+        insp = QualityInspection.objects.get(pk=self.inspection.pk)
+        self.assertEqual(insp.result, 'CONDITIONAL')
+        self.assertEqual(insp.conditional_notes, '표면 미세 스크래치 — 사용 가능 판단 필요')
+        self.assertIsNone(insp.conditional_approved_by)
+        self.assertIsNone(insp.conditional_approved_at)
+
+    def test_conditional_notification_created(self):
+        """조건부합격 등록 시 매니저에게 알림이 생성되는지 확인"""
+        from apps.core.notification import Notification
+        notis = Notification.objects.filter(
+            user=self.manager,
+            noti_type='PRODUCTION',
+            title__contains=self.inspection.inspection_number,
+        )
+        self.assertTrue(notis.exists())
+        self.assertIn('조건부합격 승인 요청', notis.first().title)
+
+    def test_conditional_approve(self):
+        """조건부합격 승인 시 PASS로 전환"""
+        from django.utils import timezone
+        from apps.production.models import QualityInspection
+        insp = self.inspection
+        insp.result = QualityInspection.Result.PASS
+        insp.conditional_approved_by = self.manager
+        insp.conditional_approved_at = timezone.now()
+        insp.save(update_fields=[
+            'result', 'conditional_approved_by',
+            'conditional_approved_at', 'updated_at',
+        ])
+        insp.refresh_from_db()
+        self.assertEqual(insp.result, 'PASS')
+        self.assertEqual(insp.conditional_approved_by, self.manager)
+        self.assertIsNotNone(insp.conditional_approved_at)
+
+    def test_conditional_reject(self):
+        """조건부합격 반려 시 FAIL로 전환"""
+        from django.utils import timezone
+        from apps.production.models import QualityInspection
+        insp = self.inspection
+        insp.result = QualityInspection.Result.FAIL
+        insp.conditional_approved_by = self.manager
+        insp.conditional_approved_at = timezone.now()
+        insp.save(update_fields=[
+            'result', 'conditional_approved_by',
+            'conditional_approved_at', 'updated_at',
+        ])
+        insp.refresh_from_db()
+        self.assertEqual(insp.result, 'FAIL')
+        self.assertEqual(insp.conditional_approved_by, self.manager)
+
+    def test_approve_view_requires_manager(self):
+        """ConditionalApproveView는 매니저 이상만 접근 가능"""
+        self.client.force_login(self.user)
+        url = f'/production/qc/{self.inspection.inspection_number}/conditional-approve/'
+        resp = self.client.post(url, {'action': 'approve'})
+        # staff는 접근 불가 (redirect to login or 403)
+        self.assertIn(resp.status_code, [302, 403])
+
+    def test_approve_view_manager_approve(self):
+        """매니저가 승인 시 PASS 전환"""
+        self.client.force_login(self.manager)
+        url = f'/production/qc/{self.inspection.inspection_number}/conditional-approve/'
+        resp = self.client.post(url, {'action': 'approve'})
+        self.assertEqual(resp.status_code, 302)
+        self.inspection.refresh_from_db()
+        self.assertEqual(self.inspection.result, 'PASS')
+        self.assertEqual(self.inspection.conditional_approved_by, self.manager)
+
+    def test_approve_view_manager_reject(self):
+        """매니저가 반려 시 FAIL 전환"""
+        self.client.force_login(self.manager)
+        url = f'/production/qc/{self.inspection.inspection_number}/conditional-approve/'
+        resp = self.client.post(url, {'action': 'reject'})
+        self.assertEqual(resp.status_code, 302)
+        self.inspection.refresh_from_db()
+        self.assertEqual(self.inspection.result, 'FAIL')
+
+    def test_non_conditional_cannot_be_approved(self):
+        """CONDITIONAL이 아닌 검수는 승인 불가"""
+        self.inspection.result = 'PASS'
+        self.inspection.save(update_fields=['result', 'updated_at'])
+        self.client.force_login(self.manager)
+        url = f'/production/qc/{self.inspection.inspection_number}/conditional-approve/'
+        resp = self.client.post(url, {'action': 'approve'})
+        self.assertEqual(resp.status_code, 302)
+        self.inspection.refresh_from_db()
+        self.assertEqual(self.inspection.result, 'PASS')  # 변경되지 않음

@@ -25,6 +25,10 @@ app.conf.beat_schedule = {
         'task': 'apps.inventory.tasks.check_safety_stock',
         'schedule': crontab(hour=7, minute=0),
     },
+    'check-reorder-point-daily': {
+        'task': 'apps.inventory.tasks.check_reorder_point',
+        'schedule': crontab(hour=8, minute=0),
+    },
     'check-overdue-po-daily': {
         'task': 'apps.purchase.tasks.check_overdue_purchase_orders',
         'schedule': crontab(hour=7, minute=30),

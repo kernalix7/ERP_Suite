@@ -1500,3 +1500,78 @@ class SafetyStockTaskTest(TestCase):
         )
         result = check_safety_stock()
         self.assertIn('0 products below safety stock', result)
+
+
+class ReorderPointTaskTest(TestCase):
+    """재주문점 Celery 태스크 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='reorder_user', password='testpass123', role='staff',
+        )
+        self.manager = User.objects.create_user(
+            username='reorder_mgr', password='testpass123', role='manager',
+        )
+
+    def test_alert_when_below_reorder_point(self):
+        """현재고가 재주문점 이하이면 알림 생성"""
+        from apps.inventory.tasks import check_reorder_point
+        from apps.core.notification import Notification
+
+        Product.objects.create(
+            code='RP-001', name='재주문제품', product_type='RAW',
+            current_stock=5, reorder_point=10, lead_time_days=3,
+            created_by=self.user,
+        )
+        result = check_reorder_point()
+        self.assertIn('1 products below reorder point', result)
+        # 매니저에게 알림 생성 확인
+        notis = Notification.objects.filter(
+            user=self.manager, noti_type='STOCK_LOW',
+        )
+        self.assertTrue(notis.exists())
+        self.assertIn('재주문점 미달', notis.first().title)
+
+    def test_no_alert_when_stock_above_reorder_point(self):
+        """현재고가 재주문점 초과이면 알림 없음"""
+        from apps.inventory.tasks import check_reorder_point
+
+        Product.objects.create(
+            code='RP-002', name='충분제품', product_type='RAW',
+            current_stock=20, reorder_point=10,
+            created_by=self.user,
+        )
+        result = check_reorder_point()
+        self.assertIn('0 products below reorder point', result)
+
+    def test_no_alert_when_reorder_point_zero(self):
+        """재주문점이 0이면 검사 대상에서 제외"""
+        from apps.inventory.tasks import check_reorder_point
+
+        Product.objects.create(
+            code='RP-003', name='미설정제품', product_type='RAW',
+            current_stock=0, reorder_point=0,
+            created_by=self.user,
+        )
+        result = check_reorder_point()
+        self.assertIn('0 products below reorder point', result)
+
+    def test_service_products_excluded(self):
+        """서비스/무형상품은 재주문점 체크에서 제외"""
+        from apps.inventory.tasks import check_reorder_point
+
+        Product.objects.create(
+            code='RP-SVC', name='서비스', product_type='SERVICE',
+            current_stock=0, reorder_point=10,
+            created_by=self.user,
+        )
+        result = check_reorder_point()
+        self.assertIn('0 products below reorder point', result)
+
+    def test_reorder_point_field_default(self):
+        """reorder_point 기본값은 0"""
+        p = Product.objects.create(
+            code='RP-DEF', name='기본값', product_type='RAW',
+            created_by=self.user,
+        )
+        self.assertEqual(p.reorder_point, 0)

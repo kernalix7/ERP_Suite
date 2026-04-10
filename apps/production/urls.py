@@ -35,6 +35,7 @@ urlpatterns = [
     path('qc/create/', views.QualityInspectionCreateView.as_view(), name='qc_create'),
     path('qc/<str:slug>/', views.QualityInspectionDetailView.as_view(), name='qc_detail'),
     path('qc/<str:slug>/edit/', views.QualityInspectionUpdateView.as_view(), name='qc_update'),
+    path('qc/<str:slug>/conditional-approve/', views.ConditionalApproveView.as_view(), name='qc_conditional_approve'),
     # 표준원가
     path(
         'standard-cost/',

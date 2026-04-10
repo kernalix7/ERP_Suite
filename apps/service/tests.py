@@ -331,3 +331,130 @@ class ServiceRequestSignalTests(TestCase):
         # 보증수리이므로 AR 없음
         sr.status = ServiceRequest.Status.CANCELLED
         sr.save()  # 에러 없이 통과해야 함
+
+
+class WarrantySerialAutoVerificationTest(TestCase):
+    """시리얼번호 기반 보증 자동 검증 테스트"""
+
+    def setUp(self):
+        from datetime import timedelta
+        from apps.warranty.models import ProductRegistration
+        from apps.inventory.models import SerialNumber
+
+        self.user = User.objects.create_user(
+            username='warranty_serial_user', password='testpass123',
+            role='manager',
+        )
+        self.product = Product.objects.create(
+            code='PRD-WS-001', name='보증검증제품',
+            product_type=Product.ProductType.FINISHED,
+            unit_price=50000, cost_price=30000,
+        )
+        self.other_product = Product.objects.create(
+            code='PRD-WS-002', name='다른제품',
+            product_type=Product.ProductType.FINISHED,
+            unit_price=30000,
+        )
+        self.customer = Customer.objects.create(
+            code='CUST-WS01', name='보증고객',
+            phone='010-1111-2222',
+        )
+
+        # 유효한 보증 정품등록
+        self.valid_reg = ProductRegistration.objects.create(
+            serial_number='SN-VALID-001',
+            product=self.product,
+            customer=self.customer,
+            customer_name='보증고객',
+            phone='010-1111-2222',
+            purchase_date=date.today() - timedelta(days=30),
+            warranty_start=date.today() - timedelta(days=30),
+            warranty_end=date.today() + timedelta(days=335),
+            is_verified=True,
+        )
+
+        # 만료된 보증 정품등록
+        self.expired_reg = ProductRegistration.objects.create(
+            serial_number='SN-EXPIRED-001',
+            product=self.product,
+            customer=self.customer,
+            customer_name='보증고객',
+            phone='010-1111-2222',
+            purchase_date=date.today() - timedelta(days=400),
+            warranty_start=date.today() - timedelta(days=400),
+            warranty_end=date.today() - timedelta(days=35),
+        )
+
+        # 재고 시리얼번호
+        self.inv_serial = SerialNumber.objects.create(
+            serial='SN-VALID-001',
+            product=self.product,
+            status=SerialNumber.Status.SHIPPED,
+        )
+
+    def test_valid_serial_sets_warranty(self):
+        """유효한 시리얼번호로 AS 접수 시 is_warranty=True"""
+        sr = ServiceRequest(
+            request_number='AS-WS-001',
+            customer=self.customer,
+            product=self.other_product,  # 다른 제품으로 설정
+            serial_number='SN-VALID-001',
+            symptom='전원 불량',
+            received_date=date.today(),
+        )
+        # form_valid 로직을 직접 테스트
+        from apps.warranty.models import ProductRegistration
+        reg = ProductRegistration.objects.filter(
+            serial_number=sr.serial_number, is_active=True,
+        ).first()
+        if reg and reg.is_warranty_valid:
+            sr.is_warranty = True
+            sr.request_type = 'WARRANTY'
+
+        from apps.inventory.models import SerialNumber
+        inv_sn = SerialNumber.objects.filter(
+            serial=sr.serial_number, is_active=True,
+        ).select_related('product').first()
+        if inv_sn:
+            sr.product = inv_sn.product
+
+        sr.save()
+        sr.refresh_from_db()
+        self.assertTrue(sr.is_warranty)
+        self.assertEqual(sr.request_type, 'WARRANTY')
+        # 제품이 시리얼 기반으로 자동 매칭됨
+        self.assertEqual(sr.product, self.product)
+
+    def test_expired_serial_no_warranty(self):
+        """만료된 시리얼번호로 AS 접수 시 is_warranty=False"""
+        sr = ServiceRequest(
+            request_number='AS-WS-002',
+            customer=self.customer,
+            product=self.product,
+            serial_number='SN-EXPIRED-001',
+            symptom='화면 불량',
+            received_date=date.today(),
+        )
+        from apps.warranty.models import ProductRegistration
+        reg = ProductRegistration.objects.filter(
+            serial_number=sr.serial_number, is_active=True,
+        ).first()
+        if reg and reg.is_warranty_valid:
+            sr.is_warranty = True
+
+        sr.save()
+        sr.refresh_from_db()
+        self.assertFalse(sr.is_warranty)
+
+    def test_unknown_serial_no_error(self):
+        """미등록 시리얼번호로 AS 접수 시 에러 없음"""
+        sr = ServiceRequest.objects.create(
+            request_number='AS-WS-003',
+            customer=self.customer,
+            product=self.product,
+            serial_number='SN-UNKNOWN-999',
+            symptom='작동 불량',
+            received_date=date.today(),
+        )
+        self.assertFalse(sr.is_warranty)
+        self.assertEqual(sr.product, self.product)

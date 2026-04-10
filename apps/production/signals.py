@@ -498,6 +498,30 @@ def sync_cost_on_bom_save(sender, instance, **kwargs):
         _sync_product_cost_price(instance.product)
 
 
+@receiver(post_save, sender='production.QualityInspection')
+def notify_conditional_approval(sender, instance, created, **kwargs):
+    """조건부합격 검수 등록/변경 시 매니저에게 승인 요청 알림"""
+    if instance.result != 'CONDITIONAL':
+        return
+    # 이미 승인된 경우 알림 불필요
+    if instance.conditional_approved_by_id:
+        return
+
+    from apps.core.notification import create_notification
+    create_notification(
+        users='manager',
+        title=f'조건부합격 승인 요청: {instance.inspection_number}',
+        message=(
+            f'제품: {instance.product.name}\n'
+            f'검수수량: {instance.inspected_quantity}\n'
+            f'사유: {instance.conditional_notes or "미입력"}\n'
+            f'매니저 승인이 필요합니다.'
+        ),
+        noti_type='PRODUCTION',
+        link=f'/production/qc/{instance.inspection_number}/',
+    )
+
+
 @receiver(post_save, sender='production.StandardCost')
 def sync_cost_on_standard_cost_save(sender, instance, **kwargs):
     """StandardCost 저장 시 완제품의 cost_price 동기화"""

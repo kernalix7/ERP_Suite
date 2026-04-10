@@ -22,6 +22,7 @@ from .models import (
     ExchangeRate,
     FixedCost,
     Payment,
+    SalesSettlement,
     TaxInvoice,
     TaxRate,
     Voucher,
@@ -2043,3 +2044,107 @@ class BudgetWarningTests(TestCase):
         from apps.accounting.models import Budget as B
         b = B.objects.get(account=self.expense_acct, year=today.year, month=today.month)
         self.assertLessEqual(b.actual_amount, b.budget_amount)
+
+
+class SettlementVoucherSignalTest(TestCase):
+    """매출 정산 → 수수료/배송비 자동전표 테스트"""
+
+    def setUp(self):
+        self.acct_521 = AccountCode.objects.create(
+            code='521', name='판매수수료', account_type='EXPENSE',
+        )
+        self.acct_524 = AccountCode.objects.create(
+            code='524', name='운반비', account_type='EXPENSE',
+        )
+        self.acct_253 = AccountCode.objects.create(
+            code='253', name='미지급금', account_type='LIABILITY',
+        )
+
+    def test_settlement_with_commission_and_shipping(self):
+        """배송비+수수료 모두 있으면 전표 3행(차변2+대변1) 생성"""
+        before = Voucher.objects.count()
+        settlement = SalesSettlement.objects.create(
+            settlement_date=date(2026, 4, 1),
+            total_shipping=Decimal('5000'),
+            total_platform_commission=Decimal('30000'),
+        )
+        self.assertEqual(Voucher.objects.count(), before + 1)
+        settlement.refresh_from_db()
+        self.assertIsNotNone(settlement.commission_voucher_id)
+
+        voucher = Voucher.objects.get(pk=settlement.commission_voucher_id)
+        self.assertTrue(voucher.is_balanced)
+        self.assertEqual(voucher.lines.count(), 3)
+
+        commission_line = voucher.lines.get(account=self.acct_521)
+        self.assertEqual(commission_line.debit, Decimal('30000'))
+
+        shipping_line = voucher.lines.get(account=self.acct_524)
+        self.assertEqual(shipping_line.debit, Decimal('5000'))
+
+        payable_line = voucher.lines.get(account=self.acct_253)
+        self.assertEqual(payable_line.credit, Decimal('35000'))
+
+    def test_settlement_commission_only(self):
+        """수수료만 있으면 전표 2행(차변1+대변1)"""
+        settlement = SalesSettlement.objects.create(
+            settlement_date=date(2026, 4, 1),
+            total_shipping=Decimal('0'),
+            total_platform_commission=Decimal('20000'),
+        )
+        settlement.refresh_from_db()
+        voucher = Voucher.objects.get(pk=settlement.commission_voucher_id)
+        self.assertEqual(voucher.lines.count(), 2)
+        self.assertTrue(voucher.is_balanced)
+
+    def test_settlement_shipping_only(self):
+        """배송비만 있으면 전표 2행(차변1+대변1)"""
+        settlement = SalesSettlement.objects.create(
+            settlement_date=date(2026, 4, 1),
+            total_shipping=Decimal('8000'),
+            total_platform_commission=Decimal('0'),
+        )
+        settlement.refresh_from_db()
+        voucher = Voucher.objects.get(pk=settlement.commission_voucher_id)
+        self.assertEqual(voucher.lines.count(), 2)
+        self.assertTrue(voucher.is_balanced)
+
+    def test_settlement_no_fees_no_voucher(self):
+        """배송비/수수료 모두 0이면 전표 미생성"""
+        before = Voucher.objects.count()
+        settlement = SalesSettlement.objects.create(
+            settlement_date=date(2026, 4, 1),
+            total_shipping=Decimal('0'),
+            total_platform_commission=Decimal('0'),
+        )
+        self.assertEqual(Voucher.objects.count(), before)
+        settlement.refresh_from_db()
+        self.assertIsNone(settlement.commission_voucher_id)
+
+    def test_settlement_no_duplicate_voucher(self):
+        """commission_voucher 이미 있으면 재생성 안 함"""
+        settlement = SalesSettlement.objects.create(
+            settlement_date=date(2026, 4, 1),
+            total_shipping=Decimal('5000'),
+            total_platform_commission=Decimal('10000'),
+        )
+        settlement.refresh_from_db()
+        first_voucher_id = settlement.commission_voucher_id
+        self.assertIsNotNone(first_voucher_id)
+
+        # 다시 save() — 기존 voucher 유지
+        before = Voucher.objects.count()
+        settlement.save()
+        self.assertEqual(Voucher.objects.count(), before)
+        settlement.refresh_from_db()
+        self.assertEqual(settlement.commission_voucher_id, first_voucher_id)
+
+    def test_settlement_missing_accounts_no_voucher(self):
+        """계정과목 없으면 전표 미생성"""
+        self.acct_253.delete()
+        before = Voucher.objects.count()
+        settlement = SalesSettlement.objects.create(
+            settlement_date=date(2026, 4, 1),
+            total_platform_commission=Decimal('10000'),
+        )
+        self.assertEqual(Voucher.objects.count(), before)

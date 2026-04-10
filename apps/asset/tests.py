@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase
 
@@ -92,6 +93,100 @@ class FixedAssetTest(TestCase):
         expected = int((Decimal('1200000') - Decimal('0')) / (5 * 12))
         self.assertEqual(asset.monthly_depreciation, expected)
         self.assertEqual(asset.monthly_depreciation, 20000)
+
+
+class FixedAssetValidationTest(TestCase):
+    """FixedAsset clean() 유효성 검증 테스트"""
+
+    def setUp(self):
+        self.category = AssetCategory.objects.create(
+            name='비품', code='EQ-VAL',
+            useful_life_years=5,
+            depreciation_method='STRAIGHT',
+        )
+
+    def _build_asset(self, **overrides):
+        defaults = {
+            'asset_number': 'FA-VAL-001',
+            'name': '검증 테스트 자산',
+            'category': self.category,
+            'acquisition_date': date(2026, 1, 1),
+            'acquisition_cost': Decimal('1000000'),
+            'residual_value': Decimal('100000'),
+            'useful_life_years': 5,
+        }
+        defaults.update(overrides)
+        return FixedAsset(**defaults)
+
+    def test_valid_asset_passes_clean(self):
+        """정상 값은 clean() 통과"""
+        asset = self._build_asset()
+        asset.full_clean()
+
+    def test_acquisition_cost_zero_raises(self):
+        """취득원가 0 → ValidationError"""
+        asset = self._build_asset(acquisition_cost=Decimal('0'))
+        with self.assertRaises(ValidationError) as ctx:
+            asset.full_clean()
+        self.assertIn('acquisition_cost', ctx.exception.message_dict)
+
+    def test_acquisition_cost_negative_raises(self):
+        """취득원가 음수 → ValidationError"""
+        asset = self._build_asset(acquisition_cost=Decimal('-100'))
+        with self.assertRaises(ValidationError) as ctx:
+            asset.full_clean()
+        self.assertIn('acquisition_cost', ctx.exception.message_dict)
+
+    def test_residual_value_negative_raises(self):
+        """잔존가치 음수 → ValidationError"""
+        asset = self._build_asset(residual_value=Decimal('-1'))
+        with self.assertRaises(ValidationError) as ctx:
+            asset.full_clean()
+        self.assertIn('residual_value', ctx.exception.message_dict)
+
+    def test_residual_value_equals_acquisition_cost_raises(self):
+        """잔존가치 == 취득원가 → ValidationError"""
+        asset = self._build_asset(
+            acquisition_cost=Decimal('1000000'),
+            residual_value=Decimal('1000000'),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            asset.full_clean()
+        self.assertIn('residual_value', ctx.exception.message_dict)
+
+    def test_residual_value_exceeds_acquisition_cost_raises(self):
+        """잔존가치 > 취득원가 → ValidationError"""
+        asset = self._build_asset(
+            acquisition_cost=Decimal('1000000'),
+            residual_value=Decimal('2000000'),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            asset.full_clean()
+        self.assertIn('residual_value', ctx.exception.message_dict)
+
+    def test_useful_life_years_zero_raises(self):
+        """내용연수 0 → ValidationError"""
+        asset = self._build_asset(useful_life_years=0)
+        with self.assertRaises(ValidationError) as ctx:
+            asset.full_clean()
+        self.assertIn('useful_life_years', ctx.exception.message_dict)
+
+    def test_category_default_useful_life_years(self):
+        """useful_life_years==0 + category 있으면 save() 시 카테고리 기본값 적용"""
+        asset = self._build_asset(useful_life_years=10)
+        asset.save()
+        self.assertEqual(asset.useful_life_years, 10)
+
+        # useful_life_years를 0으로 설정하고 save하면 카테고리 기본값 적용
+        FixedAsset.objects.filter(pk=asset.pk).update(useful_life_years=0)
+        asset.refresh_from_db()
+        asset.save()
+        self.assertEqual(asset.useful_life_years, self.category.useful_life_years)
+
+    def test_residual_value_zero_valid(self):
+        """잔존가치 0은 허용"""
+        asset = self._build_asset(residual_value=Decimal('0'))
+        asset.full_clean()
 
 
 class DepreciationRecordTest(TestCase):

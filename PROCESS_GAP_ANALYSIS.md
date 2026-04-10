@@ -19,7 +19,7 @@
 | **Service 취소 프로세스 미구현** | AS 요청을 취소하면 비용(RepairRecord.cost) 계정처리 로직 없음 | 🟡 HIGH | ServiceRequest 신호 없음 |
 | **Service→ AR/선입금 자동 연결 미구현** | 유상수리(PAID) 요청 생성 시 AR/결제 자동 매칭 로직 없음 | 🟡 HIGH | Service 신호 처리 부재 |
 | **Product.reserved_stock과 Service 미조율** | 교환(EXCHANGE) 서비스 수행 시 기존 제품 반품입고 처리 로직 없음 | 🔴 CRITICAL | EXCHANGE 상태는 모델만 존재, 자동화 없음 |
-| **Warranty 검증 미동작** | ServiceRequest.is_warranty 필드는 수동 입력만, 자동 계산 로직 없음 | 🟡 MEDIUM | Signal 미구현 |
+| ~~**Warranty 검증 미동작**~~ ✅ **해결 (Phase 13)** | 시리얼번호 기반 ProductRegistration 자동 조회→보증 자동 판별 | 🟡 MEDIUM | ~~Signal 미구현~~ |
 
 ---
 
@@ -39,12 +39,12 @@
 
 | 갭 | 영향 | 심각도 | 원인 |
 |-----|------|--------|------|
-| **PARTIAL_SHIPPED 상태 미흡** | 주문 일부 출고 후 남은 수량 처리 로직이 불명확 | 🟡 HIGH | `_auto_full_ship()` 호출 2회 (중복?) |
+| ~~**PARTIAL_SHIPPED 상태 미흡**~~ ✅ **해결 (Phase 13)** | ShipmentItem 생성 시 shipped vs total 비교→자동 PARTIAL_SHIPPED/SHIPPED 전환 | 🟡 HIGH | ~~`_auto_full_ship()` 호출 2회~~ |
 | **주문 수정(CONFIRMED 후) 불가** | 확정된 주문의 수량/가격 변경 시나리오 처리 로직 없음 | 🔴 CRITICAL | Status transition 제약만 있고 부분수정 불가 |
 | **RETURN/EXCHANGE 주문유형 미구현** | Order.order_type에 RETURN/EXCHANGE 필드는 있지만 자동화 로직 없음 | 🔴 CRITICAL | 상태머신 없음 |
 | **반품 재입고 프로세스 미구현** | 출고된 제품이 반품 들어올 때 StockMovement RETURN 생성 로직 없음 | 🔴 CRITICAL | Service/Inventory 연결 끊김 |
 | **주문 입금 자동 매칭 미구현** | Payment 생성 시 Order.is_paid 자동 갱신 로직 불명확 (매뉴얼?) | 🟡 HIGH | OrderItem.cost_price ← 어디서 입력되는가? |
-| **배송비/플랫폼 수수료 → AR/전표 연결 미구현** | Order.shipping_cost, platform_commission 필드는 있지만 회계 자동화 없음 | 🟡 MEDIUM | 수동 조정만 가능 |
+| ~~**배송비/플랫폼 수수료 → AR/전표 연결 미구현**~~ ✅ **해결 (Phase 13)** | SalesSettlement 확정 시 배송비/수수료 자동전표 생성 (복식부기) | 🟡 MEDIUM | ~~수동 조정만 가능~~ |
 | **다중통화(exchange_rate) 환산 로직 미구현** | Order.currency/exchange_rate 필드만 있고, AR 금액 환산 로직 없음 | 🟡 MEDIUM | 환율 적용 미명확 |
 
 ### 주문 CLOSED 조건 분석
@@ -82,7 +82,7 @@ if db_status == 'DELIVERED' and is_paid:
 | **분할 입고(PARTIAL_RECEIVED) 후 남은 수량 처리** | PO 일부 입고 후 나머지는 수동 추적만 가능 | 🟡 MEDIUM | 자동 재발주 로직 없음 |
 | **GoodsReceipt.warehouse 선택 미흡** | 입고 창고가 고정이 아니면 WarehouseStock 갱신 위험 | 🟡 MEDIUM | warehouse FK nullable |
 | **AP 중복 생성 가능** | 같은 PO에 여러 GoodsReceipt 존재 시 조건문이 구체적이나, 실제 중복 방지 검증 부족 | 🟡 MEDIUM | `notes` 필드 텍스트 기반 중복 검사만 함 |
-| **FixedAsset 자동 생성 미흡** | GoodsReceiptItem.asset_category 있을 때만 생성, 실제 구분이 정확한가? | 🟡 MEDIUM | is_fixed_asset 필드 검증 필요 |
+| ~~**FixedAsset 자동 생성 미흡**~~ ✅ **해결 (Phase 13)** | clean() 유효성 검증 + 카테고리 기본값 자동 적용 | 🟡 MEDIUM | ~~is_fixed_asset 필드 검증 필요~~ |
 
 ---
 
@@ -205,7 +205,7 @@ ReturnRequest (Order과 별도 모델?)
 3. Partner.approval_date
 4. Partner 미승인 상태일 때 주문 가능 여부 제어
 
-### 6.6 가격 규칙(PriceRule) 자동 적용 — **모델만 존재, 뷰 레벨 미확인** 🟡 MEDIUM
+### 6.6 ~~가격 규칙(PriceRule) 자동 적용~~ ✅ **해결 (Phase 13)** — OrderItem/QuotationItem에 min_quantity 검증 + 자동적용
 
 **현재:**
 - PriceRule 모델 완성
@@ -279,8 +279,8 @@ ReturnRequest (Order과 별도 모델?)
 5. ~~**Service 취소 시 회계 자동화 없음**~~ ✅ **해결 (Phase 12)** — 서비스 취소 시그널, AR soft delete
 
 ### 🟡 HIGH (근중기 개선)
-1. **PARTIAL_SHIPPED 상태 처리 미흡** — 부분 출고 후 남은 수량 추적 불명확
-2. **배송비/플랫폼 수수료 → 전표 연결 없음** — 수동 조정만 가능
+1. ~~**PARTIAL_SHIPPED 상태 처리 미흡**~~ ✅ **해결 (Phase 13)** — ShipmentItem 생성 시 자동 상태 전환
+2. ~~**배송비/플랫폼 수수료 → 전표 연결 없음**~~ ✅ **해결 (Phase 13)** — SalesSettlement 자동 전표 생성
 3. ~~**견적 만료 자동화 없음**~~ ✅ **해결 (Phase 12)** — Celery 배치 매일 새벽 1시 자동 EXPIRED 전환
 4. ~~**안전재고 경고/MRP 없음**~~ ✅ **해결 (Phase 12)** — Celery 배치 매일 오전 7시 + Notification
 5. ~~**입고 지연 시 알림 없음**~~ ✅ **해결 (Phase 12)** — Celery 배치 매일 오전 7:30
@@ -288,12 +288,12 @@ ReturnRequest (Order과 별도 모델?)
 7. ~~**마켓플레이스 상태 역동기**~~ ✅ **해결 (Phase 12)** — Shipment SHIPPED → 네이버/쿠팡 API push
 
 ### 🟠 MEDIUM (선택적 개선)
-1. **Warranty 자동 검증** — is_warranty 수동 입력
-2. **FixedAsset 자동 생성 검증** — 구분 기준 불명확
+1. ~~**Warranty 자동 검증**~~ ✅ **해결 (Phase 13)** — 시리얼 기반 자동 검증
+2. ~~**FixedAsset 자동 생성 검증**~~ ✅ **해결 (Phase 13)** — clean() 유효성 검증 강화
 3. ~~**다단계 BOM (Sub-assembly)**~~ ✅ **해결 (Phase 12)** — BOM.explode_multilevel() 재귀 전개
 4. ~~**환율 변동 손익**~~ ✅ **해결 (Phase 12)** — ExchangeGainLossView 구현
 5. ~~**Partner 승인 프로세스**~~ ✅ **해결 (Phase 12)** — PO 생성 시 approval_status 체크
-6. **가격 규칙 자동 적용** — 뷰 레벨 미확인
+6. ~~**가격 규칙 자동 적용**~~ ✅ **해결 (Phase 13)** — min_quantity 검증 + 견적 자동적용
 
 ---
 

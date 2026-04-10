@@ -10,14 +10,14 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 
 | Module | Description |
 |--------|-------------|
-| **Inventory** | Products (raw/semi/finished), warehouses, stock movements, inter-warehouse transfers, barcode/QR scanning, safety stock alerts, StockLot (FIFO/LIFO inventory valuation), WarehouseStock (per-warehouse stock), reserved stock management, SerialNumber tracking (per-product opt-in, auto-generation on production, FIFO shipment assignment) |
-| **Production** | BOM management (multi-level Sub-assembly explosion), production planning, work orders, production records with auto stock adjustments, scrap quantity tracking, MRP (Material Requirements Planning), StandardCost (standard costing), QualityInspection (quality control) |
-| **Sales** | Partners, customers, orders (with CONFIRMED order modification), quotes (with one-click order conversion), return/exchange order workflows, ShipmentItem (partial shipments with serial range tracking), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), commission management, partner analytics |
+| **Inventory** | Products (raw/semi/finished), warehouses, stock movements, inter-warehouse transfers, barcode/QR scanning, safety stock alerts, reorder point monitoring, StockLot (FIFO/LIFO inventory valuation), WarehouseStock (per-warehouse stock), reserved stock management, SerialNumber tracking (per-product opt-in, auto-generation on production, FIFO shipment assignment) |
+| **Production** | BOM management (multi-level Sub-assembly explosion), production planning, work orders, production records with auto stock adjustments, scrap quantity tracking, MRP (Material Requirements Planning with reorder point), StandardCost (standard costing), QualityInspection (quality control with conditional approval workflow) |
+| **Sales** | Partners, customers, orders (with CONFIRMED order modification), quotes (with one-click order conversion, PriceRule auto-application), return/exchange order workflows, ShipmentItem (partial shipments with serial range tracking, auto PARTIAL_SHIPPED status), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), PriceRule (min quantity enforcement), commission management, partner analytics |
 | **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking, reverse cascade on PO cancellation |
-| **Service** | Service requests, repair history tracking, warranty period verification, paid repair auto-AR generation, cancellation with AR reversal |
-| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement (with account classification), vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management with overspend warnings), Currency/ExchangeRate (multi-currency), exchange gain/loss reporting, AR/AP Aging (auto-overdue transition), bank reconciliation, settlements |
+| **Service** | Service requests, repair history tracking, warranty period verification (serial-based auto-verification), paid repair auto-AR generation, cancellation with AR reversal |
+| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement (with account classification), vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management with overspend warnings), Currency/ExchangeRate (multi-currency), exchange gain/loss reporting, AR/AP Aging (auto-overdue transition), bank reconciliation, settlements (auto-voucher for shipping/platform fees) |
 | **Investment** | Investors, funding rounds, equity tracking (donut charts), dividend/distribution records |
-| **Asset** | Fixed asset management, depreciation (straight-line / declining balance), asset transfers, certifications (KC/CE/FCC/ISO/RoHS), lease contracts (operating/finance), asset audits, barcode/QR tag generation |
+| **Asset** | Fixed asset management (with acquisition validation), depreciation (straight-line / declining balance), asset transfers, certifications (KC/CE/FCC/ISO/RoHS), lease contracts (operating/finance), asset audits, barcode/QR tag generation |
 | **Marketplace** | Naver/Coupang store integration, order sync (bidirectional — ERP→marketplace shipping status push), 6-stage Import Wizard, settlement reconciliation (auto-matching), sync history |
 | **Inquiry** | Multi-channel inquiry management, Claude AI auto-reply drafts, reply templates |
 | **Warranty** | Serial number authentication, warranty period management, QR verification |
@@ -52,7 +52,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | Frontend | Django Templates + Tailwind CSS (local build) + HTMX + Alpine.js + Chart.js + FullCalendar.js (all served from static/vendor/) |
 | Database | SQLite (dev) / PostgreSQL 16 (prod) |
 | Real-time | Django Channels + WebSocket (Daphne ASGI) |
-| Async Tasks | Celery + Redis (task queue, scheduled backups, certification expiry alerts, lease voucher auto-generation, monthly depreciation, quotation expiry, safety stock alerts, overdue PO alerts, AR overdue transition) |
+| Async Tasks | Celery + Redis (task queue, scheduled backups, certification expiry alerts, lease voucher auto-generation, monthly depreciation, quotation expiry, safety stock alerts, reorder point monitoring, overdue PO alerts, AR overdue transition) |
 | Caching | Redis (django-redis) |
 | API | Django REST Framework + JWT (SimpleJWT) |
 | Security | django-axes (login throttling), RBAC, HSTS/CSP, django-prometheus |
@@ -198,7 +198,7 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**Test coverage: 1073+ tests (unit)**
+**Test coverage: 1112+ tests (unit)**
 
 Verification criteria cover 152 items across 10 categories:
 - SEC-001~035: Security (OWASP Top 10)
@@ -242,6 +242,13 @@ Verification criteria cover 152 items across 10 categories:
 - **Exchange Gain/Loss**: Foreign currency AR/AP → exchange rate variance calculation at closing
 - **Safety Stock**: Daily batch → products below safety_stock → notification alerts
 - **Marketplace Push**: Shipment SHIPPED → auto push tracking info to Naver/Coupang APIs
+- **Partial Shipment**: ShipmentItem created → auto PARTIAL_SHIPPED/SHIPPED status transition based on shipped vs total quantities
+- **Settlement Voucher**: SalesSettlement confirmed → auto voucher for shipping costs + platform commissions (double-entry)
+- **Warranty Verification**: Service request with serial → auto ProductRegistration lookup → warranty status auto-set
+- **Asset Validation**: FixedAsset creation → acquisition cost/residual value/useful life validation, category defaults
+- **Price Rules**: OrderItem/QuotationItem save → PriceRule auto-application with min quantity enforcement
+- **Conditional QC**: QualityInspection CONDITIONAL → manager notification → approve (→PASS) or reject (→FAIL)
+- **Reorder Point**: Daily batch → products below reorder_point → notification alerts + MRP suggested order qty
 
 ## Security
 
@@ -264,7 +271,7 @@ Verification criteria cover 152 items across 10 categories:
 - **24 apps**, **120+ models** (all with history tracking)
 - **450+ views**, **260+ templates**, **380+ URL endpoints**
 - **~35,000 lines** of Python (excluding migrations)
-- **1073+ tests** (unit), **17 E2E test files**, **load test suite**
+- **1112+ tests** (unit), **17 E2E test files**, **load test suite**
 - **130+ migrations**, **25+ packages**
 - **34 REST API ViewSets** with JWT authentication
 

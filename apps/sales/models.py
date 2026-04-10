@@ -388,6 +388,7 @@ class OrderItem(BaseModel):
             rule = PriceRule.objects.filter(
                 product_id=self.product_id,
                 is_active=True,
+                min_quantity__lte=self.quantity,
             ).filter(
                 models.Q(valid_from__isnull=True) | models.Q(valid_from__lte=today),
             ).filter(
@@ -400,7 +401,7 @@ class OrderItem(BaseModel):
                 )
             else:
                 rule = rule.filter(partner__isnull=True)
-            rule = rule.order_by('-priority').first()
+            rule = rule.order_by('-priority', '-min_quantity').first()
             if rule and rule.unit_price is not None:
                 self.unit_price = rule.unit_price
             elif rule and rule.discount_rate > 0:
@@ -596,6 +597,7 @@ class QuotationItem(BaseModel):
             rule = PriceRule.objects.filter(
                 product_id=self.product_id,
                 is_active=True,
+                min_quantity__lte=self.quantity,
             ).filter(
                 models.Q(valid_from__isnull=True) | models.Q(valid_from__lte=today),
             ).filter(
@@ -608,7 +610,7 @@ class QuotationItem(BaseModel):
                 )
             else:
                 rule = rule.filter(partner__isnull=True)
-            rule = rule.order_by('-priority').first()
+            rule = rule.order_by('-priority', '-min_quantity').first()
             if rule and rule.unit_price is not None:
                 self.unit_price = rule.unit_price
             elif rule and rule.discount_rate > 0:

@@ -41,19 +41,42 @@ class ServiceRequestCreateView(ManagerRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
-        # 보증기간 자동 확인 (해당 제품의 구매내역에서 확인)
-        customer = form.instance.customer
-        product = form.instance.product
-        if customer and product:
-            has_valid_warranty = customer.purchases.filter(
-                is_active=True,
-                product=product,
-                warranty_end__gte=date.today(),
-            ).exists()
-            if has_valid_warranty:
+        serial = form.instance.serial_number
+
+        # 시리얼번호 기반 자동 검증
+        if serial:
+            # 1) 정품등록(ProductRegistration)에서 보증 확인
+            from apps.warranty.models import ProductRegistration
+            reg = ProductRegistration.objects.filter(
+                serial_number=serial, is_active=True,
+            ).first()
+            if reg and reg.is_warranty_valid:
                 form.instance.is_warranty = True
                 if not form.instance.request_type or form.instance.request_type == 'PAID':
                     form.instance.request_type = 'WARRANTY'
+
+            # 2) 재고 시리얼번호에서 제품 자동 매칭
+            from apps.inventory.models import SerialNumber
+            inv_serial = SerialNumber.objects.filter(
+                serial=serial, is_active=True,
+            ).select_related('product').first()
+            if inv_serial:
+                form.instance.product = inv_serial.product
+
+        # 기존 로직: 시리얼 없을 때 고객 구매내역 기반 보증 확인
+        if not serial:
+            customer = form.instance.customer
+            product = form.instance.product
+            if customer and product:
+                has_valid_warranty = customer.purchases.filter(
+                    is_active=True,
+                    product=product,
+                    warranty_end__gte=date.today(),
+                ).exists()
+                if has_valid_warranty:
+                    form.instance.is_warranty = True
+                    if not form.instance.request_type or form.instance.request_type == 'PAID':
+                        form.instance.request_type = 'WARRANTY'
         return super().form_valid(form)
 
 

@@ -9,7 +9,7 @@ from django.dispatch import receiver
 from .models import (
     AccountCode, AccountPayable, AccountReceivable, AccountTransfer,
     BankAccount, CardTransaction, CreditCard, Payment, PaymentDistribution,
-    Voucher, VoucherLine,
+    SalesSettlement, Voucher, VoucherLine,
 )
 
 logger = logging.getLogger(__name__)
@@ -592,4 +592,100 @@ def ap_auto_voucher_on_create(sender, instance, created, **kwargs):
             debit=0, credit=instance.amount,
             description=f'{instance.partner} 미지급금',
             created_by=instance.created_by,
+        )
+
+
+# === 매출 정산 수수료/배송비 자동전표 ===
+
+@receiver(post_save, sender=SalesSettlement)
+def auto_voucher_on_settlement(sender, instance, **kwargs):
+    """SalesSettlement 저장 시 배송비/플랫폼수수료 자동전표 생성
+
+    - commission_voucher가 이미 있으면 스킵 (중복 방지)
+    - total_shipping 또는 total_platform_commission이 0보다 클 때만 전표 생성
+    - 차변: 판매수수료(521) + 운반비(524), 대변: 미지급금(253)
+    """
+    if instance.commission_voucher_id:
+        return
+
+    shipping = instance.total_shipping or 0
+    commission = instance.total_platform_commission or 0
+
+    if shipping <= 0 and commission <= 0:
+        return
+
+    with transaction.atomic():
+        acct_521 = _get_account_code('521')  # 판매수수료
+        acct_524 = _get_account_code('524')  # 운반비(배송비)
+        acct_253 = _get_account_code('253')  # 미지급금
+
+        if not acct_253:
+            logger.warning(
+                'SalesSettlement %s — missing account 253 (미지급금), skipping voucher',
+                instance.settlement_number,
+            )
+            return
+
+        if commission > 0 and not acct_521:
+            logger.warning(
+                'SalesSettlement %s — missing account 521 (판매수수료), skipping voucher',
+                instance.settlement_number,
+            )
+            return
+
+        if shipping > 0 and not acct_524:
+            logger.warning(
+                'SalesSettlement %s — missing account 524 (운반비), skipping voucher',
+                instance.settlement_number,
+            )
+            return
+
+        try:
+            voucher_date = _validate_closing_period(instance.settlement_date)
+        except Exception:
+            logger.warning(
+                'SalesSettlement %s — closing period blocked, skipping voucher',
+                instance.settlement_number,
+            )
+            return
+
+        total_amount = commission + shipping
+
+        voucher = Voucher.objects.create(
+            voucher_number=_generate_voucher_number(),
+            voucher_type='TRANSFER',
+            voucher_date=voucher_date,
+            description=f'자동전표: 정산 수수료/배송비 ({instance.settlement_number})',
+            approval_status='APPROVED',
+            created_by=instance.created_by,
+        )
+
+        if commission > 0:
+            VoucherLine.objects.create(
+                voucher=voucher,
+                account=acct_521,
+                debit=commission, credit=0,
+                description=f'플랫폼수수료 ({instance.settlement_number})',
+                created_by=instance.created_by,
+            )
+
+        if shipping > 0:
+            VoucherLine.objects.create(
+                voucher=voucher,
+                account=acct_524,
+                debit=shipping, credit=0,
+                description=f'배송비 ({instance.settlement_number})',
+                created_by=instance.created_by,
+            )
+
+        VoucherLine.objects.create(
+            voucher=voucher,
+            account=acct_253,
+            debit=0, credit=total_amount,
+            description=f'수수료/배송비 미지급금 ({instance.settlement_number})',
+            created_by=instance.created_by,
+        )
+
+        SalesSettlement.objects.filter(pk=instance.pk).update(
+            commission_voucher=voucher,
         )

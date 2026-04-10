@@ -2010,3 +2010,190 @@ class OrderModificationTest(TestCase):
         )
         # 302 리다이렉트 (수정 불가)
         self.assertEqual(response.status_code, 302)
+
+
+class PartialShippedAutoTransitionTest(TestCase):
+    """ShipmentItem 생성 시 PARTIAL_SHIPPED / SHIPPED 자동 전환 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='partial_ship_user', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-PS', name='부분출고창고', created_by=self.user,
+        )
+        self.product_a = Product.objects.create(
+            code='PS-A', name='부분출고A', product_type='FINISHED',
+            unit_price=10000, cost_price=5000, current_stock=100,
+            created_by=self.user,
+        )
+        self.product_b = Product.objects.create(
+            code='PS-B', name='부분출고B', product_type='FINISHED',
+            unit_price=20000, cost_price=10000, current_stock=200,
+            created_by=self.user,
+        )
+        self.order = Order.objects.create(
+            order_number='ORD-PS-001',
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+        )
+        self.item_a = OrderItem.objects.create(
+            order=self.order, product=self.product_a,
+            quantity=10, unit_price=10000, created_by=self.user,
+        )
+        self.item_b = OrderItem.objects.create(
+            order=self.order, product=self.product_b,
+            quantity=5, unit_price=20000, created_by=self.user,
+        )
+        self.shipment = Shipment.objects.create(
+            order=self.order, shipment_number='SH-PS-001',
+            carrier=Shipment.Carrier.CJ, created_by=self.user,
+        )
+
+    def test_partial_shipment_sets_partial_shipped(self):
+        """일부 항목만 출고 시 PARTIAL_SHIPPED 자동 전환"""
+        from apps.sales.models import ShipmentItem
+        ShipmentItem.objects.create(
+            shipment=self.shipment, order_item=self.item_a,
+            quantity=5, created_by=self.user,
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'PARTIAL_SHIPPED')
+
+    def test_full_shipment_sets_shipped(self):
+        """전량 출고 시 SHIPPED 자동 전환"""
+        from apps.sales.models import ShipmentItem
+        ShipmentItem.objects.create(
+            shipment=self.shipment, order_item=self.item_a,
+            quantity=10, created_by=self.user,
+        )
+        ShipmentItem.objects.create(
+            shipment=self.shipment, order_item=self.item_b,
+            quantity=5, created_by=self.user,
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'SHIPPED')
+
+    def test_multi_step_partial_to_shipped(self):
+        """여러 차례 부분출고 후 전량 완료 시 SHIPPED 전환"""
+        from apps.sales.models import ShipmentItem
+        # 1차 부분출고
+        ShipmentItem.objects.create(
+            shipment=self.shipment, order_item=self.item_a,
+            quantity=5, created_by=self.user,
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'PARTIAL_SHIPPED')
+
+        # 2차 부분출고
+        shipment2 = Shipment.objects.create(
+            order=self.order, shipment_number='SH-PS-002',
+            carrier=Shipment.Carrier.CJ, created_by=self.user,
+        )
+        ShipmentItem.objects.create(
+            shipment=shipment2, order_item=self.item_a,
+            quantity=5, created_by=self.user,
+        )
+        ShipmentItem.objects.create(
+            shipment=shipment2, order_item=self.item_b,
+            quantity=5, created_by=self.user,
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'SHIPPED')
+
+
+class PriceRuleMinQuantityTest(TestCase):
+    """PriceRule min_quantity 필터 + 견적 자동적용 테스트"""
+
+    def setUp(self):
+        from apps.sales.models import PriceRule
+        self.user = User.objects.create_user(
+            username='pricerule_user', password='testpass123', role='staff',
+        )
+        self.partner = Partner.objects.create(
+            code='PR-P001', name='가격규칙거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='PR-PRD-001', name='가격규칙제품', product_type='FINISHED',
+            unit_price=10000, cost_price=5000,
+            created_by=self.user,
+        )
+        # min_quantity=10 규칙: 단가 8000
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            min_quantity=10, unit_price=8000,
+            created_by=self.user,
+        )
+        # min_quantity=100 규칙: 단가 6000
+        PriceRule.objects.create(
+            product=self.product, partner=self.partner,
+            min_quantity=100, unit_price=6000,
+            created_by=self.user,
+        )
+
+    def test_order_item_below_min_uses_default(self):
+        """주문수량이 min_quantity 미만이면 제품 기본단가 적용"""
+        order = Order.objects.create(
+            order_number='ORD-PR-001', order_date=date.today(),
+            status='DRAFT', partner=self.partner, created_by=self.user,
+        )
+        item = OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=5, unit_price=0, created_by=self.user,
+        )
+        self.assertEqual(item.unit_price, 10000)
+
+    def test_order_item_meets_min_quantity(self):
+        """주문수량이 min_quantity 충족 시 해당 규칙 적용"""
+        order = Order.objects.create(
+            order_number='ORD-PR-002', order_date=date.today(),
+            status='DRAFT', partner=self.partner, created_by=self.user,
+        )
+        item = OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=10, unit_price=0, created_by=self.user,
+        )
+        self.assertEqual(item.unit_price, 8000)
+
+    def test_order_item_higher_tier(self):
+        """더 높은 수량 구간 규칙 적용"""
+        order = Order.objects.create(
+            order_number='ORD-PR-003', order_date=date.today(),
+            status='DRAFT', partner=self.partner, created_by=self.user,
+        )
+        item = OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=100, unit_price=0, created_by=self.user,
+        )
+        self.assertEqual(item.unit_price, 6000)
+
+    def test_quotation_item_applies_price_rule(self):
+        """견적항목에서도 PriceRule min_quantity 적용"""
+        quote = Quotation.objects.create(
+            quote_number='QT-PR-001', partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        item = QuotationItem.objects.create(
+            quotation=quote, product=self.product,
+            quantity=10, unit_price=0, created_by=self.user,
+        )
+        self.assertEqual(item.unit_price, 8000)
+
+    def test_quotation_item_below_min_uses_default(self):
+        """견적 수량이 min_quantity 미만이면 제품 기본단가"""
+        quote = Quotation.objects.create(
+            quote_number='QT-PR-002', partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        item = QuotationItem.objects.create(
+            quotation=quote, product=self.product,
+            quantity=3, unit_price=0, created_by=self.user,
+        )
+        self.assertEqual(item.unit_price, 10000)

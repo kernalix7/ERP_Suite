@@ -434,6 +434,17 @@ class QualityInspection(BaseModel):
     corrective_action = models.TextField(
         '시정 조치', blank=True,
     )
+    conditional_notes = models.TextField(
+        '조건부합격 사유', blank=True,
+    )
+    conditional_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='조건부합격 승인자',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='conditional_approvals',
+    )
+    conditional_approved_at = models.DateTimeField(
+        '조건부합격 승인일시', null=True, blank=True,
+    )
     history = HistoricalRecords()
 
     class Meta:
