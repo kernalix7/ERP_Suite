@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}고객만족도 - ERP Suite{% endblock %}
+{% block page_title %}고객만족도{% endblock %}
+
+{% block header_actions %}
+<div class="flex flex-wrap gap-2">
+    <a href="{% url 'sales:satisfaction_dashboard' %}" class="btn btn-secondary">
+        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        대시보드
+    </a>
+    {% if user.is_manager_role %}
+    <a href="{% url 'sales:satisfaction_create' %}" class="btn btn-primary">
+        <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        등록
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex gap-3">
+            <select name="category" class="form-select w-auto">
+                <option value="">전체 카테고리</option>
+                <option value="PRODUCT" {% if request.GET.category == 'PRODUCT' %}selected{% endif %}>제품</option>
+                <option value="DELIVERY" {% if request.GET.category == 'DELIVERY' %}selected{% endif %}>배송</option>
+                <option value="SERVICE" {% if request.GET.category == 'SERVICE' %}selected{% endif %}>서비스</option>
+                <option value="SUPPORT" {% if request.GET.category == 'SUPPORT' %}selected{% endif %}>지원</option>
+            </select>
+            <button type="submit" class="btn btn-primary">조회</button>
+        </form>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">고객</th>
+                    <th class="px-4 py-3">주문</th>
+                    <th class="px-4 py-3 text-center">카테고리</th>
+                    <th class="px-4 py-3 text-center">만족도</th>
+                    <th class="px-4 py-3 text-center">NPS</th>
+                    <th class="px-4 py-3">피드백</th>
+                    <th class="px-4 py-3">조사일</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for survey in surveys %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ survey.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">
+                        {% if survey.order %}
+                        <a href="{% url 'sales:order_detail' survey.order.order_number %}" class="text-blue-600 hover:underline">{{ survey.order.order_number }}</a>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{{ survey.get_category_display }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% for i in "12345" %}
+                            {% if forloop.counter <= survey.score %}
+                            <span class="text-yellow-400">&#9733;</span>
+                            {% else %}
+                            <span class="text-gray-300">&#9733;</span>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="{% if survey.nps_score > 0 %}text-green-600{% elif survey.nps_score < 0 %}text-red-600{% else %}text-gray-600{% endif %} font-medium">
+                            {{ survey.nps_score }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 truncate max-w-xs">{{ survey.feedback|default:"-"|truncatewords:15 }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ survey.survey_date|date:"Y-m-d" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                        등록된 만족도 조사가 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex flex-wrap gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&category={{ request.GET.category }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}&category={{ request.GET.category }}"
+               class="px-3 py-1 text-sm rounded border {% if page_obj.number == num %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 hover:bg-gray-50{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&category={{ request.GET.category }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

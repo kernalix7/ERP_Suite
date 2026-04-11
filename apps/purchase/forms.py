@@ -1,6 +1,6 @@
 from django import forms
 from apps.core.forms import BaseForm
-from .models import PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem
+from .models import PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem, RFQ, RFQItem, RFQResponse, VendorScore
 
 
 class PurchaseOrderForm(BaseForm):
@@ -83,3 +83,57 @@ class GoodsReceiptItemForm(BaseForm):
     class Meta:
         model = GoodsReceiptItem
         fields = ['po_item', 'received_quantity', 'is_inspected']
+
+
+class RFQForm(BaseForm):
+    class Meta:
+        model = RFQ
+        fields = ['rfq_number', 'title', 'status', 'due_date', 'notes']
+        widgets = {
+            'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+        }
+
+
+class RFQItemForm(BaseForm):
+    class Meta:
+        model = RFQItem
+        fields = ['product', 'quantity', 'specifications']
+
+
+RFQItemFormSet = forms.inlineformset_factory(
+    RFQ, RFQItem,
+    form=RFQItemForm,
+    extra=3,
+    can_delete=True,
+)
+
+
+class RFQResponseForm(BaseForm):
+    class Meta:
+        model = RFQResponse
+        fields = ['partner', 'response_date', 'total_amount', 'delivery_days', 'notes']
+        widgets = {
+            'response_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'total_amount': forms.TextInput(attrs={
+                'class': 'form-input w-full money-input',
+                'inputmode': 'numeric',
+            }),
+        }
+
+    def clean_total_amount(self):
+        val = self.data.get(self.add_prefix('total_amount'), '')
+        cleaned = str(val).replace(',', '').strip()
+        return int(cleaned) if cleaned else 0
+
+
+class VendorScoreForm(BaseForm):
+    class Meta:
+        model = VendorScore
+        fields = [
+            'partner', 'evaluation_date',
+            'delivery_score', 'quality_score', 'price_score', 'service_score',
+            'notes',
+        ]
+        widgets = {
+            'evaluation_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+        }

@@ -66,6 +66,17 @@ class Partner(BaseModel):
         '스토어 모듈', max_length=50, blank=True, default='',
         help_text='연결된 스토어 모듈 ID (예: naver_smartstore, coupang, direct_sale)',
     )
+    credit_limit = models.DecimalField(
+        '신용한도', max_digits=15, decimal_places=0, default=0,
+    )
+    credit_used = models.DecimalField(
+        '사용중신용', max_digits=15, decimal_places=0, default=0,
+    )
+    tier = models.ForeignKey(
+        'CustomerTier', verbose_name='고객등급',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='partners',
+    )
 
     class ApprovalStatus(models.TextChoices):
         PENDING = 'PENDING', '승인대기'
@@ -873,6 +884,207 @@ class PriceRule(BaseModel):
             parts.append(str(self.customer))
         parts.append(f'Q>={self.min_quantity}')
         return ' / '.join(parts)
+
+
+class CustomerTier(BaseModel):
+    """고객등급"""
+    name = models.CharField('등급명', max_length=50)
+    code = models.CharField('코드', max_length=10, unique=True)
+    discount_rate = models.DecimalField(
+        '할인율(%)', max_digits=5, decimal_places=2, default=0,
+    )
+    min_annual_purchase = models.DecimalField(
+        '최소연간구매액', max_digits=15, decimal_places=0, default=0,
+    )
+    benefits = models.TextField('혜택설명', blank=True)
+    sort_order = models.PositiveIntegerField('정렬순서', default=0)
+    color = models.CharField('뱃지색상', max_length=20, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '고객등급'
+        verbose_name_plural = '고객등급'
+        ordering = ['sort_order']
+
+    def __str__(self):
+        return self.name
+
+
+class SalesTarget(BaseModel):
+    """영업목표"""
+    salesperson = models.ForeignKey(
+        'accounts.User', verbose_name='영업담당',
+        on_delete=models.PROTECT, related_name='sales_targets',
+    )
+    year = models.PositiveIntegerField('연도')
+    quarter = models.PositiveIntegerField(
+        '분기', null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+    )
+    target_amount = models.DecimalField(
+        '목표금액', max_digits=15, decimal_places=0,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '영업목표'
+        verbose_name_plural = '영업목표'
+        unique_together = ['salesperson', 'year', 'quarter']
+
+    def __str__(self):
+        q = f' Q{self.quarter}' if self.quarter else ''
+        return f'{self.salesperson} {self.year}{q}'
+
+    @property
+    def achieved_amount(self):
+        from django.db.models import Sum
+        qs = Order.objects.filter(
+            created_by=self.salesperson,
+            status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
+            is_active=True,
+            order_date__year=self.year,
+        )
+        if self.quarter:
+            month_start = (self.quarter - 1) * 3 + 1
+            qs = qs.filter(
+                order_date__month__gte=month_start,
+                order_date__month__lte=month_start + 2,
+            )
+        return qs.aggregate(total=Sum('total_amount'))['total'] or 0
+
+    @property
+    def achievement_rate(self):
+        if self.target_amount == 0:
+            return 0
+        return round(self.achieved_amount / self.target_amount * 100, 1)
+
+
+class SalesLead(BaseModel):
+    """영업 리드/기회"""
+    BUSINESS_KEY_FIELD = 'lead_number'
+
+    lead_number = models.CharField('리드번호', max_length=30, unique=True, blank=True)
+    company_name = models.CharField('회사명', max_length=200)
+    contact_name = models.CharField('담당자', max_length=100)
+    contact_email = models.EmailField('이메일', blank=True)
+    contact_phone = models.CharField('연락처', max_length=20, blank=True)
+
+    SOURCE_CHOICES = [
+        ('WEBSITE', '웹사이트'), ('REFERRAL', '소개'), ('COLD_CALL', '콜드콜'),
+        ('EXHIBITION', '전시회'), ('MARKETPLACE', '마켓플레이스'), ('OTHER', '기타'),
+    ]
+    source = models.CharField(
+        '유입경로', max_length=20, choices=SOURCE_CHOICES, default='OTHER',
+    )
+
+    STATUS_CHOICES = [
+        ('NEW', '신규'), ('CONTACTED', '접촉'), ('QUALIFIED', '검증'),
+        ('PROPOSAL', '제안'), ('NEGOTIATION', '협상'),
+        ('WON', '수주'), ('LOST', '실패'),
+    ]
+    status = models.CharField(
+        '상태', max_length=20, choices=STATUS_CHOICES, default='NEW',
+    )
+    assigned_to = models.ForeignKey(
+        'accounts.User', verbose_name='담당자',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='assigned_leads',
+    )
+    expected_amount = models.DecimalField(
+        '예상금액', max_digits=15, decimal_places=0, default=0,
+    )
+    expected_close_date = models.DateField('예상수주일', null=True, blank=True)
+    converted_order = models.ForeignKey(
+        Order, verbose_name='전환주문',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='source_leads',
+    )
+    lost_reason = models.TextField('실패사유', blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '영업리드'
+        verbose_name_plural = '영업리드'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.lead_number} - {self.company_name}'
+
+    def save(self, *args, **kwargs):
+        if not self.lead_number:
+            from django.utils import timezone
+            today = timezone.now().strftime('%Y%m%d')
+            last = SalesLead.objects.filter(
+                lead_number__startswith=f'LEAD-{today}',
+            ).order_by('-lead_number').first()
+            seq = int(last.lead_number.split('-')[-1]) + 1 if last else 1
+            self.lead_number = f'LEAD-{today}-{seq:04d}'
+        super().save(*args, **kwargs)
+
+
+class LeadActivity(BaseModel):
+    """리드 활동 기록"""
+    lead = models.ForeignKey(
+        SalesLead, verbose_name='리드',
+        on_delete=models.CASCADE, related_name='activities',
+    )
+    ACTIVITY_CHOICES = [
+        ('CALL', '통화'), ('EMAIL', '이메일'),
+        ('MEETING', '미팅'), ('NOTE', '메모'),
+    ]
+    activity_type = models.CharField(
+        '활동유형', max_length=20, choices=ACTIVITY_CHOICES,
+    )
+    description = models.TextField('내용')
+    activity_date = models.DateTimeField('활동일시')
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '리드활동'
+        verbose_name_plural = '리드활동'
+        ordering = ['-activity_date']
+
+    def __str__(self):
+        return f'{self.lead.lead_number} - {self.get_activity_type_display()}'
+
+
+class CustomerSatisfaction(BaseModel):
+    """고객만족도"""
+    order = models.ForeignKey(
+        Order, verbose_name='주문',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='satisfactions',
+    )
+    partner = models.ForeignKey(
+        Partner, verbose_name='고객',
+        on_delete=models.PROTECT, related_name='satisfactions',
+    )
+    score = models.PositiveIntegerField(
+        '만족도(1-5)',
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    nps_score = models.IntegerField(
+        'NPS점수', default=0,
+        validators=[MinValueValidator(-100), MaxValueValidator(100)],
+    )
+    feedback = models.TextField('피드백', blank=True)
+    survey_date = models.DateField('조사일')
+    CATEGORY_CHOICES = [
+        ('PRODUCT', '제품'), ('DELIVERY', '배송'),
+        ('SERVICE', '서비스'), ('SUPPORT', '지원'),
+    ]
+    category = models.CharField(
+        '카테고리', max_length=20, choices=CATEGORY_CHOICES, default='PRODUCT',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '고객만족도'
+        verbose_name_plural = '고객만족도'
+        ordering = ['-survey_date']
+
+    def __str__(self):
+        return f'{self.partner.name} - {self.get_category_display()} ({self.score})'
 
 
 from apps.sales.commission import CommissionRate, CommissionRecord  # noqa

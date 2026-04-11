@@ -52,6 +52,16 @@ urlpatterns = [
         views.StandardCostDetailView.as_view(),
         name='stdcost_detail',
     ),
+    # 작업장
+    path('work-centers/', views.WorkCenterListView.as_view(), name='workcenter_list'),
+    path('work-centers/create/', views.WorkCenterCreateView.as_view(), name='workcenter_create'),
+    path('work-centers/<int:pk>/edit/', views.WorkCenterUpdateView.as_view(), name='workcenter_update'),
+    # 생산 스케줄
+    path('schedules/', views.ProductionScheduleListView.as_view(), name='schedule_list'),
+    path('schedules/create/', views.ProductionScheduleCreateView.as_view(), name='schedule_create'),
+    path('schedules/<int:pk>/edit/', views.ProductionScheduleUpdateView.as_view(), name='schedule_update'),
+    # 생산능력 계획
+    path('capacity/', views.CapacityPlanningView.as_view(), name='capacity_planning'),
     # 원가차이 분석
     path(
         'cost-variance/',

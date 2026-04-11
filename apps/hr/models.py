@@ -1,9 +1,10 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Sum
 from simple_history.models import HistoricalRecords
 
 from apps.core.fields import EncryptedCharField, EncryptedTextField
@@ -425,3 +426,194 @@ class Payroll(BaseModel):
         self.gross_pay = self.base_salary + self.overtime_pay + self.bonus + self.allowances
         self.calculate_deductions()
         super().save(*args, **kwargs)
+
+
+class SeverancePay(BaseModel):
+    """퇴직금 산정 — 근로기준법 제34조"""
+
+    class Status(models.TextChoices):
+        CALCULATED = 'CALCULATED', '계산완료'
+        PAID = 'PAID', '지급완료'
+
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        verbose_name='직원',
+        on_delete=models.PROTECT,
+        related_name='severance_pays',
+    )
+    calculation_date = models.DateField('산정일')
+    hire_date = models.DateField('입사일')
+    years_of_service = models.DecimalField('근속연수', max_digits=5, decimal_places=2, default=0)
+    total_days = models.PositiveIntegerField('총근무일수', default=0)
+    recent_3month_salary = models.DecimalField(
+        '최근3개월급여합', max_digits=15, decimal_places=0, default=0,
+    )
+    recent_3month_days = models.PositiveIntegerField('최근3개월일수', default=90)
+    average_daily_wage = models.DecimalField(
+        '1일평균임금', max_digits=15, decimal_places=0, default=0,
+    )
+    total_amount = models.DecimalField('퇴직금', max_digits=15, decimal_places=0, default=0)
+    status = models.CharField(
+        '상태', max_length=20, choices=Status.choices, default=Status.CALCULATED,
+    )
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '퇴직금'
+        verbose_name_plural = '퇴직금'
+        ordering = ['-calculation_date']
+
+    def __str__(self):
+        return f'{self.employee} 퇴직금 ({self.calculation_date})'
+
+    def calculate(self):
+        """근로기준법 제34조: 퇴직금 = 1일평균임금 × 30 × (총근무일수/365)
+        단, 계속근로기간 1년 미만 또는 4주 평균 15시간 미만은 퇴직금 미발생.
+        """
+        three_months_ago = self.calculation_date - timedelta(days=90)
+        payrolls = Payroll.objects.filter(
+            employee=self.employee,
+            paid_date__gte=three_months_ago,
+            paid_date__lte=self.calculation_date,
+            is_active=True,
+        )
+        self.recent_3month_salary = payrolls.aggregate(
+            total=Sum('gross_pay'),
+        )['total'] or Decimal('0')
+        self.average_daily_wage = (
+            self.recent_3month_salary // self.recent_3month_days
+            if self.recent_3month_days else Decimal('0')
+        )
+        self.total_days = (self.calculation_date - self.hire_date).days
+        self.years_of_service = Decimal(str(round(self.total_days / 365, 2)))
+        # 1년 미만 근속 시 퇴직금 미발생 (근로기준법 제34조 요건)
+        if self.total_days < 365:
+            self.total_amount = Decimal('0')
+        else:
+            self.total_amount = self.average_daily_wage * 30 * self.total_days // 365
+
+
+class LaborConfig(BaseModel):
+    """근로기준 설정 — 연도별 법정 기준"""
+    year = models.PositiveIntegerField('적용연도')
+    country_code = models.CharField('국가코드', max_length=10, default='KR')
+    min_hourly_wage = models.DecimalField('최저시급', max_digits=10, decimal_places=0, default=0)
+    max_weekly_hours = models.PositiveIntegerField('주간최대근로시간', default=52)
+    overtime_rate = models.DecimalField(
+        '연장근로수당배율', max_digits=3, decimal_places=1, default=Decimal('1.5'),
+    )
+    night_rate = models.DecimalField(
+        '야간근로수당배율', max_digits=3, decimal_places=1, default=Decimal('1.5'),
+    )
+    annual_leave_base = models.PositiveIntegerField('기본연차일수', default=15)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '근로기준설정'
+        verbose_name_plural = '근로기준설정'
+        ordering = ['-year']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['year', 'country_code'],
+                name='uq_labor_config_year_country',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.year}년 근로기준설정 ({self.country_code})'
+
+
+class YearEndSettlement(BaseModel):
+    """연말정산"""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', '작성중'
+        CALCULATED = 'CALCULATED', '계산완료'
+        CONFIRMED = 'CONFIRMED', '확정'
+
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        verbose_name='직원',
+        on_delete=models.PROTECT,
+        related_name='year_end_settlements',
+    )
+    year = models.PositiveIntegerField('정산연도')
+    total_income = models.DecimalField('총급여', max_digits=15, decimal_places=0, default=0)
+    tax_paid = models.DecimalField('기납부세액', max_digits=15, decimal_places=0, default=0)
+    insurance_deduction = models.DecimalField(
+        '보험료공제', max_digits=15, decimal_places=0, default=0,
+    )
+    medical_deduction = models.DecimalField(
+        '의료비공제', max_digits=15, decimal_places=0, default=0,
+    )
+    education_deduction = models.DecimalField(
+        '교육비공제', max_digits=15, decimal_places=0, default=0,
+    )
+    housing_deduction = models.DecimalField(
+        '주택자금공제', max_digits=15, decimal_places=0, default=0,
+    )
+    donation_deduction = models.DecimalField(
+        '기부금공제', max_digits=15, decimal_places=0, default=0,
+    )
+    credit_card_deduction = models.DecimalField(
+        '신용카드공제', max_digits=15, decimal_places=0, default=0,
+    )
+    total_deduction = models.DecimalField(
+        '소득공제합계', max_digits=15, decimal_places=0, default=0,
+    )
+    taxable_income = models.DecimalField('과세표준', max_digits=15, decimal_places=0, default=0)
+    calculated_tax = models.DecimalField('산출세액', max_digits=15, decimal_places=0, default=0)
+    final_tax = models.DecimalField('결정세액', max_digits=15, decimal_places=0, default=0)
+    refund_amount = models.DecimalField(
+        '환급(추가납부)액', max_digits=15, decimal_places=0, default=0,
+    )
+    status = models.CharField(
+        '상태', max_length=20, choices=Status.choices, default=Status.DRAFT,
+    )
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '연말정산'
+        verbose_name_plural = '연말정산'
+        ordering = ['-year']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['employee', 'year'],
+                name='uq_year_end_settlement',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.employee} {self.year}년 연말정산'
+
+    def calculate(self):
+        """해당 연도 급여 합산 후 누진세율 적용"""
+        payrolls = Payroll.objects.filter(
+            employee=self.employee,
+            year=self.year,
+            is_active=True,
+        )
+        agg = payrolls.aggregate(
+            total_gross=Sum('gross_pay'),
+            total_tax=Sum('income_tax'),
+            total_local_tax=Sum('local_income_tax'),
+        )
+        self.total_income = agg['total_gross'] or Decimal('0')
+        self.tax_paid = (agg['total_tax'] or Decimal('0')) + (agg['total_local_tax'] or Decimal('0'))
+
+        self.total_deduction = (
+            self.insurance_deduction
+            + self.medical_deduction
+            + self.education_deduction
+            + self.housing_deduction
+            + self.donation_deduction
+            + self.credit_card_deduction
+        )
+        self.taxable_income = max(self.total_income - self.total_deduction, Decimal('0'))
+        self.calculated_tax = Decimal(str(Payroll._calculate_income_tax(self.taxable_income)))
+        self.final_tax = self.calculated_tax
+        self.refund_amount = self.tax_paid - self.final_tax
+        self.status = self.Status.CALCULATED

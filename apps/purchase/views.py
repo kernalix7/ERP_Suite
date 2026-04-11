@@ -13,7 +13,7 @@ from apps.inventory.models import Product
 
 from apps.core.mixins import ManagerRequiredMixin
 
-from .models import PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem
+from .models import PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem, RFQ, RFQItem, RFQResponse, VendorScore
 
 
 def _product_units_json():
@@ -32,6 +32,7 @@ def _product_prices_json():
 from .forms import (
     PurchaseOrderForm, PurchaseOrderItemFormSet,
     GoodsReceiptForm, GoodsReceiptItemForm,
+    RFQForm, RFQItemFormSet, RFQResponseForm, VendorScoreForm,
 )
 
 
@@ -436,3 +437,242 @@ class PurchaseOrderImportSampleView(ManagerRequiredMixin, View):
             filename='구매발주_가져오기_양식.xlsx',
             required_columns=[0, 1, 2],  # po_number, partner_code, order_date
         )
+
+
+# ─── 견적요청 (RFQ) ─────────────────────────────────────
+
+class RFQListView(LoginRequiredMixin, ListView):
+    model = RFQ
+    template_name = 'purchase/rfq_list.html'
+    context_object_name = 'rfqs'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(is_active=True).select_related('requested_by')
+        q = self.request.GET.get('q')
+        if q:
+            qs = qs.filter(
+                Q(rfq_number__icontains=q) | Q(title__icontains=q)
+            )
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+
+class RFQCreateView(ManagerRequiredMixin, CreateView):
+    model = RFQ
+    form_class = RFQForm
+    template_name = 'purchase/rfq_form.html'
+    success_url = reverse_lazy('purchase:rfq_list')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if self.request.POST:
+            ctx['formset'] = RFQItemFormSet(self.request.POST)
+        else:
+            ctx['formset'] = RFQItemFormSet()
+        ctx['product_units_json'] = _product_units_json()
+        return ctx
+
+    def form_valid(self, form):
+        ctx = self.get_context_data()
+        formset = ctx['formset']
+        if formset.is_valid():
+            self.object = form.save(commit=False)
+            self.object.requested_by = self.request.user
+            self.object.created_by = self.request.user
+            self.object.save()
+            formset.instance = self.object
+            formset.save()
+            return redirect(self.get_success_url())
+        return self.form_invalid(form)
+
+
+class RFQDetailView(LoginRequiredMixin, DetailView):
+    model = RFQ
+    template_name = 'purchase/rfq_detail.html'
+    context_object_name = 'rfq'
+    slug_field = 'rfq_number'
+    slug_url_kwarg = 'slug'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['items'] = self.object.items.select_related('product').all()
+        ctx['responses'] = self.object.responses.select_related('partner').all()
+        ctx['response_form'] = RFQResponseForm()
+        return ctx
+
+
+class RFQResponseCreateView(ManagerRequiredMixin, View):
+    """RFQ에 대한 응답 등록"""
+
+    def post(self, request, slug):
+        rfq = get_object_or_404(RFQ, rfq_number=slug, is_active=True)
+        form = RFQResponseForm(request.POST)
+        if form.is_valid():
+            response = form.save(commit=False)
+            response.rfq = rfq
+            response.created_by = request.user
+            response.save()
+            if rfq.status == RFQ.Status.SENT:
+                rfq.status = RFQ.Status.RECEIVED
+                rfq.save(update_fields=['status', 'updated_at'])
+            messages.success(request, '견적 응답이 등록되었습니다.')
+        else:
+            for error in form.errors.values():
+                messages.error(request, error)
+        return redirect('purchase:rfq_detail', slug=rfq.rfq_number)
+
+
+class RFQCompareView(LoginRequiredMixin, DetailView):
+    """RFQ 응답 비교"""
+    model = RFQ
+    template_name = 'purchase/rfq_compare.html'
+    context_object_name = 'rfq'
+    slug_field = 'rfq_number'
+    slug_url_kwarg = 'slug'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['items'] = self.object.items.select_related('product').all()
+        responses = list(self.object.responses.select_related('partner').filter(is_active=True))
+        ctx['responses'] = responses
+        if responses:
+            ctx['lowest_price'] = min(r.total_amount for r in responses)
+            ctx['shortest_delivery'] = min(r.delivery_days for r in responses)
+        return ctx
+
+
+class RFQConvertView(ManagerRequiredMixin, View):
+    """선택된 RFQ 응답 -> PurchaseOrder 자동 변환"""
+
+    def post(self, request, slug):
+        from django.db import transaction
+
+        rfq = get_object_or_404(RFQ, rfq_number=slug, is_active=True)
+        response_id = request.POST.get('response_id')
+        if not response_id:
+            messages.error(request, '발주로 전환할 응답을 선택하세요.')
+            return redirect('purchase:rfq_compare', slug=rfq.rfq_number)
+
+        rfq_response = get_object_or_404(RFQResponse, pk=response_id, rfq=rfq)
+
+        with transaction.atomic():
+            # 낙찰 표시
+            rfq.responses.update(is_selected=False)
+            rfq_response.is_selected = True
+            rfq_response.save(update_fields=['is_selected', 'updated_at'])
+
+            # 발주서 생성
+            po = PurchaseOrder(
+                partner=rfq_response.partner,
+                order_date=rfq_response.response_date,
+                status=PurchaseOrder.Status.DRAFT,
+                created_by=request.user,
+                notes=f'RFQ {rfq.rfq_number} 기반 자동 생성',
+            )
+            if rfq_response.delivery_days:
+                from datetime import timedelta
+                po.expected_date = rfq_response.response_date + timedelta(days=rfq_response.delivery_days)
+            po.save()
+
+            # 발주 항목 생성
+            rfq_items = rfq.items.select_related('product').all()
+            item_count = rfq_items.count()
+            for rfq_item in rfq_items:
+                unit_price = (
+                    int(rfq_response.total_amount / item_count / rfq_item.quantity)
+                    if item_count > 0 and rfq_item.quantity > 0
+                    else int(rfq_item.product.cost_price or 0)
+                )
+                PurchaseOrderItem.objects.create(
+                    purchase_order=po,
+                    product=rfq_item.product,
+                    quantity=int(rfq_item.quantity),
+                    unit_price=unit_price,
+                    amount=unit_price * int(rfq_item.quantity),
+                    created_by=request.user,
+                )
+
+            po.update_total()
+
+            # RFQ 종결
+            rfq.status = RFQ.Status.CLOSED
+            rfq.save(update_fields=['status', 'updated_at'])
+
+        messages.success(
+            request,
+            f'발주서 {po.po_number}이(가) 생성되었습니다.',
+        )
+        return redirect('purchase:po_detail', slug=po.po_number)
+
+
+# ─── 공급처 평가 ─────────────────────────────────────
+
+class VendorScoreListView(LoginRequiredMixin, ListView):
+    model = VendorScore
+    template_name = 'purchase/vendor_score_list.html'
+    context_object_name = 'scores'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(is_active=True).select_related('partner', 'evaluator')
+        partner_id = self.request.GET.get('partner')
+        if partner_id:
+            qs = qs.filter(partner_id=partner_id)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.sales.models import Partner
+        ctx['partners'] = Partner.objects.filter(
+            is_active=True, partner_type__in=['SUPPLIER', 'BOTH'],
+        ).order_by('name')
+        return ctx
+
+
+class VendorScoreCreateView(ManagerRequiredMixin, CreateView):
+    model = VendorScore
+    form_class = VendorScoreForm
+    template_name = 'purchase/vendor_score_form.html'
+    success_url = reverse_lazy('purchase:vendor_score_list')
+
+    def form_valid(self, form):
+        form.instance.evaluator = self.request.user
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class VendorScoreCardView(LoginRequiredMixin, TemplateView):
+    """공급처별 평균 점수 카드"""
+    template_name = 'purchase/vendor_scorecard.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from django.db.models import Avg, Count
+        from apps.sales.models import Partner
+
+        partner_stats = (
+            VendorScore.objects.filter(is_active=True)
+            .values('partner', 'partner__name', 'partner__code')
+            .annotate(
+                avg_delivery=Avg('delivery_score'),
+                avg_quality=Avg('quality_score'),
+                avg_price=Avg('price_score'),
+                avg_service=Avg('service_score'),
+                avg_overall=Avg('overall_score'),
+                eval_count=Count('pk'),
+            )
+            .order_by('-avg_overall')
+        )
+
+        for stat in partner_stats:
+            stat['avg_delivery'] = round(stat['avg_delivery'], 1) if stat['avg_delivery'] else 0
+            stat['avg_quality'] = round(stat['avg_quality'], 1) if stat['avg_quality'] else 0
+            stat['avg_price'] = round(stat['avg_price'], 1) if stat['avg_price'] else 0
+            stat['avg_service'] = round(stat['avg_service'], 1) if stat['avg_service'] else 0
+            stat['avg_overall'] = round(stat['avg_overall'], 1) if stat['avg_overall'] else 0
+
+        ctx['partner_stats'] = partner_stats
+        return ctx

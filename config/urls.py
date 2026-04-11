@@ -55,6 +55,7 @@ urlpatterns = [
     path('ad/', include('apps.ad.urls')),
     path('advertising/', include('apps.advertising.urls')),
     path('asset/', include('apps.asset.urls')),
+    path('modules/', include('apps.module_manager.urls')),
     path('', include('apps.core.urls')),
     # API
     path('api/', include('apps.api.urls')),

@@ -25,4 +25,15 @@ urlpatterns = [
     path('receipts/excel/', excel_views.GoodsReceiptExcelView.as_view(), name='receipt_excel'),
     path('receipts/<str:slug>/', views.GoodsReceiptDetailView.as_view(), name='receipt_detail'),
     path('receipts/<str:slug>/inspect/', views.GoodsReceiptInspectView.as_view(), name='receipt_inspect'),
+    # 견적요청 (RFQ)
+    path('rfq/', views.RFQListView.as_view(), name='rfq_list'),
+    path('rfq/create/', views.RFQCreateView.as_view(), name='rfq_create'),
+    path('rfq/<str:slug>/', views.RFQDetailView.as_view(), name='rfq_detail'),
+    path('rfq/<str:slug>/response/', views.RFQResponseCreateView.as_view(), name='rfq_response_create'),
+    path('rfq/<str:slug>/compare/', views.RFQCompareView.as_view(), name='rfq_compare'),
+    path('rfq/<str:slug>/convert/', views.RFQConvertView.as_view(), name='rfq_convert'),
+    # 공급처 평가
+    path('vendor-scores/', views.VendorScoreListView.as_view(), name='vendor_score_list'),
+    path('vendor-scores/create/', views.VendorScoreCreateView.as_view(), name='vendor_score_create'),
+    path('vendor-scores/scorecard/', views.VendorScoreCardView.as_view(), name='vendor_scorecard'),
 ]

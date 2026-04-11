@@ -46,4 +46,15 @@ urlpatterns = [
     path('employees/excel/', excel_views.EmployeeExcelView.as_view(), name='employee_excel'),
     path('departments/excel/', excel_views.DepartmentExcelView.as_view(), name='department_excel'),
     path('personnel-actions/excel/', excel_views.PersonnelActionExcelView.as_view(), name='action_excel'),
+    # 퇴직금
+    path('severance/', views.SeverancePayListView.as_view(), name='severance_list'),
+    path('severance/calculate/<int:employee_id>/', views.SeverancePayCalculateView.as_view(), name='severance_calculate'),
+    path('severance/<int:pk>/', views.SeverancePayDetailView.as_view(), name='severance_detail'),
+    # 근로기준법 준수 체크
+    path('labor-compliance/', views.LaborComplianceView.as_view(), name='labor_compliance'),
+    path('labor-config/', views.LaborConfigListView.as_view(), name='labor_config'),
+    # 연말정산
+    path('year-end-settlement/', views.YearEndSettlementListView.as_view(), name='year_end_list'),
+    path('year-end-settlement/calculate/<int:employee_id>/', views.YearEndSettlementCalculateView.as_view(), name='year_end_calculate'),
+    path('year-end-settlement/<int:pk>/', views.YearEndSettlementDetailView.as_view(), name='year_end_detail'),
 ]

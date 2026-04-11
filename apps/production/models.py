@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -225,6 +227,12 @@ class WorkOrder(BaseModel):
     status = models.CharField(
         '상태', max_length=20,
         choices=Status.choices, default=Status.PENDING,
+    )
+    work_center = models.ForeignKey(
+        'WorkCenter', verbose_name='작업장',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='work_orders',
     )
     started_at = models.DateTimeField('작업시작', null=True, blank=True)
     completed_at = models.DateTimeField('작업완료', null=True, blank=True)
@@ -477,3 +485,81 @@ class QualityInspection(BaseModel):
             self.pass_quantity / self.inspected_quantity * 100,
             1,
         )
+
+
+class WorkCenter(BaseModel):
+    """작업장/생산라인"""
+    name = models.CharField('작업장명', max_length=100)
+    code = models.CharField('코드', max_length=20, unique=True)
+    capacity_per_day = models.PositiveIntegerField('일일생산능력', default=100)
+    efficiency_rate = models.DecimalField(
+        '효율', max_digits=5, decimal_places=2, default=Decimal('1.00'),
+        validators=[MinValueValidator(Decimal('0.01')), MaxValueValidator(Decimal('2.00'))],
+    )
+    operating_hours = models.DecimalField(
+        '가동시간', max_digits=4, decimal_places=1, default=Decimal('8.0'),
+        validators=[MinValueValidator(Decimal('0.5')), MaxValueValidator(Decimal('24.0'))],
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '작업장'
+        verbose_name_plural = '작업장'
+        ordering = ['code']
+
+    def __str__(self):
+        return f'{self.code} - {self.name}'
+
+
+class ProductionSchedule(BaseModel):
+    """생산 스케줄"""
+    work_order = models.ForeignKey(
+        WorkOrder, verbose_name='작업지시',
+        on_delete=models.PROTECT,
+        related_name='schedules',
+    )
+    work_center = models.ForeignKey(
+        WorkCenter, verbose_name='작업장',
+        on_delete=models.PROTECT,
+        related_name='schedules',
+    )
+    scheduled_start = models.DateTimeField('예정시작')
+    scheduled_end = models.DateTimeField('예정종료')
+    actual_start = models.DateTimeField('실제시작', null=True, blank=True)
+    actual_end = models.DateTimeField('실제종료', null=True, blank=True)
+
+    class Status(models.TextChoices):
+        PLANNED = 'PLANNED', '계획'
+        IN_PROGRESS = 'IN_PROGRESS', '진행중'
+        COMPLETED = 'COMPLETED', '완료'
+        DELAYED = 'DELAYED', '지연'
+
+    status = models.CharField(
+        '상태', max_length=20,
+        choices=Status.choices, default=Status.PLANNED,
+    )
+    assigned_workers = models.PositiveIntegerField('배정인원', default=1)
+    priority = models.PositiveIntegerField(
+        '우선순위', default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text='1(최우선) ~ 10(최하위)',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '생산스케줄'
+        verbose_name_plural = '생산스케줄'
+        ordering = ['scheduled_start', 'priority']
+        indexes = [
+            models.Index(fields=['status'], name='idx_schedule_status'),
+            models.Index(fields=['scheduled_start'], name='idx_schedule_start'),
+        ]
+
+    def __str__(self):
+        return f'{self.work_order.order_number} @ {self.work_center.code}'
+
+    @property
+    def scheduled_hours(self):
+        """예정 작업시간(시간)"""
+        delta = self.scheduled_end - self.scheduled_start
+        return round(delta.total_seconds() / 3600, 1)

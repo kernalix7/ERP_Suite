@@ -14,8 +14,8 @@ from apps.core.excel import export_to_excel
 from apps.core.import_views import BaseImportView
 from apps.inventory.models import Product
 from apps.core.mixins import ManagerRequiredMixin
-from .models import BOM, BOMItem, ProductionPlan, WorkOrder, ProductionRecord, QualityInspection, StandardCost
-from .forms import BOMForm, BOMItemFormSet, ProductionPlanForm, WorkOrderForm, ProductionRecordForm, StandardCostForm
+from .models import BOM, BOMItem, ProductionPlan, WorkOrder, ProductionRecord, QualityInspection, StandardCost, WorkCenter, ProductionSchedule
+from .forms import BOMForm, BOMItemFormSet, ProductionPlanForm, WorkOrderForm, ProductionRecordForm, StandardCostForm, WorkCenterForm, ProductionScheduleForm
 
 
 def _product_units_json():
@@ -846,6 +846,172 @@ class StandardCostDetailView(LoginRequiredMixin, DetailView):
         ).prefetch_related('items__material').first()
         ctx['bom'] = bom
         ctx['bom_items'] = bom.items.select_related('material').all() if bom else []
+        return ctx
+
+
+# ── 작업장 ──
+
+class WorkCenterListView(LoginRequiredMixin, ListView):
+    model = WorkCenter
+    template_name = 'production/work_center_list.html'
+    context_object_name = 'work_centers'
+    paginate_by = 20
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
+
+class WorkCenterCreateView(ManagerRequiredMixin, CreateView):
+    model = WorkCenter
+    form_class = WorkCenterForm
+    template_name = 'production/work_center_form.html'
+    success_url = reverse_lazy('production:workcenter_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class WorkCenterUpdateView(ManagerRequiredMixin, UpdateView):
+    model = WorkCenter
+    form_class = WorkCenterForm
+    template_name = 'production/work_center_form.html'
+    success_url = reverse_lazy('production:workcenter_list')
+
+
+# ── 생산 스케줄 ──
+
+class ProductionScheduleListView(LoginRequiredMixin, ListView):
+    model = ProductionSchedule
+    template_name = 'production/schedule_list.html'
+    context_object_name = 'schedules'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'work_order', 'work_order__production_plan__product',
+            'work_center',
+        )
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        wc = self.request.GET.get('work_center')
+        if wc:
+            qs = qs.filter(work_center_id=wc)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['work_centers'] = WorkCenter.objects.filter(is_active=True)
+        # FullCalendar JSON data
+        if self.request.GET.get('format') == 'json':
+            return ctx
+        events = []
+        for s in ProductionSchedule.objects.filter(is_active=True).select_related(
+            'work_order__production_plan__product', 'work_center',
+        ):
+            color_map = {
+                'PLANNED': '#3B82F6',
+                'IN_PROGRESS': '#F59E0B',
+                'COMPLETED': '#10B981',
+                'DELAYED': '#EF4444',
+            }
+            events.append({
+                'id': s.pk,
+                'title': f'{s.work_order.order_number} ({s.work_center.code})',
+                'start': s.scheduled_start.isoformat(),
+                'end': s.scheduled_end.isoformat(),
+                'color': color_map.get(s.status, '#6B7280'),
+                'extendedProps': {
+                    'status': s.get_status_display(),
+                    'product': s.work_order.production_plan.product.name,
+                    'work_center': s.work_center.name,
+                    'priority': s.priority,
+                },
+            })
+        import json
+        ctx['events_json'] = json.dumps(events, ensure_ascii=False)
+        return ctx
+
+
+class ProductionScheduleCreateView(ManagerRequiredMixin, CreateView):
+    model = ProductionSchedule
+    form_class = ProductionScheduleForm
+    template_name = 'production/schedule_form.html'
+    success_url = reverse_lazy('production:schedule_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class ProductionScheduleUpdateView(ManagerRequiredMixin, UpdateView):
+    model = ProductionSchedule
+    form_class = ProductionScheduleForm
+    template_name = 'production/schedule_form.html'
+    success_url = reverse_lazy('production:schedule_list')
+
+
+# ── 생산능력 계획 ──
+
+class CapacityPlanningView(ManagerRequiredMixin, TemplateView):
+    """작업장별 가동률 분석"""
+    template_name = 'production/capacity_planning.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        # 기간 필터
+        date_from = self.request.GET.get('date_from')
+        date_to = self.request.GET.get('date_to')
+
+        if not date_from:
+            date_from = (date.today() - timedelta(days=date.today().weekday())).isoformat()
+        if not date_to:
+            date_to = (date.today() + timedelta(days=6 - date.today().weekday())).isoformat()
+
+        ctx['date_from'] = date_from
+        ctx['date_to'] = date_to
+
+        work_centers = WorkCenter.objects.filter(is_active=True)
+        schedules_qs = ProductionSchedule.objects.filter(
+            is_active=True,
+            scheduled_start__date__lte=date_to,
+            scheduled_end__date__gte=date_from,
+        ).select_related('work_center', 'work_order')
+
+        from datetime import datetime
+        start_date = datetime.strptime(date_from, '%Y-%m-%d').date()
+        end_date = datetime.strptime(date_to, '%Y-%m-%d').date()
+        total_days = (end_date - start_date).days + 1
+
+        wc_data = []
+        for wc in work_centers:
+            wc_schedules = [s for s in schedules_qs if s.work_center_id == wc.pk]
+            total_scheduled_hours = Decimal('0')
+            for s in wc_schedules:
+                total_scheduled_hours += Decimal(str(s.scheduled_hours))
+
+            total_available_hours = wc.operating_hours * total_days * wc.efficiency_rate
+            utilization = (
+                round(float(total_scheduled_hours) / float(total_available_hours) * 100, 1)
+                if total_available_hours > 0 else 0
+            )
+
+            is_bottleneck = utilization > 90
+            wc_data.append({
+                'work_center': wc,
+                'total_scheduled_hours': round(float(total_scheduled_hours), 1),
+                'total_available_hours': round(float(total_available_hours), 1),
+                'utilization': utilization,
+                'schedule_count': len(wc_schedules),
+                'is_bottleneck': is_bottleneck,
+            })
+
+        wc_data.sort(key=lambda x: x['utilization'], reverse=True)
+        ctx['wc_data'] = wc_data
+        ctx['bottleneck_count'] = sum(1 for d in wc_data if d['is_bottleneck'])
+
         return ctx
 
 

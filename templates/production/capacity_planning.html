@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}생산능력 계획 - ERP Suite{% endblock %}
+{% block page_title %}생산능력 계획{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'production:schedule_list' %}" class="btn btn-secondary">스케줄</a>
+<a href="{% url 'production:workcenter_list' %}" class="btn btn-secondary">작업장</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- 기간 필터 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <form method="get" class="flex flex-wrap items-end gap-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">시작일</label>
+                <input type="date" name="date_from" value="{{ date_from }}" class="form-input text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">종료일</label>
+                <input type="date" name="date_to" value="{{ date_to }}" class="form-input text-sm">
+            </div>
+            <button type="submit" class="btn btn-primary text-sm">조회</button>
+            <a href="{% url 'production:capacity_planning' %}" class="btn btn-secondary text-sm">초기화</a>
+        </form>
+    </div>
+
+    <!-- 요약 -->
+    {% if bottleneck_count > 0 %}
+    <div class="bg-red-50 rounded-lg border border-red-200 p-4">
+        <div class="flex items-center">
+            <svg class="w-5 h-5 text-red-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+            </svg>
+            <p class="text-sm font-medium text-red-800">
+                병목 작업장 {{ bottleneck_count }}건 (가동률 90% 초과)
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 작업장별 가동률 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h3 class="text-base font-semibold text-gray-900">
+                <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                작업장별 가동률 ({{ date_from }} ~ {{ date_to }})
+            </h3>
+        </div>
+
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">작업장</th>
+                        <th class="px-4 py-3 text-right">스케줄 수</th>
+                        <th class="px-4 py-3 text-right">예정시간(h)</th>
+                        <th class="px-4 py-3 text-right">가용시간(h)</th>
+                        <th class="px-4 py-3" style="min-width: 200px;">가동률</th>
+                        <th class="px-4 py-3 text-center">상태</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for d in wc_data %}
+                    <tr class="hover:bg-gray-50 transition-colors {% if d.is_bottleneck %}bg-red-50{% endif %}">
+                        <td class="px-4 py-3">
+                            <span class="font-medium text-gray-900">{{ d.work_center.code }}</span>
+                            <span class="text-gray-500 ml-1">{{ d.work_center.name }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-right text-gray-700">{{ d.schedule_count }}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{{ d.total_scheduled_hours }}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{{ d.total_available_hours }}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center">
+                                <div class="flex-1 bg-gray-200 rounded-full h-3 mr-3">
+                                    <div class="h-3 rounded-full {% if d.utilization > 90 %}bg-red-500{% elif d.utilization > 70 %}bg-yellow-500{% else %}bg-green-500{% endif %}"
+                                         style="width: {% if d.utilization > 100 %}100{% else %}{{ d.utilization }}{% endif %}%"></div>
+                                </div>
+                                <span class="text-sm font-semibold {% if d.utilization > 90 %}text-red-600{% elif d.utilization > 70 %}text-yellow-600{% else %}text-green-600{% endif %}" style="min-width: 50px;">
+                                    {{ d.utilization }}%
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if d.is_bottleneck %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">병목</span>
+                            {% elif d.utilization > 70 %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">주의</span>
+                            {% elif d.utilization > 0 %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">정상</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">유휴</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                            등록된 작업장이 없습니다. 먼저 작업장을 등록하세요.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 가동률 해석 가이드 -->
+    <div class="bg-blue-50 rounded-lg border border-blue-200 p-6">
+        <h3 class="text-sm font-semibold text-blue-800 mb-3">
+            <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            가동률 해석 가이드
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-700">
+            <div>
+                <p class="font-medium mb-1">90% 이상 = 병목</p>
+                <p class="text-blue-600">작업 과부하. 작업장 추가 또는 일정 분산 필요.</p>
+            </div>
+            <div>
+                <p class="font-medium mb-1">70~90% = 주의</p>
+                <p class="text-blue-600">적정 가동 수준이나 추가 투입 시 병목 위험.</p>
+            </div>
+            <div>
+                <p class="font-medium mb-1">70% 미만 = 정상/유휴</p>
+                <p class="text-blue-600">여유 있는 상태. 추가 작업 배정 가능.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -119,6 +119,7 @@ def auto_stock_out_on_ship(sender, instance, **kwargs):
             _auto_cancel_tax_invoice_for_return(instance)
         else:
             _auto_reserve_stock(instance)
+            _check_credit_limit(instance)
             _auto_create_ar(instance)
             _auto_create_tax_invoice(instance)
 
@@ -432,6 +433,32 @@ def _auto_create_commission_disbursement(record):
         reference=f'주문 {record.order.order_number} 수수료',
         created_by=record.created_by,
     )
+
+
+def _check_credit_limit(order):
+    """주문 확정 시 신용한도 초과 경고 (차단하지 않음, 알림만 생성)"""
+    if not order.partner:
+        return
+    partner = order.partner
+    if partner.credit_limit <= 0:
+        return
+    total = int(order.grand_total) if order.grand_total else 0
+    if partner.credit_used + total > partner.credit_limit:
+        from apps.core.notification import create_notification
+        over = partner.credit_used + total - partner.credit_limit
+        create_notification(
+            'manager',
+            f'[신용한도 초과] {partner.name}',
+            f'주문 {order.order_number} 확정 시 신용한도를 {over:,}원 초과합니다. '
+            f'(한도: {int(partner.credit_limit):,}원, '
+            f'사용중: {int(partner.credit_used):,}원, '
+            f'주문금액: {total:,}원)',
+            noti_type='SYSTEM',
+        )
+        logger.warning(
+            'Credit limit exceeded for partner %s on order %s: over %s',
+            partner.name, order.order_number, over,
+        )
 
 
 def _auto_create_ar(order):

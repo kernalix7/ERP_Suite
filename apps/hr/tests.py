@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from apps.hr.models import (
     Department, ExternalCompany, Position, EmployeeProfile, PersonnelAction,
-    PayrollConfig, Payroll,
+    PayrollConfig, Payroll, SeverancePay,
 )
 
 User = get_user_model()
@@ -1010,3 +1010,151 @@ class EmployeeBankSyncTest(TestCase):
         profile.save()
         profile.save()
         self.assertEqual(BankAccount.objects.filter(employee=profile).count(), 1)
+
+
+class SeverancePayTest(TestCase):
+    """퇴직금 모델 테스트 — 근로기준법 제34조"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='sev_emp', password='testpass123', role='staff', name='퇴직자',
+        )
+        self.dept = Department.objects.create(name='개발팀', code='SEV-DEV')
+        self.position = Position.objects.create(code='SEV-POS', name='사원', level=6)
+        # 테스트에서 사용하는 모든 연도에 대한 급여설정 생성
+        for yr in [2023, 2024, 2025, 2026]:
+            PayrollConfig.objects.create(
+                year=yr,
+                national_pension_rate=Decimal('4.50'),
+                health_insurance_rate=Decimal('3.545'),
+                long_term_care_rate=Decimal('12.81'),
+                employment_insurance_rate=Decimal('0.90'),
+            )
+
+    def _make_employee(self, hire_date, employee_number='SEV-001'):
+        return EmployeeProfile.objects.create(
+            user=self.user,
+            employee_number=employee_number,
+            department=self.dept,
+            position=self.position,
+            hire_date=hire_date,
+        )
+
+    def _add_payrolls(self, employee, gross_pay_per_month, months, base_paid_date):
+        """calc_date 기준 직전 months개월 급여 생성 (paid_date = 각 달 25일)"""
+        for i in range(months, 0, -1):
+            paid_month = base_paid_date.month - i
+            paid_year = base_paid_date.year
+            while paid_month < 1:
+                paid_month += 12
+                paid_year -= 1
+            Payroll.objects.create(
+                employee=employee,
+                year=paid_year,
+                month=paid_month,
+                base_salary=gross_pay_per_month,
+                paid_date=date(paid_year, paid_month, 25),
+                status=Payroll.Status.PAID,
+            )
+
+    def test_under_one_year_no_severance(self):
+        """1년 미만 근속 → 퇴직금 0원 (근로기준법 제34조 요건 미충족)"""
+        hire_date = date(2026, 1, 1)
+        calc_date = date(2026, 6, 30)  # 180일 근속
+        employee = self._make_employee(hire_date)
+        self._add_payrolls(employee, Decimal('3000000'), 3, calc_date)
+
+        sp = SeverancePay(
+            employee=employee,
+            calculation_date=calc_date,
+            hire_date=hire_date,
+        )
+        sp.calculate()
+
+        self.assertEqual(sp.total_days, 180)
+        self.assertLess(sp.total_days, 365)
+        self.assertEqual(sp.total_amount, Decimal('0'))
+
+    def test_exactly_one_year(self):
+        """정확히 1년(365일) 근속 → 퇴직금 = 1일평균임금 × 30"""
+        hire_date = date(2025, 1, 1)
+        calc_date = date(2026, 1, 1)  # 365일
+        employee = self._make_employee(hire_date)
+        # 최근 3개월 급여: 각 3,000,000원 × 3개월 = 9,000,000
+        self._add_payrolls(employee, Decimal('3000000'), 3, calc_date)
+
+        sp = SeverancePay(
+            employee=employee,
+            calculation_date=calc_date,
+            hire_date=hire_date,
+        )
+        sp.calculate()
+
+        self.assertEqual(sp.total_days, 365)
+        self.assertEqual(sp.recent_3month_salary, Decimal('9000000'))
+        # 1일평균임금 = 9,000,000 // 90 = 100,000
+        self.assertEqual(sp.average_daily_wage, Decimal('100000'))
+        # 퇴직금 = 100,000 × 30 × 365 // 365 = 3,000,000
+        expected = Decimal('100000') * 30 * 365 // 365
+        self.assertEqual(sp.total_amount, expected)
+        self.assertEqual(sp.total_amount, Decimal('3000000'))
+
+    def test_three_years(self):
+        """3년(1095일) 근속 → 퇴직금 = 1일평균임금 × 30 × 3"""
+        # 2021-01-01 ~ 2024-01-01: 2021(365)+2022(365)+2023(365) = 1095일 (비윤년 3개년)
+        hire_date = date(2021, 1, 1)
+        calc_date = date(2024, 1, 1)
+        employee = self._make_employee(hire_date)
+        # 최근 3개월 급여: 각 4,500,000원 = 총 13,500,000
+        self._add_payrolls(employee, Decimal('4500000'), 3, calc_date)
+
+        sp = SeverancePay(
+            employee=employee,
+            calculation_date=calc_date,
+            hire_date=hire_date,
+        )
+        sp.calculate()
+
+        self.assertEqual(sp.total_days, 1095)
+        self.assertEqual(sp.recent_3month_salary, Decimal('13500000'))
+        # 1일평균임금 = 13,500,000 // 90 = 150,000
+        self.assertEqual(sp.average_daily_wage, Decimal('150000'))
+        # 퇴직금 = 150,000 × 30 × 1095 // 365 = 13,500,000
+        expected = Decimal('150000') * 30 * 1095 // 365
+        self.assertEqual(sp.total_amount, expected)
+        self.assertEqual(sp.years_of_service, Decimal('3.0'))
+
+    def test_no_payroll_data_zero_daily_wage(self):
+        """최근 3개월 급여 데이터 없으면 1일평균임금=0, 퇴직금=0"""
+        hire_date = date(2025, 1, 1)
+        calc_date = date(2026, 3, 1)
+        employee = self._make_employee(hire_date)
+        # Payroll 레코드 없음
+
+        sp = SeverancePay(
+            employee=employee,
+            calculation_date=calc_date,
+            hire_date=hire_date,
+        )
+        sp.calculate()
+
+        self.assertEqual(sp.recent_3month_salary, Decimal('0'))
+        self.assertEqual(sp.average_daily_wage, Decimal('0'))
+        self.assertEqual(sp.total_amount, Decimal('0'))
+
+    def test_years_of_service_calculation(self):
+        """근속연수 계산 정확도"""
+        hire_date = date(2025, 1, 1)
+        calc_date = date(2027, 1, 1)  # 2년 = 730일 (비윤년)
+        employee = self._make_employee(hire_date)
+        self._add_payrolls(employee, Decimal('3000000'), 3, calc_date)
+
+        sp = SeverancePay(
+            employee=employee,
+            calculation_date=calc_date,
+            hire_date=hire_date,
+        )
+        sp.calculate()
+
+        self.assertEqual(sp.total_days, 730)
+        self.assertEqual(sp.years_of_service, Decimal('2.0'))

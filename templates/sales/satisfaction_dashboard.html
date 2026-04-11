@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}만족도 대시보드 - ERP Suite{% endblock %}
+{% block page_title %}고객만족도 대시보드{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'sales:satisfaction_list' %}" class="btn btn-secondary">조사 목록</a>
+{% endblock %}
+
+{% block content %}
+<!-- 요약 카드 -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-5">
+        <div class="text-sm text-gray-500 mb-1">전체 평균 만족도</div>
+        <div class="text-3xl font-bold text-gray-900">
+            {% if avg_score %}{{ avg_score|floatformat:1 }}{% else %}0{% endif %}
+            <span class="text-lg text-gray-400">/ 5</span>
+        </div>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-5">
+        <div class="text-sm text-gray-500 mb-1">평균 NPS 점수</div>
+        <div class="text-3xl font-bold {% if avg_nps > 0 %}text-green-600{% elif avg_nps < 0 %}text-red-600{% else %}text-gray-900{% endif %}">
+            {% if avg_nps %}{{ avg_nps|floatformat:0 }}{% else %}0{% endif %}
+        </div>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-5">
+        <div class="text-sm text-gray-500 mb-1">총 응답 수</div>
+        <div class="text-3xl font-bold text-gray-900">{{ total_count }}</div>
+    </div>
+</div>
+
+<!-- 카테고리별 통계 -->
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">카테고리별 통계</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">카테고리</th>
+                    <th class="px-4 py-3 text-center">응답 수</th>
+                    <th class="px-4 py-3 text-center">평균 만족도</th>
+                    <th class="px-4 py-3 text-center">평균 NPS</th>
+                    <th class="px-4 py-3">만족도 바</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for stat in category_stats %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ category_labels|default_if_none:"" }}{% for key, label in category_labels.items %}{% if key == stat.category %}{{ label }}{% endif %}{% endfor %}</td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ stat.count }}</td>
+                    <td class="px-4 py-3 text-center text-gray-900 font-medium">{{ stat.avg_score|floatformat:1 }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="{% if stat.avg_nps > 0 %}text-green-600{% elif stat.avg_nps < 0 %}text-red-600{% else %}text-gray-600{% endif %} font-medium">
+                            {{ stat.avg_nps|floatformat:0 }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="h-2.5 rounded-full
+                                {% if stat.avg_score >= 4 %}bg-green-500
+                                {% elif stat.avg_score >= 3 %}bg-yellow-500
+                                {% else %}bg-red-500{% endif %}"
+                                style="width: {{ stat.avg_score|floatformat:0 }}0%;">
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-12 text-center text-gray-400">
+                        데이터가 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

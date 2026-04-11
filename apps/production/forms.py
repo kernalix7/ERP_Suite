@@ -1,6 +1,6 @@
 from django import forms
 from apps.core.forms import BaseForm
-from .models import BOM, BOMItem, ProductionPlan, WorkOrder, ProductionRecord, StandardCost
+from .models import BOM, BOMItem, ProductionPlan, WorkOrder, ProductionRecord, StandardCost, WorkCenter, ProductionSchedule
 
 
 class BOMForm(BaseForm):
@@ -72,7 +72,7 @@ class WorkOrderForm(BaseForm):
         model = WorkOrder
         fields = [
             'order_number', 'production_plan', 'assigned_to',
-            'quantity', 'status', 'notes',
+            'work_center', 'quantity', 'status', 'notes',
         ]
 
 
@@ -147,3 +147,36 @@ class StandardCostForm(BaseForm):
     def clean_total_standard_cost(self):
         val = self.cleaned_data.get('total_standard_cost', '0')
         return int(str(val).replace(',', '').strip() or '0')
+
+
+class WorkCenterForm(BaseForm):
+    class Meta:
+        model = WorkCenter
+        fields = ['name', 'code', 'capacity_per_day', 'efficiency_rate', 'operating_hours', 'notes']
+
+
+class ProductionScheduleForm(BaseForm):
+    class Meta:
+        model = ProductionSchedule
+        fields = [
+            'work_order', 'work_center', 'scheduled_start', 'scheduled_end',
+            'actual_start', 'actual_end', 'status', 'assigned_workers', 'priority', 'notes',
+        ]
+        widgets = {
+            'scheduled_start': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-input'}),
+            'scheduled_end': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-input'}),
+            'actual_start': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-input'}),
+            'actual_end': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-input'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get('scheduled_start')
+        end = cleaned.get('scheduled_end')
+        if start and end and end <= start:
+            raise forms.ValidationError('예정종료는 예정시작 이후여야 합니다.')
+        actual_start = cleaned.get('actual_start')
+        actual_end = cleaned.get('actual_end')
+        if actual_start and actual_end and actual_end <= actual_start:
+            raise forms.ValidationError('실제종료는 실제시작 이후여야 합니다.')
+        return cleaned

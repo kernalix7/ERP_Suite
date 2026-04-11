@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}고급 재무 리포트 - ERP Suite{% endblock %}
+{% block page_title %}고급 재무 리포트{% endblock %}
+
+{% block content %}
+<!-- 필터 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 sm:gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">연도</label>
+            <select name="year" class="form-input rounded-lg border-gray-300">
+                {% for y in years %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}년</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">월</label>
+            <select name="month" class="form-input rounded-lg border-gray-300">
+                {% for m in "123456789" %}
+                <option value="{{ m }}" {% if m|add:"0" == month %}selected{% endif %}>{{ m }}월</option>
+                {% endfor %}
+                <option value="10" {% if month == 10 %}selected{% endif %}>10월</option>
+                <option value="11" {% if month == 11 %}selected{% endif %}>11월</option>
+                <option value="12" {% if month == 12 %}selected{% endif %}>12월</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">상위 N개</label>
+            <select name="top_n" class="form-input rounded-lg border-gray-300">
+                <option value="5" {% if top_n == 5 %}selected{% endif %}>5개</option>
+                <option value="10" {% if top_n == 10 %}selected{% endif %}>10개</option>
+                <option value="20" {% if top_n == 20 %}selected{% endif %}>20개</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">조회</button>
+        </div>
+    </form>
+</div>
+
+<!-- YoY / MoM 비교 카드 -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <!-- 당월 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 class="text-sm font-semibold text-gray-500 mb-3">{{ year }}년 {{ month }}월 (당월)</h3>
+        <div class="space-y-2">
+            <div class="flex justify-between">
+                <span class="text-gray-600">매출</span>
+                <span class="font-mono font-semibold text-blue-700">{{ current.sales|intcomma }}원</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-600">매입</span>
+                <span class="font-mono font-semibold text-red-600">{{ current.purchase|intcomma }}원</span>
+            </div>
+            <div class="flex justify-between border-t pt-2">
+                <span class="text-gray-800 font-medium">이익</span>
+                <span class="font-mono font-bold {% if current.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ current.profit|intcomma }}원</span>
+            </div>
+        </div>
+    </div>
+    <!-- MoM -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 class="text-sm font-semibold text-gray-500 mb-3">전월 대비 (MoM)</h3>
+        <div class="space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600">매출</span>
+                <div class="text-right">
+                    <span class="font-mono text-sm text-gray-500">{{ mom.sales|intcomma }}원</span>
+                    {% if mom.sales_rate is not None %}
+                    <span class="ml-2 text-sm font-semibold {% if mom.sales_rate > 0 %}text-green-600{% elif mom.sales_rate < 0 %}text-red-600{% else %}text-gray-500{% endif %}">
+                        {% if mom.sales_rate > 0 %}+{% endif %}{{ mom.sales_rate }}%
+                    </span>
+                    {% else %}
+                    <span class="ml-2 text-sm text-gray-400">N/A</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600">매입</span>
+                <div class="text-right">
+                    <span class="font-mono text-sm text-gray-500">{{ mom.purchase|intcomma }}원</span>
+                    {% if mom.purchase_rate is not None %}
+                    <span class="ml-2 text-sm font-semibold {% if mom.purchase_rate > 0 %}text-red-600{% elif mom.purchase_rate < 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                        {% if mom.purchase_rate > 0 %}+{% endif %}{{ mom.purchase_rate }}%
+                    </span>
+                    {% else %}
+                    <span class="ml-2 text-sm text-gray-400">N/A</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- YoY -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 class="text-sm font-semibold text-gray-500 mb-3">전년 동월 대비 (YoY)</h3>
+        <div class="space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600">매출</span>
+                <div class="text-right">
+                    <span class="font-mono text-sm text-gray-500">{{ yoy.sales|intcomma }}원</span>
+                    {% if yoy.sales_rate is not None %}
+                    <span class="ml-2 text-sm font-semibold {% if yoy.sales_rate > 0 %}text-green-600{% elif yoy.sales_rate < 0 %}text-red-600{% else %}text-gray-500{% endif %}">
+                        {% if yoy.sales_rate > 0 %}+{% endif %}{{ yoy.sales_rate }}%
+                    </span>
+                    {% else %}
+                    <span class="ml-2 text-sm text-gray-400">N/A</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600">매입</span>
+                <div class="text-right">
+                    <span class="font-mono text-sm text-gray-500">{{ yoy.purchase|intcomma }}원</span>
+                    {% if yoy.purchase_rate is not None %}
+                    <span class="ml-2 text-sm font-semibold {% if yoy.purchase_rate > 0 %}text-red-600{% elif yoy.purchase_rate < 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                        {% if yoy.purchase_rate > 0 %}+{% endif %}{{ yoy.purchase_rate }}%
+                    </span>
+                    {% else %}
+                    <span class="ml-2 text-sm text-gray-400">N/A</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 12개월 추이 차트 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
+    <h3 class="text-base font-semibold text-gray-800 mb-4">월별 매출/매입 추이 (12개월)</h3>
+    <div style="height: 320px;">
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+
+<!-- 거래처별 상위 매출 -->
+{% if top_partners %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+    <div class="p-4 border-b border-gray-200">
+        <h3 class="text-base font-semibold text-gray-800">거래처별 상위 {{ top_n }}개 매출 ({{ year }}년)</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3 w-12">#</th>
+                    <th class="px-4 py-3">거래처</th>
+                    <th class="px-4 py-3 text-right">매출액 (공급가)</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for tp in top_partners %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-500 font-medium">{{ forloop.counter }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ tp.partner__name }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700 font-semibold">{{ tp.total|intcomma }}원</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 제품별 수익성 -->
+{% if product_data %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+    <div class="p-4 border-b border-gray-200">
+        <h3 class="text-base font-semibold text-gray-800">제품별 수익성 분석 ({{ year }}년, 확정 주문 기준)</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3 w-12">#</th>
+                    <th class="px-4 py-3">제품명</th>
+                    <th class="px-4 py-3 text-right">매출액</th>
+                    <th class="px-4 py-3 text-right">원가</th>
+                    <th class="px-4 py-3 text-right">이익</th>
+                    <th class="px-4 py-3 text-right">이익률</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for pd in product_data %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-500 font-medium">{{ forloop.counter }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ pd.name }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ pd.revenue|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ pd.cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold {% if pd.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ pd.profit|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-semibold {% if pd.margin >= 20 %}text-green-600{% elif pd.margin >= 0 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ pd.margin }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/vendor/chart.js/chart.umd.min.js"></script>
+<script>
+(function() {
+    const data = {{ monthly_json|safe }};
+    const labels = data.map(d => d.label);
+    const salesData = data.map(d => d.sales);
+    const purchaseData = data.map(d => d.purchase);
+    const profitData = data.map(d => d.profit);
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '매출',
+                    data: salesData,
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1,
+                    order: 2,
+                },
+                {
+                    label: '매입',
+                    data: purchaseData,
+                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                    borderColor: 'rgba(239, 68, 68, 1)',
+                    borderWidth: 1,
+                    order: 3,
+                },
+                {
+                    label: '이익',
+                    data: profitData,
+                    type: 'line',
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    order: 1,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            },
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return (value / 10000).toLocaleString() + '만';
+                        }
+                    },
+                },
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString() + '원';
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

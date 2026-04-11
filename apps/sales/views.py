@@ -20,12 +20,16 @@ from .models import (
     Partner, Customer, Order, OrderItem,
     Quotation, QuotationItem, Shipment, ShipmentItem,
     ShippingCarrier, ShipmentTracking, PriceRule,
+    CustomerTier, SalesTarget,
+    SalesLead, LeadActivity, CustomerSatisfaction,
 )
 from .forms import (
     PartnerForm, CustomerForm, CustomerPurchaseFormSet,
     OrderForm, OrderItemFormSet, ReturnOrderForm,
     QuotationForm, QuotationItemFormSet,
     ShippingCarrierForm, PriceRuleForm,
+    CustomerTierForm, SalesTargetForm,
+    SalesLeadForm, LeadActivityForm, CustomerSatisfactionForm,
 )
 
 
@@ -3283,3 +3287,268 @@ class CustomerAddressView(LoginRequiredMixin, View):
             'address_detail': detail,
             'phone': customer.phone or '',
         })
+
+
+# ───────────────────────────────────────────────
+# 고객등급 (CustomerTier)
+# ───────────────────────────────────────────────
+
+class CustomerTierListView(LoginRequiredMixin, ListView):
+    model = CustomerTier
+    template_name = 'sales/customer_tier_list.html'
+    context_object_name = 'tiers'
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True).order_by('sort_order')
+
+
+class CustomerTierCreateView(ManagerRequiredMixin, CreateView):
+    model = CustomerTier
+    form_class = CustomerTierForm
+    template_name = 'sales/customer_tier_form.html'
+    success_url = reverse_lazy('sales:customer_tier_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class CustomerTierUpdateView(ManagerRequiredMixin, UpdateView):
+    model = CustomerTier
+    form_class = CustomerTierForm
+    template_name = 'sales/customer_tier_form.html'
+    success_url = reverse_lazy('sales:customer_tier_list')
+
+
+# ───────────────────────────────────────────────
+# 영업목표 (SalesTarget)
+# ───────────────────────────────────────────────
+
+class SalesTargetListView(LoginRequiredMixin, ListView):
+    model = SalesTarget
+    template_name = 'sales/sales_target_list.html'
+    context_object_name = 'targets'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(
+            is_active=True,
+        ).select_related('salesperson').order_by('-year', 'quarter')
+        year = self.request.GET.get('year')
+        if year:
+            qs = qs.filter(year=year)
+        return qs
+
+
+class SalesTargetCreateView(ManagerRequiredMixin, CreateView):
+    model = SalesTarget
+    form_class = SalesTargetForm
+    template_name = 'sales/sales_target_form.html'
+    success_url = reverse_lazy('sales:sales_target_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class SalesTargetDashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'sales/sales_target_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from django.utils import timezone
+        year = int(self.request.GET.get('year', timezone.now().year))
+        targets = SalesTarget.objects.filter(
+            is_active=True, year=year,
+        ).select_related('salesperson')
+        ctx['year'] = year
+        ctx['targets'] = targets
+        ctx['years'] = sorted(
+            SalesTarget.objects.filter(is_active=True)
+            .values_list('year', flat=True).distinct(),
+            reverse=True,
+        )
+        return ctx
+
+
+# ───────────────────────────────────────────────
+# 영업리드 (SalesLead)
+# ───────────────────────────────────────────────
+
+class SalesLeadListView(LoginRequiredMixin, ListView):
+    model = SalesLead
+    template_name = 'sales/sales_lead_list.html'
+    context_object_name = 'leads'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(
+            is_active=True,
+        ).select_related('assigned_to').order_by('-created_at')
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        q = self.request.GET.get('q')
+        if q:
+            qs = qs.filter(
+                Q(company_name__icontains=q) | Q(contact_name__icontains=q)
+                | Q(lead_number__icontains=q)
+            )
+        return qs
+
+
+class SalesLeadCreateView(ManagerRequiredMixin, CreateView):
+    model = SalesLead
+    form_class = SalesLeadForm
+    template_name = 'sales/sales_lead_form.html'
+    success_url = reverse_lazy('sales:lead_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class SalesLeadDetailView(LoginRequiredMixin, DetailView):
+    model = SalesLead
+    template_name = 'sales/sales_lead_detail.html'
+    context_object_name = 'lead'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['activities'] = self.object.activities.filter(
+            is_active=True,
+        ).order_by('-activity_date')
+        ctx['activity_form'] = LeadActivityForm()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form = LeadActivityForm(request.POST)
+        if form.is_valid():
+            activity = form.save(commit=False)
+            activity.lead = self.object
+            activity.created_by = request.user
+            activity.save()
+            messages.success(request, '활동이 기록되었습니다.')
+            return redirect('sales:lead_detail', pk=self.object.pk)
+        ctx = self.get_context_data()
+        ctx['activity_form'] = form
+        return self.render_to_response(ctx)
+
+
+class SalesLeadUpdateView(ManagerRequiredMixin, UpdateView):
+    model = SalesLead
+    form_class = SalesLeadForm
+    template_name = 'sales/sales_lead_form.html'
+
+    def get_success_url(self):
+        return reverse_lazy('sales:lead_detail', kwargs={'pk': self.object.pk})
+
+
+class LeadConvertView(ManagerRequiredMixin, View):
+    """Lead -> Quotation 전환"""
+
+    def post(self, request, pk):
+        lead = get_object_or_404(SalesLead, pk=pk, is_active=True)
+        with transaction.atomic():
+            partner, _ = Partner.objects.get_or_create(
+                name=lead.company_name,
+                defaults={
+                    'code': Partner.generate_next_code('CUSTOMER'),
+                    'partner_type': 'CUSTOMER',
+                    'contact_name': lead.contact_name,
+                    'email': lead.contact_email,
+                    'phone': lead.contact_phone,
+                    'created_by': request.user,
+                },
+            )
+            quote = Quotation.objects.create(
+                partner=partner,
+                quote_date=date.today(),
+                valid_until=date.today(),
+                created_by=request.user,
+            )
+            lead.status = 'WON'
+            lead.save(update_fields=['status', 'updated_at'])
+        messages.success(
+            request,
+            f'리드 {lead.lead_number}이(가) 견적서 {quote.quote_number}(으)로 전환되었습니다.',
+        )
+        return redirect('sales:quote_detail', slug=quote.quote_number)
+
+
+class PipelineBoardView(LoginRequiredMixin, TemplateView):
+    """영업 파이프라인 칸반 보드"""
+    template_name = 'sales/pipeline_board.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from django.http import JsonResponse
+        stages = dict(SalesLead.STATUS_CHOICES)
+        pipeline = {}
+        for code, label in stages.items():
+            leads = SalesLead.objects.filter(
+                is_active=True, status=code,
+            ).select_related('assigned_to').order_by('-expected_amount')
+            pipeline[code] = {
+                'label': label,
+                'leads': leads,
+                'count': leads.count(),
+                'total': sum(int(l.expected_amount) for l in leads),
+            }
+        ctx['pipeline'] = pipeline
+        ctx['stages'] = stages
+        return ctx
+
+
+# ───────────────────────────────────────────────
+# 고객만족도 (CustomerSatisfaction)
+# ───────────────────────────────────────────────
+
+class CustomerSatisfactionListView(LoginRequiredMixin, ListView):
+    model = CustomerSatisfaction
+    template_name = 'sales/satisfaction_list.html'
+    context_object_name = 'surveys'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(
+            is_active=True,
+        ).select_related('partner', 'order').order_by('-survey_date')
+        category = self.request.GET.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        return qs
+
+
+class CustomerSatisfactionCreateView(ManagerRequiredMixin, CreateView):
+    model = CustomerSatisfaction
+    form_class = CustomerSatisfactionForm
+    template_name = 'sales/satisfaction_form.html'
+    success_url = reverse_lazy('sales:satisfaction_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class SatisfactionDashboardView(LoginRequiredMixin, TemplateView):
+    """고객만족도 대시보드 - NPS, 카테고리별 평균"""
+    template_name = 'sales/satisfaction_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from django.db.models import Avg
+        qs = CustomerSatisfaction.objects.filter(is_active=True)
+        ctx['avg_score'] = qs.aggregate(avg=Avg('score'))['avg'] or 0
+        ctx['avg_nps'] = qs.aggregate(avg=Avg('nps_score'))['avg'] or 0
+        ctx['category_stats'] = list(
+            qs.values('category').annotate(
+                avg_score=Avg('score'),
+                avg_nps=Avg('nps_score'),
+                count=Count('id'),
+            ).order_by('category')
+        )
+        ctx['category_labels'] = dict(CustomerSatisfaction.CATEGORY_CHOICES)
+        ctx['total_count'] = qs.count()
+        return ctx

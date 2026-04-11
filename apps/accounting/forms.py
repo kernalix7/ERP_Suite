@@ -6,6 +6,7 @@ from .models import (
     AccountReceivable, AccountPayable, Payment, BankAccount,
     AccountTransfer, PaymentDistribution,
     CreditCard, CardTransaction,
+    CostCenter, DashboardWidget,
 )
 
 
@@ -85,7 +86,7 @@ class VoucherForm(BaseForm):
 class VoucherLineForm(BaseForm):
     class Meta:
         model = VoucherLine
-        fields = ['account', 'debit', 'credit', 'description']
+        fields = ['account', 'debit', 'credit', 'description', 'cost_center']
 
 
 VoucherLineFormSet = forms.inlineformset_factory(
@@ -184,3 +185,9 @@ class CardTransactionForm(BaseForm):
         widgets = {
             'transaction_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
+
+
+class CostCenterForm(BaseForm):
+    class Meta:
+        model = CostCenter
+        fields = ['code', 'name', 'parent', 'center_type', 'department', 'manager', 'notes']

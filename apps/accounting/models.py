@@ -326,6 +326,10 @@ class VoucherLine(BaseModel):
     debit = models.DecimalField('차변', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     credit = models.DecimalField('대변', max_digits=15, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     description = models.CharField('적요', max_length=200, blank=True)
+    cost_center = models.ForeignKey(
+        'CostCenter', verbose_name='원가센터',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -1146,3 +1150,73 @@ class ClosingPeriod(BaseModel):
 
     def __str__(self):
         return f'{self.year}년 {self.month:02d}월 {"마감" if self.is_closed else "미마감"}'
+
+
+class CostCenter(BaseModel):
+    """원가/이익센터"""
+
+    class CenterType(models.TextChoices):
+        COST = 'COST', '원가센터'
+        PROFIT = 'PROFIT', '이익센터'
+        INVESTMENT = 'INVESTMENT', '투자센터'
+
+    code = models.CharField('코드', max_length=20, unique=True)
+    name = models.CharField('센터명', max_length=100)
+    parent = models.ForeignKey(
+        'self', verbose_name='상위센터',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='children',
+    )
+    center_type = models.CharField(
+        '센터유형', max_length=20,
+        choices=CenterType.choices, default=CenterType.COST,
+    )
+    department = models.ForeignKey(
+        'hr.Department', verbose_name='부서',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='책임자',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '원가센터'
+        verbose_name_plural = '원가센터'
+        ordering = ['code']
+
+    def __str__(self):
+        return f'[{self.code}] {self.name}'
+
+
+class DashboardWidget(BaseModel):
+    """대시보드 위젯 설정"""
+
+    class WidgetType(models.TextChoices):
+        CHART = 'CHART', '차트'
+        TABLE = 'TABLE', '테이블'
+        KPI = 'KPI', 'KPI'
+        PIVOT = 'PIVOT', '피벗'
+
+    name = models.CharField('위젯명', max_length=100)
+    widget_type = models.CharField(
+        '위젯유형', max_length=20,
+        choices=WidgetType.choices,
+    )
+    config = models.JSONField('설정', default=dict)
+    sort_order = models.PositiveIntegerField('정렬순서', default=0)
+    is_visible = models.BooleanField('표시여부', default=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='사용자',
+        null=True, blank=True, on_delete=models.CASCADE,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '대시보드 위젯'
+        verbose_name_plural = '대시보드 위젯'
+        ordering = ['sort_order']
+
+    def __str__(self):
+        return self.name

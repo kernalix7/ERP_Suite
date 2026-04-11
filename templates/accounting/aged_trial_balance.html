@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}경과기간별 시산표 - ERP Suite{% endblock %}
+{% block page_title %}경과기간별 시산표 (Aged Trial Balance){% endblock %}
+
+{% block header_actions %}
+<span class="text-sm text-gray-600 mr-4">기준일: <strong>{{ today }}</strong></span>
+<span class="text-sm text-gray-600 mr-4">총 잔액: <strong class="text-red-600">{{ grand_totals.total|intcomma }}원</strong></span>
+{% endblock %}
+
+{% block content %}
+<!-- AR/AP 전환 탭 -->
+<div class="flex gap-2 mb-4">
+    <a href="?type=AR" class="px-4 py-2 rounded-lg text-sm font-medium {% if report_type == 'AR' %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">
+        미수금 (AR)
+    </a>
+    <a href="?type=AP" class="px-4 py-2 rounded-lg text-sm font-medium {% if report_type == 'AP' %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">
+        미지급금 (AP)
+    </a>
+</div>
+
+<!-- 구간별 요약 카드 -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">미도래</p>
+        <p class="text-lg font-bold text-green-600">{{ grand_totals.current|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">0-30일</p>
+        <p class="text-lg font-bold text-yellow-600">{{ grand_totals.b30|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">31-60일</p>
+        <p class="text-lg font-bold text-orange-500">{{ grand_totals.b60|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">61-90일</p>
+        <p class="text-lg font-bold text-red-500">{{ grand_totals.b90|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">91-120일</p>
+        <p class="text-lg font-bold text-red-600">{{ grand_totals.b120|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">120일 초과</p>
+        <p class="text-lg font-bold text-red-700">{{ grand_totals.b120_plus|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 border-l-4 border-l-blue-500">
+        <p class="text-xs text-gray-500 mb-1">합계</p>
+        <p class="text-lg font-bold text-gray-900">{{ grand_totals.total|intcomma }}원</p>
+    </div>
+</div>
+
+<!-- 거래처별 Aging 테이블 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <h3 class="text-base font-semibold text-gray-800">거래처별 경과기간 분석</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">거래처</th>
+                    <th class="px-4 py-3 text-right">미도래</th>
+                    <th class="px-4 py-3 text-right">0-30일</th>
+                    <th class="px-4 py-3 text-right">31-60일</th>
+                    <th class="px-4 py-3 text-right">61-90일</th>
+                    <th class="px-4 py-3 text-right">91-120일</th>
+                    <th class="px-4 py-3 text-right">120일+</th>
+                    <th class="px-4 py-3 text-right font-bold">합계</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for p in partners %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ p.name }}</td>
+                    <td class="px-4 py-3 text-right {% if p.current %}text-green-600{% else %}text-gray-400{% endif %}">{{ p.current|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if p.b30 %}text-yellow-600{% else %}text-gray-400{% endif %}">{{ p.b30|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if p.b60 %}text-orange-500{% else %}text-gray-400{% endif %}">{{ p.b60|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if p.b90 %}text-red-500{% else %}text-gray-400{% endif %}">{{ p.b90|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if p.b120 %}text-red-600 font-semibold{% else %}text-gray-400{% endif %}">{{ p.b120|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if p.b120_plus %}text-red-700 font-bold{% else %}text-gray-400{% endif %}">{{ p.b120_plus|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-bold text-gray-900">{{ p.total|intcomma }}원</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                        {% if report_type == 'AP' %}미지급금{% else %}미수금{% endif %} 데이터가 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if partners %}
+            <tfoot class="bg-gray-50 font-semibold">
+                <tr>
+                    <td class="px-4 py-3 text-right text-gray-700">합계</td>
+                    <td class="px-4 py-3 text-right text-green-600">{{ grand_totals.current|intcomma }}</td>
+                    <td class="px-4 py-3 text-right text-yellow-600">{{ grand_totals.b30|intcomma }}</td>
+                    <td class="px-4 py-3 text-right text-orange-500">{{ grand_totals.b60|intcomma }}</td>
+                    <td class="px-4 py-3 text-right text-red-500">{{ grand_totals.b90|intcomma }}</td>
+                    <td class="px-4 py-3 text-right text-red-600">{{ grand_totals.b120|intcomma }}</td>
+                    <td class="px-4 py-3 text-right text-red-700">{{ grand_totals.b120_plus|intcomma }}</td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ grand_totals.total|intcomma }}원</td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

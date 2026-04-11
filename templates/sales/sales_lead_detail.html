@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}{{ lead.lead_number }} - ERP Suite{% endblock %}
+{% block page_title %}{{ lead.lead_number }}{% endblock %}
+
+{% block header_actions %}
+<div class="flex flex-wrap gap-2">
+    <a href="{% url 'sales:lead_list' %}" class="btn btn-secondary">목록</a>
+    {% if user.is_manager_role %}
+    <a href="{% url 'sales:lead_update' lead.pk %}" class="btn btn-secondary">수정</a>
+    {% if lead.status != 'WON' and lead.status != 'LOST' %}
+    <form method="post" action="{% url 'sales:lead_convert' lead.pk %}" class="inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary"
+                onclick="return confirm('이 리드를 견적서로 전환하시겠습니까?')">
+            견적 전환
+        </button>
+    </form>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- 리드 정보 -->
+    <div class="lg:col-span-2">
+        <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">리드 정보</h3>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                    {% if lead.status == 'WON' %}bg-green-100 text-green-700
+                    {% elif lead.status == 'LOST' %}bg-red-100 text-red-700
+                    {% elif lead.status == 'NEW' %}bg-blue-100 text-blue-700
+                    {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                    {{ lead.get_status_display }}
+                </span>
+            </div>
+            <div class="p-6">
+                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div><dt class="text-gray-500">회사명</dt><dd class="font-medium text-gray-900">{{ lead.company_name }}</dd></div>
+                    <div><dt class="text-gray-500">담당자</dt><dd class="text-gray-900">{{ lead.contact_name }}</dd></div>
+                    <div><dt class="text-gray-500">이메일</dt><dd class="text-gray-900">{{ lead.contact_email|default:"-" }}</dd></div>
+                    <div><dt class="text-gray-500">연락처</dt><dd class="text-gray-900">{{ lead.contact_phone|default:"-" }}</dd></div>
+                    <div><dt class="text-gray-500">유입경로</dt><dd class="text-gray-900">{{ lead.get_source_display }}</dd></div>
+                    <div><dt class="text-gray-500">영업담당</dt><dd class="text-gray-900">{{ lead.assigned_to.get_full_name|default:lead.assigned_to.username|default:"-" }}</dd></div>
+                    <div><dt class="text-gray-500">예상금액</dt><dd class="text-gray-900">{{ lead.expected_amount|intcomma }}원</dd></div>
+                    <div><dt class="text-gray-500">예상수주일</dt><dd class="text-gray-900">{{ lead.expected_close_date|default:"-" }}</dd></div>
+                    {% if lead.converted_order %}
+                    <div><dt class="text-gray-500">전환주문</dt><dd><a href="{% url 'sales:order_detail' lead.converted_order.order_number %}" class="text-blue-600 hover:underline">{{ lead.converted_order.order_number }}</a></dd></div>
+                    {% endif %}
+                    {% if lead.lost_reason %}
+                    <div class="sm:col-span-2"><dt class="text-gray-500">실패사유</dt><dd class="text-gray-900">{{ lead.lost_reason }}</dd></div>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        <!-- 활동 기록 -->
+        <div class="bg-white shadow rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">활동 기록</h3>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for activity in activities %}
+                <div class="px-6 py-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            {% if activity.activity_type == 'CALL' %}bg-blue-100 text-blue-700
+                            {% elif activity.activity_type == 'EMAIL' %}bg-purple-100 text-purple-700
+                            {% elif activity.activity_type == 'MEETING' %}bg-green-100 text-green-700
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ activity.get_activity_type_display }}
+                        </span>
+                        <span class="text-xs text-gray-500">{{ activity.activity_date|date:"Y-m-d H:i" }}</span>
+                    </div>
+                    <p class="text-sm text-gray-700">{{ activity.description }}</p>
+                </div>
+                {% empty %}
+                <div class="px-6 py-8 text-center text-gray-400">기록된 활동이 없습니다.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 활동 등록 폼 -->
+    <div>
+        <div class="bg-white shadow rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">활동 기록</h3>
+            </div>
+            <form method="post" class="p-6 space-y-4">
+                {% csrf_token %}
+                {% for field in activity_form %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ field.label }}
+                        {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                    </label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                    <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary w-full">활동 기록</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

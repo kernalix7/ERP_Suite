@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "연말정산 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "연말정산 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'hr:year_end_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-800">{{ settlement.employee }}</h2>
+                <p class="text-sm text-gray-500">{{ settlement.year }}년 연말정산</p>
+            </div>
+            <span class="px-3 py-1 text-sm rounded-full
+                {% if settlement.status == 'CONFIRMED' %}bg-green-100 text-green-700
+                {% elif settlement.status == 'CALCULATED' %}bg-blue-100 text-blue-700
+                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                {{ settlement.get_status_display }}
+            </span>
+        </div>
+
+        <h3 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">{% trans "소득 현황" %}</h3>
+        <dl class="grid grid-cols-2 gap-3 mb-6">
+            <div>
+                <dt class="text-xs text-gray-500">{% trans "총 급여" %}</dt>
+                <dd class="text-sm font-medium">{{ settlement.total_income|floatformat:0 }}원</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500">{% trans "기납부 세액" %}</dt>
+                <dd class="text-sm font-medium">{{ settlement.tax_paid|floatformat:0 }}원</dd>
+            </div>
+        </dl>
+
+        <h3 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">{% trans "소득공제" %}</h3>
+        <dl class="grid grid-cols-2 gap-3 mb-6">
+            <div><dt class="text-xs text-gray-500">{% trans "보험료" %}</dt><dd class="text-sm">{{ settlement.insurance_deduction|floatformat:0 }}원</dd></div>
+            <div><dt class="text-xs text-gray-500">{% trans "의료비" %}</dt><dd class="text-sm">{{ settlement.medical_deduction|floatformat:0 }}원</dd></div>
+            <div><dt class="text-xs text-gray-500">{% trans "교육비" %}</dt><dd class="text-sm">{{ settlement.education_deduction|floatformat:0 }}원</dd></div>
+            <div><dt class="text-xs text-gray-500">{% trans "주택자금" %}</dt><dd class="text-sm">{{ settlement.housing_deduction|floatformat:0 }}원</dd></div>
+            <div><dt class="text-xs text-gray-500">{% trans "기부금" %}</dt><dd class="text-sm">{{ settlement.donation_deduction|floatformat:0 }}원</dd></div>
+            <div><dt class="text-xs text-gray-500">{% trans "신용카드" %}</dt><dd class="text-sm">{{ settlement.credit_card_deduction|floatformat:0 }}원</dd></div>
+        </dl>
+
+        <h3 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">{% trans "세액 계산" %}</h3>
+        <dl class="grid grid-cols-2 gap-3">
+            <div><dt class="text-xs text-gray-500">{% trans "소득공제 합계" %}</dt><dd class="text-sm">{{ settlement.total_deduction|floatformat:0 }}원</dd></div>
+            <div><dt class="text-xs text-gray-500">{% trans "과세표준" %}</dt><dd class="text-sm">{{ settlement.taxable_income|floatformat:0 }}원</dd></div>
+            <div><dt class="text-xs text-gray-500">{% trans "산출세액" %}</dt><dd class="text-sm">{{ settlement.calculated_tax|floatformat:0 }}원</dd></div>
+            <div><dt class="text-xs text-gray-500">{% trans "결정세액" %}</dt><dd class="text-sm">{{ settlement.final_tax|floatformat:0 }}원</dd></div>
+        </dl>
+    </div>
+
+    <div class="rounded-lg p-6 text-center {% if settlement.refund_amount >= 0 %}bg-blue-50 border border-blue-200{% else %}bg-red-50 border border-red-200{% endif %}">
+        <p class="text-sm {% if settlement.refund_amount >= 0 %}text-blue-600{% else %}text-red-600{% endif %} mb-1">
+            {% if settlement.refund_amount >= 0 %}{% trans "환급액" %}{% else %}{% trans "추가납부액" %}{% endif %}
+        </p>
+        <p class="text-3xl font-bold {% if settlement.refund_amount >= 0 %}text-blue-800{% else %}text-red-800{% endif %}">
+            {{ settlement.refund_amount|floatformat:0 }}원
+        </p>
+        <p class="text-xs {% if settlement.refund_amount >= 0 %}text-blue-500{% else %}text-red-500{% endif %} mt-2">
+            기납부세액 {{ settlement.tax_paid|floatformat:0 }}원 - 결정세액 {{ settlement.final_tax|floatformat:0 }}원
+        </p>
+    </div>
+</div>
+{% endblock %}

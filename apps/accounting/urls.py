@@ -126,6 +126,15 @@ urlpatterns = [
     path('cards/billings/', views.CardBillingListView.as_view(), name='card_billing_list'),
     path('cards/billings/<int:pk>/', views.CardBillingDetailView.as_view(), name='card_billing_detail'),
     path('cards/billings/<int:pk>/pay/', views.CardBillingPayView.as_view(), name='card_billing_pay'),
+    # 원가센터
+    path('cost-centers/', views.CostCenterListView.as_view(), name='cost_center_list'),
+    path('cost-centers/create/', views.CostCenterCreateView.as_view(), name='cost_center_create'),
+    path('cost-centers/<int:pk>/edit/', views.CostCenterUpdateView.as_view(), name='cost_center_update'),
+    path('cost-centers/report/', views.CostCenterReportView.as_view(), name='cost_center_report'),
+    path('profit-centers/report/', views.ProfitCenterReportView.as_view(), name='profit_center_report'),
+    # 고급 리포트
+    path('aged-trial-balance/', views.AgedTrialBalanceView.as_view(), name='aged_trial_balance'),
+    path('advanced-report/', views.AdvancedReportView.as_view(), name='advanced_report'),
     # Excel 내보내기
     path('invoices/excel/', excel_views.TaxInvoiceExcelView.as_view(), name='taxinvoice_excel'),
     path('vouchers/excel/', excel_views.VoucherExcelView.as_view(), name='voucher_excel'),
@@ -135,4 +144,6 @@ urlpatterns = [
     path('payables/excel/', excel_views.APExcelView.as_view(), name='ap_excel'),
     path('approvals/excel/', excel_views.ApprovalExcelView.as_view(), name='approval_excel'),
     path('withholding/excel/', excel_views.WithholdingTaxExcelView.as_view(), name='withholding_excel'),
+    # 부가세 신고서
+    path('vat-return/', views.VATReturnView.as_view(), name='vat_return'),
 ]

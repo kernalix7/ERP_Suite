@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'apps.ad',
     'apps.advertising',
     'apps.asset',
+    'apps.module_manager',
     'apps.api',
     'apps.store_modules',
     'apps.modules.naver_smartstore',

@@ -33,6 +33,7 @@ from .models import (
     SalesSettlement, SalesSettlementOrder,
     Budget, ClosingPeriod,
     CreditCard, CardTransaction, CardBilling,
+    CostCenter,
 )
 from .forms import (
     CurrencyForm, ExchangeRateForm,
@@ -41,6 +42,7 @@ from .forms import (
     AccountReceivableForm, AccountPayableForm, PaymentForm, BankAccountForm,
     AccountTransferForm, PaymentDistributionFormSet,
     CreditCardForm, CardTransactionForm,
+    CostCenterForm,
 )
 
 
@@ -3581,4 +3583,436 @@ class ExchangeGainLossView(ManagerRequiredMixin, TemplateView):
         ctx['total_gain'] = total_gain
         ctx['total_loss'] = total_loss
         ctx['net_gain_loss'] = net_gain_loss
+        return ctx
+
+
+# ── 부가세 신고서 ────────────────────────────────────────
+
+class VATReturnView(ManagerRequiredMixin, TemplateView):
+    """부가가치세 신고서 — 분기별 매출/매입 집계"""
+    template_name = 'accounting/vat_return.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        year = safe_int(self.request.GET.get('year'), date.today().year)
+        quarter = safe_int(self.request.GET.get('quarter'), (date.today().month - 1) // 3 + 1)
+
+        ctx['year'] = year
+        ctx['quarter'] = quarter
+        ctx['years'] = list(range(date.today().year, date.today().year - 5, -1))
+        ctx['quarters'] = [1, 2, 3, 4]
+
+        m_start = (quarter - 1) * 3 + 1
+        m_end = m_start + 2
+
+        sales_agg = TaxInvoice.objects.filter(
+            is_active=True,
+            invoice_type='SALES',
+            issue_date__year=year,
+            issue_date__month__gte=m_start,
+            issue_date__month__lte=m_end,
+        ).aggregate(
+            supply=Sum('supply_amount'),
+            tax=Sum('tax_amount'),
+        )
+        purchase_agg = TaxInvoice.objects.filter(
+            is_active=True,
+            invoice_type='PURCHASE',
+            issue_date__year=year,
+            issue_date__month__gte=m_start,
+            issue_date__month__lte=m_end,
+        ).aggregate(
+            supply=Sum('supply_amount'),
+            tax=Sum('tax_amount'),
+        )
+
+        sales_supply = sales_agg['supply'] or 0
+        sales_tax = sales_agg['tax'] or 0
+        purchase_supply = purchase_agg['supply'] or 0
+        purchase_tax = purchase_agg['tax'] or 0
+        payable_tax = sales_tax - purchase_tax
+
+        ctx['sales_supply'] = sales_supply
+        ctx['sales_tax'] = sales_tax
+        ctx['purchase_supply'] = purchase_supply
+        ctx['purchase_tax'] = purchase_tax
+        ctx['payable_tax'] = payable_tax
+        ctx['period_start'] = date(year, m_start, 1)
+        ctx['period_end'] = date(year, m_end, 1).replace(
+            day=__import__('calendar').monthrange(year, m_end)[1]
+        )
+        return ctx
+
+
+# ── 원가센터 ────────────────────────────────────────
+
+class CostCenterListView(ManagerRequiredMixin, ListView):
+    """원가센터 목록 (트리 구조)"""
+    model = CostCenter
+    template_name = 'accounting/cost_center_list.html'
+    context_object_name = 'cost_centers'
+
+    def get_queryset(self):
+        return CostCenter.objects.filter(
+            is_active=True,
+        ).select_related('parent', 'department', 'manager')
+
+
+class CostCenterCreateView(ManagerRequiredMixin, CreateView):
+    model = CostCenter
+    form_class = CostCenterForm
+    template_name = 'accounting/cost_center_form.html'
+    success_url = reverse_lazy('accounting:cost_center_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class CostCenterUpdateView(ManagerRequiredMixin, UpdateView):
+    model = CostCenter
+    form_class = CostCenterForm
+    template_name = 'accounting/cost_center_form.html'
+    success_url = reverse_lazy('accounting:cost_center_list')
+
+
+class CostCenterReportView(ManagerRequiredMixin, TemplateView):
+    """원가센터별 차변/대변 집계 리포트"""
+    template_name = 'accounting/cost_center_report.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        date_from = self.request.GET.get('date_from', '')
+        date_to = self.request.GET.get('date_to', '')
+        center_type = self.request.GET.get('center_type', '')
+        ctx['date_from'] = date_from
+        ctx['date_to'] = date_to
+        ctx['center_type'] = center_type
+
+        qs = VoucherLine.objects.filter(
+            is_active=True,
+            voucher__is_active=True,
+            voucher__approval_status='APPROVED',
+            cost_center__isnull=False,
+        )
+        if date_from:
+            qs = qs.filter(voucher__voucher_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(voucher__voucher_date__lte=date_to)
+        if center_type:
+            qs = qs.filter(cost_center__center_type=center_type)
+
+        totals = qs.values(
+            'cost_center__pk', 'cost_center__code', 'cost_center__name',
+            'cost_center__center_type',
+        ).annotate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit'),
+        ).order_by('cost_center__code')
+
+        rows = []
+        grand_debit = 0
+        grand_credit = 0
+        for row in totals:
+            d = int(row['total_debit'] or 0)
+            c = int(row['total_credit'] or 0)
+            grand_debit += d
+            grand_credit += c
+            rows.append({
+                'pk': row['cost_center__pk'],
+                'code': row['cost_center__code'],
+                'name': row['cost_center__name'],
+                'center_type': row['cost_center__center_type'],
+                'debit': d,
+                'credit': c,
+                'balance': d - c,
+            })
+
+        ctx['rows'] = rows
+        ctx['grand_debit'] = grand_debit
+        ctx['grand_credit'] = grand_credit
+        return ctx
+
+
+class ProfitCenterReportView(ManagerRequiredMixin, TemplateView):
+    """이익센터별 수익/비용/이익 분석"""
+    template_name = 'accounting/profit_center_report.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        date_from = self.request.GET.get('date_from', '')
+        date_to = self.request.GET.get('date_to', '')
+        ctx['date_from'] = date_from
+        ctx['date_to'] = date_to
+
+        # PROFIT/INVESTMENT 센터만 대상
+        qs = VoucherLine.objects.filter(
+            is_active=True,
+            voucher__is_active=True,
+            voucher__approval_status='APPROVED',
+            cost_center__isnull=False,
+            cost_center__center_type__in=['PROFIT', 'INVESTMENT'],
+        )
+        if date_from:
+            qs = qs.filter(voucher__voucher_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(voucher__voucher_date__lte=date_to)
+
+        # 센터별 + 계정유형별 집계
+        raw = qs.values(
+            'cost_center__pk', 'cost_center__code', 'cost_center__name',
+            'cost_center__center_type', 'account__account_type',
+        ).annotate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit'),
+        ).order_by('cost_center__code', 'account__account_type')
+
+        centers = {}
+        for row in raw:
+            pk = row['cost_center__pk']
+            if pk not in centers:
+                centers[pk] = {
+                    'pk': pk,
+                    'code': row['cost_center__code'],
+                    'name': row['cost_center__name'],
+                    'center_type': row['cost_center__center_type'],
+                    'revenue': 0,
+                    'expense': 0,
+                }
+            d = int(row['total_debit'] or 0)
+            c = int(row['total_credit'] or 0)
+            acct_type = row['account__account_type']
+            if acct_type == 'REVENUE':
+                centers[pk]['revenue'] += c - d
+            elif acct_type == 'EXPENSE':
+                centers[pk]['expense'] += d - c
+
+        rows = []
+        total_revenue = 0
+        total_expense = 0
+        for center in sorted(centers.values(), key=lambda x: x['code']):
+            profit = center['revenue'] - center['expense']
+            margin = round(profit / center['revenue'] * 100, 1) if center['revenue'] > 0 else 0
+            center['profit'] = profit
+            center['margin'] = margin
+            total_revenue += center['revenue']
+            total_expense += center['expense']
+            rows.append(center)
+
+        total_profit = total_revenue - total_expense
+        ctx['rows'] = rows
+        ctx['total_revenue'] = total_revenue
+        ctx['total_expense'] = total_expense
+        ctx['total_profit'] = total_profit
+        ctx['total_margin'] = round(total_profit / total_revenue * 100, 1) if total_revenue > 0 else 0
+        return ctx
+
+
+class AgedTrialBalanceView(ManagerRequiredMixin, TemplateView):
+    """매출채권/매입채무 경과기간별 시산표"""
+    template_name = 'accounting/aged_trial_balance.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = date.today()
+        report_type = self.request.GET.get('type', 'AR')
+        ctx['report_type'] = report_type
+        ctx['today'] = today
+
+        if report_type == 'AP':
+            qs = AccountPayable.objects.filter(
+                is_active=True,
+                status__in=['PENDING', 'PARTIAL', 'OVERDUE'],
+            ).select_related('partner')
+        else:
+            qs = AccountReceivable.objects.filter(
+                is_active=True,
+                status__in=['PENDING', 'PARTIAL', 'OVERDUE'],
+            ).select_related('partner')
+
+        partner_data = {}
+        grand_totals = {
+            'current': 0, 'b30': 0, 'b60': 0,
+            'b90': 0, 'b120': 0, 'b120_plus': 0, 'total': 0,
+        }
+
+        for item in qs:
+            remaining = int(item.amount) - int(item.paid_amount)
+            if remaining <= 0:
+                continue
+            days = (today - item.due_date).days
+            partner_name = item.partner.name
+            partner_id = item.partner_id
+
+            if partner_id not in partner_data:
+                partner_data[partner_id] = {
+                    'name': partner_name,
+                    'current': 0, 'b30': 0, 'b60': 0,
+                    'b90': 0, 'b120': 0, 'b120_plus': 0, 'total': 0,
+                }
+
+            if days <= 0:
+                bucket = 'current'
+            elif days <= 30:
+                bucket = 'b30'
+            elif days <= 60:
+                bucket = 'b60'
+            elif days <= 90:
+                bucket = 'b90'
+            elif days <= 120:
+                bucket = 'b120'
+            else:
+                bucket = 'b120_plus'
+
+            partner_data[partner_id][bucket] += remaining
+            partner_data[partner_id]['total'] += remaining
+            grand_totals[bucket] += remaining
+            grand_totals['total'] += remaining
+
+        ctx['partners'] = sorted(
+            partner_data.values(), key=lambda x: -x['total'],
+        )
+        ctx['grand_totals'] = grand_totals
+        return ctx
+
+
+class AdvancedReportView(ManagerRequiredMixin, TemplateView):
+    """고급 재무 리포트 — YoY/MoM, 추이, 거래처별, 제품별"""
+    template_name = 'accounting/advanced_report.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = date.today()
+        year = safe_int(self.request.GET.get('year'), today.year)
+        month = safe_int(self.request.GET.get('month'), today.month)
+        top_n = safe_int(self.request.GET.get('top_n'), 10)
+        ctx['year'] = year
+        ctx['month'] = month
+        ctx['top_n'] = top_n
+        ctx['years'] = list(range(today.year, today.year - 5, -1))
+
+        # --- 월별 매출/매입 12개월 추이 ---
+        monthly_data = []
+        for m_offset in range(11, -1, -1):
+            y = year
+            m = month - m_offset
+            while m <= 0:
+                m += 12
+                y -= 1
+
+            if m == 12:
+                next_y, next_m = y + 1, 1
+            else:
+                next_y, next_m = y, m + 1
+
+            sales_total = TaxInvoice.objects.filter(
+                is_active=True, invoice_type='SALES',
+                issue_date__gte=date(y, m, 1),
+                issue_date__lt=date(next_y, next_m, 1),
+            ).aggregate(t=Sum('supply_amount'))['t'] or 0
+
+            purchase_total = TaxInvoice.objects.filter(
+                is_active=True, invoice_type='PURCHASE',
+                issue_date__gte=date(y, m, 1),
+                issue_date__lt=date(next_y, next_m, 1),
+            ).aggregate(t=Sum('supply_amount'))['t'] or 0
+
+            monthly_data.append({
+                'label': f'{y}-{m:02d}',
+                'sales': int(sales_total),
+                'purchase': int(purchase_total),
+                'profit': int(sales_total) - int(purchase_total),
+            })
+
+        ctx['monthly_data'] = monthly_data
+        ctx['monthly_json'] = json.dumps(monthly_data)
+
+        # --- YoY / MoM 비교 ---
+        def _period_totals(y, m):
+            if m == 12:
+                ny, nm = y + 1, 1
+            else:
+                ny, nm = y, m + 1
+            s = TaxInvoice.objects.filter(
+                is_active=True, invoice_type='SALES',
+                issue_date__gte=date(y, m, 1),
+                issue_date__lt=date(ny, nm, 1),
+            ).aggregate(t=Sum('supply_amount'))['t'] or 0
+            p = TaxInvoice.objects.filter(
+                is_active=True, invoice_type='PURCHASE',
+                issue_date__gte=date(y, m, 1),
+                issue_date__lt=date(ny, nm, 1),
+            ).aggregate(t=Sum('supply_amount'))['t'] or 0
+            return int(s), int(p)
+
+        cur_sales, cur_purchase = _period_totals(year, month)
+
+        # 전월
+        prev_m_year = year if month > 1 else year - 1
+        prev_m_month = month - 1 if month > 1 else 12
+        prev_m_sales, prev_m_purchase = _period_totals(prev_m_year, prev_m_month)
+
+        # 전년동월
+        prev_y_sales, prev_y_purchase = _period_totals(year - 1, month)
+
+        def _change_rate(cur, prev):
+            if prev == 0:
+                return None
+            return round((cur - prev) / prev * 100, 1)
+
+        ctx['current'] = {
+            'sales': cur_sales, 'purchase': cur_purchase,
+            'profit': cur_sales - cur_purchase,
+        }
+        ctx['mom'] = {
+            'sales': prev_m_sales, 'purchase': prev_m_purchase,
+            'profit': prev_m_sales - prev_m_purchase,
+            'sales_rate': _change_rate(cur_sales, prev_m_sales),
+            'purchase_rate': _change_rate(cur_purchase, prev_m_purchase),
+        }
+        ctx['yoy'] = {
+            'sales': prev_y_sales, 'purchase': prev_y_purchase,
+            'profit': prev_y_sales - prev_y_purchase,
+            'sales_rate': _change_rate(cur_sales, prev_y_sales),
+            'purchase_rate': _change_rate(cur_purchase, prev_y_purchase),
+        }
+
+        # --- 거래처별 상위 N 매출 ---
+        top_partners = TaxInvoice.objects.filter(
+            is_active=True, invoice_type='SALES',
+            issue_date__year=year,
+        ).values(
+            'partner__name',
+        ).annotate(
+            total=Sum('supply_amount'),
+        ).order_by('-total')[:top_n]
+        ctx['top_partners'] = list(top_partners)
+
+        # --- 제품별 수익성 (주문 기반) ---
+        product_rows = OrderItem.objects.filter(
+            is_active=True,
+            order__is_active=True,
+            order__status='CONFIRMED',
+            order__order_date__year=year,
+        ).values(
+            'product__name',
+        ).annotate(
+            total_revenue=Sum(F('quantity') * F('unit_price')),
+            total_cost=Sum(F('quantity') * F('product__cost_price')),
+        ).order_by('-total_revenue')[:top_n]
+
+        product_data = []
+        for row in product_rows:
+            revenue = int(row['total_revenue'] or 0)
+            cost = int(row['total_cost'] or 0)
+            profit = revenue - cost
+            margin = round(profit / revenue * 100, 1) if revenue > 0 else 0
+            product_data.append({
+                'name': row['product__name'],
+                'revenue': revenue,
+                'cost': cost,
+                'profit': profit,
+                'margin': margin,
+            })
+        ctx['product_data'] = product_data
         return ctx

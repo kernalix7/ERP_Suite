@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "퇴직금 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "퇴직금 산정 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'hr:severance_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "산정 정보" %}</h2>
+        <dl class="grid grid-cols-2 gap-4">
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "직원" %}</dt>
+                <dd class="text-sm font-medium text-gray-900">{{ severance.employee }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "부서" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.employee.department|default:"-" }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "입사일" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.hire_date }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "산정일" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.calculation_date }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "총근무일수" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.total_days }}일</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "근속연수" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.years_of_service }}년</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "최근 3개월 급여합" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.recent_3month_salary|floatformat:0 }}원</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "최근 3개월 일수" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.recent_3month_days }}일</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "1일 평균임금" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.average_daily_wage|floatformat:0 }}원</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">{% trans "상태" %}</dt>
+                <dd class="text-sm text-gray-900">{{ severance.get_status_display }}</dd>
+            </div>
+        </dl>
+    </div>
+
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+        <p class="text-sm text-blue-600 mb-1">{% trans "퇴직금 (근로기준법 제34조)" %}</p>
+        <p class="text-3xl font-bold text-blue-800">{{ severance.total_amount|floatformat:0 }}원</p>
+        <p class="text-xs text-blue-500 mt-2">1일평균임금 × 30 × ({{ severance.total_days }}일 ÷ 365)</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "근로기준법 준수 현황" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "근로기준법 준수 현황" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'hr:labor_config' %}" class="btn btn-secondary">{% trans "기준 설정" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4 text-sm text-gray-500">{% trans "점검일" %}: {{ check_date }}</div>
+
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "직원" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "부서" %}</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "주간근로" %}</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "최저임금" %}</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "연차" %}</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "종합" %}</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for item in results %}
+                {% with c=item.compliance %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ item.employee }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ item.employee.department|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if c.weekly_hours.is_compliant %}
+                        <span class="text-green-600 text-xs">{{ c.weekly_hours.total_hours }}h / {{ c.weekly_hours.limit }}h</span>
+                        {% else %}
+                        <span class="text-red-600 text-xs font-semibold">{{ c.weekly_hours.total_hours }}h / {{ c.weekly_hours.limit }}h 초과</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if c.minimum_wage.is_compliant %}
+                        <span class="text-green-600 text-xs">{% trans "적합" %}</span>
+                        {% else %}
+                        <span class="text-red-600 text-xs font-semibold">{{ c.minimum_wage.hourly_wage|floatformat:0 }}원/h</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if c.annual_leave.is_compliant %}
+                        <span class="text-green-600 text-xs">{{ c.annual_leave.used_days }}일 / {{ c.annual_leave.entitled_days }}일</span>
+                        {% else %}
+                        <span class="text-red-600 text-xs font-semibold">{{ c.annual_leave.used_days }}일 / {{ c.annual_leave.entitled_days }}일 초과</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if c.is_compliant %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">{% trans "준수" %}</span>
+                        {% else %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">{% trans "위반" %}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-400">{% trans "재직 중인 직원이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

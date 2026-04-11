@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "퇴직금 산정" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "퇴직금 산정" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="mb-6">
+            <h2 class="text-lg font-semibold text-gray-800">{{ employee }}</h2>
+            <p class="text-sm text-gray-500 mt-1">
+                {% trans "입사일" %}: {{ employee.hire_date }} |
+                {% trans "근속연수" %}: {{ employee.years_of_service }}년
+            </p>
+        </div>
+        <p class="text-sm text-gray-600 mb-6">
+            {% trans "근로기준법 제34조에 따라 최근 3개월 급여 기준으로 퇴직금을 산정합니다." %}
+        </p>
+        <form method="post" action="{% url 'hr:severance_calculate' employee.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="w-full btn btn-primary">
+                {% trans "퇴직금 산정 실행" %}
+            </button>
+        </form>
+        <div class="mt-4 text-center">
+            <a href="{% url 'hr:severance_list' %}" class="text-sm text-gray-500 hover:underline">{% trans "목록으로" %}</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

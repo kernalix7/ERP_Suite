@@ -4,6 +4,8 @@ from .models import (
     Partner, Customer, CustomerPurchase,
     Order, OrderItem, Quotation, QuotationItem,
     ShippingCarrier, PriceRule,
+    CustomerTier, SalesTarget,
+    SalesLead, LeadActivity, CustomerSatisfaction,
 )
 
 
@@ -16,6 +18,7 @@ class PartnerForm(BaseForm):
             'address', 'address_road', 'address_detail',
             'bank_name', 'bank_account', 'bank_holder',
             'default_bank_account', 'commission_bank_account',
+            'credit_limit', 'credit_used', 'tier',
             'approval_status', 'store_module', 'notes',
         ]
 
@@ -185,4 +188,57 @@ class PriceRuleForm(BaseForm):
         widgets = {
             'valid_from': forms.DateInput(attrs={'type': 'date'}),
             'valid_to': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+
+class CustomerTierForm(BaseForm):
+    class Meta:
+        model = CustomerTier
+        fields = [
+            'name', 'code', 'discount_rate', 'min_annual_purchase',
+            'benefits', 'sort_order', 'color',
+        ]
+
+
+class SalesTargetForm(BaseForm):
+    class Meta:
+        model = SalesTarget
+        fields = ['salesperson', 'year', 'quarter', 'target_amount']
+
+
+class SalesLeadForm(BaseForm):
+    class Meta:
+        model = SalesLead
+        fields = [
+            'company_name', 'contact_name', 'contact_email', 'contact_phone',
+            'source', 'status', 'assigned_to',
+            'expected_amount', 'expected_close_date', 'lost_reason',
+        ]
+        widgets = {
+            'expected_close_date': forms.DateInput(attrs={'type': 'date'}),
+            'lost_reason': forms.Textarea(attrs={'rows': 3}),
+        }
+
+
+class LeadActivityForm(BaseForm):
+    class Meta:
+        model = LeadActivity
+        fields = ['activity_type', 'description', 'activity_date']
+        widgets = {
+            'activity_date': forms.DateTimeInput(
+                attrs={'type': 'datetime-local'},
+            ),
+        }
+
+
+class CustomerSatisfactionForm(BaseForm):
+    class Meta:
+        model = CustomerSatisfaction
+        fields = [
+            'order', 'partner', 'score', 'nps_score',
+            'feedback', 'survey_date', 'category',
+        ]
+        widgets = {
+            'survey_date': forms.DateInput(attrs={'type': 'date'}),
+            'feedback': forms.Textarea(attrs={'rows': 3}),
         }

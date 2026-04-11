@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}이익센터 리포트 - ERP Suite{% endblock %}
+{% block page_title %}이익센터별 수익/비용/이익 분석{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:cost_center_list' %}" class="btn btn-secondary">원가센터 목록</a>
+<a href="{% url 'accounting:cost_center_report' %}" class="btn btn-secondary">원가센터 리포트</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 sm:gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">조회</button>
+        </div>
+    </form>
+</div>
+
+<!-- 요약 카드 -->
+<div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">총 수익</p>
+        <p class="text-lg font-bold text-blue-700">{{ total_revenue|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">총 비용</p>
+        <p class="text-lg font-bold text-red-600">{{ total_expense|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">총 이익</p>
+        <p class="text-lg font-bold {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ total_profit|intcomma }}원</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500 mb-1">이익률</p>
+        <p class="text-lg font-bold {% if total_margin >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ total_margin }}%</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">코드</th>
+                    <th class="px-4 py-3">센터명</th>
+                    <th class="px-4 py-3 text-center">유형</th>
+                    <th class="px-4 py-3 text-right">수익</th>
+                    <th class="px-4 py-3 text-right">비용</th>
+                    <th class="px-4 py-3 text-right">이익</th>
+                    <th class="px-4 py-3 text-right">이익률</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for row in rows %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ row.code }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ row.name }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if row.center_type == 'PROFIT' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">이익센터</span>
+                        {% elif row.center_type == 'INVESTMENT' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">투자센터</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ row.revenue|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ row.expense|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold {% if row.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ row.profit|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-semibold {% if row.margin >= 20 %}text-green-600{% elif row.margin >= 0 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ row.margin }}%</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                        해당 기간에 이익/투자센터 데이터가 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if rows %}
+            <tfoot class="bg-gray-50 font-semibold">
+                <tr>
+                    <td colspan="3" class="px-4 py-3 text-right text-gray-700">합계</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ total_revenue|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ total_expense|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ total_profit|intcomma }}</td>
+                    <td class="px-4 py-3 text-right {% if total_margin >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ total_margin }}%</td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

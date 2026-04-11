@@ -9,6 +9,7 @@ from apps.inventory.models import Product, Warehouse, StockMovement
 from apps.sales.models import (
     Partner, Customer, CustomerPurchase, Order, OrderItem,
     Quotation, QuotationItem, Shipment, ShippingCarrier,
+    CustomerTier, SalesTarget, SalesLead, LeadActivity, CustomerSatisfaction,
 )
 from apps.sales.commission import CommissionRate, CommissionRecord
 
@@ -2197,3 +2198,235 @@ class PriceRuleMinQuantityTest(TestCase):
             quantity=3, unit_price=0, created_by=self.user,
         )
         self.assertEqual(item.unit_price, 10000)
+
+
+class CustomerTierModelTest(TestCase):
+    """고객등급 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='tieruser', password='testpass123', role='staff',
+        )
+
+    def test_tier_creation(self):
+        """고객등급 생성"""
+        tier = CustomerTier.objects.create(
+            name='VIP', code='VIP',
+            discount_rate=Decimal('10.00'),
+            min_annual_purchase=10000000,
+            created_by=self.user,
+        )
+        self.assertEqual(tier.name, 'VIP')
+        self.assertEqual(str(tier), 'VIP')
+
+    def test_tier_unique_code(self):
+        """등급코드 중복 불가"""
+        CustomerTier.objects.create(
+            name='Gold', code='GOLD', created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            CustomerTier.objects.create(
+                name='Gold2', code='GOLD', created_by=self.user,
+            )
+
+    def test_tier_ordering(self):
+        """등급 정렬순서"""
+        t2 = CustomerTier.objects.create(
+            name='Silver', code='SLV', sort_order=2, created_by=self.user,
+        )
+        t1 = CustomerTier.objects.create(
+            name='VIP', code='VIP', sort_order=1, created_by=self.user,
+        )
+        tiers = list(CustomerTier.objects.filter(is_active=True))
+        self.assertEqual(tiers[0], t1)
+        self.assertEqual(tiers[1], t2)
+
+
+class PartnerCreditLimitTest(TestCase):
+    """거래처 신용한도 필드 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='credituser', password='testpass123', role='staff',
+        )
+
+    def test_credit_limit_fields(self):
+        """신용한도 필드 확인"""
+        tier = CustomerTier.objects.create(
+            name='Gold', code='GOLD', created_by=self.user,
+        )
+        partner = Partner.objects.create(
+            code='PT-CR-001', name='신용거래처',
+            partner_type='CUSTOMER',
+            credit_limit=5000000,
+            credit_used=1000000,
+            tier=tier,
+            created_by=self.user,
+        )
+        self.assertEqual(partner.credit_limit, 5000000)
+        self.assertEqual(partner.credit_used, 1000000)
+        self.assertEqual(partner.tier, tier)
+
+
+class SalesTargetModelTest(TestCase):
+    """영업목표 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='targetuser', password='testpass123', role='staff',
+        )
+
+    def test_target_creation(self):
+        """영업목표 생성"""
+        target = SalesTarget.objects.create(
+            salesperson=self.user,
+            year=2026,
+            target_amount=100000000,
+            created_by=self.user,
+        )
+        self.assertEqual(target.year, 2026)
+        self.assertIsNone(target.quarter)
+        self.assertIn('2026', str(target))
+
+    def test_target_with_quarter(self):
+        """분기별 영업목표"""
+        target = SalesTarget.objects.create(
+            salesperson=self.user,
+            year=2026, quarter=1,
+            target_amount=25000000,
+            created_by=self.user,
+        )
+        self.assertEqual(target.quarter, 1)
+        self.assertIn('Q1', str(target))
+
+    def test_target_unique_together(self):
+        """동일 영업담당/연도/분기 중복 불가"""
+        SalesTarget.objects.create(
+            salesperson=self.user,
+            year=2026, quarter=1,
+            target_amount=25000000,
+            created_by=self.user,
+        )
+        with self.assertRaises(IntegrityError):
+            SalesTarget.objects.create(
+                salesperson=self.user,
+                year=2026, quarter=1,
+                target_amount=30000000,
+                created_by=self.user,
+            )
+
+    def test_achievement_rate_zero_target(self):
+        """목표금액 0일 때 달성률 0"""
+        target = SalesTarget.objects.create(
+            salesperson=self.user,
+            year=2026,
+            target_amount=0,
+            created_by=self.user,
+        )
+        self.assertEqual(target.achievement_rate, 0)
+
+
+class SalesLeadModelTest(TestCase):
+    """영업리드 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='leaduser', password='testpass123', role='staff',
+        )
+
+    def test_lead_auto_number(self):
+        """리드번호 자동 생성"""
+        lead = SalesLead.objects.create(
+            company_name='테스트회사',
+            contact_name='김테스트',
+            source='WEBSITE',
+            created_by=self.user,
+        )
+        self.assertTrue(lead.lead_number.startswith('LEAD-'))
+
+    def test_lead_sequential_number(self):
+        """리드번호 순차 생성"""
+        lead1 = SalesLead.objects.create(
+            company_name='회사1', contact_name='담당1',
+            created_by=self.user,
+        )
+        lead2 = SalesLead.objects.create(
+            company_name='회사2', contact_name='담당2',
+            created_by=self.user,
+        )
+        n1 = int(lead1.lead_number.split('-')[-1])
+        n2 = int(lead2.lead_number.split('-')[-1])
+        self.assertEqual(n2, n1 + 1)
+
+    def test_lead_status_default(self):
+        """기본 상태 NEW"""
+        lead = SalesLead.objects.create(
+            company_name='테스트', contact_name='테스트',
+            created_by=self.user,
+        )
+        self.assertEqual(lead.status, 'NEW')
+
+
+class LeadActivityModelTest(TestCase):
+    """리드 활동 기록 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='activityuser', password='testpass123', role='staff',
+        )
+        self.lead = SalesLead.objects.create(
+            company_name='활동회사', contact_name='김활동',
+            created_by=self.user,
+        )
+
+    def test_activity_creation(self):
+        """활동 기록 생성"""
+        from django.utils import timezone
+        activity = LeadActivity.objects.create(
+            lead=self.lead,
+            activity_type='CALL',
+            description='초기 연락',
+            activity_date=timezone.now(),
+            created_by=self.user,
+        )
+        self.assertEqual(activity.activity_type, 'CALL')
+        self.assertIn('통화', str(activity))
+
+
+class CustomerSatisfactionModelTest(TestCase):
+    """고객만족도 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='satuser', password='testpass123', role='staff',
+        )
+        self.partner = Partner.objects.create(
+            code='SAT-P001', name='만족도거래처',
+            partner_type='CUSTOMER',
+            created_by=self.user,
+        )
+
+    def test_satisfaction_creation(self):
+        """만족도 생성"""
+        sat = CustomerSatisfaction.objects.create(
+            partner=self.partner,
+            score=4,
+            nps_score=50,
+            survey_date=date.today(),
+            category='PRODUCT',
+            created_by=self.user,
+        )
+        self.assertEqual(sat.score, 4)
+        self.assertIn('제품', str(sat))
+
+    def test_satisfaction_str(self):
+        """문자열 표현"""
+        sat = CustomerSatisfaction.objects.create(
+            partner=self.partner,
+            score=5,
+            survey_date=date.today(),
+            category='SERVICE',
+            created_by=self.user,
+        )
+        self.assertIn('만족도거래처', str(sat))
+        self.assertIn('서비스', str(sat))

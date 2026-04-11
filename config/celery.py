@@ -49,4 +49,8 @@ app.conf.beat_schedule = {
         'task': 'apps.accounting.tasks.create_monthly_card_billing',
         'schedule': crontab(day_of_month=1, hour=2, minute=0),
     },
+    'check-labor-compliance-weekly': {
+        'task': 'apps.hr.tasks.check_labor_compliance_weekly',
+        'schedule': crontab(day_of_week=1, hour=9, minute=0),  # 매주 월요일 09:00
+    },
 }

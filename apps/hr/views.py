@@ -3,7 +3,7 @@ from datetime import date
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Prefetch, Q
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.contrib.auth import get_user_model
@@ -12,7 +12,10 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView, T
 from apps.core.import_views import BaseImportView
 from apps.core.mixins import ManagerRequiredMixin
 from apps.core.utils import generate_document_number
-from .models import Department, ExternalCompany, Position, EmployeeProfile, PersonnelAction, PayrollConfig, Payroll
+from .models import (
+    Department, ExternalCompany, Position, EmployeeProfile, PersonnelAction,
+    PayrollConfig, Payroll, SeverancePay, LaborConfig, YearEndSettlement,
+)
 from .forms import (
     DepartmentForm, ExternalCompanyForm, PositionForm, EmployeeProfileForm, PersonnelActionForm,
     PayrollConfigForm, PayrollForm, PayrollBulkCreateForm,
@@ -570,4 +573,158 @@ class PositionImportSampleView(ManagerRequiredMixin, View):
             '직급_가져오기_양식', headers, rows,
             filename='직급_가져오기_양식.xlsx',
             required_columns=[0, 1],
+        )
+
+
+# ── 퇴직금 ─────────────────────────────────────────────
+
+class SeverancePayListView(ManagerRequiredMixin, ListView):
+    model = SeverancePay
+    template_name = 'hr/severance_list.html'
+    context_object_name = 'severance_pays'
+    paginate_by = 20
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True).select_related(
+            'employee__user', 'employee__department',
+        )
+
+
+class SeverancePayCalculateView(ManagerRequiredMixin, View):
+    def post(self, request, employee_id):
+        employee = get_object_or_404(EmployeeProfile, pk=employee_id, is_active=True)
+        calculation_date = date.today()
+        with transaction.atomic():
+            severance = SeverancePay(
+                employee=employee,
+                calculation_date=calculation_date,
+                hire_date=employee.hire_date,
+                created_by=request.user,
+            )
+            severance.calculate()
+            severance.save()
+        messages.success(request, f'{employee}의 퇴직금 산정이 완료되었습니다.')
+        return redirect('hr:severance_detail', pk=severance.pk)
+
+    def get(self, request, employee_id):
+        employee = get_object_or_404(EmployeeProfile, pk=employee_id, is_active=True)
+        context = {'employee': employee}
+        from django.shortcuts import render
+        return render(request, 'hr/severance_calculate.html', context)
+
+
+class SeverancePayDetailView(ManagerRequiredMixin, DetailView):
+    model = SeverancePay
+    template_name = 'hr/severance_detail.html'
+    context_object_name = 'severance'
+
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'employee__user', 'employee__department', 'employee__position',
+        )
+
+
+# ── 근로기준법 준수 체크 ─────────────────────────────────
+
+class LaborComplianceView(ManagerRequiredMixin, TemplateView):
+    template_name = 'hr/labor_compliance.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from .labor_compliance import check_all
+        employees = EmployeeProfile.objects.filter(
+            is_active=True, status=EmployeeProfile.Status.ACTIVE,
+        ).select_related('user', 'department', 'position')
+        results = []
+        for emp in employees:
+            results.append({'employee': emp, 'compliance': check_all(emp)})
+        context['results'] = results
+        context['check_date'] = date.today()
+        return context
+
+
+class LaborConfigListView(ManagerRequiredMixin, TemplateView):
+    template_name = 'hr/labor_config.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['configs'] = LaborConfig.objects.filter(is_active=True)
+        return context
+
+    def post(self, request, *args, **kwargs):
+        year = request.POST.get('year')
+        min_hourly_wage = request.POST.get('min_hourly_wage')
+        max_weekly_hours = request.POST.get('max_weekly_hours', 52)
+        if year and min_hourly_wage:
+            LaborConfig.objects.update_or_create(
+                year=year,
+                country_code='KR',
+                defaults={
+                    'min_hourly_wage': min_hourly_wage,
+                    'max_weekly_hours': max_weekly_hours,
+                    'created_by': request.user,
+                    'is_active': True,
+                },
+            )
+            messages.success(request, f'{year}년 근로기준 설정이 저장되었습니다.')
+        from django.shortcuts import redirect as _redirect
+        return _redirect('hr:labor_config')
+
+
+# ── 연말정산 ─────────────────────────────────────────────
+
+class YearEndSettlementListView(ManagerRequiredMixin, ListView):
+    model = YearEndSettlement
+    template_name = 'hr/year_end_list.html'
+    context_object_name = 'settlements'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'employee__user', 'employee__department',
+        )
+        year = self.request.GET.get('year')
+        if year:
+            qs = qs.filter(year=year)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['year_choices'] = range(date.today().year - 3, date.today().year + 1)
+        return context
+
+
+class YearEndSettlementCalculateView(ManagerRequiredMixin, View):
+    def post(self, request, employee_id):
+        from django.db.models import Sum as _Sum
+        employee = get_object_or_404(EmployeeProfile, pk=employee_id, is_active=True)
+        year = int(request.POST.get('year', date.today().year - 1))
+        with transaction.atomic():
+            settlement, _ = YearEndSettlement.objects.get_or_create(
+                employee=employee,
+                year=year,
+                defaults={'created_by': request.user},
+            )
+            settlement.calculate()
+            settlement.save()
+        messages.success(request, f'{employee} {year}년 연말정산이 계산되었습니다.')
+        return redirect('hr:year_end_detail', pk=settlement.pk)
+
+    def get(self, request, employee_id):
+        employee = get_object_or_404(EmployeeProfile, pk=employee_id, is_active=True)
+        from django.shortcuts import render
+        return render(request, 'hr/year_end_calculate.html', {
+            'employee': employee,
+            'year_choices': range(date.today().year - 3, date.today().year),
+        })
+
+
+class YearEndSettlementDetailView(ManagerRequiredMixin, DetailView):
+    model = YearEndSettlement
+    template_name = 'hr/year_end_detail.html'
+    context_object_name = 'settlement'
+
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'employee__user', 'employee__department', 'employee__position',
         )

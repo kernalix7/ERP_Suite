@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}견적 비교 - {{ rfq.rfq_number }} - ERP Suite{% endblock %}
+{% block page_title %}견적 비교{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'purchase:rfq_detail' rfq.rfq_number %}" class="btn btn-secondary">상세</a>
+<a href="{% url 'purchase:rfq_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- RFQ 정보 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div class="flex items-center gap-4">
+            <span class="text-sm font-medium text-gray-500">{{ rfq.rfq_number }}</span>
+            <span class="text-sm text-gray-900">{{ rfq.title }}</span>
+        </div>
+    </div>
+
+    <!-- 비교 테이블 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h3 class="text-base font-semibold text-gray-900">
+                <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                응답 비교 ({{ responses|length }}건)
+            </h3>
+        </div>
+
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">항목</th>
+                        {% for resp in responses %}
+                        <th class="px-4 py-3 text-center">{{ resp.partner.name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <tr>
+                        <td class="px-4 py-3 font-medium text-gray-900">총금액</td>
+                        {% for resp in responses %}
+                        <td class="px-4 py-3 text-center {% if resp.total_amount == lowest_price %}text-green-600 font-bold{% else %}text-gray-700{% endif %}">
+                            {{ resp.total_amount|intcomma }}원
+                            {% if resp.total_amount == lowest_price %}
+                            <span class="block text-xs text-green-500">최저가</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3 font-medium text-gray-900">납기(일)</td>
+                        {% for resp in responses %}
+                        <td class="px-4 py-3 text-center {% if resp.delivery_days == shortest_delivery %}text-green-600 font-bold{% else %}text-gray-700{% endif %}">
+                            {{ resp.delivery_days }}일
+                            {% if resp.delivery_days == shortest_delivery %}
+                            <span class="block text-xs text-green-500">최단</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3 font-medium text-gray-900">응답일</td>
+                        {% for resp in responses %}
+                        <td class="px-4 py-3 text-center text-gray-500">{{ resp.response_date|date:"Y-m-d" }}</td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3 font-medium text-gray-900">비고</td>
+                        {% for resp in responses %}
+                        <td class="px-4 py-3 text-center text-gray-500 text-xs">{{ resp.notes|default:"-" }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% if user.is_manager_role and rfq.status != 'CLOSED' %}
+                    <tr class="bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-900">발주 전환</td>
+                        {% for resp in responses %}
+                        <td class="px-4 py-3 text-center">
+                            <form method="post" action="{% url 'purchase:rfq_convert' rfq.rfq_number %}"
+                                  onsubmit="return confirm('{{ resp.partner.name }}을(를) 낙찰 처리하고 발주서를 생성하시겠습니까?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="response_id" value="{{ resp.pk }}">
+                                <button type="submit" class="btn btn-primary text-xs">
+                                    낙찰 + 발주
+                                </button>
+                            </form>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 요청 항목 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h3 class="text-base font-semibold text-gray-900">요청 항목</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                        <th class="px-4 py-3">제품</th>
+                        <th class="px-4 py-3 text-right">수량</th>
+                        <th class="px-4 py-3">사양</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in items %}
+                    <tr>
+                        <td class="px-4 py-3 text-gray-900">{{ item.product.name }}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{{ item.quantity }}</td>
+                        <td class="px-4 py-3 text-gray-500">{{ item.specifications|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}원가센터 리포트 - ERP Suite{% endblock %}
+{% block page_title %}원가센터별 집계 리포트{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:cost_center_list' %}" class="btn btn-secondary">원가센터 목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+    <form method="get" class="flex flex-wrap gap-3 sm:gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-input rounded-lg border-gray-300">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">센터유형</label>
+            <select name="center_type" class="form-input rounded-lg border-gray-300">
+                <option value="">전체</option>
+                <option value="COST" {% if center_type == 'COST' %}selected{% endif %}>원가센터</option>
+                <option value="PROFIT" {% if center_type == 'PROFIT' %}selected{% endif %}>이익센터</option>
+                <option value="INVESTMENT" {% if center_type == 'INVESTMENT' %}selected{% endif %}>투자센터</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">조회</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">코드</th>
+                    <th class="px-4 py-3">센터명</th>
+                    <th class="px-4 py-3 text-center">유형</th>
+                    <th class="px-4 py-3 text-right">차변 합계</th>
+                    <th class="px-4 py-3 text-right">대변 합계</th>
+                    <th class="px-4 py-3 text-right">잔액</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for row in rows %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ row.code }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ row.name }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if row.center_type == 'COST' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">원가센터</span>
+                        {% elif row.center_type == 'PROFIT' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">이익센터</span>
+                        {% elif row.center_type == 'INVESTMENT' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">투자센터</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ row.debit|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ row.credit|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold {% if row.balance >= 0 %}text-gray-900{% else %}text-red-600{% endif %}">
+                        {{ row.balance|intcomma }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+                        해당 조건에 맞는 데이터가 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if rows %}
+            <tfoot class="bg-gray-50 font-semibold">
+                <tr>
+                    <td colspan="3" class="px-4 py-3 text-right text-gray-700">합계</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-700">{{ grand_debit|intcomma }}</td>
+                    <td class="px-4 py-3 text-right font-mono text-red-600">{{ grand_credit|intcomma }}</td>
+                    <td class="px-4 py-3"></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

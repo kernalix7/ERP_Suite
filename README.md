@@ -11,11 +11,11 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | Module | Description |
 |--------|-------------|
 | **Inventory** | Products (raw/semi/finished), warehouses, stock movements, inter-warehouse transfers, barcode/QR scanning, safety stock alerts, reorder point monitoring, StockLot (FIFO/LIFO inventory valuation), WarehouseStock (per-warehouse stock), reserved stock management, SerialNumber tracking (per-product opt-in, auto-generation on production, FIFO shipment assignment) |
-| **Production** | BOM management (multi-level Sub-assembly explosion), production planning, work orders, production records with auto stock adjustments, scrap quantity tracking, MRP (Material Requirements Planning with reorder point), StandardCost (standard costing), QualityInspection (quality control with conditional approval workflow) |
-| **Sales** | Partners, customers, orders (with CONFIRMED order modification), quotes (with one-click order conversion, PriceRule auto-application), return/exchange order workflows, ShipmentItem (partial shipments with serial range tracking, auto PARTIAL_SHIPPED status), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), PriceRule (min quantity enforcement), commission management, partner analytics |
-| **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking, reverse cascade on PO cancellation |
+| **Production** | BOM management (multi-level Sub-assembly explosion), production planning, work orders, production records with auto stock adjustments, scrap quantity tracking, MRP (Material Requirements Planning with reorder point), StandardCost (standard costing), QualityInspection (quality control with conditional approval workflow), WorkCenter (capacity planning), ProductionSchedule (scheduling with Gantt data), CostVariance (actual vs standard cost analysis) |
+| **Sales** | Partners, customers, orders (with CONFIRMED order modification), quotes (with one-click order conversion, PriceRule auto-application), return/exchange order workflows, ShipmentItem (partial shipments with serial range tracking, auto PARTIAL_SHIPPED status), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), PriceRule (min quantity enforcement), commission management, partner analytics, CustomerTier (customer grading), SalesTarget (quota tracking), SalesLead (CRM pipeline), CustomerSatisfaction (NPS tracking), credit limit management |
+| **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking, reverse cascade on PO cancellation, RFQ (Request for Quotation with response comparison and PO conversion), VendorScore (supplier evaluation scoring) |
 | **Service** | Service requests, repair history tracking, warranty period verification (serial-based auto-verification), paid repair auto-AR generation, cancellation with AR reversal |
-| **Accounting** | Tax invoices, VAT summaries, fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement (with account classification), vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management with overspend warnings), Currency/ExchangeRate (multi-currency), exchange gain/loss reporting, AR/AP Aging (auto-overdue transition), bank reconciliation, settlements (auto-voucher for shipping/platform fees) |
+| **Accounting** | Tax invoices, VAT summaries (VAT return report), fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement (with account classification), vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management with overspend warnings), Currency/ExchangeRate (multi-currency), exchange gain/loss reporting, AR/AP Aging (auto-overdue transition, aged trial balance), bank reconciliation, settlements (auto-voucher for shipping/platform fees), CostCenter/ProfitCenter (departmental P&L), DashboardWidget (customizable), advanced reports (YoY/MoM comparison, product profitability) |
 | **Investment** | Investors, funding rounds, equity tracking (donut charts), dividend/distribution records |
 | **Asset** | Fixed asset management (with acquisition validation), depreciation (straight-line / declining balance), asset transfers, certifications (KC/CE/FCC/ISO/RoHS), lease contracts (operating/finance), asset audits, barcode/QR tag generation |
 | **Marketplace** | Naver/Coupang store integration, order sync (bidirectional — ERP→marketplace shipping status push), 6-stage Import Wizard, settlement reconciliation (auto-matching), sync history |
@@ -28,7 +28,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 
 | Module | Description |
 |--------|-------------|
-| **HR** | Departments, positions, employee profiles, personnel actions, org chart, Payroll (payroll management), PayrollConfig (4 major insurance settings) |
+| **HR** | Departments, positions, employee profiles, personnel actions, org chart, Payroll (payroll management), PayrollConfig (4 major insurance settings), SeverancePay (retirement pay calculation), YearEndSettlement (year-end tax settlement), LaborConfig (labor law compliance: overtime limits, minimum wage, annual leave), weekly compliance checks |
 | **Attendance** | Check-in/out records, leave requests/approvals, annual leave balance |
 | **Board** | Notice/free boards, posts, comments (nested replies) |
 | **Calendar** | Schedule management with FullCalendar.js, AJAX API |
@@ -41,6 +41,7 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | **Core** | Dashboard (KPI widgets, asset/certification/lease summaries), real-time notifications (WebSocket push), Excel/PDF export, barcode generation, backup/restore, audit trail, access logs |
 | **Accounts** | Authentication, RBAC (admin/manager/staff), login protection (django-axes) |
 | **API** | REST API (34 DRF ViewSets), JWT authentication (SimpleJWT), OpenAPI/Swagger docs |
+| **Module Manager** | Pluggable module architecture (enable/disable features per installation), category-based organization (Compliance/Production/Purchase/Sales/Accounting/HR/System), country-code filtering (KR/US/universal), dependency checking, admin toggle UI, 30 registered modules |
 | **Store Modules** | Modular store architecture (pluggable per-channel modules: Naver SmartStore, Coupang, direct sales) |
 | **Active Directory** | LDAP/AD integration, user/group sync, group policy-based role mapping |
 
@@ -160,6 +161,7 @@ ERP_Suite/
 │   ├── approval/        # Standalone approval workflows
 │   ├── store_modules/   # Modular store architecture (pluggable per-channel)
 │   ├── modules/         # Channel modules (Naver SmartStore, Coupang, direct sales)
+│   ├── module_manager/  # Feature module registry, enable/disable, country-based filtering
 │   └── api/             # REST API (34 DRF ViewSets, JWT auth)
 ├── config/              # Django settings (base/dev/prod), celery, asgi, wsgi
 ├── templates/           # 250+ HTML templates (Tailwind CSS, responsive)
@@ -198,7 +200,7 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**Test coverage: 1112+ tests (unit)**
+**Test coverage: 1162+ tests (unit)**
 
 Verification criteria cover 152 items across 10 categories:
 - SEC-001~035: Security (OWASP Top 10)
@@ -268,10 +270,10 @@ Verification criteria cover 152 items across 10 categories:
 
 ## Scale
 
-- **24 apps**, **120+ models** (all with history tracking)
+- **25 apps**, **140+ models** (all with history tracking)
 - **450+ views**, **260+ templates**, **380+ URL endpoints**
 - **~35,000 lines** of Python (excluding migrations)
-- **1112+ tests** (unit), **17 E2E test files**, **load test suite**
+- **1162+ tests** (unit), **17 E2E test files**, **load test suite**
 - **130+ migrations**, **25+ packages**
 - **34 REST API ViewSets** with JWT authentication
 

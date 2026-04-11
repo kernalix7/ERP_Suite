@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from django.core.validators import MinValueValidator
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -227,3 +228,156 @@ class GoodsReceiptItem(BaseModel):
 
     def __str__(self):
         return f'{self.po_item.product.name} x {self.received_quantity}'
+
+
+class RFQ(BaseModel):
+    """견적요청서"""
+    BUSINESS_KEY_FIELD = 'rfq_number'
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', '작성중'
+        SENT = 'SENT', '발송'
+        RECEIVED = 'RECEIVED', '접수'
+        COMPARED = 'COMPARED', '비교완료'
+        CLOSED = 'CLOSED', '종결'
+
+    rfq_number = models.CharField('견적요청번호', max_length=30, unique=True, blank=True)
+    title = models.CharField('제목', max_length=200)
+    status = models.CharField(
+        '상태', max_length=20,
+        choices=Status.choices, default=Status.DRAFT,
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='요청자',
+        on_delete=models.PROTECT,
+        related_name='rfqs',
+    )
+    due_date = models.DateField('마감일', null=True, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '견적요청'
+        verbose_name_plural = '견적요청'
+        ordering = ['-rfq_number']
+        indexes = [
+            models.Index(fields=['status'], name='idx_rfq_status'),
+        ]
+
+    def __str__(self):
+        return f'{self.rfq_number} - {self.title}'
+
+    def save(self, *args, **kwargs):
+        if not self.rfq_number:
+            from django.utils import timezone
+            today = timezone.now().strftime('%Y%m%d')
+            last = RFQ.objects.filter(
+                rfq_number__startswith=f'RFQ-{today}',
+            ).order_by('-rfq_number').first()
+            seq = int(last.rfq_number.split('-')[-1]) + 1 if last else 1
+            self.rfq_number = f'RFQ-{today}-{seq:04d}'
+        super().save(*args, **kwargs)
+
+
+class RFQItem(BaseModel):
+    """견적요청 항목"""
+    rfq = models.ForeignKey(
+        RFQ, verbose_name='견적요청',
+        on_delete=models.CASCADE, related_name='items',
+    )
+    product = models.ForeignKey(
+        Product, verbose_name='제품',
+        on_delete=models.PROTECT,
+    )
+    quantity = models.DecimalField('수량', max_digits=15, decimal_places=2)
+    specifications = models.TextField('사양', blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '견적요청항목'
+        verbose_name_plural = '견적요청항목'
+        ordering = ['pk']
+
+    def __str__(self):
+        return f'{self.product.name} x {self.quantity}'
+
+
+class RFQResponse(BaseModel):
+    """견적응답"""
+    rfq = models.ForeignKey(
+        RFQ, verbose_name='견적요청',
+        on_delete=models.CASCADE, related_name='responses',
+    )
+    partner = models.ForeignKey(
+        'sales.Partner', verbose_name='공급처',
+        on_delete=models.PROTECT,
+        limit_choices_to={'partner_type__in': ['SUPPLIER', 'BOTH']},
+        related_name='rfq_responses',
+    )
+    response_date = models.DateField('응답일')
+    total_amount = models.DecimalField(
+        '총금액', max_digits=15, decimal_places=0, default=0,
+    )
+    delivery_days = models.PositiveIntegerField('납기(일)', default=0)
+    is_selected = models.BooleanField('낙찰', default=False)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '견적응답'
+        verbose_name_plural = '견적응답'
+        ordering = ['total_amount']
+
+    def __str__(self):
+        return f'{self.partner.name} - {self.total_amount}'
+
+
+class VendorScore(BaseModel):
+    """공급처 평가"""
+    partner = models.ForeignKey(
+        'sales.Partner', verbose_name='공급처',
+        on_delete=models.PROTECT,
+        limit_choices_to={'partner_type__in': ['SUPPLIER', 'BOTH']},
+        related_name='vendor_scores',
+    )
+    evaluation_date = models.DateField('평가일')
+    delivery_score = models.PositiveIntegerField(
+        '납기점수', validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text='1-5',
+    )
+    quality_score = models.PositiveIntegerField(
+        '품질점수', validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text='1-5',
+    )
+    price_score = models.PositiveIntegerField(
+        '가격점수', validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text='1-5',
+    )
+    service_score = models.PositiveIntegerField(
+        '서비스점수', validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text='1-5',
+    )
+    overall_score = models.DecimalField(
+        '종합점수', max_digits=3, decimal_places=1, default=0,
+    )
+    evaluator = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='평가자',
+        on_delete=models.PROTECT,
+        related_name='vendor_evaluations',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '공급처평가'
+        verbose_name_plural = '공급처평가'
+        ordering = ['-evaluation_date']
+        indexes = [
+            models.Index(fields=['evaluation_date'], name='idx_vendor_eval_date'),
+        ]
+
+    def __str__(self):
+        return f'{self.partner.name} - {self.overall_score}'
+
+    def save(self, *args, **kwargs):
+        self.overall_score = Decimal(str(
+            (self.delivery_score + self.quality_score + self.price_score + self.service_score) / 4
+        )).quantize(Decimal('0.1'))
+        super().save(*args, **kwargs)

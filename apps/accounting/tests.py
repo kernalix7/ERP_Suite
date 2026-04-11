@@ -17,8 +17,10 @@ from .models import (
     CardBilling,
     CardTransaction,
     ClosingPeriod,
+    CostCenter,
     CreditCard,
     Currency,
+    DashboardWidget,
     ExchangeRate,
     FixedCost,
     Payment,
@@ -2148,3 +2150,253 @@ class SettlementVoucherSignalTest(TestCase):
             total_platform_commission=Decimal('10000'),
         )
         self.assertEqual(Voucher.objects.count(), before)
+
+
+class CostCenterTests(TestCase):
+    """원가센터 모델 테스트"""
+
+    def test_cost_center_creation(self):
+        """원가센터 생성"""
+        cc = CostCenter.objects.create(
+            code='CC-001',
+            name='생산부문',
+            center_type='COST',
+        )
+        self.assertEqual(cc.code, 'CC-001')
+        self.assertEqual(str(cc), '[CC-001] 생산부문')
+
+    def test_cost_center_tree(self):
+        """원가센터 트리 구조"""
+        parent = CostCenter.objects.create(
+            code='CC-100', name='본사', center_type='PROFIT',
+        )
+        child = CostCenter.objects.create(
+            code='CC-110', name='영업부', center_type='PROFIT',
+            parent=parent,
+        )
+        self.assertEqual(child.parent, parent)
+        self.assertIn(child, parent.children.all())
+
+    def test_cost_center_unique_code(self):
+        """원가센터 코드 유일성"""
+        CostCenter.objects.create(code='CC-UNQ', name='테스트1')
+        with self.assertRaises(IntegrityError):
+            CostCenter.objects.create(code='CC-UNQ', name='테스트2')
+
+    def test_voucher_line_cost_center_fk(self):
+        """전표항목에 원가센터 연결"""
+        cc = CostCenter.objects.create(code='CC-200', name='제조원가')
+        acct = AccountCode.objects.create(
+            code='5100', name='재료비', account_type='EXPENSE',
+        )
+        voucher = Voucher.objects.create(
+            voucher_type='TRANSFER',
+            voucher_date=date(2026, 4, 1),
+            description='원가센터 테스트',
+        )
+        line = VoucherLine.objects.create(
+            voucher=voucher,
+            account=acct,
+            debit=Decimal('500000'),
+            cost_center=cc,
+        )
+        self.assertEqual(line.cost_center, cc)
+        self.assertIsNone(
+            VoucherLine.objects.create(
+                voucher=voucher, account=acct, credit=Decimal('500000'),
+            ).cost_center,
+        )
+
+
+class DashboardWidgetTests(TestCase):
+    """대시보드 위젯 모델 테스트"""
+
+    def test_widget_creation(self):
+        """위젯 생성"""
+        widget = DashboardWidget.objects.create(
+            name='월별매출차트',
+            widget_type='CHART',
+            config={'chart_type': 'bar', 'period': 12},
+            sort_order=1,
+        )
+        self.assertEqual(str(widget), '월별매출차트')
+        self.assertEqual(widget.widget_type, 'CHART')
+        self.assertIsNone(widget.user)
+
+    def test_widget_user_specific(self):
+        """사용자별 위젯"""
+        user = User.objects.create_user(
+            username='widget_user', password='testpass',
+        )
+        widget = DashboardWidget.objects.create(
+            name='개인KPI',
+            widget_type='KPI',
+            user=user,
+        )
+        self.assertEqual(widget.user, user)
+
+
+class CostCenterReportViewTests(TestCase):
+    """원가센터 리포트 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='mgr_cc', password='testpass', role='manager',
+        )
+        self.client.force_login(self.user)
+        self.cc = CostCenter.objects.create(
+            code='CC-RPT', name='리포트테스트', center_type='COST',
+        )
+        self.acct = AccountCode.objects.create(
+            code='5200', name='인건비', account_type='EXPENSE',
+        )
+        self.voucher = Voucher.objects.create(
+            voucher_type='TRANSFER',
+            voucher_date=date(2026, 4, 1),
+            description='센터리포트',
+            approval_status='APPROVED',
+        )
+        VoucherLine.objects.create(
+            voucher=self.voucher,
+            account=self.acct,
+            debit=Decimal('1000000'),
+            cost_center=self.cc,
+        )
+
+    def test_report_view_loads(self):
+        """원가센터 리포트 뷰 접근"""
+        resp = self.client.get('/accounting/cost-centers/report/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_report_aggregation(self):
+        """원가센터별 집계 검증"""
+        resp = self.client.get('/accounting/cost-centers/report/')
+        rows = resp.context['rows']
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['code'], 'CC-RPT')
+        self.assertEqual(rows[0]['debit'], 1000000)
+
+
+class ProfitCenterReportViewTests(TestCase):
+    """이익센터 리포트 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='mgr_pc', password='testpass', role='manager',
+        )
+        self.client.force_login(self.user)
+        self.cc = CostCenter.objects.create(
+            code='PC-001', name='영업이익센터', center_type='PROFIT',
+        )
+        self.revenue_acct = AccountCode.objects.create(
+            code='4100', name='상품매출', account_type='REVENUE',
+        )
+        self.expense_acct = AccountCode.objects.create(
+            code='5100', name='상품매출원가', account_type='EXPENSE',
+        )
+        self.voucher = Voucher.objects.create(
+            voucher_type='TRANSFER',
+            voucher_date=date(2026, 4, 1),
+            description='이익센터 테스트',
+            approval_status='APPROVED',
+        )
+        VoucherLine.objects.create(
+            voucher=self.voucher,
+            account=self.revenue_acct,
+            credit=Decimal('5000000'),
+            cost_center=self.cc,
+        )
+        VoucherLine.objects.create(
+            voucher=self.voucher,
+            account=self.expense_acct,
+            debit=Decimal('3000000'),
+            cost_center=self.cc,
+        )
+
+    def test_profit_center_report_loads(self):
+        """이익센터 리포트 뷰 접근"""
+        resp = self.client.get('/accounting/profit-centers/report/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_profit_center_aggregation(self):
+        """이익센터별 수익/비용/이익 검증"""
+        resp = self.client.get('/accounting/profit-centers/report/')
+        rows = resp.context['rows']
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['code'], 'PC-001')
+        self.assertEqual(rows[0]['revenue'], 5000000)
+        self.assertEqual(rows[0]['expense'], 3000000)
+        self.assertEqual(rows[0]['profit'], 2000000)
+        self.assertEqual(rows[0]['margin'], 40.0)
+
+    def test_profit_center_totals(self):
+        """이익센터 합계 검증"""
+        resp = self.client.get('/accounting/profit-centers/report/')
+        self.assertEqual(resp.context['total_revenue'], 5000000)
+        self.assertEqual(resp.context['total_expense'], 3000000)
+        self.assertEqual(resp.context['total_profit'], 2000000)
+
+
+class AgedTrialBalanceViewTests(TestCase):
+    """경과기간별 시산표 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='mgr_atb', password='testpass', role='manager',
+        )
+        self.client.force_login(self.user)
+        self.partner = Partner.objects.create(
+            code='P-ATB', name='ATB거래처',
+            partner_type='CUSTOMER',
+        )
+
+    def test_ar_aged_trial_balance(self):
+        """AR 경과기간별 시산표"""
+        AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal('500000'),
+            paid_amount=Decimal('0'),
+            due_date=date(2026, 1, 1),
+            status='OVERDUE',
+        )
+        resp = self.client.get('/accounting/aged-trial-balance/?type=AR')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['grand_totals']['total'], 500000)
+
+    def test_ap_aged_trial_balance(self):
+        """AP 경과기간별 시산표"""
+        AccountPayable.objects.create(
+            partner=self.partner,
+            amount=Decimal('300000'),
+            paid_amount=Decimal('0'),
+            due_date=date(2026, 3, 15),
+            status='PENDING',
+        )
+        resp = self.client.get('/accounting/aged-trial-balance/?type=AP')
+        self.assertEqual(resp.status_code, 200)
+        self.assertGreaterEqual(resp.context['grand_totals']['total'], 300000)
+
+
+class AdvancedReportViewTests(TestCase):
+    """고급 재무 리포트 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='mgr_adv', password='testpass', role='manager',
+        )
+        self.client.force_login(self.user)
+
+    def test_view_loads(self):
+        """고급 리포트 뷰 접근"""
+        resp = self.client.get('/accounting/advanced-report/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('monthly_data', resp.context)
+        self.assertIn('monthly_json', resp.context)
+        self.assertEqual(len(resp.context['monthly_data']), 12)
+
+    def test_yoy_mom_data(self):
+        """YoY/MoM 데이터 존재"""
+        resp = self.client.get('/accounting/advanced-report/?year=2026&month=4')
+        self.assertIn('current', resp.context)
+        self.assertIn('mom', resp.context)
+        self.assertIn('yoy', resp.context)

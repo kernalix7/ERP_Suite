@@ -1,4 +1,4 @@
-{% load i18n static %}
+{% load i18n static module_tags %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}" class="h-full bg-gray-50">
 <head>
@@ -538,6 +538,7 @@
                             <li><a href="{% url 'ad:dashboard' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "AD 연동" %}</a></li>
                             <li><a href="{% url 'sales:carrier_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white {% if request.resolver_match.url_name == 'carrier_list' %}text-white bg-slate-600{% endif %}">{% trans "택배사 관리" %}</a></li>
                             <li><a href="{% url 'core:system_settings' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "시스템 설정" %}</a></li>
+                            <li><a href="{% url 'module_manager:module_list' %}" @click="closeMobile()" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white">{% trans "모듈 관리" %}</a></li>
                         </ul>
                     </li>
                     {% endif %}

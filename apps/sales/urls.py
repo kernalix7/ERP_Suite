@@ -92,4 +92,23 @@ urlpatterns = [
     path('shipments/<str:slug>/edit/', views.ShipmentUpdateView.as_view(), name='shipment_update'),
     path('shipments/<str:slug>/delete/', views.ShipmentDeleteView.as_view(), name='shipment_delete'),
     path('shipments/<str:slug>/tracking/', views.ShipmentTrackingView.as_view(), name='shipment_tracking'),
+    # 고객등급
+    path('tiers/', views.CustomerTierListView.as_view(), name='customer_tier_list'),
+    path('tiers/create/', views.CustomerTierCreateView.as_view(), name='customer_tier_create'),
+    path('tiers/<int:pk>/edit/', views.CustomerTierUpdateView.as_view(), name='customer_tier_update'),
+    # 영업목표
+    path('targets/', views.SalesTargetListView.as_view(), name='sales_target_list'),
+    path('targets/create/', views.SalesTargetCreateView.as_view(), name='sales_target_create'),
+    path('targets/dashboard/', views.SalesTargetDashboardView.as_view(), name='sales_target_dashboard'),
+    # 영업리드 (CRM 파이프라인)
+    path('leads/', views.SalesLeadListView.as_view(), name='lead_list'),
+    path('leads/create/', views.SalesLeadCreateView.as_view(), name='lead_create'),
+    path('leads/pipeline/', views.PipelineBoardView.as_view(), name='pipeline_board'),
+    path('leads/<int:pk>/', views.SalesLeadDetailView.as_view(), name='lead_detail'),
+    path('leads/<int:pk>/edit/', views.SalesLeadUpdateView.as_view(), name='lead_update'),
+    path('leads/<int:pk>/convert/', views.LeadConvertView.as_view(), name='lead_convert'),
+    # 고객만족도
+    path('satisfaction/', views.CustomerSatisfactionListView.as_view(), name='satisfaction_list'),
+    path('satisfaction/create/', views.CustomerSatisfactionCreateView.as_view(), name='satisfaction_create'),
+    path('satisfaction/dashboard/', views.SatisfactionDashboardView.as_view(), name='satisfaction_dashboard'),
 ]
