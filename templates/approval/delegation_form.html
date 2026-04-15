@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}결재 위임 등록 - ERP Suite{% endblock %}
+{% block page_title %}결재 위임 등록{% endblock %}
+{% block content %}
+<div class="max-w-2xl">
+  <form method="post" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<p class="text-red-500 text-xs mt-1">{{ field.errors|join:", " }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    {% if form.non_field_errors %}
+    <div class="text-red-500 text-sm">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="flex gap-2 pt-2">
+      <button type="submit" class="btn btn-primary">저장</button>
+      <a href="{% url 'approval:delegation_list' %}" class="btn btn-secondary">취소</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

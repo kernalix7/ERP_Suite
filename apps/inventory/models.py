@@ -307,6 +307,10 @@ class StockCount(BaseModel):
         verbose_name = '재고실사'
         verbose_name_plural = '재고실사'
         ordering = ['-count_date', '-pk']
+        indexes = [
+            models.Index(fields=['status', 'created_at'], name='idx_sc_status_date'),
+            models.Index(fields=['warehouse', 'count_date'], name='idx_sc_warehouse_date'),
+        ]
 
     def __str__(self):
         return f'{self.count_number} ({self.get_status_display()})'
@@ -414,6 +418,10 @@ class StockLot(BaseModel):
         verbose_name = '재고 LOT'
         verbose_name_plural = '재고 LOT'
         ordering = ['received_date', 'pk']
+        indexes = [
+            models.Index(fields=['product', 'received_date'], name='idx_lot_product_date'),
+            models.Index(fields=['warehouse', 'received_date'], name='idx_lot_warehouse_date'),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(remaining_quantity__gte=0),
@@ -474,6 +482,10 @@ class SerialNumber(BaseModel):
         verbose_name = '시리얼번호'
         verbose_name_plural = '시리얼번호'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at'], name='idx_serial_status_date'),
+            models.Index(fields=['product', 'status'], name='idx_serial_product_status'),
+        ]
 
     def __str__(self):
         return f'{self.serial} ({self.product.name})'

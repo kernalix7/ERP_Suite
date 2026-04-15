@@ -2,9 +2,11 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, RequestFactory
 from django.urls import reverse
 from django.utils import timezone
+import datetime
 
 from apps.approval.models import (
     ApprovalRequest, ApprovalStep, ApprovalAttachment,
+    ApprovalLineTemplate, ApprovalDelegation,
 )
 
 User = get_user_model()
@@ -892,3 +894,180 @@ class PermissionApprovalSignalTest(TestCase):
 
         self.staff.refresh_from_db()
         self.assertEqual(self.staff.role, 'staff')  # 변경 없음
+
+
+# ====================================================================
+# 6. 결재선 템플릿 테스트
+# ====================================================================
+class ApprovalLineTemplateTest(ApprovalModelTestBase):
+    """ApprovalLineTemplate 모델/뷰 테스트"""
+
+    def _create_template(self, name='기본 결재선', is_default=False, steps=None):
+        return ApprovalLineTemplate.objects.create(
+            name=name,
+            steps=steps or [{'approver_id': 1, 'role': '팀장', 'order': 1}],
+            is_default=is_default,
+            created_by=self.manager,
+        )
+
+    def test_create_template(self):
+        """결재선 템플릿 생성"""
+        tmpl = self._create_template()
+        self.assertEqual(tmpl.name, '기본 결재선')
+        self.assertFalse(tmpl.is_default)
+        self.assertEqual(len(tmpl.steps), 1)
+
+    def test_default_template_flag(self):
+        """기본 템플릿 플래그"""
+        tmpl = self._create_template(name='기본', is_default=True)
+        self.assertTrue(tmpl.is_default)
+
+    def test_template_str(self):
+        """문자열 표현"""
+        tmpl = self._create_template(name='구매 결재선')
+        self.assertEqual(str(tmpl), '구매 결재선')
+
+    def test_template_steps_json(self):
+        """steps JSONField 저장/조회"""
+        steps_data = [
+            {'approver_id': 1, 'role': '팀장', 'order': 1},
+            {'approver_id': 2, 'role': '본부장', 'order': 2},
+        ]
+        tmpl = self._create_template(steps=steps_data)
+        tmpl.refresh_from_db()
+        self.assertEqual(len(tmpl.steps), 2)
+        self.assertEqual(tmpl.steps[0]['role'], '팀장')
+
+    def test_list_view_accessible(self):
+        """목록 뷰 접근"""
+        self.client.force_login(self.manager)
+        self._create_template()
+        response = self.client.get(reverse('approval:line_template_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_list_view_shows_templates(self):
+        """목록에 템플릿 표시"""
+        self.client.force_login(self.manager)
+        tmpl = self._create_template(name='노출 테스트')
+        response = self.client.get(reverse('approval:line_template_list'))
+        templates = response.context['templates']
+        self.assertIn(tmpl, templates)
+
+    def test_create_view_accessible(self):
+        """생성 뷰 접근"""
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('approval:line_template_create'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_create_via_post(self):
+        """POST로 템플릿 생성"""
+        self.client.force_login(self.manager)
+        response = self.client.post(reverse('approval:line_template_create'), {
+            'name': 'POST 테스트 템플릿',
+            'description': '설명',
+            'steps': '[{"approver_id": 1, "role": "팀장", "order": 1}]',
+            'is_default': False,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(ApprovalLineTemplate.objects.filter(name='POST 테스트 템플릿').exists())
+
+    def test_history_tracked(self):
+        """이력 추적"""
+        tmpl = self._create_template()
+        tmpl.name = '수정된 이름'
+        tmpl.save()
+        self.assertTrue(tmpl.history.count() >= 2)
+
+
+# ====================================================================
+# 7. 결재 위임 테스트
+# ====================================================================
+class ApprovalDelegationTest(ApprovalModelTestBase):
+    """ApprovalDelegation 모델/뷰 테스트"""
+
+    def _create_delegation(self, delegator=None, delegate=None, days=7):
+        today = timezone.localdate()
+        return ApprovalDelegation.objects.create(
+            delegator=delegator or self.manager,
+            delegate=delegate or self.manager2,
+            start_date=today,
+            end_date=today + datetime.timedelta(days=days),
+            reason='출장',
+            created_by=delegator or self.manager,
+        )
+
+    def test_create_delegation(self):
+        """위임 생성"""
+        d = self._create_delegation()
+        self.assertTrue(d.pk is not None)
+        self.assertEqual(d.delegator, self.manager)
+        self.assertEqual(d.delegate, self.manager2)
+
+    def test_delegation_str(self):
+        """문자열 표현"""
+        d = self._create_delegation()
+        self.assertIn('→', str(d))
+
+    def test_get_active_delegate_within_range(self):
+        """유효 기간 내 대리자 반환"""
+        self._create_delegation()
+        result = ApprovalDelegation.get_active_delegate(self.manager)
+        self.assertEqual(result, self.manager2)
+
+    def test_get_active_delegate_expired(self):
+        """기간 만료된 위임은 반환 안 함"""
+        today = timezone.localdate()
+        ApprovalDelegation.objects.create(
+            delegator=self.manager,
+            delegate=self.manager2,
+            start_date=today - datetime.timedelta(days=10),
+            end_date=today - datetime.timedelta(days=1),
+            reason='과거 출장',
+            created_by=self.manager,
+        )
+        result = ApprovalDelegation.get_active_delegate(self.manager)
+        self.assertIsNone(result)
+
+    def test_list_view_accessible(self):
+        """목록 뷰 접근"""
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('approval:delegation_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_list_shows_own_delegations_only(self):
+        """본인의 위임만 표시"""
+        self.client.force_login(self.manager)
+        self._create_delegation(delegator=self.manager, delegate=self.manager2)
+        # admin의 위임은 목록에 나오면 안 됨
+        ApprovalDelegation.objects.create(
+            delegator=self.admin,
+            delegate=self.manager,
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate() + datetime.timedelta(days=3),
+            created_by=self.admin,
+        )
+        response = self.client.get(reverse('approval:delegation_list'))
+        for d in response.context['delegations']:
+            self.assertEqual(d.delegator, self.manager)
+
+    def test_create_view_accessible(self):
+        """생성 뷰 접근"""
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('approval:delegation_create'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_delete_delegation(self):
+        """위임 삭제(soft)"""
+        self.client.force_login(self.manager)
+        d = self._create_delegation()
+        response = self.client.post(reverse('approval:delegation_delete', args=[d.pk]))
+        self.assertEqual(response.status_code, 302)
+        d.refresh_from_db()
+        self.assertFalse(d.is_active)
+
+    def test_history_tracked(self):
+        """이력 추적"""
+        d = self._create_delegation()
+        d.reason = '수정된 사유'
+        d.save()
+        self.assertTrue(d.history.count() >= 2)

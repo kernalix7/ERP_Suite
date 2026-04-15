@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}법인카드 목록 - ERP Suite{% endblock %}
+{% block page_title %}법인카드 목록{% endblock %}
+
+{% block header_actions %}
+{% if user.role == 'admin' or user.role == 'manager' %}
+<a href="{% url 'expense:card_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "법인카드 등록" %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "카드번호 끝4자리" %}</th>
+                    <th class="px-4 py-3">{% trans "사용자" %}</th>
+                    <th class="px-4 py-3">{% trans "카드유형" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "월간 한도" %}</th>
+                    <th class="px-4 py-3">{% trans "등록일" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for card in cards %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono font-medium text-gray-900">**** {{ card.card_number_last4 }}</td>
+                    <td class="px-4 py-3 text-gray-700">
+                        {% if card.employee %}{{ card.employee.user.get_full_name|default:card.employee.user.username }}{% else %}미지정{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ card.card_type|default:"-" }}</td>
+                    <td class="px-4 py-3 text-right text-gray-700">{{ card.monthly_limit|floatformat:0 }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ card.created_at|date:"Y-m-d" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 법인카드가 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "IP 화이트리스트" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "IP 화이트리스트" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounts:ip_whitelist_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "IP 추가" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <p class="text-sm text-gray-500">{% trans "허용된 IP 주소만 해당 범위에 접근할 수 있습니다. 목록이 비어있으면 모든 IP가 허용됩니다." %}</p>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <caption class="sr-only">{% trans "IP 화이트리스트 목록" %}</caption>
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3" scope="col">{% trans "IP 주소" %}</th>
+                    <th class="px-4 py-3" scope="col">{% trans "설명" %}</th>
+                    <th class="px-4 py-3 text-center" scope="col">{% trans "적용 범위" %}</th>
+                    <th class="px-4 py-3" scope="col">{% trans "등록일" %}</th>
+                    <th class="px-4 py-3 text-center" scope="col">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for entry in whitelist %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono font-medium text-gray-900">{{ entry.ip_address }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ entry.description|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if entry.scope == 'ALL' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{{ entry.get_scope_display }}</span>
+                        {% elif entry.scope == 'ADMIN' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{{ entry.get_scope_display }}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ entry.get_scope_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-500">{{ entry.created_at|date:"Y-m-d H:i" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <form method="post" action="{% url 'accounts:ip_whitelist_delete' entry.pk %}" class="inline"
+                              onsubmit="return confirm('{% trans "이 IP를 화이트리스트에서 제거하시겠습니까?" %}')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:text-red-700 text-sm"
+                                    aria-label="{% trans '삭제' %}: {{ entry.ip_address }}">{% trans "삭제" %}</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "등록된 IP가 없습니다. 모든 IP에서 접근 가능합니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

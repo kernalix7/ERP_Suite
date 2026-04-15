@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}위키 - 문서 목록{% endblock %}
+{% block page_title %}
+{% if space %}{{ space.name }} - 문서 목록{% else %}지식베이스 / 위키{% endif %}
+{% endblock %}
+
+{% block header_actions %}
+{% if request.user.is_staff %}
+<a href="{% url 'wiki:article_create' %}{% if space %}?space={{ space.pk }}{% endif %}" class="btn btn-primary">+ 문서 작성</a>
+{% endif %}
+<a href="{% url 'wiki:space_list' %}" class="btn btn-secondary">공간 목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="lg:col-span-1">
+        {% if space %}
+        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+            <h3 class="font-semibold mb-1 text-sm text-gray-700">{{ space.name }}</h3>
+            <p class="text-xs text-gray-400 font-mono mb-2">{{ space.code }}</p>
+            {% if space.description %}<p class="text-xs text-gray-500">{{ space.description|truncatechars:80 }}</p>{% endif %}
+            <a href="{% url 'wiki:category_tree' space.code %}" class="text-xs text-blue-600 hover:underline mt-2 block">카테고리 보기</a>
+        </div>
+        {% endif %}
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-3 text-sm text-gray-700">카테고리</h3>
+            <ul class="space-y-1">
+                <li>
+                    <a href="{% url 'wiki:article_list' %}{% if space %}?space={{ space.pk }}{% endif %}"
+                       class="text-sm {% if not request.GET.category %}text-blue-600 font-medium{% else %}text-gray-600 hover:text-blue-600{% endif %}">전체</a>
+                </li>
+                {% for cat in categories %}
+                <li>
+                    <a href="{% url 'wiki:article_list' %}?category={{ cat.pk }}"
+                       class="text-sm {% if request.GET.category == cat.pk|stringformat:'s' %}text-blue-600 font-medium{% else %}text-gray-600 hover:text-blue-600{% endif %}">
+                        {{ cat.name }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% if pinned %}
+        <div class="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+            <h3 class="font-semibold mb-3 text-sm text-gray-700">고정 문서</h3>
+            <ul class="space-y-2">
+                {% for a in pinned %}
+                <li><a href="{% url 'wiki:article_detail' a.slug %}" class="text-sm text-blue-600 hover:underline">{{ a.title }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <div class="bg-white rounded-lg border border-gray-200 p-4 mt-4 text-sm space-y-2">
+            <a href="{% url 'wiki:recent_changes' %}" class="block text-gray-600 hover:text-blue-600">최근 변경</a>
+            <a href="{% url 'wiki:popular_articles' %}" class="block text-gray-600 hover:text-blue-600">인기 문서</a>
+            <a href="{% url 'wiki:my_articles' %}" class="block text-gray-600 hover:text-blue-600">내가 쓴 문서</a>
+        </div>
+    </div>
+    <div class="lg:col-span-3">
+        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+            <form method="get" class="flex gap-3">
+                {% if space %}<input type="hidden" name="space" value="{{ space.pk }}">{% endif %}
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="제목, 내용, 태그 검색..." class="form-input flex-1">
+                <button type="submit" class="btn btn-secondary">검색</button>
+                <a href="{% url 'wiki:article_search' %}" class="btn btn-secondary">고급 검색</a>
+            </form>
+        </div>
+        <div class="space-y-3">
+            {% for article in articles %}
+            <div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <a href="{% url 'wiki:article_detail' article.slug %}" class="font-medium hover:text-blue-600">
+                            {% if article.is_pinned %}<span class="text-yellow-500 mr-1">★</span>{% endif %}
+                            {{ article.title }}
+                        </a>
+                        <p class="text-xs text-gray-400 font-mono mt-0.5">{{ article.article_number }}</p>
+                    </div>
+                    <span class="text-xs text-gray-400 ml-4 whitespace-nowrap">{{ article.updated_at|date:"Y-m-d" }}</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-400">
+                    {% if article.space %}<span class="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{{ article.space.code }}</span>{% endif %}
+                    {% if article.category %}<span>{{ article.category.name }}</span>{% endif %}
+                    <span>{{ article.author.get_full_name|default:article.author.username }}</span>
+                    <span>조회 {{ article.view_count }}</span>
+                    {% for tag in article.tags %}
+                    <span class="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">#{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="bg-white rounded-lg border border-gray-200 p-10 text-center text-gray-500">
+                등록된 문서가 없습니다.
+            </div>
+            {% endfor %}
+        </div>
+        {% include "partials/pagination.html" %}
+    </div>
+</div>
+{% endblock %}

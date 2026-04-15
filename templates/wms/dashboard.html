@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "WMS 대시보드" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "창고관리(WMS) 대시보드" %}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "대기 피킹" %}</p>
+        <p class="text-2xl font-bold text-blue-600 mt-1">{{ pending_picks }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "피킹 진행중" %}</p>
+        <p class="text-2xl font-bold text-yellow-600 mt-1">{{ in_progress_picks }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "대기 적치" %}</p>
+        <p class="text-2xl font-bold text-orange-600 mt-1">{{ pending_putaways }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "빈 점유율" %}</p>
+        <p class="text-2xl font-bold text-green-600 mt-1">
+            {{ occupied_bins }} / {{ total_bins }}
+        </p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="text-lg font-semibold mb-3">{% trans "바로가기" %}</h3>
+        <div class="space-y-2">
+            <a href="{% url 'wms:zone_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">창고구역 관리</a>
+            <a href="{% url 'wms:bin_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">보관위치 관리</a>
+            <a href="{% url 'wms:pickorder_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">피킹오더</a>
+            <a href="{% url 'wms:putaway_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">입고적치</a>
+            <a href="{% url 'wms:waveplan_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">웨이브계획</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

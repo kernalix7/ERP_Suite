@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ subscription.subscription_number }} - ERP Suite{% endblock %}
+{% block page_title %}{{ subscription.subscription_number }}{% endblock %}
+
+{% block header_actions %}
+{% if user.is_manager_role %}
+<a href="{% url 'subscription:subscription_update' subscription.subscription_number %}" class="btn btn-secondary">수정</a>
+{% if subscription.status == 'ACTIVE' %}
+<form method="post" action="{% url 'subscription:subscription_pause' subscription.subscription_number %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-secondary">{% trans "일시중지" %}</button>
+</form>
+{% endif %}
+{% if subscription.status == 'PAUSED' or subscription.status == 'EXPIRED' %}
+<form method="post" action="{% url 'subscription:subscription_renew' subscription.subscription_number %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">{% trans "갱신" %}</button>
+</form>
+{% endif %}
+{% if subscription.status != 'CANCELLED' and subscription.status != 'EXPIRED' %}
+<form method="post" action="{% url 'subscription:subscription_cancel' subscription.subscription_number %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger" onclick="return confirm('해지하시겠습니까?')">{% trans "해지" %}</button>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">구독 항목</h3>
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+                        <th class="px-4 py-2">{% trans "제품" %}</th>
+                        <th class="px-4 py-2 text-right">{% trans "수량" %}</th>
+                        <th class="px-4 py-2 text-right">{% trans "단가" %}</th>
+                        <th class="px-4 py-2 text-right">{% trans "금액" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in items %}
+                    <tr>
+                        <td class="px-4 py-2 text-gray-900">{{ item.product.name }}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">{{ item.quantity }}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">{{ item.unit_price|floatformat:0 }}</td>
+                        <td class="px-4 py-2 text-right text-gray-900">{{ item.amount|floatformat:0 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">항목이 없습니다.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if user.is_manager_role %}
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <form method="post" action="{% url 'subscription:subscription_item_create' subscription.subscription_number %}" class="flex gap-3 items-end">
+                    {% csrf_token %}
+                    {% for field in item_form %}
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500 mb-1">{{ field.label }}</label>
+                        {{ field }}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary">{% trans "추가" %}</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">과금 기록</h3>
+            <div class="space-y-2">
+                {% for record in billing_records %}
+                <div class="flex justify-between items-center text-sm py-2 border-b border-gray-100 last:border-0">
+                    <div>
+                        <span class="text-gray-700">{{ record.billing_date|date:"Y-m-d" }}</span>
+                        <span class="ml-2 text-gray-500">{{ record.get_status_display }}</span>
+                    </div>
+                    <span class="font-medium">{{ record.total|floatformat:0 }}원</span>
+                </div>
+                {% empty %}
+                <p class="text-gray-400 text-sm">과금 기록이 없습니다.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">구독 정보</h3>
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">상태</dt><dd>{{ subscription.get_status_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">거래처</dt><dd>{{ subscription.partner.name }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">플랜</dt><dd>{{ subscription.plan.name }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">가격</dt><dd>{{ subscription.plan.price|floatformat:0 }}원/{{ subscription.plan.get_billing_cycle_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">시작일</dt><dd>{{ subscription.start_date|date:"Y-m-d" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">종료일</dt><dd>{{ subscription.end_date|date:"Y-m-d"|default:"-" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">다음 과금일</dt><dd>{{ subscription.next_billing_date|date:"Y-m-d"|default:"-" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">자동갱신</dt><dd>{% if subscription.auto_renew %}예{% else %}아니오{% endif %}</dd></div>
+                {% if subscription.cancel_reason %}
+                <div class="pt-2 border-t"><dt class="text-gray-500 mb-1">해지 사유</dt><dd class="text-gray-700">{{ subscription.cancel_reason }}</dd></div>
+                {% endif %}
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

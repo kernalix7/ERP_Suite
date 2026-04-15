@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "예측 파라미터" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "예측 파라미터" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'forecast:parameter_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "파라미터 등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "제품" %}</th>
+                    <th class="px-4 py-3">{% trans "방법" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "조회기간(월)" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "최근가중치" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "평활계수" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for p in parameters %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3">{{ p.product }}</td>
+                    <td class="px-4 py-3">{{ p.get_method_display }}</td>
+                    <td class="px-4 py-3 text-right">{{ p.lookback_months }}</td>
+                    <td class="px-4 py-3 text-right">{{ p.weight_recent }}</td>
+                    <td class="px-4 py-3 text-right">{{ p.smoothing_factor }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">파라미터가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="p-4 border-t border-gray-200">{% include "includes/pagination.html" %}</div>
+    {% endif %}
+</div>
+{% endblock %}

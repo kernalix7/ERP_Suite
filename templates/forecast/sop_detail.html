@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "S&OP 회의 상세" %} - {{ meeting.title }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "S&OP 회의 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'forecast:sop_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "회의 정보" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><p class="text-sm text-gray-500">{% trans "제목" %}</p><p class="mt-1 font-medium">{{ meeting.title }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "회의일" %}</p><p class="mt-1 font-medium">{{ meeting.meeting_date }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "대상기간" %}</p><p class="mt-1 font-medium">{{ meeting.period }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "상태" %}</p><p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+            {% if meeting.status == 'APPROVED' %}bg-green-100 text-green-800
+            {% elif meeting.status == 'IN_PROGRESS' %}bg-yellow-100 text-yellow-800
+            {% else %}bg-gray-100 text-gray-800
+            {% endif %}">{{ meeting.get_status_display }}</span></p></div>
+    </div>
+    {% if meeting.minutes %}
+    <div class="mt-4"><p class="text-sm text-gray-500">{% trans "회의록" %}</p><p class="mt-1 whitespace-pre-wrap">{{ meeting.minutes }}</p></div>
+    {% endif %}
+    {% if meeting.decisions %}
+    <div class="mt-4"><p class="text-sm text-gray-500">{% trans "의사결정" %}</p><p class="mt-1 whitespace-pre-wrap">{{ meeting.decisions }}</p></div>
+    {% endif %}
+</div>
+
+{% if scenarios %}
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "시나리오" %}</h3>
+    <div class="space-y-4">
+        {% for sc in scenarios %}
+        <div class="border border-gray-200 rounded-lg p-4">
+            <h4 class="font-medium text-gray-900">{{ sc.name }}</h4>
+            {% if sc.description %}
+            <p class="text-sm text-gray-600 mt-1">{{ sc.description }}</p>
+            {% endif %}
+            {% if sc.assumptions %}
+            <p class="text-sm text-gray-500 mt-2"><span class="font-medium">가정:</span> {{ sc.assumptions }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

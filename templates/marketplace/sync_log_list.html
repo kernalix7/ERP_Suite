@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}동기화 이력 - ERP Suite{% endblock %}
-{% block page_title %}동기화 이력{% endblock %}
+{% block title %}{% trans "동기화 이력 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "동기화 이력" %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">대시보드</a>
@@ -13,12 +14,12 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
-                    <th class="px-4 py-3 text-center">방향</th>
-                    <th class="px-4 py-3">시작</th>
-                    <th class="px-4 py-3">완료</th>
-                    <th class="px-4 py-3 text-right">총건수</th>
-                    <th class="px-4 py-3 text-right">성공</th>
-                    <th class="px-4 py-3 text-right">실패</th>
+                    <th class="px-4 py-3 text-center">{% trans "방향" %}</th>
+                    <th class="px-4 py-3">{% trans "시작" %}</th>
+                    <th class="px-4 py-3">{% trans "완료" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "총건수" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "성공" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "실패" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">

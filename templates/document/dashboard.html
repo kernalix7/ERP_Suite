@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "전자문서 대시보드" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "전자문서 대시보드" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'document:document_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "문서 등록" %}
+</a>
+<a href="{% url 'document:contract_create' %}" class="btn btn-secondary">{% trans "계약 등록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "전체 문서" %}</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{{ total_documents }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "검토중 문서" %}</p>
+        <p class="text-3xl font-bold text-yellow-600 mt-1">{{ review_documents }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "승인 완료" %}</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">{{ approved_documents }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "결재 대기" %}</p>
+        <p class="text-3xl font-bold text-red-600 mt-1">{{ pending_approvals }}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "전체 계약" %}</p>
+        <p class="text-3xl font-bold text-gray-700 mt-1">{{ total_contracts }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "유효 계약" %}</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">{{ active_contracts }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "30일 내 만료" %}</p>
+        <p class="text-3xl font-bold text-orange-600 mt-1">{{ expiring_contracts }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "유효 계약 총액" %}</p>
+        <p class="text-xl font-bold text-blue-600 mt-1">{{ total_contract_value|floatformat:0 }}{% trans "원" %}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">{% trans "만료 임박 계약" %}</h3>
+            <a href="{% url 'document:contract_calendar' %}" class="text-sm text-blue-600 hover:underline">{% trans "캘린더 보기" %}</a>
+        </div>
+        <div class="space-y-3">
+            {% for contract in expiring_soon %}
+            <div class="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                <div>
+                    <a href="{% url 'document:contract_detail' contract.contract_number %}" class="text-blue-600 hover:underline font-medium">{{ contract.title|truncatechars:30 }}</a>
+                    <p class="text-gray-500 text-xs mt-0.5">{{ contract.partner.name|default:"-" }}</p>
+                </div>
+                <span class="text-orange-600 font-medium whitespace-nowrap ml-2">{{ contract.end_date|date:"Y-m-d" }}</span>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">{% trans "만료 임박 계약이 없습니다." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">{% trans "빠른 바로가기" %}</h3>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <a href="{% url 'document:document_list' %}" class="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors text-center">
+                <svg class="w-8 h-8 text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span class="text-sm font-medium text-gray-700">{% trans "문서 목록" %}</span>
+            </a>
+            <a href="{% url 'document:document_search' %}" class="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors text-center">
+                <svg class="w-8 h-8 text-green-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <span class="text-sm font-medium text-gray-700">{% trans "문서 검색" %}</span>
+            </a>
+            <a href="{% url 'document:contract_list' %}" class="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors text-center">
+                <svg class="w-8 h-8 text-purple-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                <span class="text-sm font-medium text-gray-700">{% trans "계약 목록" %}</span>
+            </a>
+            <a href="{% url 'document:category_list' %}" class="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors text-center">
+                <svg class="w-8 h-8 text-gray-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <span class="text-sm font-medium text-gray-700">{% trans "카테고리 관리" %}</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

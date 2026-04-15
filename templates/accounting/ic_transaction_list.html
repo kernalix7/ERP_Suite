@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}내부거래 관리 - ERP Suite{% endblock %}
+{% block page_title %}내부거래 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:ic_transaction_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    내부거래 등록
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">거래일</th>
+                    <th class="px-4 py-3">출발법인</th>
+                    <th class="px-4 py-3">도착법인</th>
+                    <th class="px-4 py-3 text-right">금액</th>
+                    <th class="px-4 py-3">설명</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for txn in transactions %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-600">{{ txn.transaction_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ txn.from_company.name }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ txn.to_company.name }}</td>
+                    <td class="px-4 py-3 text-right font-medium text-gray-900">{{ txn.amount|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ txn.description|truncatewords:8 }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if txn.status == 'CONFIRMED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">확정</span>
+                        {% elif txn.status == 'ELIMINATED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">상계</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{{ txn.get_status_display }}</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if txn.status == 'DRAFT' %}
+                        <form method="post" action="{% url 'accounting:ic_transaction_confirm' txn.pk %}" class="inline"
+                              onsubmit="return confirm('내부거래를 확정하시겠습니까?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-primary">확정</button>
+                        </form>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">내부거래가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200">
+        {% include "includes/pagination.html" %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

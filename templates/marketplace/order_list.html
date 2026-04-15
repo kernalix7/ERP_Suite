@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load humanize %}
 
-{% block title %}스토어 주문목록 - ERP Suite{% endblock %}
-{% block page_title %}스토어 주문목록{% endblock %}
+{% block title %}{% trans "스토어 주문목록 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "스토어 주문목록" %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">대시보드</a>
@@ -28,7 +29,7 @@
                 <option value="CANCELLED" {% if request.GET.status == 'CANCELLED' %}selected{% endif %}>취소</option>
                 <option value="RETURNED" {% if request.GET.status == 'RETURNED' %}selected{% endif %}>반품</option>
             </select>
-            <button type="submit" class="btn btn-primary">검색</button>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
         </form>
     </div>
 
@@ -37,15 +38,15 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
-                    <th class="px-4 py-3">주문번호</th>
-                    <th class="px-4 py-3">상품명</th>
-                    <th class="px-4 py-3 text-right">수량</th>
-                    <th class="px-4 py-3 text-right">금액</th>
-                    <th class="px-4 py-3">주문자</th>
-                    <th class="px-4 py-3 text-center">상태</th>
-                    <th class="px-4 py-3">주문일</th>
-                    <th class="px-4 py-3">작성일</th>
-                    <th class="px-4 py-3 text-center">관리</th>
+                    <th class="px-4 py-3">{% trans "주문번호" %}</th>
+                    <th class="px-4 py-3">{% trans "상품명" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "수량" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "금액" %}</th>
+                    <th class="px-4 py-3">{% trans "주문자" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "주문일" %}</th>
+                    <th class="px-4 py-3">{% trans "작성일" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">

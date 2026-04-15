@@ -1,20 +1,20 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}작업지시 상세 - {{ object.order_number }} - ERP Suite{% endblock %}
-{% block page_title %}작업지시 상세{% endblock %}
+{% block title %}{% trans "작업지시 상세" %} - {{ object.order_number }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "작업지시 상세" %}{% endblock %}
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
-    <a href="{% url 'production:workorder_update' object.order_number %}" class="btn btn-primary">수정</a>
-    <a href="{% url 'production:workorder_list' %}" class="btn btn-secondary">목록</a>
+    <a href="{% url 'production:workorder_update' object.order_number %}" class="btn btn-primary">{% trans "수정" %}</a>
+    <a href="{% url 'production:workorder_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 </div>
 {% endblock %}
 
 {% block content %}
 <!-- 기본 정보 -->
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">기본 정보</h2>
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "기본 정보" %}</h2>
     <dl class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
         <div>
             <dt class="text-sm font-medium text-gray-500">지시번호</dt>
@@ -40,13 +40,13 @@
             <dt class="text-sm font-medium text-gray-500">상태</dt>
             <dd class="mt-1">
                 {% if object.status == 'PENDING' %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">대기</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "대기" %}</span>
                 {% elif object.status == 'IN_PROGRESS' %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">작업중</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "작업중" %}</span>
                 {% elif object.status == 'COMPLETED' %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">완료</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "완료" %}</span>
                 {% elif object.status == 'CANCELLED' %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">취소</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "취소" %}</span>
                 {% endif %}
             </dd>
         </div>
@@ -76,7 +76,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
         </svg>
         <div class="ml-3">
-            <h3 class="text-sm font-semibold text-amber-800">원자재 부족 경고</h3>
+            <h3 class="text-sm font-semibold text-amber-800">{% trans "원자재 부족 경고" %}</h3>
             <ul class="mt-1 text-sm text-amber-700 space-y-1">
                 {% for s in material_shortages %}
                 <li>[{{ s.material.code }}] {{ s.material.name }} — 필요 {{ s.required|floatformat:0 }}, 현재고 {{ s.available|floatformat:0 }}, <strong>부족 {{ s.shortage|floatformat:0 }}</strong></li>
@@ -90,23 +90,23 @@
 <!-- 생산실적 -->
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 class="text-lg font-semibold text-gray-800">생산실적</h2>
+        <h2 class="text-lg font-semibold text-gray-800">{% trans "생산실적" %}</h2>
         <a href="{% url 'production:record_create' %}?workorder={{ object.pk }}" class="btn btn-secondary text-xs">
             <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
-            실적 등록
+            {% trans "실적 등록" %}
         </a>
     </div>
     <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">실적일</th>
-                    <th class="px-4 py-3 text-right">양품수량</th>
-                    <th class="px-4 py-3 text-right">불량수량</th>
-                    <th class="px-4 py-3 text-right">합계</th>
-                    <th class="px-4 py-3">작업자</th>
+                    <th class="px-4 py-3">{% trans "실적일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "양품수량" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "불량수량" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "합계" %}</th>
+                    <th class="px-4 py-3">{% trans "작업자" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -121,7 +121,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="5" class="px-6 py-12 text-center text-gray-400">
-                        등록된 생산실적이 없습니다.
+                        {% trans "등록된 생산실적이 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "문서 카테고리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "문서 카테고리" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'document:category_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "카테고리 등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "코드" %}</th>
+                    <th class="px-4 py-3">{% trans "카테고리명" %}</th>
+                    <th class="px-4 py-3">{% trans "상위 카테고리" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "보존기간" %}</th>
+                    <th class="px-4 py-3">{% trans "설명" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for category in categories %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono text-gray-700">{{ category.code }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ category.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ category.parent.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ category.retention_years }}{% trans "년" %}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ category.description|truncatechars:50|default:"-" }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <a href="{% url 'document:category_update' category.pk %}" class="text-blue-600 hover:underline text-xs">{% trans "수정" %}</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 카테고리가 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

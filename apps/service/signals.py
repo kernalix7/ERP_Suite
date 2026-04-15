@@ -46,15 +46,22 @@ def auto_ar_on_service_completed(sender, instance, **kwargs):
     from apps.sales.models import Partner
 
     # 고객 → Partner 매칭 (고객명 기준)
-    partner = Partner.objects.filter(
+    partners = Partner.objects.filter(
         name=instance.customer.name, is_active=True,
-    ).first()
-    if not partner:
+    )
+    partner_count = partners.count()
+    if partner_count == 0:
         logger.warning(
             'ServiceRequest %s: 고객 "%s"에 매칭된 거래처 없음 — AR 미생성',
             instance.request_number, instance.customer.name,
         )
         return
+    if partner_count > 1:
+        logger.warning(
+            'ServiceRequest %s: 고객 "%s"에 매칭된 거래처가 %d건 — 첫 번째 사용',
+            instance.request_number, instance.customer.name, partner_count,
+        )
+    partner = partners.first()
 
     # 이미 AR이 있으면 스킵 (중복 방지)
     if AccountReceivable.objects.filter(

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}방문 예약 목록{% endblock %}
+{% block page_title %}방문자 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'visitor:visit_request_create' %}" class="btn btn-primary">+ 방문 예약</a>
+<a href="{% url 'visitor:check_in' %}" class="btn btn-secondary">체크인</a>
+<a href="{% url 'visitor:visit_log_list' %}" class="btn btn-secondary">방문 기록</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <input type="text" name="q" value="{{ request.GET.q }}" placeholder="방문자명/번호 검색..." class="form-input flex-1 min-w-[200px]">
+            <select name="status" class="form-input w-auto">
+                <option value="">전체 상태</option>
+                <option value="PENDING">승인대기</option>
+                <option value="APPROVED">승인</option>
+                <option value="VISITED">방문완료</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">검색</button>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">방문번호</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">방문자</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">소속</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">호스트</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">목적</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">예정일시</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for req in visit_requests %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-mono">
+                        <a href="{% url 'visitor:visit_request_detail' req.pk %}" class="text-blue-600 hover:underline">{{ req.visit_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-sm font-medium">{{ req.visitor.name }}</td>
+                    <td class="px-4 py-3 text-sm">{{ req.visitor.company }}</td>
+                    <td class="px-4 py-3 text-sm">{{ req.host.get_full_name|default:req.host.username }}</td>
+                    <td class="px-4 py-3 text-sm">{{ req.purpose.name }}</td>
+                    <td class="px-4 py-3 text-sm">{{ req.scheduled_at|date:"Y-m-d H:i" }}</td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="px-2 py-0.5 rounded-full text-xs {% if req.status == 'APPROVED' %}bg-green-100 text-green-800{% elif req.status == 'PENDING' %}bg-yellow-100 text-yellow-800{% elif req.status == 'VISITED' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {{ req.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">방문 예약이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "partials/pagination.html" %}
+</div>
+{% endblock %}

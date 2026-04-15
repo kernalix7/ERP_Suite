@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}법인 관리 - ERP Suite{% endblock %}
+{% block page_title %}법인 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:company_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    법인 등록
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">법인코드</th>
+                    <th class="px-4 py-3">법인명</th>
+                    <th class="px-4 py-3">상위법인</th>
+                    <th class="px-4 py-3">통화</th>
+                    <th class="px-4 py-3">사업자번호</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for company in companies %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ company.code }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ company.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ company.parent.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ company.currency.code|default:"KRW" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ company.business_number|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'accounting:company_update' company.pk %}" class="btn btn-sm btn-secondary">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">등록된 법인이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,15 +1,16 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load humanize %}
 
-{% block title %}투자자 목록 - ERP Suite{% endblock %}
-{% block page_title %}투자자 목록{% endblock %}
+{% block title %}{% trans "투자자 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "투자자 목록" %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'investment:investor_create' %}" class="btn btn-primary">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
-    등록
+    {% trans "등록" %}
 </a>
 <a href="{% url 'investment:investor_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -21,40 +22,38 @@
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
     </svg>
-    가져오기
+    {% trans "가져오기" %}
 </a>
 {% endblock %}
 
 {% block content %}
 <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-    <!-- 검색 -->
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-wrap gap-3">
             <div class="flex-1 min-w-[200px] relative">
                 <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
-                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="투자자명, 소속회사 검색..."
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans "투자자명, 소속회사 검색..." %}"
                        class="form-input pl-10">
             </div>
-            <button type="submit" class="btn btn-primary">검색</button>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
             {% if request.GET.q %}
-            <a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">초기화</a>
+            <a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">{% trans "초기화" %}</a>
             {% endif %}
         </form>
     </div>
 
-    <!-- 테이블 -->
     <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">코드</th>
-                    <th class="px-4 py-3">투자자명</th>
-                    <th class="px-4 py-3">소속회사</th>
-                    <th class="px-4 py-3">연락처</th>
-                    <th class="px-4 py-3 text-right">현재지분율</th>
-                    <th class="px-4 py-3 text-right">총투자금</th>
+                    <th class="px-4 py-3">{% trans "코드" %}</th>
+                    <th class="px-4 py-3">{% trans "투자자명" %}</th>
+                    <th class="px-4 py-3">{% trans "소속회사" %}</th>
+                    <th class="px-4 py-3">{% trans "연락처" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "현재지분율" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "총투자금" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -66,30 +65,29 @@
                     <td class="px-4 py-3 text-gray-600">{{ investor.company|default:"-" }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ investor.contact|default:"-" }}</td>
                     <td class="px-4 py-3 text-right text-gray-900">{{ investor.current_share }}%</td>
-                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ investor.total_invested|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ investor.total_invested|intcomma }}{% trans "원" %}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">등록된 투자자가 없습니다.</td>
+                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 투자자가 없습니다." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <!-- 페이지네이션 -->
     {% if is_paginated %}
     <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <p class="text-sm text-gray-500">{% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}</p>
         <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
             <a href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
             {% endfor %}
             {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
             {% endif %}
         </nav>
     </div>

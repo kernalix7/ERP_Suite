@@ -125,7 +125,7 @@
 {{ months_label|json_script:"months-label-data" }}
 {{ monthly_budget|json_script:"monthly-budget-data" }}
 {{ monthly_actual|json_script:"monthly-actual-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('budgetChart').getContext('2d');
     const monthsLabel = JSON.parse(document.getElementById('months-label-data').textContent);

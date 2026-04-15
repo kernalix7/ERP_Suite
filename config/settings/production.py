@@ -1,5 +1,8 @@
 from .base import *  # noqa: F401, F403
 import logging
+import os
+
+from csp.constants import NONCE
 
 DEBUG = False
 
@@ -22,15 +25,19 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_SSL_REDIRECT = True
 
-# Content Security Policy (django-csp v4 format)
+# Content Security Policy (django-csp v4 format — nonce 기반)
 # NOTE: 모든 프론트엔드 라이브러리가 로컬 정적 파일로 전환됨 (static/vendor/).
-# 외부 CDN 도메인 불필요. unsafe-inline은 인라인 스크립트/스타일에 여전히 필요.
-# 장기적으로 nonce 기반 CSP로 전환 권장.
+# 외부 CDN 도메인 불필요.
+# script-src: unsafe-inline 완전 제거, nonce 기반만 허용.
+# style-src: nonce 기반 + unsafe-inline 병행 (인라인 style="" 속성 허용 위해).
+#   — CSP3에서 nonce 존재 시 <style> 블록의 unsafe-inline은 무시되므로
+#     실질적으로 <style> 블록은 nonce 필수, style="" 속성만 unsafe-inline 적용.
+# 모든 인라인 <script>/<style>에 nonce="{{ request.csp_nonce }}" 필수.
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'"],
-        "style-src": ["'self'", "'unsafe-inline'"],
+        "script-src": ["'self'", NONCE],
+        "style-src": ["'self'", NONCE, "'unsafe-inline'"],
         "font-src": ["'self'"],
         "img-src": ["'self'", "data:", "blob:"],
         "connect-src": ["'self'", "wss:"],
@@ -42,9 +49,10 @@ CONTENT_SECURITY_POLICY = {
 }
 
 # Session
-SESSION_COOKIE_AGE = 28800  # 8시간
+SESSION_COOKIE_AGE = 3600  # 1시간
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+MAX_CONCURRENT_SESSIONS = 3
 
 # Production startup validation
 _logger = logging.getLogger('django')
@@ -61,3 +69,26 @@ if SECRET_KEY.startswith('django-insecure-') or len(SECRET_KEY) < 50:  # noqa: F
 
 if not SENTRY_DSN:  # noqa: F405
     _logger.warning('SENTRY_DSN이 설정되지 않았습니다. 프로덕션 에러 모니터링이 비활성화됩니다.')
+
+# ── SIEM / Security Logging ─────────────────────────────────
+_security_log_dir = os.path.join(BASE_DIR, 'local', 'logs')  # noqa: F405
+os.makedirs(_security_log_dir, exist_ok=True)
+
+LOGGING['formatters']['json'] = {  # noqa: F405
+    '()': 'apps.core.logging.JSONFormatter',
+}
+LOGGING['handlers']['security_file'] = {  # noqa: F405
+    'level': 'INFO',
+    'class': 'logging.handlers.RotatingFileHandler',
+    'filename': os.path.join(_security_log_dir, 'security.log'),
+    'maxBytes': 50 * 1024 * 1024,  # 50MB
+    'backupCount': 10,
+    'formatter': 'json',
+}
+LOGGING['loggers']['security'] = {  # noqa: F405
+    'handlers': ['security_file', 'console'],
+    'level': 'INFO',
+    'propagate': False,
+}
+# Route axes (login failures) through security logger as well
+LOGGING['loggers']['axes']['handlers'] = ['file', 'security_file']  # noqa: F405

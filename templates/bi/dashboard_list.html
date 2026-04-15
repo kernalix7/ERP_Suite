@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}BI 대시보드 - ERP Suite{% endblock %}
+{% block page_title %}BI 대시보드{% endblock %}
+
+{% block header_actions %}
+{% if user.role == 'admin' or user.role == 'manager' %}
+<a href="{% url 'bi:dashboard_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    새 대시보드
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for dashboard in dashboards %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h3 class="font-semibold text-gray-900">{{ dashboard.name }}</h3>
+            {% if dashboard.is_default %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">기본</span>
+            {% endif %}
+        </div>
+        <p class="text-sm text-gray-500 mb-4">{{ dashboard.description|default:"-"|truncatewords:20 }}</p>
+        <div class="text-xs text-gray-400 mb-3">
+            패널 {{ dashboard.panels.count }}개 | 수정 {{ dashboard.updated_at|date:"Y-m-d" }}
+        </div>
+        {% if user.role == 'admin' or user.role == 'manager' %}
+        <div class="flex gap-2">
+            <a href="{% url 'bi:dashboard_edit' dashboard.pk %}" class="btn btn-sm btn-primary">편집</a>
+            <form method="post" action="{% url 'bi:dashboard_delete' dashboard.pk %}" class="inline"
+                  onsubmit="return confirm('삭제하시겠습니까?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center text-gray-400 py-12">대시보드가 없습니다.</div>
+    {% endfor %}
+</div>
+
+{% if is_paginated %}
+<div class="mt-4 flex justify-center">
+    {% include "core/pagination.html" %}
+</div>
+{% endif %}
+{% endblock %}

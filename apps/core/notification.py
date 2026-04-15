@@ -6,6 +6,8 @@ from django.db import models
 
 logger = logging.getLogger(__name__)
 
+_EMAIL_NOTIFY_TYPES_DEFAULT = 'APPROVAL,OVERDUE,STOCK_LOW,SLA_BREACH'
+
 
 class Notification(models.Model):
     class NotiType(models.TextChoices):
@@ -35,13 +37,26 @@ class Notification(models.Model):
         return self.title
 
 
+def _get_email_notify_types():
+    """SystemConfig에서 이메일 발송 대상 알림 유형 목록 조회"""
+    try:
+        from apps.core.system_config import SystemConfig
+        raw = SystemConfig.get_value('EMAIL', 'EMAIL_NOTIFY_TYPES', _EMAIL_NOTIFY_TYPES_DEFAULT)
+        return [t.strip() for t in raw.split(',') if t.strip()]
+    except Exception:
+        return [t.strip() for t in _EMAIL_NOTIFY_TYPES_DEFAULT.split(',')]
+
+
 def create_notification(users, title, message, noti_type='SYSTEM', link=''):
-    """여러 사용자에게 알림 생성 + 실시간 WebSocket 전송"""
+    """여러 사용자에게 알림 생성 + 실시간 WebSocket 전송 + 이메일 알림"""
     from apps.accounts.models import User
     if isinstance(users, str) and users == 'all':
         users = User.objects.filter(is_active=True)
     elif isinstance(users, str):
         users = User.objects.filter(role__in=[users], is_active=True)
+
+    # QuerySet을 list로 평가 (이메일 루프에서 재사용하기 위함)
+    users = list(users)
 
     notifications = []
     for user in users:
@@ -60,6 +75,26 @@ def create_notification(users, title, message, noti_type='SYSTEM', link=''):
     }
     for user in users:
         send_realtime_notification(user.id, notification_data)
+
+    # 이메일 알림 전송 (해당 유형이 EMAIL_NOTIFY_TYPES에 포함된 경우)
+    email_notify_types = _get_email_notify_types()
+    if noti_type in email_notify_types:
+        _send_email_notifications(users, title, message)
+
+
+def _send_email_notifications(users, title, message):
+    """이메일 알림 일괄 발송 — 실패 시 예외 전파 금지"""
+    try:
+        from apps.core.email import send_notification_email
+        for user in users:
+            if not getattr(user, 'email', None):
+                continue
+            try:
+                send_notification_email(user=user, subject=title, message=message)
+            except Exception:
+                logger.warning('이메일 알림 발송 실패 (user=%s)', getattr(user, 'username', user), exc_info=True)
+    except Exception:
+        logger.warning('이메일 알림 모듈 로딩 실패', exc_info=True)
 
 
 def send_realtime_notification(user_id, notification_data):

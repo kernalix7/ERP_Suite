@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load humanize %}
 
-{% block title %}가져오기 - 견적생성 - ERP Suite{% endblock %}
-{% block page_title %}외부 스토어 주문 가져오기{% endblock %}
+{% block title %}{% trans "가져오기 - 견적생성 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "외부 스토어 주문 가져오기" %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">대시보드</a>
@@ -44,12 +45,12 @@
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상품명</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문자</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">금액</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">견적서</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "주문번호" %}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "상품명" %}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "주문자" %}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "금액" %}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "견적서" %}</th>
             </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">

@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% load i18n %}
 
 {% block title %}수리이력 {{ form.instance.pk|yesno:"수정,등록" }} - ERP Suite{% endblock %}
 {% block page_title %}수리이력 {{ form.instance.pk|yesno:"수정,등록" }}{% endblock %}
 
 {% block header_actions %}
 {% if service_request %}
-<a href="{% url 'service:request_detail' service_request.request_number %}" class="btn btn-secondary">AS 상세로</a>
+<a href="{% url 'service:request_detail' service_request.request_number %}" class="btn btn-secondary">{% trans "AS 상세로" %}</a>
 {% endif %}
-<a href="{% url 'service:request_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'service:request_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -17,15 +18,15 @@
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <div class="flex items-center gap-4 text-sm">
             <div>
-                <span class="text-blue-600 font-medium">AS번호:</span>
+                <span class="text-blue-600 font-medium">{% trans "AS번호" %}:</span>
                 <span class="text-blue-900">{{ service_request.request_number }}</span>
             </div>
             <div>
-                <span class="text-blue-600 font-medium">고객:</span>
+                <span class="text-blue-600 font-medium">{% trans "고객" %}:</span>
                 <span class="text-blue-900">{{ service_request.customer.name|default:"-" }}</span>
             </div>
             <div>
-                <span class="text-blue-600 font-medium">제품:</span>
+                <span class="text-blue-600 font-medium">{% trans "제품" %}:</span>
                 <span class="text-blue-900">{{ service_request.product.name|default:"-" }}</span>
             </div>
         </div>
@@ -53,11 +54,11 @@
         </div>
         <div class="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-end gap-3 border-t border-gray-200">
             {% if service_request %}
-            <a href="{% url 'service:request_detail' service_request.request_number %}" class="btn btn-secondary">취소</a>
+            <a href="{% url 'service:request_detail' service_request.request_number %}" class="btn btn-secondary">{% trans "취소" %}</a>
             {% else %}
-            <a href="{% url 'service:request_list' %}" class="btn btn-secondary">취소</a>
+            <a href="{% url 'service:request_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
             {% endif %}
-            <button type="submit" class="btn btn-primary">저장</button>
+            <button type="submit" class="btn btn-primary">{% trans "저장" %}</button>
         </div>
     </form>
 </div>

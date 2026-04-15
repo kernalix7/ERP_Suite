@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "활성 세션 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "활성 세션 관리" %}{% endblock %}
+
+{% block header_actions %}
+{% if sessions|length > 1 %}
+<form method="post" action="{% url 'accounts:terminate_all_sessions' %}" class="inline"
+      onsubmit="return confirm('{% trans "현재 세션을 제외한 모든 세션을 종료하시겠습니까?" %}')">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">{% trans "다른 세션 모두 종료" %}</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <p class="text-sm text-gray-500">{% trans "현재 로그인된 세션 목록입니다. 의심스러운 세션을 종료할 수 있습니다." %}</p>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <caption class="sr-only">{% trans "활성 세션 목록" %}</caption>
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3" scope="col">{% trans "IP 주소" %}</th>
+                    <th class="px-4 py-3" scope="col">{% trans "브라우저" %}</th>
+                    <th class="px-4 py-3" scope="col">{% trans "최근 활동" %}</th>
+                    <th class="px-4 py-3 text-center" scope="col">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-center" scope="col">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for session in sessions %}
+                <tr class="hover:bg-gray-50 transition-colors {% if session.session_key == current_session_key %}bg-green-50{% endif %}">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ session.ip_address|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ session.user_agent|truncatechars:80|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ session.last_activity|date:"Y-m-d H:i" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if session.session_key == current_session_key %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "현재 세션" %}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "기타" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if session.session_key != current_session_key %}
+                        <form method="post" action="{% url 'accounts:terminate_session' session.pk %}" class="inline"
+                              onsubmit="return confirm('{% trans "이 세션을 종료하시겠습니까?" %}')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:text-red-700 text-sm">{% trans "종료" %}</button>
+                        </form>
+                        {% else %}
+                        <span class="text-gray-400 text-sm">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "활성 세션이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

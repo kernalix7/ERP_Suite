@@ -162,6 +162,7 @@ class AttendanceAdminView(ManagerRequiredMixin, ListView):
     model = AttendanceRecord
     template_name = 'attendance/admin_list.html'
     context_object_name = 'records'
+    paginate_by = 20
 
     def get_queryset(self):
         today = timezone.localdate()

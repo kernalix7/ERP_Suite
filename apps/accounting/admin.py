@@ -6,6 +6,11 @@ from .models import (
     TaxRate, TaxInvoice, FixedCost, WithholdingTax, AccountCode, Voucher, VoucherLine,
     AccountReceivable, AccountPayable, Payment, BankAccount,
     AccountTransfer, PaymentDistribution,
+    CostSettlement, CostSettlementItem, SalesSettlement, SalesSettlementOrder,
+    Budget, ClosingPeriod, CostCenter, DashboardWidget,
+    CreditCard, CardTransaction, CardBilling,
+    Company, InterCompanyTransaction, ConsolidationPeriod, ConsolidatedReport,
+    BankConnection, BankStatement, BankTransaction,
 )
 
 
@@ -108,3 +113,133 @@ class AccountTransferAdmin(SimpleHistoryAdmin):
 @admin.register(PaymentDistribution)
 class PaymentDistributionAdmin(SimpleHistoryAdmin):
     list_display = ('payment', 'bank_account', 'amount')
+
+
+class CostSettlementItemInline(admin.TabularInline):
+    model = CostSettlementItem
+    extra = 0
+    raw_id_fields = ('product',)
+
+
+@admin.register(CostSettlement)
+class CostSettlementAdmin(SimpleHistoryAdmin):
+    list_display = ('settlement_number', 'period_type', 'period_start', 'period_end', 'total_inventory_value')
+    list_filter = ('period_type',)
+    inlines = [CostSettlementItemInline]
+
+
+class SalesSettlementOrderInline(admin.TabularInline):
+    model = SalesSettlementOrder
+    extra = 0
+    raw_id_fields = ('order',)
+
+
+@admin.register(SalesSettlement)
+class SalesSettlementAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'settlement_number', 'settlement_date', 'total_revenue',
+        'total_cost', 'total_profit', 'commission_paid',
+    )
+    list_filter = ('commission_paid',)
+    inlines = [SalesSettlementOrderInline]
+
+
+@admin.register(Budget)
+class BudgetAdmin(SimpleHistoryAdmin):
+    list_display = ('account', 'year', 'month', 'budget_amount')
+    list_filter = ('year', 'month')
+    raw_id_fields = ('account',)
+
+
+@admin.register(ClosingPeriod)
+class ClosingPeriodAdmin(SimpleHistoryAdmin):
+    list_display = ('year', 'month', 'is_closed', 'closed_at', 'closed_by')
+    list_filter = ('year', 'is_closed')
+
+
+@admin.register(CostCenter)
+class CostCenterAdmin(SimpleHistoryAdmin):
+    list_display = ('code', 'name', 'center_type', 'parent', 'department', 'manager')
+    list_filter = ('center_type',)
+    search_fields = ('code', 'name')
+    raw_id_fields = ('parent', 'department', 'manager')
+
+
+@admin.register(DashboardWidget)
+class DashboardWidgetAdmin(SimpleHistoryAdmin):
+    list_display = ('name', 'widget_type', 'sort_order', 'is_visible', 'user')
+    list_filter = ('widget_type', 'is_visible')
+
+
+@admin.register(CreditCard)
+class CreditCardAdmin(SimpleHistoryAdmin):
+    list_display = ('name', 'card_type', 'card_issuer', 'card_number_last4', 'cardholder', 'monthly_limit', 'used_amount')
+    list_filter = ('card_type', 'card_issuer')
+    search_fields = ('name', 'cardholder')
+    raw_id_fields = ('employee', 'payment_account', 'account_code')
+
+
+@admin.register(CardTransaction)
+class CardTransactionAdmin(SimpleHistoryAdmin):
+    list_display = ('card', 'transaction_date', 'merchant_name', 'amount', 'category', 'is_cancelled')
+    list_filter = ('category', 'is_cancelled')
+    search_fields = ('merchant_name', 'authorization_number')
+    raw_id_fields = ('card', 'partner', 'voucher', 'billing')
+
+
+@admin.register(CardBilling)
+class CardBillingAdmin(SimpleHistoryAdmin):
+    list_display = ('card', 'billing_month', 'total_amount', 'paid_amount', 'status')
+    list_filter = ('status',)
+    raw_id_fields = ('card', 'payment')
+
+
+@admin.register(Company)
+class CompanyAdmin(SimpleHistoryAdmin):
+    list_display = ('code', 'name', 'legal_name', 'tax_id', 'country_code', 'parent')
+    list_filter = ('country_code',)
+    search_fields = ('code', 'name', 'legal_name')
+    raw_id_fields = ('parent', 'currency')
+
+
+@admin.register(InterCompanyTransaction)
+class InterCompanyTransactionAdmin(SimpleHistoryAdmin):
+    list_display = ('from_company', 'to_company', 'transaction_date', 'amount', 'status')
+    list_filter = ('status',)
+    raw_id_fields = ('from_company', 'to_company', 'voucher_from', 'voucher_to')
+
+
+@admin.register(ConsolidationPeriod)
+class ConsolidationPeriodAdmin(SimpleHistoryAdmin):
+    list_display = ('year', 'month', 'status', 'consolidated_at')
+    list_filter = ('year', 'status')
+
+
+@admin.register(ConsolidatedReport)
+class ConsolidatedReportAdmin(SimpleHistoryAdmin):
+    list_display = ('period', 'report_type', 'generated_at')
+    list_filter = ('report_type',)
+    raw_id_fields = ('period',)
+
+
+@admin.register(BankConnection)
+class BankConnectionAdmin(SimpleHistoryAdmin):
+    list_display = ('bank_name', 'bank_code', 'account_number', 'account_holder', 'connection_type', 'status')
+    list_filter = ('connection_type', 'status')
+    search_fields = ('bank_name', 'account_number')
+    raw_id_fields = ('company',)
+
+
+@admin.register(BankStatement)
+class BankStatementAdmin(SimpleHistoryAdmin):
+    list_display = ('connection', 'statement_date', 'opening_balance', 'closing_balance', 'transaction_count', 'status')
+    list_filter = ('status',)
+    raw_id_fields = ('connection',)
+
+
+@admin.register(BankTransaction)
+class BankTransactionAdmin(SimpleHistoryAdmin):
+    list_display = ('statement', 'transaction_date', 'description', 'amount', 'match_status')
+    list_filter = ('match_status',)
+    search_fields = ('description', 'counterparty', 'reference_number')
+    raw_id_fields = ('statement', 'matched_voucher', 'matched_payment')

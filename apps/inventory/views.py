@@ -129,6 +129,9 @@ class CategoryListView(LoginRequiredMixin, ListView):
     context_object_name = 'categories'
     paginate_by = 20
 
+    def get_queryset(self):
+        return super().get_queryset().select_related('parent')
+
 
 class CategoryCreateView(ManagerRequiredMixin, CreateView):
     model = Category

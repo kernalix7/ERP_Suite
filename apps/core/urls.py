@@ -44,4 +44,11 @@ urlpatterns = [
     path('audit/login-history/', LoginHistoryView.as_view(), name='audit_login_history'),
     path('audit/audit-log/', AuditAccessLogView.as_view(), name='audit_audit_log'),
     path('audit/export/', AuditExcelExportView.as_view(), name='audit_export'),
+    # 알림센터
+    path('notifications/preferences/', views.NotificationPreferenceView.as_view(), name='notification_preferences'),
+    path('notifications/log/', views.NotificationLogView.as_view(), name='notification_log'),
+    path('notifications/dashboard/', views.NotificationDashboardView.as_view(), name='notification_dashboard'),
+    # PWA 푸시
+    path('push/subscribe/', views.PushSubscribeView.as_view(), name='push_subscribe'),
+    path('push/unsubscribe/', views.PushUnsubscribeView.as_view(), name='push_unsubscribe'),
 ]

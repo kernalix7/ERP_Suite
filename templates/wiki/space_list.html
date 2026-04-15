@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}위키 공간 목록{% endblock %}
+{% block page_title %}지식베이스 / 위키{% endblock %}
+
+{% block header_actions %}
+{% if request.user.is_staff %}
+<a href="{% url 'wiki:space_create' %}" class="btn btn-primary">+ 공간 만들기</a>
+{% endif %}
+<a href="{% url 'wiki:article_search' %}" class="btn btn-secondary">검색</a>
+<a href="{% url 'wiki:recent_changes' %}" class="btn btn-secondary">최근 변경</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for space in spaces %}
+    <div class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-sm">
+        <div class="flex items-start justify-between mb-2">
+            <div>
+                <h3 class="font-semibold text-lg">{{ space.name }}</h3>
+                <span class="text-xs font-mono text-gray-400">{{ space.code }}</span>
+            </div>
+            {% if not space.is_public %}
+            <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">비공개</span>
+            {% endif %}
+        </div>
+        {% if space.description %}
+        <p class="text-sm text-gray-600 mb-3">{{ space.description|truncatechars:80 }}</p>
+        {% endif %}
+        <div class="flex gap-3 text-sm">
+            <a href="{% url 'wiki:article_list' %}?space={{ space.pk }}" class="text-blue-600 hover:underline">문서 보기</a>
+            <a href="{% url 'wiki:category_tree' space.code %}" class="text-gray-500 hover:underline">카테고리</a>
+            {% if request.user.is_staff %}
+            <a href="{% url 'wiki:article_create' %}?space={{ space.pk }}" class="text-green-600 hover:underline">+ 문서 작성</a>
+            {% endif %}
+        </div>
+        {% if space.owner %}
+        <p class="text-xs text-gray-400 mt-2">소유자: {{ space.owner.get_full_name|default:space.owner.username }}</p>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="col-span-3 bg-white rounded-lg border border-gray-200 p-10 text-center text-gray-500">
+        등록된 위키 공간이 없습니다.
+    </div>
+    {% endfor %}
+</div>
+
+<div class="mt-6 bg-white rounded-lg border border-gray-200 p-4 flex gap-4 text-sm">
+    <a href="{% url 'wiki:popular_articles' %}" class="text-blue-600 hover:underline">인기 문서</a>
+    <a href="{% url 'wiki:my_articles' %}" class="text-blue-600 hover:underline">내가 쓴 문서</a>
+    <a href="{% url 'wiki:recent_changes' %}" class="text-blue-600 hover:underline">최근 변경</a>
+</div>
+{% endblock %}

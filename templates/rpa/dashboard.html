@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}자동화 현황 - ERP Suite{% endblock %}
+{% block page_title %}자동화 현황{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'rpa:rule_list' %}" class="btn btn-secondary">규칙 관리</a>
+<a href="{% url 'rpa:log_list' %}" class="btn btn-secondary">실행 로그</a>
+<a href="{% url 'rpa:schedule_list' %}" class="btn btn-secondary">스케줄</a>
+{% endblock %}
+
+{% block content %}
+<!-- KPI Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">활성 규칙</p>
+        <p class="text-2xl font-bold text-gray-900">{{ total_rules }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">총 실행횟수</p>
+        <p class="text-2xl font-bold text-gray-900">{{ total_runs }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">성공률</p>
+        <p class="text-2xl font-bold {% if success_rate >= 90 %}text-green-600{% elif success_rate >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}">
+            {{ success_rate }}%
+        </p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">평균 소요시간</p>
+        <p class="text-2xl font-bold text-gray-900">{{ avg_duration|floatformat:0 }}ms</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- Top Rules -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-3">실행 빈도 TOP 5</h3>
+        {% for rule in top_rules %}
+        <div class="flex items-center justify-between py-2 {% if not forloop.last %}border-b border-gray-100{% endif %}">
+            <a href="{% url 'rpa:rule_detail' rule.pk %}" class="text-sm text-blue-600 hover:underline">{{ rule.name }}</a>
+            <span class="text-sm font-mono text-gray-600">{{ rule.run_count }}회</span>
+        </div>
+        {% empty %}
+        <p class="text-gray-400 text-sm">데이터 없음</p>
+        {% endfor %}
+    </div>
+
+    <!-- Recent Errors -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-3">최근 오류</h3>
+        {% for log in recent_errors %}
+        <div class="py-2 {% if not forloop.last %}border-b border-gray-100{% endif %}">
+            <div class="flex items-center justify-between">
+                <a href="{% url 'rpa:rule_detail' log.rule.pk %}" class="text-sm text-blue-600 hover:underline">{{ log.rule.name }}</a>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                    {% if log.status == 'PARTIAL' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                    {{ log.get_status_display }}
+                </span>
+            </div>
+            <p class="text-xs text-red-500 mt-1 truncate">{{ log.error_message|truncatewords:15 }}</p>
+            <p class="text-xs text-gray-400">{{ log.triggered_at|date:"Y-m-d H:i" }}</p>
+        </div>
+        {% empty %}
+        <p class="text-gray-400 text-sm">오류 없음</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

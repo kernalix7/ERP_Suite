@@ -51,6 +51,8 @@ class AttendanceRecord(BaseModel):
         ]
         indexes = [
             models.Index(fields=['status'], name='idx_attendance_status'),
+            models.Index(fields=['user', 'date'], name='idx_attend_user_date'),
+            models.Index(fields=['status', 'date'], name='idx_attend_status_date'),
         ]
 
     def __str__(self):
@@ -170,6 +172,9 @@ class AnnualLeaveBalance(BaseModel):
         verbose_name_plural = '연차 잔여'
         unique_together = ['user', 'year']
         ordering = ['-year']
+        indexes = [
+            models.Index(fields=['user', 'year'], name='idx_leave_bal_user_year'),
+        ]
 
     def __str__(self):
         return f'{self.user} - {self.year}년 연차'

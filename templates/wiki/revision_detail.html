@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ revision.article.title }} - 버전 {{ revision.revision_number }}{% endblock %}
+{% block page_title %}{{ revision.article.title }} — 버전 {{ revision.revision_number }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'wiki:article_detail' revision.article.slug %}" class="btn btn-secondary">현재 문서</a>
+<a href="{% url 'wiki:article_history' revision.article.slug %}" class="btn btn-secondary">전체 이력</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+    <div class="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-500 flex flex-wrap gap-4">
+        <span>버전: <strong>v{{ revision.revision_number }}</strong></span>
+        <span>수정자: {{ revision.revised_by.get_full_name|default:revision.revised_by.username }}</span>
+        <span>수정일: {{ revision.created_at|date:"Y-m-d H:i" }}</span>
+        {% if revision.change_summary %}<span>변경 요약: {{ revision.change_summary }}</span>{% endif %}
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <div class="prose max-w-none">{{ revision.content|linebreaks }}</div>
+    </div>
+</div>
+{% endblock %}

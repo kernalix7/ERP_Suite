@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}알림 이력 - ERP Suite{% endblock %}
+{% block page_title %}알림 발송 이력{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'core:notification_preferences' %}" class="btn btn-secondary">알림 설정</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">제목</th>
+                    <th class="px-4 py-3">채널</th>
+                    <th class="px-4 py-3">상태</th>
+                    <th class="px-4 py-3">발송일</th>
+                    <th class="px-4 py-3">전달일</th>
+                    <th class="px-4 py-3">읽음</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for log in logs %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ log.subject|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">
+                        {% if log.channel %}{{ log.channel.name }}{% else %}-{% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            {% if log.status == 'DELIVERED' or log.status == 'READ' %}bg-green-100 text-green-800
+                            {% elif log.status == 'SENT' %}bg-blue-100 text-blue-800
+                            {% elif log.status == 'FAILED' %}bg-red-100 text-red-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ log.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ log.sent_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ log.delivered_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ log.read_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">알림 이력이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

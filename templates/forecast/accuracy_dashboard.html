@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "예측 정확도 대시보드" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "예측 정확도 대시보드" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'forecast:forecast_list' %}" class="btn btn-secondary">{% trans "예측 목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+        <p class="text-sm text-gray-500">{% trans "평균 정확도" %}</p>
+        <p class="text-4xl font-bold mt-2
+            {% if avg_accuracy >= 90 %}text-green-600{% elif avg_accuracy >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}">
+            {{ avg_accuracy|floatformat:1 }}%
+        </p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+        <p class="text-sm text-gray-500">{% trans "총 예측 건수" %}</p>
+        <p class="text-4xl font-bold text-blue-600 mt-2">{{ total_forecasts }}</p>
+    </div>
+</div>
+
+{% if by_method %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "예측방법별 정확도" %}</h3>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "방법" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "건수" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "평균 정확도" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for m in by_method %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-medium">{{ m.method }}</td>
+                    <td class="px-4 py-3 text-right">{{ m.count }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="{% if m.avg_accuracy >= 90 %}text-green-600{% elif m.avg_accuracy >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                            {{ m.avg_accuracy|floatformat:1 }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

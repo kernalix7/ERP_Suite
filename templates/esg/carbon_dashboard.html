@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "탄소 배출 현황" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "탄소 배출 현황" %}{% endblock %}
+
+{% block header_actions %}
+{% if user.role == 'admin' or user.role == 'manager' %}
+<a href="{% url 'esg:carbon_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "배출 데이터 등록" %}
+</a>
+{% endif %}
+<a href="{% url 'esg:carbon_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "총 배출량 (kg)" %}</p>
+        <p class="text-3xl font-bold text-gray-800 mt-1">{{ total_emission|floatformat:0 }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "Scope 1 (직접배출)" %}</p>
+        <p class="text-3xl font-bold text-red-600 mt-1">{{ scope1|floatformat:0 }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "Scope 2 (간접-전력)" %}</p>
+        <p class="text-3xl font-bold text-orange-600 mt-1">{{ scope2|floatformat:0 }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "Scope 3 (기타간접)" %}</p>
+        <p class="text-3xl font-bold text-yellow-600 mt-1">{{ scope3|floatformat:0 }}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">{% trans "월별 배출량 추이 (올해)" %}</h3>
+        <canvas id="monthlyChart" height="200"></canvas>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">{% trans "Scope별 비율" %}</h3>
+        <canvas id="scopeChart" height="200"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/vendor/chart.js/chart.umd.min.js"></script>
+{{ monthly_emissions|json_script:"monthly-emissions" }}
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    const monthlyData = JSON.parse(document.getElementById('monthly-emissions').textContent);
+    const labels = Array.from({length: 12}, (_, i) => (i + 1) + '월');
+    const data = Array(12).fill(0);
+    monthlyData.forEach(item => {
+        if (item.period__month) data[item.period__month - 1] = parseFloat(item.total) || 0;
+    });
+
+    new Chart(document.getElementById('monthlyChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '배출량(kg)',
+                data: data,
+                backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                borderColor: 'rgb(16, 185, 129)',
+                borderWidth: 1,
+            }],
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } },
+        },
+    });
+
+    new Chart(document.getElementById('scopeChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Scope 1', 'Scope 2', 'Scope 3'],
+            datasets: [{
+                data: [{{ scope1 }}, {{ scope2 }}, {{ scope3 }}],
+                backgroundColor: [
+                    'rgba(239, 68, 68, 0.7)',
+                    'rgba(249, 115, 22, 0.7)',
+                    'rgba(234, 179, 8, 0.7)',
+                ],
+            }],
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } },
+    });
+})();
+</script>
+{% endblock %}

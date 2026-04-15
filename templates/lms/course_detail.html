@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ course.title }} - LMS{% endblock %}
+{% block page_title %}{{ course.title }}{% endblock %}
+
+{% block header_actions %}
+{% if not enrollment %}
+<form method="post" action="{% url 'lms:course_enroll' course.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">수강 등록</button>
+</form>
+{% else %}
+<span class="text-sm text-gray-600">진도율: {{ enrollment.progress_pct }}%</span>
+{% endif %}
+{% if request.user.is_staff %}
+<a href="{% url 'lms:course_update' course.pk %}" class="btn btn-secondary">수정</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold mb-3">강좌 소개</h2>
+            <p class="text-gray-700">{{ course.description|linebreaks }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">강의 목록</h2>
+                {% if request.user.is_staff %}
+                <a href="{% url 'lms:lesson_create' %}?course={{ course.pk }}" class="btn btn-sm btn-secondary">+ 강의 추가</a>
+                {% endif %}
+            </div>
+            <ul class="divide-y divide-gray-100">
+                {% for lesson in lessons %}
+                <li class="p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div>
+                        <span class="text-gray-500 text-sm mr-2">{{ lesson.order }}.</span>
+                        {% if enrollment %}
+                        <a href="{% url 'lms:lesson_detail' lesson.pk %}" class="font-medium hover:text-blue-600">{{ lesson.title }}</a>
+                        {% else %}
+                        <span class="font-medium text-gray-600">{{ lesson.title }}</span>
+                        {% endif %}
+                        <span class="text-xs text-gray-400 ml-2">{{ lesson.get_content_type_display }}</span>
+                    </div>
+                    <span class="text-sm text-gray-500">{{ lesson.duration_minutes }}분</span>
+                </li>
+                {% empty %}
+                <li class="p-4 text-center text-gray-500">등록된 강의가 없습니다.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="space-y-4">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">분류</dt><dd>{{ course.category.name }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">난이도</dt><dd>{{ course.get_level_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">총 학습시간</dt><dd>{{ course.duration_hours }}시간</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">수료 최저점</dt><dd>{{ course.pass_score }}점</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">필수교육</dt><dd>{% if course.is_mandatory %}필수{% else %}선택{% endif %}</dd></div>
+                {% if course.instructor %}<div class="flex justify-between"><dt class="text-gray-500">강사</dt><dd>{{ course.instructor.get_full_name }}</dd></div>{% endif %}
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "부적합 상세" %} - {{ nc.nc_number }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "부적합 상세" %}{% endblock %}
+
+{% block header_actions %}
+{% if nc.status == 'OPEN' or nc.status == 'INVESTIGATING' %}
+<a href="{% url 'qms:nc_resolve' nc.pk %}" class="btn btn-success">{% trans "해결 처리" %}</a>
+{% endif %}
+<a href="{% url 'qms:nc_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "부적합 정보" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><p class="text-sm text-gray-500">{% trans "부적합번호" %}</p><p class="mt-1 font-medium">{{ nc.nc_number }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "제목" %}</p><p class="mt-1 font-medium">{{ nc.title }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "발생원" %}</p><p class="mt-1 font-medium">{{ nc.get_source_display }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "심각도" %}</p><p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+            {% if nc.severity == 'CRITICAL' %}bg-red-100 text-red-800
+            {% elif nc.severity == 'MAJOR' %}bg-orange-100 text-orange-800
+            {% else %}bg-gray-100 text-gray-800
+            {% endif %}">{{ nc.get_severity_display }}</span></p></div>
+        <div><p class="text-sm text-gray-500">{% trans "상태" %}</p><p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+            {% if nc.status == 'OPEN' %}bg-red-100 text-red-800
+            {% elif nc.status == 'RESOLVED' %}bg-blue-100 text-blue-800
+            {% elif nc.status == 'CLOSED' %}bg-green-100 text-green-800
+            {% else %}bg-yellow-100 text-yellow-800
+            {% endif %}">{{ nc.get_status_display }}</span></p></div>
+        <div><p class="text-sm text-gray-500">{% trans "관련품목" %}</p><p class="mt-1 font-medium">{{ nc.product|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "발견자" %}</p><p class="mt-1 font-medium">{{ nc.detected_by|default:"-" }}</p></div>
+    </div>
+    <div class="mt-4"><p class="text-sm text-gray-500">{% trans "설명" %}</p><p class="mt-1 whitespace-pre-wrap">{{ nc.description }}</p></div>
+    {% if nc.root_cause %}
+    <div class="mt-4"><p class="text-sm text-gray-500">{% trans "근본원인" %}</p><p class="mt-1 whitespace-pre-wrap">{{ nc.root_cause }}</p></div>
+    {% endif %}
+    {% if nc.corrective_action %}
+    <div class="mt-4"><p class="text-sm text-gray-500">{% trans "시정조치" %}</p><p class="mt-1 whitespace-pre-wrap">{{ nc.corrective_action }}</p></div>
+    {% endif %}
+</div>
+
+{% if capas %}
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "연결된 CAPA" %}</h3>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "CAPA번호" %}</th>
+                    <th class="px-4 py-3">{% trans "유형" %}</th>
+                    <th class="px-4 py-3">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "담당자" %}</th>
+                    <th class="px-4 py-3">{% trans "기한" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for capa in capas %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'qms:capa_detail' capa.pk %}" class="text-blue-600 hover:underline">{{ capa.capa_number }}</a></td>
+                    <td class="px-4 py-3">{{ capa.get_type_display }}</td>
+                    <td class="px-4 py-3">{{ capa.get_status_display }}</td>
+                    <td class="px-4 py-3">{{ capa.assigned_to|default:"-" }}</td>
+                    <td class="px-4 py-3">{{ capa.due_date|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

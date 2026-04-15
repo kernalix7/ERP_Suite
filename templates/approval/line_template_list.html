@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}결재선 템플릿 - ERP Suite{% endblock %}
+{% block page_title %}결재선 템플릿{% endblock %}
+{% block header_actions %}
+<a href="{% url 'approval:line_template_create' %}" class="btn btn-primary">+ 템플릿 추가</a>
+{% endblock %}
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+  <div class="table-responsive">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead>
+        <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+          <th class="px-4 py-3">템플릿명</th>
+          <th class="px-4 py-3">설명</th>
+          <th class="px-4 py-3">단계 수</th>
+          <th class="px-4 py-3">기본</th>
+          <th class="px-4 py-3">등록일</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for tmpl in templates %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium">{{ tmpl.name }}</td>
+          <td class="px-4 py-3 text-gray-500">{{ tmpl.description|truncatechars:60 }}</td>
+          <td class="px-4 py-3">{{ tmpl.steps|length }}단계</td>
+          <td class="px-4 py-3">
+            {% if tmpl.is_default %}<span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">기본</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-500">{{ tmpl.created_at|date:"Y-m-d" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">등록된 결재선 템플릿이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

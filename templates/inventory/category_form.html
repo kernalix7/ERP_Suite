@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}{% if form.instance.pk %}카테고리 수정{% else %}카테고리 등록{% endif %} - ERP Suite{% endblock %}
-{% block page_title %}{% if form.instance.pk %}카테고리 수정{% else %}카테고리 등록{% endif %}{% endblock %}
+{% load i18n %}
+{% block title %}{% if form.instance.pk %}{% trans "카테고리 수정" %}{% else %}{% trans "카테고리 등록" %}{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}{% if form.instance.pk %}{% trans "카테고리 수정" %}{% else %}{% trans "카테고리 등록" %}{% endif %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'inventory:category_list' %}" class="btn btn-secondary">
     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
     </svg>
-    목록
+    {% trans "목록" %}
 </a>
 {% endblock %}
 
@@ -49,9 +50,9 @@
             </div>
 
             <div class="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
-                <a href="{% url 'inventory:category_list' %}" class="btn btn-secondary">취소</a>
+                <a href="{% url 'inventory:category_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
                 <button type="submit" class="btn btn-primary">
-                    {% if form.instance.pk %}수정{% else %}등록{% endif %}
+                    {% if form.instance.pk %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %}
                 </button>
             </div>
         </form>

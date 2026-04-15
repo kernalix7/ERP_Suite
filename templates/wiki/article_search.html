@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}위키 검색{% endblock %}
+{% block page_title %}위키 검색{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'wiki:space_list' %}" class="btn btn-secondary">공간 목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="bg-white rounded-lg border border-gray-200 p-5">
+        <form method="get" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">검색어</label>
+                <input type="text" name="q" value="{{ form.q.value|default:'' }}" placeholder="제목, 내용 검색..." class="form-input w-full">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">공간</label>
+                    {{ form.space }}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">태그</label>
+                    <input type="text" name="tag" value="{{ form.tag.value|default:'' }}" placeholder="태그 입력" class="form-input w-full">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">검색</button>
+        </form>
+    </div>
+
+    {% if request.GET.q or request.GET.tag %}
+    <div>
+        <p class="text-sm text-gray-500 mb-3">
+            검색 결과: <strong>{{ articles|length }}건</strong>
+            {% if request.GET.q %} — "{{ request.GET.q }}"{% endif %}
+            {% if request.GET.tag %} — 태그: #{{ request.GET.tag }}{% endif %}
+        </p>
+        <div class="space-y-3">
+            {% for article in articles %}
+            <div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <a href="{% url 'wiki:article_detail' article.slug %}" class="font-medium hover:text-blue-600">{{ article.title }}</a>
+                        <p class="text-xs text-gray-400 mt-0.5">{{ article.space.name }} / {{ article.article_number }}</p>
+                    </div>
+                    <span class="text-xs text-gray-400 ml-4">{{ article.updated_at|date:"Y-m-d" }}</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-400">
+                    {% if article.category %}<span>{{ article.category.name }}</span>{% endif %}
+                    <span>{{ article.author.get_full_name|default:article.author.username }}</span>
+                    <span>조회 {{ article.view_count }}</span>
+                    {% for tag in article.tags %}
+                    <span class="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">#{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="bg-white rounded-lg border border-gray-200 p-10 text-center text-gray-500">
+                검색 결과가 없습니다.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

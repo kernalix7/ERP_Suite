@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}백업코드{% endblock %}
+{% block page_title %}2단계 인증 백업코드{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white rounded-lg shadow-sm border p-6">
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <p class="text-sm text-yellow-800">
+                이 백업코드는 인증 앱을 사용할 수 없을 때 사용됩니다.
+                각 코드는 한 번만 사용할 수 있습니다. 안전한 곳에 보관하세요.
+            </p>
+        </div>
+        {% if backup_codes %}
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="grid grid-cols-2 gap-2">
+                {% for code in backup_codes %}
+                <code class="text-sm font-mono text-gray-800 bg-white px-3 py-1.5 rounded border select-all">{{ code }}</code>
+                {% endfor %}
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">남은 백업코드: {{ backup_codes|length }}개</p>
+        {% else %}
+        <p class="text-sm text-gray-500 mb-4">사용 가능한 백업코드가 없습니다.</p>
+        {% endif %}
+        <div class="flex gap-3">
+            <form method="post" action="{% url 'accounts:two_factor_regenerate_backup' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary" onclick="return confirm('기존 백업코드가 모두 무효화됩니다. 계속하시겠습니까?')">
+                    백업코드 재발급
+                </button>
+            </form>
+            <a href="{% url 'accounts:profile' %}" class="btn btn-secondary">돌아가기</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

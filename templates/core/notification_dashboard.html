@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}알림 대시보드 - ERP Suite{% endblock %}
+{% block page_title %}알림 대시보드{% endblock %}
+
+{% block content %}
+<!-- KPI -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">활성 채널</p>
+        <p class="text-2xl font-bold text-gray-900">{{ total_channels }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">총 발송</p>
+        <p class="text-2xl font-bold text-gray-900">
+            {% with total=0 %}
+            {% for stat in channel_stats %}{{ stat.total|add:total }}{% endfor %}
+            {% endwith %}
+        </p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">최근 실패</p>
+        <p class="text-2xl font-bold text-red-600">{{ recent_failures|length }}</p>
+    </div>
+</div>
+
+<!-- 채널별 통계 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+    <h3 class="font-semibold text-gray-700 border-b pb-2 mb-3">채널별 통계</h3>
+    <div class="table-responsive">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-gray-600 font-medium">
+                    <th class="px-4 py-2">채널</th>
+                    <th class="px-4 py-2 text-center">총 발송</th>
+                    <th class="px-4 py-2 text-center">발송</th>
+                    <th class="px-4 py-2 text-center">전달</th>
+                    <th class="px-4 py-2 text-center">실패</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for stat in channel_stats %}
+                <tr>
+                    <td class="px-4 py-2 font-medium">{{ stat.channel__name }}</td>
+                    <td class="px-4 py-2 text-center">{{ stat.total }}</td>
+                    <td class="px-4 py-2 text-center text-blue-600">{{ stat.sent }}</td>
+                    <td class="px-4 py-2 text-center text-green-600">{{ stat.delivered }}</td>
+                    <td class="px-4 py-2 text-center text-red-600">{{ stat.failed }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-4 text-center text-gray-400">데이터 없음</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 최근 실패 -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+    <h3 class="font-semibold text-gray-700 border-b pb-2 mb-3">최근 실패 알림</h3>
+    {% for log in recent_failures %}
+    <div class="flex items-center justify-between py-2 {% if not forloop.last %}border-b border-gray-100{% endif %} text-sm">
+        <div>
+            <span class="font-medium text-gray-900">{{ log.subject|default:"(제목없음)" }}</span>
+            <span class="text-gray-500 ml-2">{{ log.user.get_full_name|default:log.user.username }}</span>
+            {% if log.channel %}<span class="text-gray-400 ml-2">{{ log.channel.name }}</span>{% endif %}
+        </div>
+        <div class="text-xs text-gray-400">{{ log.created_at|date:"Y-m-d H:i" }}</div>
+    </div>
+    {% empty %}
+    <p class="text-gray-400 text-sm">실패 알림 없음</p>
+    {% endfor %}
+</div>
+{% endblock %}

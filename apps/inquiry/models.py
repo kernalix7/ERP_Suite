@@ -68,9 +68,8 @@ class Inquiry(BaseModel):
         ordering = ['-pk']
         indexes = [
             models.Index(fields=['status'], name='idx_inquiry_status'),
-            models.Index(
-                fields=['priority'], name='idx_inquiry_priority',
-            ),
+            models.Index(fields=['priority'], name='idx_inquiry_priority'),
+            models.Index(fields=['status', 'received_date'], name='idx_inquiry_status_date'),
         ]
 
     def save(self, *args, **kwargs):

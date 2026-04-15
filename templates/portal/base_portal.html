@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ERP 포털{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="{% url 'portal:dashboard' %}" class="text-xl font-bold text-gray-900">ERP 포털</a>
+                    {% if user.is_authenticated and user.portal_profile %}
+                    <div class="hidden md:flex ml-10 space-x-4">
+                        {% if user.portal_profile.portal_type == 'CUSTOMER' %}
+                        <a href="{% url 'portal:order_list' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm">주문내역</a>
+                        <a href="{% url 'portal:invoice_list' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm">세금계산서</a>
+                        {% else %}
+                        <a href="{% url 'portal:supplier_po_list' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm">발주내역</a>
+                        <a href="{% url 'portal:supplier_delivery_schedule' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm">납품일정</a>
+                        {% endif %}
+                        <a href="{% url 'portal:notification_list' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm">알림</a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center">
+                    {% if user.is_authenticated %}
+                    <span class="text-sm text-gray-600 mr-4">{{ user.get_full_name|default:user.username }}</span>
+                    <form method="post" action="{% url 'portal:logout' %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-sm text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer">로그아웃</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 py-4 text-center text-sm text-gray-400">
+            ERP Suite Portal
+        </div>
+    </footer>
+</body>
+</html>

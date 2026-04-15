@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}자동화 스케줄 - ERP Suite{% endblock %}
+{% block page_title %}자동화 스케줄{% endblock %}
+
+{% block header_actions %}
+{% if user.is_manager_role %}
+<a href="{% url 'rpa:schedule_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    새 스케줄
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">규칙</th>
+                    <th class="px-4 py-3">Cron</th>
+                    <th class="px-4 py-3">시간대</th>
+                    <th class="px-4 py-3">다음실행</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for schedule in schedules %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium">
+                        <a href="{% url 'rpa:rule_detail' schedule.rule.pk %}" class="text-blue-600 hover:underline">{{ schedule.rule.name }}</a>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-gray-600">{{ schedule.cron_expression }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ schedule.timezone }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ schedule.next_run|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if schedule.is_paused %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">일시중지</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">활성</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex justify-center gap-1">
+                            <a href="{% url 'rpa:schedule_update' schedule.pk %}" class="btn btn-sm btn-secondary">수정</a>
+                            <form method="post" action="{% url 'rpa:schedule_delete' schedule.pk %}" class="inline"
+                                  onsubmit="return confirm('삭제하시겠습니까?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">스케줄이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_paginated %}
+<div class="mt-4 flex justify-center">{% include "core/pagination.html" %}</div>
+{% endif %}
+{% endblock %}

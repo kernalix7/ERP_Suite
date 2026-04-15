@@ -196,6 +196,8 @@ class EmployeeProfile(BaseModel):
         indexes = [
             models.Index(fields=['department'], name='idx_employee_dept'),
             models.Index(fields=['status'], name='idx_employee_status'),
+            models.Index(fields=['department', 'created_at'], name='idx_emp_dept_date'),
+            models.Index(fields=['status', 'created_at'], name='idx_emp_status_date'),
         ]
 
     def __str__(self):
@@ -212,6 +214,26 @@ class EmployeeProfile(BaseModel):
         end = self.resignation_date or date.today()
         delta = end - self.hire_date
         return round(delta.days / 365.25, 1)
+
+    @property
+    def masked_account_number(self):
+        """마스킹된 계좌번호"""
+        if not self.bank_account:
+            return ''
+        digits = self.bank_account.replace('-', '').replace(' ', '')
+        if len(digits) < 4:
+            return '*' * len(digits)
+        masked = '*' * (len(digits) - 4) + digits[-4:]
+        parts = self.bank_account.split('-')
+        if len(parts) >= 2:
+            result_parts = []
+            idx = 0
+            for part in parts:
+                part_len = len(part.replace(' ', ''))
+                result_parts.append(masked[idx:idx + part_len])
+                idx += part_len
+            return '-'.join(result_parts)
+        return masked
 
 
 class PersonnelAction(BaseModel):
@@ -280,6 +302,10 @@ class PersonnelAction(BaseModel):
         verbose_name = '인사발령'
         verbose_name_plural = '인사발령'
         ordering = ['-effective_date', '-created_at']
+        indexes = [
+            models.Index(fields=['employee', 'effective_date'], name='idx_action_emp_date'),
+            models.Index(fields=['action_type', 'effective_date'], name='idx_action_type_date'),
+        ]
 
     def __str__(self):
         return f'{self.employee} - {self.get_action_type_display()} ({self.effective_date})'
@@ -371,6 +397,10 @@ class Payroll(BaseModel):
                 fields=['employee', 'year', 'month'],
                 name='uq_payroll_employee_period',
             ),
+        ]
+        indexes = [
+            models.Index(fields=['employee', 'year'], name='idx_payroll_emp_year'),
+            models.Index(fields=['status', 'year'], name='idx_payroll_status_year'),
         ]
 
     def __str__(self):

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ esgreport.title }} - ERP Suite{% endblock %}
+{% block page_title %}{{ esgreport.title }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'esg:report_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "보고서 데이터" %}</h3>
+            {% if esgreport.data %}
+            <div class="overflow-x-auto">
+                <pre class="text-xs text-gray-700 bg-gray-50 p-4 rounded border border-gray-200 overflow-auto max-h-96">{{ esgreport.data|pprint }}</pre>
+            </div>
+            {% else %}
+            <p class="text-gray-400 text-sm">{% trans "보고서 데이터가 없습니다." %}</p>
+            {% endif %}
+        </div>
+
+        {% if esgreport.notes %}
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "메모" %}</h3>
+            <p class="text-gray-700 whitespace-pre-wrap text-sm">{{ esgreport.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "보고서 정보" %}</h3>
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">{% trans "유형" %}</dt>
+                    <dd>{{ esgreport.get_report_type_display }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">{% trans "상태" %}</dt>
+                    <dd>
+                        {% if esgreport.status == 'PUBLISHED' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "발행" %}</span>
+                        {% elif esgreport.status == 'REVIEW' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "검토중" %}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{% trans "초안" %}</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">{% trans "기간 시작" %}</dt>
+                    <dd>{{ esgreport.period_start|date:"Y-m-d" }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">{% trans "기간 종료" %}</dt>
+                    <dd>{{ esgreport.period_end|date:"Y-m-d" }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">{% trans "생성일시" %}</dt>
+                    <dd>{{ esgreport.generated_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">{% trans "등록일" %}</dt>
+                    <dd>{{ esgreport.created_at|date:"Y-m-d H:i" }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

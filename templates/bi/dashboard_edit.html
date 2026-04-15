@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}대시보드 편집: {{ dashboard.name }} - ERP Suite{% endblock %}
+{% block page_title %}대시보드 편집: {{ dashboard.name }}{% endblock %}
+
+{% block header_actions %}
+<button id="btn-add-panel" class="btn btn-primary">패널 추가</button>
+<button id="btn-save-layout" class="btn btn-secondary">레이아웃 저장</button>
+<a href="{% url 'bi:dashboard_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div x-data="dashboardEditor()" class="space-y-4">
+    <!-- Add Panel Modal -->
+    <div x-show="showAddPanel" x-cloak class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 class="font-semibold mb-4">패널 추가</h3>
+            <select x-model="selectedReportId" class="form-input w-full mb-4">
+                <option value="">리포트 선택...</option>
+                {% for report in available_reports %}
+                <option value="{{ report.pk }}">{{ report.name }} ({{ report.get_report_type_display }})</option>
+                {% endfor %}
+            </select>
+            <div class="flex gap-2 justify-end">
+                <button @click="addPanel()" class="btn btn-primary">추가</button>
+                <button @click="showAddPanel = false" class="btn btn-secondary">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Grid -->
+    <div id="panel-grid" class="grid grid-cols-12 gap-4 min-h-[400px]">
+        {% for panel in panels %}
+        <div class="panel-item bg-white rounded-lg shadow-sm border border-gray-200 p-3"
+             data-id="{{ panel.pk }}"
+             style="grid-column: span {{ panel.width }}; grid-row: span {{ panel.height }};">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="text-sm font-semibold text-gray-700">{{ panel.report.name }}</h4>
+                <div class="flex gap-1">
+                    <button onclick="deletePanel({{ dashboard.pk }}, {{ panel.pk }})" class="text-red-400 hover:text-red-600 text-xs">X</button>
+                </div>
+            </div>
+            <div class="chart-area" data-report-id="{{ panel.report.pk }}" style="min-height: 200px;">
+                <canvas id="panel-chart-{{ panel.pk }}"></canvas>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-12 text-center text-gray-400 py-12">패널을 추가하세요.</div>
+        {% endfor %}
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+function dashboardEditor() {
+    return {
+        showAddPanel: false,
+        selectedReportId: '',
+
+        init() {
+            document.getElementById('btn-add-panel').addEventListener('click', () => this.showAddPanel = true);
+            document.getElementById('btn-save-layout').addEventListener('click', () => this.saveLayout());
+            this.loadPanelCharts();
+        },
+
+        async addPanel() {
+            if (!this.selectedReportId) return;
+            const resp = await fetch('{% url "bi:panel_create" dashboard.pk %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({report_id: parseInt(this.selectedReportId)}),
+            });
+            const result = await resp.json();
+            if (result.success) {
+                this.showAddPanel = false;
+                location.reload();
+            }
+        },
+
+        async saveLayout() {
+            const panels = [];
+            document.querySelectorAll('.panel-item').forEach(el => {
+                panels.push({id: parseInt(el.dataset.id), x: 0, y: 0, w: 6, h: 4});
+            });
+            await fetch('{% url "bi:dashboard_save_layout" dashboard.pk %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({panels}),
+            });
+            alert('레이아웃이 저장되었습니다.');
+        },
+
+        async loadPanelCharts() {
+            document.querySelectorAll('.chart-area').forEach(async (area) => {
+                const reportId = area.dataset.reportId;
+                const canvas = area.querySelector('canvas');
+                if (!canvas || !reportId) return;
+                try {
+                    const resp = await fetch('/bi/reports/' + reportId + '/execute/');
+                    const result = await resp.json();
+                    if (result.success && result.data.labels) {
+                        const ctx = canvas.getContext('2d');
+                        const type = (result.chart_config && result.chart_config.chart_type) || 'bar';
+                        new Chart(ctx, {
+                            type: type === 'donut' ? 'doughnut' : type,
+                            data: {
+                                labels: result.data.labels,
+                                datasets: (result.data.datasets || []).map((ds, i) => ({
+                                    label: ds.label, data: ds.data,
+                                    backgroundColor: ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899'][i % 6],
+                                })),
+                            },
+                            options: {responsive: true, maintainAspectRatio: false},
+                        });
+                    }
+                } catch(e) { /* silent */ }
+            });
+        },
+    };
+}
+
+async function deletePanel(dashboardPk, panelPk) {
+    if (!confirm('이 패널을 삭제하시겠습니까?')) return;
+    const resp = await fetch('/bi/dashboards/' + dashboardPk + '/panels/' + panelPk + '/delete/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}'},
+    });
+    if (resp.ok) location.reload();
+}
+</script>
+{% endblock %}

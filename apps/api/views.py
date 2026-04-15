@@ -349,3 +349,500 @@ class PriceRuleViewSet(BaseModelViewSet):
     permission_classes = [IsManagerOrReadOnly]
     search_fields = ['product__name', 'partner__name', 'customer__name']
     filterset_fields = ['product', 'partner', 'customer']
+
+
+# === WMS ===
+
+from apps.wms.models import WarehouseZone, PickOrder, PutAwayTask
+from apps.api.serializers import (
+    WarehouseZoneSerializer, PickOrderSerializer, PutAwayTaskSerializer,
+)
+
+
+class WarehouseZoneViewSet(BaseModelViewSet):
+    queryset = WarehouseZone.objects.select_related('warehouse').all()
+    serializer_class = WarehouseZoneSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name', 'code']
+    filterset_fields = ['zone_type', 'warehouse']
+
+
+class PickOrderViewSet(BaseModelViewSet):
+    queryset = PickOrder.objects.select_related('order', 'assigned_to').all()
+    serializer_class = PickOrderSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['pick_number']
+    filterset_fields = ['status', 'priority', 'assigned_to']
+
+
+class PutAwayTaskViewSet(BaseModelViewSet):
+    queryset = PutAwayTask.objects.select_related(
+        'product', 'suggested_bin', 'actual_bin', 'assigned_to',
+    ).all()
+    serializer_class = PutAwayTaskSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['status', 'assigned_to']
+
+
+# === CMMS ===
+
+from apps.cmms.models import Equipment, MaintenanceWorkOrder
+from apps.api.serializers import EquipmentSerializer, MaintenanceWorkOrderSerializer
+
+
+class EquipmentViewSet(BaseModelViewSet):
+    queryset = Equipment.objects.select_related('department').all()
+    serializer_class = EquipmentSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name', 'code', 'serial_number']
+    filterset_fields = ['status', 'department']
+
+
+class MaintenanceWorkOrderViewSet(BaseModelViewSet):
+    queryset = MaintenanceWorkOrder.objects.select_related(
+        'equipment', 'schedule', 'assigned_to',
+    ).all()
+    serializer_class = MaintenanceWorkOrderSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['wo_number', 'equipment__name']
+    filterset_fields = ['status', 'priority', 'equipment', 'assigned_to']
+
+
+# === PLM ===
+
+from apps.plm.models import EngineeringChangeNotice, Drawing
+from apps.api.serializers import EngineeringChangeNoticeSerializer, DrawingSerializer
+
+
+class EngineeringChangeNoticeViewSet(BaseModelViewSet):
+    queryset = EngineeringChangeNotice.objects.select_related(
+        'requested_by', 'approved_by',
+    ).all()
+    serializer_class = EngineeringChangeNoticeSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['ecn_number', 'title']
+    filterset_fields = ['status', 'priority']
+
+
+class DrawingViewSet(BaseModelViewSet):
+    queryset = Drawing.objects.select_related('product', 'version').all()
+    serializer_class = DrawingSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['drawing_number', 'product__name']
+    filterset_fields = ['product']
+
+
+# === QMS ===
+
+from apps.qms.models import NonConformance, CAPA, InternalAudit
+from apps.api.serializers import (
+    NonConformanceSerializer, CAPASerializer, InternalAuditSerializer,
+)
+
+
+class NonConformanceViewSet(BaseModelViewSet):
+    queryset = NonConformance.objects.select_related('product', 'detected_by').all()
+    serializer_class = NonConformanceSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['nc_number', 'title']
+    filterset_fields = ['status', 'source', 'severity']
+
+
+class CAPAViewSet(BaseModelViewSet):
+    queryset = CAPA.objects.select_related('nc', 'assigned_to').all()
+    serializer_class = CAPASerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['capa_number']
+    filterset_fields = ['status', 'type', 'assigned_to']
+
+
+class InternalAuditViewSet(BaseModelViewSet):
+    queryset = InternalAudit.objects.select_related('auditor').all()
+    serializer_class = InternalAuditSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['audit_number', 'title']
+    filterset_fields = ['status', 'audit_type']
+
+
+# === Forecast ===
+
+from apps.forecast.models import DemandForecast, SOPMeeting
+from apps.api.serializers import DemandForecastSerializer, SOPMeetingSerializer
+
+
+class DemandForecastViewSet(BaseModelViewSet):
+    queryset = DemandForecast.objects.select_related('product').all()
+    serializer_class = DemandForecastSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['product', 'forecast_method']
+    ordering_fields = ['period_start', 'period_end']
+
+
+class SOPMeetingViewSet(BaseModelViewSet):
+    queryset = SOPMeeting.objects.all()
+    serializer_class = SOPMeetingSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['title']
+    filterset_fields = ['status']
+
+
+# === Helpdesk ===
+
+from apps.helpdesk.models import Ticket, SLA
+from apps.api.serializers import TicketSerializer, SLASerializer
+
+
+class TicketViewSet(BaseModelViewSet):
+    queryset = Ticket.objects.select_related(
+        'category', 'reporter', 'assigned_to', 'sla',
+    ).all()
+    serializer_class = TicketSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['ticket_number', 'title']
+    filterset_fields = ['status', 'priority', 'channel', 'assigned_to', 'sla_breached']
+
+
+class SLAViewSet(BaseModelViewSet):
+    queryset = SLA.objects.all()
+    serializer_class = SLASerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name']
+
+
+# === Portal ===
+
+from apps.portal.models import PortalUser, PortalDocument
+from apps.api.serializers import PortalUserSerializer, PortalDocumentSerializer
+
+
+class PortalUserViewSet(BaseModelViewSet):
+    queryset = PortalUser.objects.select_related('user', 'partner').all()
+    serializer_class = PortalUserSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['portal_type', 'is_verified']
+
+
+class PortalDocumentViewSet(BaseModelViewSet):
+    queryset = PortalDocument.objects.select_related('portal_user').all()
+    serializer_class = PortalDocumentSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['document_type', 'portal_user']
+
+
+# === Logistics ===
+
+from apps.logistics.models import Vehicle, DeliveryRoute
+from apps.api.serializers import VehicleSerializer, DeliveryRouteSerializer
+
+
+class VehicleViewSet(BaseModelViewSet):
+    queryset = Vehicle.objects.select_related('driver').all()
+    serializer_class = VehicleSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name', 'plate_number']
+    filterset_fields = ['vehicle_type', 'status']
+
+
+class DeliveryRouteViewSet(BaseModelViewSet):
+    queryset = DeliveryRoute.objects.select_related('vehicle', 'driver').all()
+    serializer_class = DeliveryRouteSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['route_number', 'name']
+    filterset_fields = ['status', 'date', 'vehicle', 'driver']
+
+
+# === EDI ===
+
+from apps.edi.models import EDIPartner as EDIPartnerModel, EDITransaction
+from apps.api.serializers import EDIPartnerSerializer, EDITransactionSerializer
+
+
+class EDIPartnerViewSet(BaseModelViewSet):
+    queryset = EDIPartnerModel.objects.select_related('partner').all()
+    serializer_class = EDIPartnerSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['edi_id', 'partner__name']
+    filterset_fields = ['protocol']
+
+
+class EDITransactionViewSet(BaseModelViewSet):
+    queryset = EDITransaction.objects.select_related('partner', 'document_type').all()
+    serializer_class = EDITransactionSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['transaction_id']
+    filterset_fields = ['status', 'direction', 'partner']
+
+
+# === Subscription ===
+
+from apps.subscription.models import SubscriptionPlan, Subscription, BillingRecord
+from apps.api.serializers import (
+    SubscriptionPlanSerializer, SubscriptionSerializer, BillingRecordSerializer,
+)
+
+
+class SubscriptionPlanViewSet(BaseModelViewSet):
+    queryset = SubscriptionPlan.objects.all()
+    serializer_class = SubscriptionPlanSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name', 'code']
+    filterset_fields = ['billing_cycle']
+
+
+class SubscriptionViewSet(BaseModelViewSet):
+    queryset = Subscription.objects.select_related('partner', 'plan').all()
+    serializer_class = SubscriptionSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['subscription_number', 'partner__name']
+    filterset_fields = ['status', 'plan', 'auto_renew']
+
+
+class BillingRecordViewSet(BaseModelViewSet):
+    queryset = BillingRecord.objects.select_related('subscription', 'invoice').all()
+    serializer_class = BillingRecordSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['status', 'subscription']
+    ordering_fields = ['billing_date']
+
+
+# === Document ===
+
+from apps.document.models import Document as DocumentModel, Contract
+from apps.api.serializers import DocumentSerializer, ContractSerializer
+
+
+class DocumentViewSet(BaseModelViewSet):
+    queryset = DocumentModel.objects.select_related('category', 'owner', 'department').all()
+    serializer_class = DocumentSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['document_number', 'title']
+    filterset_fields = ['status', 'category', 'access_level']
+
+
+class ContractViewSet(BaseModelViewSet):
+    queryset = Contract.objects.select_related('partner', 'signed_by').all()
+    serializer_class = ContractSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['contract_number', 'title']
+    filterset_fields = ['contract_type', 'status', 'partner']
+
+
+# === Expense ===
+
+from apps.expense.models import (
+    ExpenseClaim,
+    ExpenseCategory as ExpenseCategoryModel,
+)
+from apps.api.serializers import ExpenseClaimSerializer, ExpenseCategorySerializer
+
+
+class ExpenseClaimViewSet(BaseModelViewSet):
+    queryset = ExpenseClaim.objects.select_related('employee', 'approved_by').all()
+    serializer_class = ExpenseClaimSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['claim_number', 'title']
+    filterset_fields = ['status', 'employee']
+
+
+class ExpenseCategoryViewSet(BaseModelViewSet):
+    queryset = ExpenseCategoryModel.objects.select_related('account_code', 'parent', 'policy').all()
+    serializer_class = ExpenseCategorySerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name', 'code']
+
+
+# === ESG ===
+
+from apps.esg.models import CarbonEmission, SafetyIncident, ComplianceRequirement
+from apps.api.serializers import (
+    CarbonEmissionSerializer, SafetyIncidentSerializer,
+    ComplianceRequirementSerializer,
+)
+
+
+class CarbonEmissionViewSet(BaseModelViewSet):
+    queryset = CarbonEmission.objects.all()
+    serializer_class = CarbonEmissionSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['source', 'facility']
+    filterset_fields = ['scope', 'period']
+
+
+class SafetyIncidentViewSet(BaseModelViewSet):
+    queryset = SafetyIncident.objects.select_related('reported_by').all()
+    serializer_class = SafetyIncidentSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['incident_number', 'location']
+    filterset_fields = ['severity', 'status']
+
+
+class ComplianceRequirementViewSet(BaseModelViewSet):
+    queryset = ComplianceRequirement.objects.select_related('responsible').all()
+    serializer_class = ComplianceRequirementSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name', 'regulation']
+    filterset_fields = ['status']
+
+
+# === LMS ===
+
+from apps.lms.models import Course as CourseModel, CourseEnrollment
+from apps.api.serializers import CourseSerializer, CourseEnrollmentSerializer
+
+
+class CourseViewSet(BaseModelViewSet):
+    queryset = CourseModel.objects.select_related('category', 'instructor').all()
+    serializer_class = CourseSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['course_number', 'title']
+    filterset_fields = ['status', 'level', 'category', 'is_mandatory']
+
+
+class CourseEnrollmentViewSet(BaseModelViewSet):
+    queryset = CourseEnrollment.objects.select_related('course', 'learner').all()
+    serializer_class = CourseEnrollmentSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['status', 'course', 'learner']
+
+
+# === Wiki ===
+
+from apps.wiki.models import WikiArticle, WikiSpace
+from apps.api.serializers import WikiArticleSerializer, WikiSpaceSerializer
+
+
+class WikiSpaceViewSet(BaseModelViewSet):
+    queryset = WikiSpace.objects.select_related('owner').all()
+    serializer_class = WikiSpaceSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name', 'code']
+    filterset_fields = ['is_public']
+
+
+class WikiArticleViewSet(BaseModelViewSet):
+    queryset = WikiArticle.objects.select_related(
+        'space', 'category', 'author',
+    ).all()
+    serializer_class = WikiArticleSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['article_number', 'title']
+    filterset_fields = ['status', 'space', 'category', 'is_pinned']
+
+
+# === Project ===
+
+from apps.project.models import (
+    Project as ProjectModel, Task as TaskModel, Milestone,
+)
+from apps.api.serializers import ProjectSerializer, TaskSerializer, MilestoneSerializer
+
+
+class ProjectViewSet(BaseModelViewSet):
+    queryset = ProjectModel.objects.select_related(
+        'category', 'manager', 'department',
+    ).all()
+    serializer_class = ProjectSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['project_number', 'name']
+    filterset_fields = ['status', 'priority', 'manager', 'department']
+
+
+class ProjectTaskViewSet(BaseModelViewSet):
+    queryset = TaskModel.objects.select_related(
+        'project', 'milestone', 'assignee', 'reporter',
+    ).all()
+    serializer_class = TaskSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['title']
+    filterset_fields = ['status', 'priority', 'project', 'assignee', 'milestone']
+
+
+class MilestoneViewSet(BaseModelViewSet):
+    queryset = Milestone.objects.select_related('project').all()
+    serializer_class = MilestoneSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['title']
+    filterset_fields = ['status', 'project']
+
+
+# === Visitor ===
+
+from apps.visitor.models import VisitRequest, VisitLog
+from apps.api.serializers import VisitRequestSerializer, VisitLogSerializer
+
+
+class VisitRequestViewSet(BaseModelViewSet):
+    queryset = VisitRequest.objects.select_related(
+        'visitor', 'host', 'purpose', 'department', 'approved_by',
+    ).all()
+    serializer_class = VisitRequestSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['visit_number', 'visitor__name']
+    filterset_fields = ['status', 'host', 'purpose']
+
+
+class VisitLogViewSet(BaseModelViewSet):
+    queryset = VisitLog.objects.select_related(
+        'visitor', 'visit_request', 'receptionist',
+    ).all()
+    serializer_class = VisitLogSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['visitor']
+
+
+# === Attendance ===
+
+from apps.attendance.models import AttendanceRecord, LeaveRequest
+from apps.api.serializers import AttendanceRecordSerializer, LeaveRequestSerializer
+
+
+class AttendanceRecordViewSet(BaseModelViewSet):
+    queryset = AttendanceRecord.objects.select_related('user').all()
+    serializer_class = AttendanceRecordSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['user', 'date', 'status']
+    ordering_fields = ['date']
+
+
+class LeaveRequestViewSet(BaseModelViewSet):
+    queryset = LeaveRequest.objects.select_related('user', 'approved_by').all()
+    serializer_class = LeaveRequestSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    filterset_fields = ['user', 'leave_type', 'status']
+    ordering_fields = ['start_date']
+
+
+# === Board ===
+
+from apps.board.models import Board as BoardModel, Post
+from apps.api.serializers import BoardSerializer, PostSerializer
+
+
+class BoardViewSet(BaseModelViewSet):
+    queryset = BoardModel.objects.all()
+    serializer_class = BoardSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['name']
+    filterset_fields = ['is_notice']
+
+
+class PostViewSet(BaseModelViewSet):
+    queryset = Post.objects.select_related('board', 'author').all()
+    serializer_class = PostSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['title']
+    filterset_fields = ['board', 'author', 'is_pinned']
+
+
+# === Calendar ===
+
+from apps.calendar_app.models import Event
+from apps.api.serializers import EventSerializer
+
+
+class EventViewSet(BaseModelViewSet):
+    queryset = Event.objects.select_related('creator').all()
+    serializer_class = EventSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    search_fields = ['title', 'location']
+    filterset_fields = ['event_type', 'creator', 'all_day']

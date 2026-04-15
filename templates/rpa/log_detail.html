@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}로그 상세 - ERP Suite{% endblock %}
+{% block page_title %}자동화 실행 로그 상세{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'rpa:log_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+    <dl class="space-y-3 text-sm">
+        <div class="flex"><dt class="w-24 text-gray-500">규칙</dt><dd><a href="{% url 'rpa:rule_detail' log.rule.pk %}" class="text-blue-600 hover:underline">{{ log.rule.name }}</a></dd></div>
+        <div class="flex"><dt class="w-24 text-gray-500">상태</dt><dd>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                {% if log.status == 'SUCCESS' %}bg-green-100 text-green-800
+                {% elif log.status == 'PARTIAL' %}bg-yellow-100 text-yellow-800
+                {% else %}bg-red-100 text-red-800{% endif %}">
+                {{ log.get_status_display }}
+            </span>
+        </dd></div>
+        <div class="flex"><dt class="w-24 text-gray-500">실행액션</dt><dd>{{ log.actions_executed }}개</dd></div>
+        <div class="flex"><dt class="w-24 text-gray-500">소요시간</dt><dd>{{ log.duration_ms }}ms</dd></div>
+        <div class="flex"><dt class="w-24 text-gray-500">실행시각</dt><dd>{{ log.triggered_at|date:"Y-m-d H:i:s" }}</dd></div>
+    </dl>
+
+    {% if log.error_message %}
+    <div>
+        <h4 class="text-sm font-medium text-gray-500 mb-1">오류 메시지</h4>
+        <pre class="bg-red-50 rounded p-3 text-xs text-red-800 overflow-x-auto">{{ log.error_message }}</pre>
+    </div>
+    {% endif %}
+
+    {% if log.trigger_data %}
+    <div>
+        <h4 class="text-sm font-medium text-gray-500 mb-1">트리거 데이터</h4>
+        <pre class="bg-gray-50 rounded p-3 text-xs overflow-x-auto">{{ log.trigger_data|pprint }}</pre>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

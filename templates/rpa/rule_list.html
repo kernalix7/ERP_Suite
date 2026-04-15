@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}자동화 규칙 - ERP Suite{% endblock %}
+{% block page_title %}자동화 규칙{% endblock %}
+
+{% block header_actions %}
+{% if user.is_manager_role %}
+<a href="{% url 'rpa:rule_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    새 규칙
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap gap-2 items-center">
+    <form method="get" class="flex gap-2 items-center">
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="검색..." class="form-input w-48">
+        <select name="trigger" class="form-input w-32">
+            <option value="">트리거 전체</option>
+            <option value="SCHEDULE" {% if request.GET.trigger == 'SCHEDULE' %}selected{% endif %}>스케줄</option>
+            <option value="EVENT" {% if request.GET.trigger == 'EVENT' %}selected{% endif %}>이벤트</option>
+            <option value="CONDITION" {% if request.GET.trigger == 'CONDITION' %}selected{% endif %}>조건</option>
+        </select>
+        <button type="submit" class="btn btn-secondary">검색</button>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">규칙명</th>
+                    <th class="px-4 py-3">트리거</th>
+                    <th class="px-4 py-3 text-center">우선순위</th>
+                    <th class="px-4 py-3 text-center">실행</th>
+                    <th class="px-4 py-3 text-center">오류</th>
+                    <th class="px-4 py-3">최근실행</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for rule in rules %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">
+                        <a href="{% url 'rpa:rule_detail' rule.pk %}" class="text-blue-600 hover:underline">{{ rule.name }}</a>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            {% if rule.trigger_type == 'SCHEDULE' %}bg-blue-100 text-blue-800
+                            {% elif rule.trigger_type == 'EVENT' %}bg-green-100 text-green-800
+                            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            {{ rule.get_trigger_type_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ rule.priority }}</td>
+                    <td class="px-4 py-3 text-center font-mono text-gray-600">{{ rule.run_count }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if rule.error_count > 0 %}
+                        <span class="text-red-600 font-mono">{{ rule.error_count }}</span>
+                        {% else %}
+                        <span class="text-gray-400">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ rule.last_run|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'rpa:rule_detail' rule.pk %}" class="btn btn-sm btn-secondary">상세</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">자동화 규칙이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_paginated %}
+<div class="mt-4 flex justify-center">{% include "core/pagination.html" %}</div>
+{% endif %}
+{% endblock %}

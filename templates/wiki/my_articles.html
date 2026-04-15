@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}위키 - 내가 쓴 문서{% endblock %}
+{% block page_title %}내가 쓴 문서{% endblock %}
+
+{% block header_actions %}
+{% if request.user.is_staff %}
+<a href="{% url 'wiki:article_create' %}" class="btn btn-primary">+ 문서 작성</a>
+{% endif %}
+<a href="{% url 'wiki:space_list' %}" class="btn btn-secondary">공간 목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white rounded-lg border border-gray-200 p-5">
+        {% if articles %}
+        <ul class="divide-y divide-gray-100">
+            {% for article in articles %}
+            <li class="py-3 flex items-start justify-between gap-4">
+                <div>
+                    <a href="{% url 'wiki:article_detail' article.slug %}" class="font-medium hover:text-blue-600">
+                        {% if article.is_pinned %}<span class="text-yellow-500 mr-1">★</span>{% endif %}
+                        {{ article.title }}
+                    </a>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        <a href="{% url 'wiki:article_list' %}?space={{ article.space.pk }}" class="hover:underline">{{ article.space.name }}</a>
+                        {% if article.category %} / {{ article.category.name }}{% endif %}
+                        — {{ article.article_number }}
+                    </p>
+                    {% if article.tags %}
+                    <div class="flex flex-wrap gap-1 mt-1">
+                        {% for tag in article.tags %}
+                        <span class="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded text-xs">#{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="text-right text-xs text-gray-400 whitespace-nowrap">
+                    <div>{{ article.updated_at|date:"Y-m-d" }}</div>
+                    <div class="mt-0.5">조회 {{ article.view_count }}</div>
+                    <div class="mt-1">
+                        <span class="px-1.5 py-0.5 rounded {% if article.status == 'PUBLISHED' %}bg-green-100 text-green-700{% elif article.status == 'DRAFT' %}bg-yellow-100 text-yellow-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+                            {{ article.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-center text-gray-500 py-10">작성한 문서가 없습니다.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

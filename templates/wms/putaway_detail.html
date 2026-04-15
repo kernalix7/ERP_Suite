@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "적치작업 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "적치작업 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'wms:putaway_update' task.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+<a href="{% url 'wms:putaway_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "작업 정보" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><p class="text-sm text-gray-500">{% trans "품목" %}</p><p class="mt-1 font-medium">{{ task.product }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "수량" %}</p><p class="mt-1 font-medium">{{ task.quantity }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "입고" %}</p><p class="mt-1 font-medium">{{ task.goods_receipt|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "추천위치" %}</p><p class="mt-1 font-medium">{{ task.suggested_bin|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "실제위치" %}</p><p class="mt-1 font-medium">{{ task.actual_bin|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "상태" %}</p><p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+            {% if task.status == 'PENDING' %}bg-gray-100 text-gray-800
+            {% elif task.status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
+            {% elif task.status == 'COMPLETED' %}bg-green-100 text-green-800
+            {% endif %}">{{ task.get_status_display }}</span></p></div>
+        <div><p class="text-sm text-gray-500">{% trans "담당자" %}</p><p class="mt-1 font-medium">{{ task.assigned_to|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "생성일" %}</p><p class="mt-1 font-medium">{{ task.created_at|date:"Y-m-d H:i" }}</p></div>
+    </div>
+</div>
+{% endblock %}

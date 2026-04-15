@@ -94,7 +94,7 @@
 </div>
 
 {{ monthly_json|json_script:"monthly-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const monthlyJson = JSON.parse(document.getElementById('monthly-data').textContent);
 
     const labels = monthlyJson.map(item => item.month + '월');

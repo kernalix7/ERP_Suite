@@ -66,7 +66,7 @@ UX: [주소 검색] → 도로명주소 표시 + 상세주소 입력
     {% endfor %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function() {
     var fieldId = "{{ field.id_for_label }}";
     var hiddenField = document.getElementById(fieldId);

@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}BOM 관리 - ERP Suite{% endblock %}
-{% block page_title %}BOM 관리{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "BOM 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "BOM 관리" %}{% endblock %}
 
 {% block header_actions %}
 {% if user.is_manager_role %}
@@ -9,20 +10,20 @@
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
-    등록
+    {% trans "등록" %}
 </a>
 {% endif %}
-<a href="{% url 'production:bom_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
+<a href="{% url 'production:bom_excel' %}" class="btn btn-secondary" title="{% trans 'Excel 다운로드'%}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
     Excel
 </a>
-<a href="{% url 'production:bom_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+<a href="{% url 'production:bom_import' %}" class="btn btn-secondary" title="{% trans '일괄 가져오기'%}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
     </svg>
-    가져오기
+    {% trans "가져오기" %}
 </a>
 {% endblock %}
 
@@ -32,12 +33,12 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">완제품</th>
-                    <th class="px-4 py-3">버전</th>
-                    <th class="px-4 py-3 text-center">기본BOM</th>
-                    <th class="px-4 py-3">등록일</th>
-                    <th class="px-4 py-3 text-center">항목수</th>
-                    <th class="px-4 py-3 text-right">관리</th>
+                    <th class="px-4 py-3">{% trans "완제품" %}</th>
+                    <th class="px-4 py-3">{% trans "버전" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "기본BOM" %}</th>
+                    <th class="px-4 py-3">{% trans "등록일" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "항목수" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "관리" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -51,7 +52,7 @@
                     <td class="px-4 py-3 text-gray-700">{{ bom.version }}</td>
                     <td class="px-4 py-3 text-center">
                         {% if bom.is_default %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">기본</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{% trans "기본" %}</span>
                         {% else %}
                         <span class="text-gray-400">-</span>
                         {% endif %}
@@ -69,7 +70,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="6" class="px-6 py-12 text-center text-gray-400">
-                        등록된 BOM이 없습니다.
+                        {% trans "등록된 BOM이 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -79,16 +80,16 @@
 
     {% if is_paginated %}
     <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <p class="text-sm text-gray-500">{% blocktrans with count=page_obj.paginator.count %}총 {{ count }}건{% endblocktrans %}</p>
         <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
             <a href="?page={{ num }}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
             {% endfor %}
             {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
             {% endif %}
         </nav>
     </div>

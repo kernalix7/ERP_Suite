@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}리포트 빌더: {{ report.name }} - ERP Suite{% endblock %}
+{% block page_title %}리포트 빌더: {{ report.name }}{% endblock %}
+
+{% block header_actions %}
+<button id="btn-save" class="btn btn-primary">저장</button>
+<button id="btn-preview" class="btn btn-secondary">미리보기</button>
+<a href="{% url 'bi:report_export' report.pk %}?format=excel" class="btn btn-secondary">Excel</a>
+<a href="{% url 'bi:report_export' report.pk %}?format=pdf" class="btn btn-secondary">PDF</a>
+<a href="{% url 'bi:report_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div x-data="reportBuilder()" x-init="init()" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- Left: Config Panel -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4">
+        <h3 class="font-semibold text-gray-700 border-b pb-2">쿼리 설정</h3>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">데이터소스</label>
+            <select x-model="dataSource" @change="loadSchema()" class="form-input w-full">
+                <option value="ORDER">주문</option>
+                <option value="PRODUCT">제품</option>
+                <option value="PARTNER">거래처</option>
+                <option value="VOUCHER">전표</option>
+                <option value="INVENTORY">재고</option>
+                <option value="PRODUCTION">생산</option>
+                <option value="HR">인사</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">그룹 기준</label>
+            <template x-for="gb in schema.group_by" :key="gb">
+                <label class="flex items-center gap-2 text-sm py-1">
+                    <input type="checkbox" :value="gb" x-model="selectedGroupBy" class="form-checkbox">
+                    <span x-text="gb"></span>
+                </label>
+            </template>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">집계</label>
+            <div class="flex gap-2">
+                <select x-model="aggFunc" class="form-input flex-1">
+                    <template x-for="agg in schema.aggregations" :key="agg">
+                        <option :value="agg" x-text="agg.toUpperCase()"></option>
+                    </template>
+                </select>
+                <select x-model="aggField" class="form-input flex-1">
+                    <template x-for="f in schema.fields" :key="f.name">
+                        <option :value="f.name" x-text="f.label"></option>
+                    </template>
+                </select>
+                <button @click="addAggregation()" class="btn btn-sm btn-secondary">추가</button>
+            </div>
+            <ul class="mt-2 space-y-1">
+                <template x-for="(agg, i) in aggregations" :key="i">
+                    <li class="flex items-center justify-between text-sm bg-gray-50 px-2 py-1 rounded">
+                        <span x-text="agg.func.toUpperCase() + '(' + agg.field + ')'"></span>
+                        <button @click="aggregations.splice(i, 1)" class="text-red-500 text-xs">X</button>
+                    </li>
+                </template>
+            </ul>
+        </div>
+
+        <h3 class="font-semibold text-gray-700 border-b pb-2 pt-2">차트 설정</h3>
+        <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">차트 유형</label>
+            <select x-model="chartType" class="form-input w-full">
+                <option value="bar">막대</option>
+                <option value="line">라인</option>
+                <option value="pie">파이</option>
+                <option value="donut">도넛</option>
+                <option value="scatter">산점도</option>
+                <option value="heatmap">히트맵</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Right: Preview -->
+    <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-4">미리보기</h3>
+        <div id="chart-container" class="w-full" style="min-height: 400px;">
+            <canvas id="reportChart"></canvas>
+        </div>
+        <div id="table-container" class="hidden mt-4 overflow-x-auto">
+            <table id="resultTable" class="w-full text-sm text-left">
+                <thead id="resultHead"></thead>
+                <tbody id="resultBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{ data_source_schema|json_script:"data-source-schema" }}
+{{ all_schemas|json_script:"all-schemas" }}
+{{ report.query_config.groupby|default:"[]"|json_script:"selected-group-by" }}
+{{ report.query_config.aggregations|default:"[]"|json_script:"selected-aggregations" }}
+<script nonce="{{ request.csp_nonce }}">
+function reportBuilder() {
+    return {
+        dataSource: '{{ report.data_source }}',
+        schema: JSON.parse(document.getElementById('data-source-schema').textContent),
+        allSchemas: JSON.parse(document.getElementById('all-schemas').textContent),
+        selectedGroupBy: JSON.parse(document.getElementById('selected-group-by').textContent),
+        aggregations: JSON.parse(document.getElementById('selected-aggregations').textContent),
+        chartType: '{{ report.chart_config.chart_type|default:"bar" }}',
+        aggFunc: 'count',
+        aggField: 'id',
+        chart: null,
+
+        init() {
+            document.getElementById('btn-preview').addEventListener('click', () => this.preview());
+            document.getElementById('btn-save').addEventListener('click', () => this.save());
+        },
+
+        loadSchema() {
+            this.schema = this.allSchemas[this.dataSource] || {fields: [], aggregations: [], group_by: []};
+            this.selectedGroupBy = [];
+            this.aggregations = [];
+        },
+
+        addAggregation() {
+            this.aggregations.push({
+                func: this.aggFunc,
+                field: this.aggField,
+                alias: this.aggFunc + '_' + this.aggField,
+            });
+        },
+
+        buildConfig() {
+            return {
+                query_config: {
+                    groupby: this.selectedGroupBy,
+                    aggregations: this.aggregations,
+                    filters: {},
+                    sort: [],
+                },
+                chart_config: {
+                    chart_type: this.chartType,
+                },
+            };
+        },
+
+        async preview() {
+            const config = this.buildConfig();
+            const resp = await fetch('{% url "bi:report_preview" report.pk %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(config),
+            });
+            const result = await resp.json();
+            if (result.success) {
+                this.renderChart(result.data, result.chart_config);
+            }
+        },
+
+        async save() {
+            const config = this.buildConfig();
+            const resp = await fetch('{% url "bi:report_save_config" report.pk %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(config),
+            });
+            const result = await resp.json();
+            if (result.success) {
+                alert('저장되었습니다.');
+            }
+        },
+
+        renderChart(data, chartConfig) {
+            const container = document.getElementById('chart-container');
+            const tableContainer = document.getElementById('table-container');
+
+            if (data.rows) {
+                container.classList.add('hidden');
+                tableContainer.classList.remove('hidden');
+                this.renderTable(data);
+                return;
+            }
+
+            container.classList.remove('hidden');
+            tableContainer.classList.add('hidden');
+
+            if (this.chart) this.chart.destroy();
+            const ctx = document.getElementById('reportChart').getContext('2d');
+            const type = (chartConfig && chartConfig.chart_type) || 'bar';
+            const chartType = type === 'donut' ? 'doughnut' : type;
+
+            const datasets = (data.datasets || []).map((ds, i) => ({
+                label: ds.label,
+                data: ds.data,
+                backgroundColor: this.getColors(ds.data.length, i),
+                borderColor: this.getColors(ds.data.length, i),
+                fill: false,
+            }));
+
+            this.chart = new Chart(ctx, {
+                type: chartType,
+                data: {labels: data.labels || [], datasets: datasets},
+                options: {responsive: true, maintainAspectRatio: false},
+            });
+        },
+
+        renderTable(data) {
+            const head = document.getElementById('resultHead');
+            const body = document.getElementById('resultBody');
+            head.innerHTML = '<tr>' + (data.columns || []).map(c => '<th class="px-3 py-2 bg-gray-50 text-gray-600">' + c + '</th>').join('') + '</tr>';
+            body.innerHTML = (data.rows || []).map(row =>
+                '<tr class="border-t">' + (data.columns || []).map(c => '<td class="px-3 py-2">' + (row[c] != null ? row[c] : '-') + '</td>').join('') + '</tr>'
+            ).join('');
+        },
+
+        getColors(count, offset) {
+            const palette = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16'];
+            if (count <= 1) return palette[offset % palette.length];
+            return Array.from({length: count}, (_, i) => palette[(i + offset) % palette.length]);
+        },
+    };
+}
+</script>
+{% endblock %}

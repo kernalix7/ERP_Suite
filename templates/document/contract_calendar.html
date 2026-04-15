@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}계약 만료 캘린더 - ERP Suite{% endblock %}
+{% block page_title %}계약 만료 캘린더{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'document:contract_list' %}" class="btn btn-secondary">{% trans "목록으로" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <div id="calendar"></div>
+        </div>
+    </div>
+
+    <div class="space-y-4">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "만료 임박 계약 (90일 내)" %}</h3>
+            <div class="space-y-3">
+                {% for contract in contracts %}
+                <div class="border border-gray-100 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                    <div class="flex justify-between items-start mb-1">
+                        <a href="{% url 'document:contract_detail' contract.contract_number %}" class="text-sm font-medium text-blue-600 hover:underline truncate mr-2">{{ contract.title|truncatechars:25 }}</a>
+                        <span class="text-xs text-orange-600 font-medium whitespace-nowrap">{{ contract.end_date|date:"m/d" }}</span>
+                    </div>
+                    <p class="text-xs text-gray-500">{{ contract.partner.name|default:"-" }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ contract.value|floatformat:0 }}{% trans "원" %}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-400 text-sm">{% trans "90일 내 만료 계약이 없습니다." %}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    var events = [
+        {% for contract in contracts %}
+        {
+            title: '{{ contract.title|truncatechars:20|escapejs }}',
+            start: '{{ contract.end_date|date:"Y-m-d" }}',
+            url: '{% url "document:contract_detail" contract.contract_number %}',
+            color: '#f97316',
+        },
+        {% endfor %}
+    ];
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'ko',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,listMonth',
+        },
+        events: events,
+        height: 'auto',
+    });
+    calendar.render();
+});
+</script>
+{% endblock %}

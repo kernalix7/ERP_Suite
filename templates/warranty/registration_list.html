@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load phone_filters %}
+{% load i18n phone_filters %}
 
-{% block title %}정품등록 목록 - ERP Suite{% endblock %}
-{% block page_title %}정품등록 목록{% endblock %}
+{% block title %}{% trans "정품등록 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "정품등록 목록" %}{% endblock %}
 
 {% block header_actions %}
 {% if user.is_manager_role %}
@@ -10,21 +10,21 @@
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
-    등록
+    {% trans "등록" %}
 </a>
 {% endif %}
-<a href="{% url 'warranty:warranty_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
+<a href="{% url 'warranty:warranty_excel' %}" class="btn btn-secondary" title="{% trans 'Excel 다운로드' %}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
     Excel
 </a>
 {% if user.is_manager_role %}
-<a href="{% url 'warranty:registration_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+<a href="{% url 'warranty:registration_import' %}" class="btn btn-secondary" title="{% trans '일괄 가져오기' %}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
     </svg>
-    가져오기
+    {% trans "가져오기" %}
 </a>
 {% endif %}
 {% endblock %}
@@ -38,10 +38,10 @@
                 <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
-                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="시리얼번호, 제품명, 고객명으로 검색..."
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '시리얼번호, 제품명, 고객명으로 검색...' %}"
                        class="form-input pl-10">
             </div>
-            <button type="submit" class="btn btn-primary">검색</button>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
         </form>
     </div>
 
@@ -50,14 +50,14 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
-                    <th class="px-4 py-3">시리얼번호</th>
-                    <th class="px-4 py-3">제품</th>
-                    <th class="px-4 py-3">고객명</th>
-                    <th class="px-4 py-3">연락처</th>
-                    <th class="px-4 py-3">구매일</th>
-                    <th class="px-4 py-3 text-center">인증상태</th>
-                    <th class="px-4 py-3">작성일</th>
-                    <th class="px-4 py-3 text-center">관리</th>
+                    <th class="px-4 py-3">{% trans "시리얼번호" %}</th>
+                    <th class="px-4 py-3">{% trans "제품" %}</th>
+                    <th class="px-4 py-3">{% trans "고객명" %}</th>
+                    <th class="px-4 py-3">{% trans "연락처" %}</th>
+                    <th class="px-4 py-3">{% trans "구매일" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "인증상태" %}</th>
+                    <th class="px-4 py-3">{% trans "작성일" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -74,23 +74,23 @@
                     <td class="px-4 py-3 text-gray-600">{{ reg.purchase_date|date:"Y-m-d" }}</td>
                     <td class="px-4 py-3 text-center">
                         {% if reg.is_verified %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">인증완료</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "인증완료" %}</span>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">미인증</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "미인증" %}</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-400 text-xs">{{ reg.created_at|date:"m-d H:i" }}</td>
                     <td class="px-4 py-3 text-center">
-                        <a href="{% url 'warranty:registration_detail' reg.serial_number %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">상세</a>
+                        <a href="{% url 'warranty:registration_detail' reg.serial_number %}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">{% trans "상세" %}</a>
                         {% if user.is_manager_role %}
-                        <a href="{% url 'warranty:registration_update' reg.serial_number %}" class="text-gray-600 hover:text-gray-800 text-sm">수정</a>
+                        <a href="{% url 'warranty:registration_update' reg.serial_number %}" class="text-gray-600 hover:text-gray-800 text-sm">{% trans "수정" %}</a>
                         {% endif %}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
                     <td colspan="8" class="px-4 py-12 text-center text-gray-400">
-                        등록된 정품등록 내역이 없습니다.
+                        {% trans "등록된 정품등록 내역이 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -100,10 +100,10 @@
 
     {% if is_paginated %}
     <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <p class="text-sm text-gray-500">{% blocktrans with count=page_obj.paginator.count %}총 {{ count }}건{% endblocktrans %}</p>
         <nav class="flex flex-wrap gap-1">
             {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "이전" %}</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
             <a href="?page={{ num }}&q={{ request.GET.q }}"
@@ -112,7 +112,7 @@
             </a>
             {% endfor %}
             {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>
+            <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "다음" %}</a>
             {% endif %}
         </nav>
     </div>

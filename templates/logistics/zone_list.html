@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "배송 권역 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "배송 권역" %}{% endblock %}
+
+{% block header_actions %}
+{% if user.is_manager_role %}
+<a href="{% url 'logistics:zone_create' %}" class="btn btn-primary">권역 추가</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "권역명" %}</th>
+                    <th class="px-4 py-3">{% trans "지역" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "기본 배송비" %}</th>
+                    <th class="px-4 py-3 text-right">kg당 비용</th>
+                    <th class="px-4 py-3 text-right">km당 비용</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for zone in zones %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">{{ zone.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ zone.region }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ zone.base_cost }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ zone.cost_per_kg }}원</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ zone.cost_per_km }}원</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'logistics:zone_update' zone.pk %}" class="text-blue-600 hover:underline text-sm">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">등록된 권역이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

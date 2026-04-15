@@ -53,4 +53,16 @@ app.conf.beat_schedule = {
         'task': 'apps.hr.tasks.check_labor_compliance_weekly',
         'schedule': crontab(day_of_week=1, hour=9, minute=0),  # 매주 월요일 09:00
     },
+    'backup-database-daily': {
+        'task': 'apps.core.tasks.backup_database',
+        'schedule': crontab(hour=3, minute=0),  # 매일 03:00
+    },
+    'check-preventive-maintenance-daily': {
+        'task': 'apps.cmms.tasks.check_preventive_maintenance',
+        'schedule': crontab(hour=6, minute=30),  # 매일 06:30
+    },
+    'check-sla-breaches': {
+        'task': 'apps.helpdesk.tasks.check_sla_breaches',
+        'schedule': crontab(minute='*/30'),  # 매 30분
+    },
 }

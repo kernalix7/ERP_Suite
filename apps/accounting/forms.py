@@ -7,6 +7,8 @@ from .models import (
     AccountTransfer, PaymentDistribution,
     CreditCard, CardTransaction,
     CostCenter, DashboardWidget,
+    Company, InterCompanyTransaction, ConsolidationPeriod,
+    BankConnection, BankStatement,
 )
 
 
@@ -191,3 +193,56 @@ class CostCenterForm(BaseForm):
     class Meta:
         model = CostCenter
         fields = ['code', 'name', 'parent', 'center_type', 'department', 'manager', 'notes']
+
+
+# ──── Phase 15: 다중법인/연결회계 ────
+
+class CompanyForm(BaseForm):
+    class Meta:
+        model = Company
+        fields = ['name', 'code', 'legal_name', 'tax_id', 'country_code',
+                  'currency', 'address', 'parent', 'notes']
+        widgets = {
+            'address': forms.Textarea(attrs={'rows': 2}),
+        }
+
+
+class InterCompanyTransactionForm(BaseForm):
+    class Meta:
+        model = InterCompanyTransaction
+        fields = ['from_company', 'to_company', 'transaction_date', 'description',
+                  'amount', 'currency_code', 'status', 'notes']
+        widgets = {
+            'transaction_date': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+
+class ConsolidationPeriodForm(BaseForm):
+    class Meta:
+        model = ConsolidationPeriod
+        fields = ['year', 'month', 'companies', 'notes']
+        widgets = {
+            'companies': forms.CheckboxSelectMultiple(),
+        }
+
+
+# ──── Phase 15: 오픈뱅킹 연동 ────
+
+class BankConnectionForm(BaseForm):
+    class Meta:
+        model = BankConnection
+        fields = ['bank_name', 'bank_code', 'account_number', 'account_holder',
+                  'connection_type', 'status', 'company', 'notes']
+
+
+class BankStatementImportForm(forms.Form):
+    """은행 명세서 가져오기"""
+    connection = forms.ModelChoiceField(
+        label='은행연결',
+        queryset=BankConnection.objects.filter(is_active=True),
+        widget=forms.Select(attrs={'class': 'form-input'}),
+    )
+    file = forms.FileField(
+        label='명세서 파일',
+        widget=forms.FileInput(attrs={'class': 'form-input'}),
+    )

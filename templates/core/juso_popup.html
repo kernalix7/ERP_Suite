@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <title>{% trans "주소 검색" %}</title>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function init() {
     var inputYn = "{{ input_yn }}";
     if (inputYn !== "Y") {

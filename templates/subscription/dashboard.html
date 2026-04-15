@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "구독 대시보드 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "구독 대시보드" %}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">활성 구독</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">{{ active_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">체험중</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{{ trial_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">해지</p>
+        <p class="text-3xl font-bold text-red-600 mt-1">{{ cancelled_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">MRR</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">{{ mrr|floatformat:0 }}원</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">ARR</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">{{ arr|floatformat:0 }}원</p>
+    </div>
+</div>
+
+<div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+    <h3 class="text-lg font-semibold mb-4">최근 구독</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+                    <th class="px-4 py-3">{% trans "구독번호" %}</th>
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3">{% trans "플랜" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "시작일" %}</th>
+                    <th class="px-4 py-3">{% trans "다음 과금일" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for sub in recent_subscriptions %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'subscription:subscription_detail' sub.subscription_number %}" class="text-blue-600 hover:underline font-mono">{{ sub.subscription_number }}</a></td>
+                    <td class="px-4 py-3 text-gray-600">{{ sub.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ sub.plan.name }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if sub.status == 'ACTIVE' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">활성</span>
+                        {% elif sub.status == 'TRIAL' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">체험</span>
+                        {% elif sub.status == 'PAUSED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">일시중지</span>
+                        {% elif sub.status == 'CANCELLED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">해지</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ sub.get_status_display }}</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ sub.start_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ sub.next_billing_date|date:"Y-m-d"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">구독이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

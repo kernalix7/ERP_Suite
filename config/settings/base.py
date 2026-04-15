@@ -62,6 +62,26 @@ INSTALLED_APPS = [
     'apps.modules.naver_smartstore',
     'apps.modules.coupang',
     'apps.modules.direct_sale',
+    # Phase 15: 신규 앱
+    'apps.lms',
+    'apps.wiki',
+    'apps.project',
+    'apps.visitor',
+    'apps.wms',
+    'apps.cmms',
+    'apps.plm',
+    'apps.qms',
+    'apps.forecast',
+    'apps.helpdesk',
+    'apps.portal',
+    'apps.logistics',
+    'apps.edi',
+    'apps.subscription',
+    'apps.document',
+    'apps.expense',
+    'apps.esg',
+    'apps.bi',
+    'apps.rpa',
 ]
 
 MIDDLEWARE = [
@@ -79,6 +99,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
     'axes.middleware.AxesMiddleware',
+    'apps.accounts.security_middleware.TwoFactorMiddleware',
+    'apps.accounts.security_middleware.PasswordExpiryMiddleware',
+    'apps.accounts.middleware.IPRestrictionMiddleware',
+    'apps.accounts.middleware.ConcurrentSessionMiddleware',
     'apps.core.middleware.AccessLogMiddleware',
     'csp.middleware.CSPMiddleware',
     'django_prometheus.middleware.PrometheusAfterMiddleware',
@@ -113,10 +137,19 @@ ASGI_APPLICATION = 'config.asgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+     'OPTIONS': {'min_length': 10}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {'NAME': 'apps.accounts.validators.ComplexityValidator'},
+    {'NAME': 'apps.accounts.validators.NoReuseValidator'},
 ]
+
+# Password expiry (days)
+PASSWORD_EXPIRY_DAYS = 90
+
+# Max concurrent sessions per user
+MAX_CONCURRENT_SESSIONS = 3
 
 # Custom User
 AUTH_USER_MODEL = 'accounts.User'

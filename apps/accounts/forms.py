@@ -4,7 +4,7 @@ from django.contrib.auth.forms import (
     PasswordChangeForm, SetPasswordForm,
 )
 
-from .models import PermissionGroup, User
+from .models import IPWhitelist, PermissionGroup, User
 
 INPUT_CLASS = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
 
@@ -155,4 +155,52 @@ class PermissionGroupForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': INPUT_CLASS}),
             'description': forms.Textarea(attrs={'class': INPUT_CLASS, 'rows': 3}),
             'priority': forms.NumberInput(attrs={'class': INPUT_CLASS, 'min': 0}),
+        }
+
+
+class TwoFactorSetupForm(forms.Form):
+    """2FA 설정 검증 폼"""
+    code = forms.CharField(
+        label='인증 코드',
+        max_length=6,
+        min_length=6,
+        widget=forms.TextInput(attrs={
+            'class': INPUT_CLASS,
+            'placeholder': '6자리 코드 입력',
+            'autocomplete': 'off',
+            'inputmode': 'numeric',
+            'pattern': '[0-9]{6}',
+        }),
+    )
+
+    def clean_code(self):
+        code = self.cleaned_data['code']
+        if not code.isdigit():
+            raise forms.ValidationError('숫자만 입력하세요.')
+        return code
+
+
+class TwoFactorVerifyForm(forms.Form):
+    """2FA 검증 폼 (로그인 후)"""
+    code = forms.CharField(
+        label='인증 코드',
+        max_length=16,
+        widget=forms.TextInput(attrs={
+            'class': INPUT_CLASS,
+            'placeholder': '6자리 코드 또는 백업코드',
+            'autocomplete': 'off',
+        }),
+    )
+
+
+class IPWhitelistForm(forms.ModelForm):
+    """IP 화이트리스트 추가 폼"""
+
+    class Meta:
+        model = IPWhitelist
+        fields = ('ip_address', 'description', 'scope')
+        widgets = {
+            'ip_address': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': '192.168.1.1'}),
+            'description': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': '사무실 IP'}),
+            'scope': forms.Select(attrs={'class': INPUT_CLASS}),
         }

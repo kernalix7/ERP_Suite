@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "ESG 실적 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "ESG 실적 목록" %}{% endblock %}
+
+{% block header_actions %}
+{% if user.role == 'admin' or user.role == 'manager' %}
+<a href="{% url 'esg:record_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "실적 기록" %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <input type="number" name="metric" value="{{ request.GET.metric }}" placeholder="{% trans "지표 ID" %}" class="form-input w-32">
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+            <a href="{% url 'esg:record_list' %}" class="btn btn-secondary">{% trans "초기화" %}</a>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "지표" %}</th>
+                    <th class="px-4 py-3">{% trans "카테고리" %}</th>
+                    <th class="px-4 py-3">{% trans "기간 시작" %}</th>
+                    <th class="px-4 py-3">{% trans "기간 종료" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "측정값" %}</th>
+                    <th class="px-4 py-3">{% trans "단위" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "검증" %}</th>
+                    <th class="px-4 py-3">{% trans "기록자" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for record in records %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ record.metric.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ record.metric.category.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ record.period_start|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ record.period_end|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-right font-medium text-gray-900">{{ record.value|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ record.metric.unit|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if record.verified %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "검증완료" %}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{% trans "미검증" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ record.recorded_by.get_full_name|default:record.recorded_by.username|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 ESG 실적이 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">{% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}</p>
+        <nav class="flex gap-1">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "이전" %}</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "다음" %}</a>{% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

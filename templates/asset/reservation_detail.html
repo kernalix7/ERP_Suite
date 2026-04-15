@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}예약 상세{% endblock %}
+{% block page_title %}예약 상세{% endblock %}
+
+{% block header_actions %}
+{% if reservation.status == 'PENDING' %}
+<form method="post" action="{% url 'asset:reservation_approve' reservation.pk %}" class="flex gap-2">
+    {% csrf_token %}
+    <button name="action" value="approve" type="submit" class="btn btn-primary">승인</button>
+    <button name="action" value="reject" type="submit" class="btn btn-danger">거부</button>
+</form>
+{% endif %}
+<a href="{% url 'asset:reservation_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white rounded-lg border border-gray-200 p-6">
+    <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div><dt class="text-gray-500">예약번호</dt><dd class="font-mono font-medium mt-1">{{ reservation.reservation_number }}</dd></div>
+        <div><dt class="text-gray-500">상태</dt><dd class="mt-1">{{ reservation.get_status_display }}</dd></div>
+        <div><dt class="text-gray-500">자산</dt><dd class="font-medium mt-1">{{ reservation.asset.name }}</dd></div>
+        <div><dt class="text-gray-500">예약자</dt><dd class="mt-1">{{ reservation.requester.get_full_name }}</dd></div>
+        <div><dt class="text-gray-500">시작일시</dt><dd class="mt-1">{{ reservation.start_datetime|date:"Y-m-d H:i" }}</dd></div>
+        <div><dt class="text-gray-500">종료일시</dt><dd class="mt-1">{{ reservation.end_datetime|date:"Y-m-d H:i" }}</dd></div>
+        <div><dt class="text-gray-500">사용목적</dt><dd class="mt-1">{{ reservation.purpose }}</dd></div>
+        <div><dt class="text-gray-500">참여인원</dt><dd class="mt-1">{{ reservation.attendee_count }}명</dd></div>
+        {% if reservation.approved_by %}<div><dt class="text-gray-500">승인자</dt><dd class="mt-1">{{ reservation.approved_by.get_full_name }}</dd></div>{% endif %}
+    </dl>
+</div>
+{% endblock %}

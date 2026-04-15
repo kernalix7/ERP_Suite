@@ -129,6 +129,10 @@ class FixedAsset(BaseModel):
         verbose_name = '고정자산'
         verbose_name_plural = '고정자산'
         ordering = ['-acquisition_date']
+        indexes = [
+            models.Index(fields=['status', 'acquisition_date'], name='idx_asset_status_acq'),
+            models.Index(fields=['category', 'status'], name='idx_asset_cat_status'),
+        ]
 
     def __str__(self):
         return f'[{self.asset_number}] {self.name}'
@@ -188,6 +192,9 @@ class DepreciationRecord(BaseModel):
         constraints = [
             models.UniqueConstraint(fields=['asset', 'year', 'month'], name='uq_depreciation_asset_period'),
         ]
+        indexes = [
+            models.Index(fields=['asset', 'year', 'month'], name='idx_deprec_asset_yr_mo'),
+        ]
 
     def __str__(self):
         return f'{self.asset.asset_number} - {self.year}/{self.month}'
@@ -238,6 +245,9 @@ class AssetTransfer(BaseModel):
         verbose_name = '자산이관'
         verbose_name_plural = '자산이관'
         ordering = ['-transfer_date', '-pk']
+        indexes = [
+            models.Index(fields=['asset', 'transfer_date'], name='idx_transfer_asset_dt'),
+        ]
 
     def __str__(self):
         return f'{self.asset.asset_number} {self.transfer_date} 이관'
@@ -390,7 +400,7 @@ class AssetAuditItem(BaseModel):
 
     audit = models.ForeignKey(
         AssetAudit, verbose_name='실사',
-        on_delete=models.CASCADE, related_name='items',
+        on_delete=models.PROTECT, related_name='items',
     )
     asset = models.ForeignKey(
         FixedAsset, verbose_name='자산',
@@ -405,7 +415,206 @@ class AssetAuditItem(BaseModel):
     class Meta:
         verbose_name = '실사항목'
         verbose_name_plural = '실사항목'
-        unique_together = ('audit', 'asset')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['audit', 'asset'],
+                name='uq_asset_audit_item',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.audit} - {self.asset.asset_number}'
+
+
+# ============================================================
+# 자산 예약 (Asset Reservation)
+# ============================================================
+
+class ReservableAsset(BaseModel):
+    """예약 가능 자산 (공용 자산 등록)"""
+
+    class ResourceType(models.TextChoices):
+        MEETING_ROOM = 'MEETING_ROOM', '회의실'
+        VEHICLE = 'VEHICLE', '차량'
+        EQUIPMENT = 'EQUIPMENT', '장비'
+        FACILITY = 'FACILITY', '시설'
+        OTHER = 'OTHER', '기타'
+
+    fixed_asset = models.OneToOneField(
+        FixedAsset, verbose_name='고정자산',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='reservable',
+    )
+    name = models.CharField('예약자산명', max_length=200)
+    resource_type = models.CharField('자산유형', max_length=20, choices=ResourceType.choices, default=ResourceType.EQUIPMENT)
+    description = models.TextField('설명', blank=True)
+    location = models.ForeignKey(
+        Location, verbose_name='위치',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='reservable_assets',
+    )
+    capacity = models.PositiveIntegerField('수용인원/수량', default=1)
+    min_reserve_minutes = models.PositiveIntegerField('최소예약시간(분)', default=30)
+    max_reserve_hours = models.PositiveIntegerField('최대예약시간(시)', default=8)
+    advance_days = models.PositiveIntegerField('최대 사전예약일', default=30)
+    requires_approval = models.BooleanField('승인필요', default=False)
+    image = models.ImageField('이미지', upload_to='asset/reservable/', blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '예약가능자산'
+        verbose_name_plural = '예약가능자산'
+        ordering = ['resource_type', 'name']
+
+    def __str__(self):
+        return f'[{self.get_resource_type_display()}] {self.name}'
+
+
+class ReservationRule(BaseModel):
+    """예약 가능 시간대 규칙"""
+
+    class DayOfWeek(models.IntegerChoices):
+        MON = 0, '월요일'
+        TUE = 1, '화요일'
+        WED = 2, '수요일'
+        THU = 3, '목요일'
+        FRI = 4, '금요일'
+        SAT = 5, '토요일'
+        SUN = 6, '일요일'
+
+    asset = models.ForeignKey(
+        ReservableAsset, verbose_name='예약자산',
+        on_delete=models.PROTECT, related_name='rules',
+    )
+    day_of_week = models.IntegerField('요일', choices=DayOfWeek.choices)
+    open_time = models.TimeField('운영시작')
+    close_time = models.TimeField('운영종료')
+    is_closed = models.BooleanField('휴무', default=False)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '예약규칙'
+        verbose_name_plural = '예약규칙'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['asset', 'day_of_week'],
+                name='uq_reservation_rule_asset_day',
+            ),
+        ]
+        ordering = ['asset', 'day_of_week']
+
+    def __str__(self):
+        return f'{self.asset.name} - {self.get_day_of_week_display()}'
+
+
+class AssetReservation(BaseModel):
+    """자산 예약"""
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', '승인대기'
+        APPROVED = 'APPROVED', '승인'
+        REJECTED = 'REJECTED', '거부'
+        CANCELLED = 'CANCELLED', '취소'
+        COMPLETED = 'COMPLETED', '사용완료'
+
+    reservation_number = models.CharField('예약번호', max_length=20, unique=True, blank=True)
+    asset = models.ForeignKey(
+        ReservableAsset, verbose_name='예약자산',
+        on_delete=models.PROTECT, related_name='reservations',
+    )
+    requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='예약자',
+        on_delete=models.PROTECT, related_name='asset_reservations',
+    )
+    start_datetime = models.DateTimeField('예약시작일시')
+    end_datetime = models.DateTimeField('예약종료일시')
+    purpose = models.CharField('사용목적', max_length=500)
+    attendee_count = models.PositiveIntegerField('참여인원', default=1)
+    status = models.CharField('상태', max_length=20, choices=Status.choices, default=Status.PENDING)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='승인자',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='approved_reservations',
+    )
+    approved_at = models.DateTimeField('승인일시', null=True, blank=True)
+    rejection_reason = models.TextField('거부사유', blank=True)
+    actual_start = models.DateTimeField('실제시작', null=True, blank=True)
+    actual_end = models.DateTimeField('실제종료', null=True, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '자산예약'
+        verbose_name_plural = '자산예약'
+        ordering = ['-start_datetime']
+
+    def __str__(self):
+        return f'[{self.reservation_number}] {self.asset.name} {self.start_datetime:%Y-%m-%d %H:%M}'
+
+    def save(self, *args, **kwargs):
+        if not self.reservation_number:
+            from apps.core.utils import generate_document_number
+            self.reservation_number = generate_document_number(
+                AssetReservation, 'reservation_number', 'RSV',
+            )
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.start_datetime and self.end_datetime:
+            if self.end_datetime <= self.start_datetime:
+                raise ValidationError({'end_datetime': '종료일시는 시작일시 이후여야 합니다.'})
+            # 중복 예약 체크
+            overlap_qs = AssetReservation.objects.filter(
+                asset=self.asset,
+                is_active=True,
+                status__in=[self.Status.PENDING, self.Status.APPROVED],
+                start_datetime__lt=self.end_datetime,
+                end_datetime__gt=self.start_datetime,
+            )
+            if self.pk:
+                overlap_qs = overlap_qs.exclude(pk=self.pk)
+            if overlap_qs.exists():
+                raise ValidationError('해당 시간대에 이미 예약이 존재합니다.')
+
+
+class AssetMaintenance(BaseModel):
+    """자산 유지보수 이력"""
+
+    class MaintenanceType(models.TextChoices):
+        PREVENTIVE = 'PREVENTIVE', '예방정비'
+        CORRECTIVE = 'CORRECTIVE', '사후정비'
+        INSPECTION = 'INSPECTION', '점검'
+        CLEANING = 'CLEANING', '청소'
+
+    class Status(models.TextChoices):
+        SCHEDULED = 'SCHEDULED', '예정'
+        IN_PROGRESS = 'IN_PROGRESS', '진행중'
+        COMPLETED = 'COMPLETED', '완료'
+        CANCELLED = 'CANCELLED', '취소'
+
+    asset = models.ForeignKey(
+        FixedAsset, verbose_name='자산',
+        on_delete=models.PROTECT, related_name='maintenances',
+    )
+    maintenance_type = models.CharField('정비유형', max_length=20, choices=MaintenanceType.choices, default=MaintenanceType.PREVENTIVE)
+    status = models.CharField('상태', max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    scheduled_date = models.DateField('예정일')
+    completed_date = models.DateField('완료일', null=True, blank=True)
+    technician = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='담당자',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='asset_maintenances',
+    )
+    vendor = models.CharField('정비업체', max_length=200, blank=True)
+    description = models.TextField('정비내용', blank=True)
+    cost = models.DecimalField('정비비용', max_digits=15, decimal_places=0, default=0)
+    next_maintenance_date = models.DateField('다음 정비 예정일', null=True, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '자산유지보수'
+        verbose_name_plural = '자산유지보수'
+        ordering = ['-scheduled_date']
+
+    def __str__(self):
+        return f'{self.asset.name} - {self.get_maintenance_type_display()} {self.scheduled_date}'

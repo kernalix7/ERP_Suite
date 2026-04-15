@@ -53,6 +53,7 @@ class Command(BaseCommand):
         self._create_currencies(admin)
         self._create_shipping_carriers(admin)
         self._create_payroll_config(admin)
+        self._create_modules(admin)
 
         if self.rich:
             self._create_stock_movements(admin, products, warehouses)
@@ -2017,3 +2018,85 @@ class Command(BaseCommand):
             if created:
                 count += 1
         self.stdout.write(f'  고정자산: {count}건')
+
+    # =========================================================================
+    # MODULES
+    # =========================================================================
+    def _create_modules(self, admin):
+        from apps.module_manager.models import InstalledModule
+
+        core_modules = [
+            ('core.inventory', '재고관리', 'SYSTEM', '', True, 10),
+            ('core.production', '생산관리', 'PRODUCTION', '', True, 20),
+            ('core.sales', '판매관리', 'SALES', '', True, 30),
+            ('core.purchase', '구매관리', 'PURCHASE', '', True, 40),
+            ('core.service', '기기/AS관리', 'SALES', '', True, 50),
+            ('core.accounting', '회계관리', 'ACCOUNTING', '', True, 60),
+            ('core.hr', '인사관리', 'HR', '', True, 70),
+            ('core.attendance', '근태관리', 'HR', '', True, 80),
+            ('core.board', '게시판', 'SYSTEM', '', True, 90),
+            ('core.messenger', '사내 메신저', 'SYSTEM', '', True, 100),
+            ('core.asset', '자산관리', 'ACCOUNTING', '', True, 110),
+            ('core.marketplace', '마켓플레이스 연동', 'SALES', '', True, 120),
+            ('core.warranty', '정품인증/보증', 'SALES', '', True, 130),
+            ('core.approval', '전자결재', 'SYSTEM', '', True, 140),
+            ('core.investment', '투자관리', 'ACCOUNTING', '', True, 150),
+        ]
+
+        # Phase 15: 신규 앱 모듈
+        phase15_modules = [
+            ('core.wms', '창고관리(WMS)', 'SYSTEM', '', True, 160),
+            ('core.cmms', '설비보전(CMMS)', 'PRODUCTION', '', True, 170),
+            ('core.plm', '제품수명관리(PLM)', 'PRODUCTION', '', True, 180),
+            ('core.qms', '품질관리(QMS)', 'PRODUCTION', '', True, 190),
+            ('core.forecast', '수요예측/S&OP', 'PRODUCTION', '', True, 200),
+            ('core.helpdesk', '헬프데스크', 'SALES', '', True, 210),
+            ('core.portal', '고객/공급처 포털', 'SALES', '', True, 220),
+            ('core.logistics', '물류/배송관리', 'SALES', '', True, 230),
+            ('core.edi', 'EDI 전자문서교환', 'SYSTEM', '', True, 240),
+            ('core.subscription', '구독/정기과금', 'SALES', '', True, 250),
+            ('core.document', '전자문서/계약관리', 'SYSTEM', '', True, 260),
+            ('core.expense', '경비관리', 'ACCOUNTING', '', True, 270),
+            ('core.esg', 'ESG/컴플라이언스', 'COMPLIANCE', '', True, 280),
+            ('core.lms', '학습관리(LMS)', 'HR', '', True, 290),
+            ('core.wiki', '지식베이스/위키', 'SYSTEM', '', True, 300),
+            ('core.project', '프로젝트관리', 'SYSTEM', '', True, 310),
+            ('core.visitor', '방문자관리', 'HR', '', True, 320),
+            ('core.bi', 'BI 대시보드', 'SYSTEM', '', True, 330),
+            ('core.rpa', '자동화(RPA)', 'SYSTEM', '', True, 340),
+        ]
+
+        extension_modules = [
+            ('compliance.kr.severance', '퇴직금 자동 계산', 'COMPLIANCE', 'KR', False, 400),
+            ('compliance.kr.labor_law', '근로기준법 준수 체크', 'COMPLIANCE', 'KR', False, 410),
+            ('compliance.kr.vat_return', '부가세 신고서', 'COMPLIANCE', 'KR', False, 420),
+            ('compliance.kr.year_end_tax', '연말정산', 'COMPLIANCE', 'KR', False, 430),
+            ('advanced.production.scheduling', '생산 스케줄링', 'PRODUCTION', '', False, 500),
+            ('advanced.production.capacity', '생산능력 계획', 'PRODUCTION', '', False, 510),
+            ('advanced.purchase.rfq', '견적 요청(RFQ)', 'PURCHASE', '', False, 600),
+            ('advanced.purchase.vendor_eval', '공급처 평가', 'PURCHASE', '', False, 610),
+            ('advanced.sales.credit', '신용한도 관리', 'SALES', '', False, 700),
+            ('advanced.sales.tier', '고객등급 관리', 'SALES', '', False, 710),
+            ('advanced.sales.pipeline', '영업 파이프라인', 'SALES', '', False, 720),
+            ('advanced.sales.target', '영업목표 관리', 'SALES', '', False, 730),
+            ('advanced.sales.satisfaction', '고객만족도 조사', 'SALES', '', False, 740),
+            ('advanced.accounting.cost_center', '원가센터', 'ACCOUNTING', '', False, 800),
+            ('advanced.accounting.reporting', '고급 리포트', 'ACCOUNTING', '', False, 810),
+        ]
+
+        count = 0
+        for module_id, name, category, country, enabled, order in core_modules + phase15_modules + extension_modules:
+            _, created = InstalledModule.all_objects.get_or_create(
+                module_id=module_id,
+                defaults={
+                    'name': name,
+                    'category': category,
+                    'country_code': country,
+                    'is_enabled': enabled,
+                    'sort_order': order,
+                    'created_by': admin,
+                },
+            )
+            if created:
+                count += 1
+        self.stdout.write(f'  모듈: {count}건')

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% load i18n humanize %}
 
-{% block title %}{{ serial.serial }} - 시리얼 상세 - ERP Suite{% endblock %}
-{% block page_title %}시리얼 상세{% endblock %}
+{% block title %}{{ serial.serial }} - {% trans "시리얼 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "시리얼 상세" %}{% endblock %}
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
@@ -10,7 +10,7 @@
         <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
         </svg>
-        목록
+        {% trans "목록" %}
     </a>
 </div>
 {% endblock %}
@@ -38,7 +38,7 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">제품</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "제품" %}</p>
                 <p class="text-sm font-medium text-gray-900">
                     <a href="{% url 'inventory:product_detail' serial.product.pk %}" class="text-blue-600 hover:text-blue-800">
                         {{ serial.product.name }}
@@ -47,19 +47,19 @@
                 <p class="text-xs text-gray-500 font-mono mt-0.5">{{ serial.product.code }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">보관창고</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "보관창고" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ serial.warehouse.name|default:"-" }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">생산일</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "생산일" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ serial.production_date|date:"Y-m-d"|default:"-" }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">출고일</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "출고일" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ serial.shipped_date|date:"Y-m-d"|default:"-" }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">생산기록</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "생산기록" %}</p>
                 {% if serial.production_record %}
                 <p class="text-sm font-medium text-gray-900">
                     {{ serial.production_record }}
@@ -69,7 +69,7 @@
                 {% endif %}
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">재고LOT</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "재고LOT" %}</p>
                 {% if serial.stock_lot %}
                 <p class="text-sm font-medium">
                     <a href="{% url 'inventory:stocklot_detail' serial.stock_lot.lot_number %}" class="text-blue-600 hover:text-blue-800 font-mono">
@@ -83,27 +83,27 @@
         </div>
 
         <div class="mt-6 pt-6 border-t border-gray-200 text-xs text-gray-400">
-            <p>등록일시: {{ serial.created_at|date:"Y-m-d H:i" }}</p>
+            <p>{% trans "등록일시" %}: {{ serial.created_at|date:"Y-m-d H:i" }}</p>
         </div>
     </div>
 
     <!-- 출고 정보 -->
     {% if serial.shipment_item %}
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h3 class="text-base font-semibold text-gray-900 mb-4">출고 정보</h3>
+        <h3 class="text-base font-semibold text-gray-900 mb-4">{% trans "출고 정보" %}</h3>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">주문번호</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "주문번호" %}</p>
                 <p class="text-sm font-medium text-gray-900">
                     {{ serial.shipment_item.shipment.order.order_number|default:"-" }}
                 </p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">출고일</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "출고일" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ serial.shipped_date|date:"Y-m-d"|default:"-" }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">거래처</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "거래처" %}</p>
                 <p class="text-sm font-medium text-gray-900">
                     {{ serial.shipment_item.shipment.order.partner.name|default:"-" }}
                 </p>
@@ -116,16 +116,16 @@
     {% if history %}
     <div class="bg-white rounded-lg shadow-sm border border-gray-200">
         <div class="p-4 border-b border-gray-200">
-            <h3 class="text-base font-semibold text-gray-900">변경 이력</h3>
+            <h3 class="text-base font-semibold text-gray-900">{% trans "변경 이력" %}</h3>
         </div>
         <div class="table-responsive">
             <table class="w-full text-sm text-left">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                        <th class="px-4 py-3">변경유형</th>
-                        <th class="px-4 py-3">상태</th>
-                        <th class="px-4 py-3">창고</th>
-                        <th class="px-4 py-3">변경일시</th>
+                        <th class="px-4 py-3">{% trans "변경유형" %}</th>
+                        <th class="px-4 py-3">{% trans "상태" %}</th>
+                        <th class="px-4 py-3">{% trans "창고" %}</th>
+                        <th class="px-4 py-3">{% trans "변경일시" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -136,7 +136,7 @@
                                 {% if h.history_type == '+' %}bg-green-100 text-green-800
                                 {% elif h.history_type == '~' %}bg-yellow-100 text-yellow-800
                                 {% else %}bg-red-100 text-red-800{% endif %}">
-                                {% if h.history_type == '+' %}생성{% elif h.history_type == '~' %}변경{% else %}삭제{% endif %}
+                                {% if h.history_type == '+' %}{% trans "생성" %}{% elif h.history_type == '~' %}{% trans "변경" %}{% else %}{% trans "삭제" %}{% endif %}
                             </span>
                         </td>
                         <td class="px-4 py-3">{{ h.get_status_display }}</td>

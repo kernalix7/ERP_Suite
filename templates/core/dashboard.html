@@ -491,7 +491,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     function parseJSON(id) {
         var el = document.getElementById(id);

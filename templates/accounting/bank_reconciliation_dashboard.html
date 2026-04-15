@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}은행 대사 대시보드 - ERP Suite{% endblock %}
+{% block page_title %}은행 대사 대시보드{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">총 거래건수</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">{{ total_transactions|default:0 }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">매칭 완료</p>
+        <p class="text-2xl font-bold text-green-600 mt-1">{{ matched_count|default:0 }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">미매칭</p>
+        <p class="text-2xl font-bold text-red-600 mt-1">{{ unmatched_count|default:0 }}</p>
+    </div>
+</div>
+
+<div class="flex gap-3 mb-4">
+    <a href="{% url 'accounting:bank_transaction_list' %}" class="btn btn-secondary">거래내역</a>
+    <a href="{% url 'accounting:bank_statement_list' %}" class="btn btn-secondary">입출금명세</a>
+    <a href="{% url 'accounting:bank_connection_list' %}" class="btn btn-secondary">은행 연결</a>
+    <a href="{% url 'accounting:bank_reconciliation' %}" class="btn btn-primary">대사 실행</a>
+</div>
+
+{% if recent_unmatched %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="px-4 py-3 border-b border-gray-200">
+        <h3 class="text-sm font-medium text-gray-900">최근 미매칭 거래</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">거래일</th>
+                    <th class="px-4 py-3">적요</th>
+                    <th class="px-4 py-3 text-right">금액</th>
+                    <th class="px-4 py-3 text-center">유형</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for txn in recent_unmatched %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-600">{{ txn.transaction_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ txn.description|truncatewords:10 }}</td>
+                    <td class="px-4 py-3 text-right font-medium">{{ txn.amount|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-center">{{ txn.get_transaction_type_display }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -937,9 +937,9 @@ class SalesTarget(BaseModel):
 
     @property
     def achieved_amount(self):
-        from django.db.models import Sum
+        from django.db.models import Q, Sum
         qs = Order.objects.filter(
-            created_by=self.salesperson,
+            Q(assigned_to=self.salesperson) | Q(created_by=self.salesperson),
             status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
             is_active=True,
             order_date__year=self.year,
@@ -1012,13 +1012,9 @@ class SalesLead(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.lead_number:
-            from django.utils import timezone
-            today = timezone.now().strftime('%Y%m%d')
-            last = SalesLead.objects.filter(
-                lead_number__startswith=f'LEAD-{today}',
-            ).order_by('-lead_number').first()
-            seq = int(last.lead_number.split('-')[-1]) + 1 if last else 1
-            self.lead_number = f'LEAD-{today}-{seq:04d}'
+            self.lead_number = generate_document_number(
+                SalesLead, 'lead_number', 'LEAD',
+            )
         super().save(*args, **kwargs)
 
 

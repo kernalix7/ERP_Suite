@@ -3,6 +3,7 @@ from apps.core.forms import BaseForm
 from .models import (
     AssetAudit, AssetAuditItem, AssetCategory, AssetTransfer,
     Certification, FixedAsset, LeaseContract, Location,
+    ReservableAsset, ReservationRule, AssetReservation, AssetMaintenance,
 )
 
 
@@ -150,3 +151,51 @@ class DepreciationRunForm(forms.Form):
     """감가상각 일괄실행 폼"""
     year = forms.IntegerField(label='년도', widget=forms.NumberInput(attrs={'class': 'form-input'}))
     month = forms.IntegerField(label='월', min_value=1, max_value=12, widget=forms.NumberInput(attrs={'class': 'form-input'}))
+
+
+# ============================================================
+# 자산 예약 폼
+# ============================================================
+
+class ReservableAssetForm(BaseForm):
+    class Meta:
+        model = ReservableAsset
+        fields = [
+            'fixed_asset', 'name', 'resource_type', 'description', 'location',
+            'capacity', 'min_reserve_minutes', 'max_reserve_hours',
+            'advance_days', 'requires_approval', 'image', 'notes',
+        ]
+
+
+class ReservationRuleForm(BaseForm):
+    class Meta:
+        model = ReservationRule
+        fields = ['asset', 'day_of_week', 'open_time', 'close_time', 'is_closed']
+
+
+class AssetReservationForm(BaseForm):
+    class Meta:
+        model = AssetReservation
+        fields = [
+            'asset', 'start_datetime', 'end_datetime',
+            'purpose', 'attendee_count', 'notes',
+        ]
+        widgets = {
+            'start_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-input'}),
+            'end_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-input'}),
+        }
+
+
+class AssetMaintenanceForm(BaseForm):
+    class Meta:
+        model = AssetMaintenance
+        fields = [
+            'asset', 'maintenance_type', 'status', 'scheduled_date',
+            'completed_date', 'technician', 'vendor', 'description',
+            'cost', 'next_maintenance_date', 'notes',
+        ]
+        widgets = {
+            'scheduled_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'completed_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'next_maintenance_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+        }

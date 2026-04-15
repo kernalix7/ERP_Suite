@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ article.title }} - 수정 이력{% endblock %}
+{% block page_title %}수정 이력: {{ article.title }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'wiki:article_detail' article.slug %}" class="btn btn-secondary">문서 보기</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white rounded-lg border border-gray-200 p-5">
+        {% if revisions %}
+        <ul class="divide-y divide-gray-100">
+            {% for rev in revisions %}
+            <li class="py-3 flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm">
+                    v{{ rev.revision_number }}
+                </div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <a href="{% url 'wiki:revision_detail' rev.pk %}" class="text-sm font-medium text-blue-600 hover:underline">버전 {{ rev.revision_number }}</a>
+                            <span class="text-xs text-gray-400 ml-2">{{ rev.revised_by.get_full_name|default:rev.revised_by.username }}</span>
+                        </div>
+                        <span class="text-xs text-gray-400">{{ rev.created_at|date:"Y-m-d H:i" }}</span>
+                    </div>
+                    {% if rev.change_summary %}
+                    <p class="text-sm text-gray-600 mt-1">{{ rev.change_summary }}</p>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-center text-gray-500 py-10">수정 이력이 없습니다.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

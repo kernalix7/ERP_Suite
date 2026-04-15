@@ -153,3 +153,50 @@ class Message(BaseModel):
 
     def __str__(self):
         return f'{self.sender}: {self.content[:30]}'
+
+
+class MessageAttachment(BaseModel):
+    """메시지 첨부파일 — WebSocket 업로드 후 메시지에 연결"""
+    message = models.ForeignKey(
+        Message, verbose_name='메시지',
+        on_delete=models.CASCADE, related_name='attachments',
+    )
+    file = models.FileField('파일', upload_to='messenger/attachments/%Y/%m/')
+    filename = models.CharField('파일명', max_length=255)
+    file_size = models.PositiveIntegerField('파일 크기(bytes)', default=0)
+    content_type = models.CharField('Content-Type', max_length=100, blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '메시지 첨부파일'
+        verbose_name_plural = '메시지 첨부파일'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return self.filename
+
+
+class ReadReceipt(BaseModel):
+    """메시지 읽음 영수증"""
+    message = models.ForeignKey(
+        Message, verbose_name='메시지',
+        on_delete=models.CASCADE, related_name='read_receipts',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='사용자',
+        on_delete=models.CASCADE, related_name='read_receipts',
+    )
+    read_at = models.DateTimeField('읽은 시각', auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '읽음 영수증'
+        verbose_name_plural = '읽음 영수증'
+        constraints = [
+            models.UniqueConstraint(fields=['message', 'user'], name='uq_readreceipt_msg_user'),
+        ]
+
+    def __str__(self):
+        return f'{self.user} read {self.message_id}'

@@ -1,6 +1,6 @@
 from django import forms
 from apps.core.forms import BaseForm
-from apps.approval.models import ApprovalRequest, ApprovalStep
+from apps.approval.models import ApprovalRequest, ApprovalStep, ApprovalLineTemplate, ApprovalDelegation
 
 
 class ApprovalRequestForm(BaseForm):
@@ -77,3 +77,35 @@ class ApprovalActionForm(forms.Form):
             'class': 'form-input h-24', 'rows': 3,
         }),
     )
+
+
+class ApprovalLineTemplateForm(BaseForm):
+    class Meta:
+        model = ApprovalLineTemplate
+        fields = ['name', 'description', 'steps', 'is_default']
+        widgets = {
+            'description': forms.Textarea(attrs={'class': 'form-input', 'rows': 2}),
+            'steps': forms.Textarea(attrs={
+                'class': 'form-input font-mono', 'rows': 6,
+                'placeholder': '[{"approver_id": 1, "role": "팀장", "order": 1}]',
+            }),
+        }
+
+
+class ApprovalDelegationForm(BaseForm):
+    class Meta:
+        model = ApprovalDelegation
+        fields = ['delegate', 'start_date', 'end_date', 'reason']
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'end_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'reason': forms.Textarea(attrs={'class': 'form-input', 'rows': 3}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get('start_date')
+        end = cleaned.get('end_date')
+        if start and end and end < start:
+            raise forms.ValidationError('종료일은 시작일 이후여야 합니다.')
+        return cleaned

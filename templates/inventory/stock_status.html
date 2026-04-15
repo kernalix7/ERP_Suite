@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}재고현황 - ERP Suite{% endblock %}
-{% block page_title %}재고현황{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "재고현황" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "재고현황" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'inventory:stock_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
+<a href="{% url 'inventory:stock_excel' %}" class="btn btn-secondary" title="{% trans 'Excel 다운로드'%}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
@@ -18,7 +19,7 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-500">전체 제품</p>
+                <p class="text-sm text-gray-500">{% trans "전체 제품" %}</p>
                 <p class="text-2xl font-bold text-gray-900 mt-1">{{ total_count|default:"0" }}</p>
             </div>
             <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -31,7 +32,7 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-500">정상 재고</p>
+                <p class="text-sm text-gray-500">{% trans "정상 재고" %}</p>
                 <p class="text-2xl font-bold text-green-600 mt-1">{{ normal_count|default:"0" }}</p>
             </div>
             <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -44,7 +45,7 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-500">재고 부족</p>
+                <p class="text-sm text-gray-500">{% trans "재고 부족" %}</p>
                 <p class="text-2xl font-bold text-red-600 mt-1">{{ shortage_count|default:"0" }}</p>
             </div>
             <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
@@ -61,17 +62,17 @@
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1">
-                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="제품코드 또는 제품명으로 검색..."
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '제품코드 또는 제품명으로 검색...'%}"
                        class="form-input">
             </div>
             <div class="w-full sm:w-44">
                 <select name="status" class="form-input">
-                    <option value="">전체 상태</option>
-                    <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>정상</option>
-                    <option value="shortage" {% if request.GET.status == 'shortage' %}selected{% endif %}>부족</option>
+                    <option value="">{% trans "전체 상태" %}</option>
+                    <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>{% trans "정상" %}</option>
+                    <option value="shortage" {% if request.GET.status == 'shortage' %}selected{% endif %}>{% trans "부족" %}</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary">검색</button>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
         </form>
     </div>
 
@@ -79,13 +80,13 @@
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">제품코드</th>
-                    <th class="px-4 py-3">제품명</th>
-                    <th class="px-4 py-3">유형</th>
-                    <th class="px-4 py-3 text-right">현재고</th>
-                    <th class="px-4 py-3 text-right">안전재고</th>
-                    <th class="px-4 py-3 text-center">상태</th>
-                    <th class="px-4 py-3 text-center">재고율</th>
+                    <th class="px-4 py-3">{% trans "제품코드" %}</th>
+                    <th class="px-4 py-3">{% trans "제품명" %}</th>
+                    <th class="px-4 py-3">{% trans "유형" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "현재고" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "안전재고" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "재고율" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -111,11 +112,11 @@
                     <td class="px-4 py-3 text-center">
                         {% if product.current_stock >= product.safety_stock %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            정상
+                            {% trans "정상" %}
                         </span>
                         {% else %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            부족
+                            {% trans "부족" %}
                         </span>
                         {% endif %}
                     </td>
@@ -141,7 +142,7 @@
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                         </svg>
-                        등록된 제품이 없습니다.
+                        {% trans "등록된 제품이 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -158,7 +159,7 @@
         <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
             <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}"
-               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
             <a href="?page={{ num }}&q={{ request.GET.q }}&status={{ request.GET.status }}"
@@ -168,7 +169,7 @@
             {% endfor %}
             {% if page_obj.has_next %}
             <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}"
-               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
             {% endif %}
         </nav>
     </div>

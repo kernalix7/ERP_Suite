@@ -46,6 +46,10 @@ class Event(BaseModel):
         verbose_name = '일정'
         verbose_name_plural = '일정'
         ordering = ['start_datetime']
+        indexes = [
+            models.Index(fields=['creator', 'start_datetime'], name='idx_event_creator_start'),
+            models.Index(fields=['event_type', 'start_datetime'], name='idx_event_type_start'),
+        ]
 
     def __str__(self):
         return self.title

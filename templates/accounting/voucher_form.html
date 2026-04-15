@@ -140,7 +140,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function voucherForm() {
     return {
         deletedItems: new Set(),

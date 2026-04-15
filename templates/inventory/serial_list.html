@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}시리얼번호 관리 - ERP Suite{% endblock %}
-{% block page_title %}시리얼번호 관리{% endblock %}
+{% block title %}{% trans "시리얼번호 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "시리얼번호 관리" %}{% endblock %}
 
 {% block content %}
 <div class="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -10,12 +10,12 @@
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1">
-                <input type="text" name="q" value="{{ q }}" placeholder="시리얼번호 또는 제품명으로 검색..."
+                <input type="text" name="q" value="{{ q }}" placeholder="{% trans '시리얼번호 또는 제품명으로 검색...'%}"
                        class="form-input">
             </div>
             <div class="w-full sm:w-40">
                 <select name="status" class="form-input">
-                    <option value="">전체 상태</option>
+                    <option value="">{% trans "전체 상태" %}</option>
                     {% for value, label in status_choices %}
                     <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
@@ -23,7 +23,7 @@
             </div>
             <div class="w-full sm:w-40">
                 <select name="product" class="form-input">
-                    <option value="">전체 제품</option>
+                    <option value="">{% trans "전체 제품" %}</option>
                     {% for p in products %}
                     <option value="{{ p.pk }}" {% if selected_product == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.name }}</option>
                     {% endfor %}
@@ -31,13 +31,13 @@
             </div>
             <div class="w-full sm:w-40">
                 <select name="warehouse" class="form-input">
-                    <option value="">전체 창고</option>
+                    <option value="">{% trans "전체 창고" %}</option>
                     {% for w in warehouses %}
                     <option value="{{ w.pk }}" {% if selected_warehouse == w.pk|stringformat:"d" %}selected{% endif %}>{{ w.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary">검색</button>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
         </form>
     </div>
 
@@ -46,12 +46,12 @@
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">시리얼번호</th>
-                    <th class="px-4 py-3">제품</th>
-                    <th class="px-4 py-3">상태</th>
-                    <th class="px-4 py-3">보관창고</th>
-                    <th class="px-4 py-3">생산일</th>
-                    <th class="px-4 py-3">출고일</th>
+                    <th class="px-4 py-3">{% trans "시리얼번호" %}</th>
+                    <th class="px-4 py-3">{% trans "제품" %}</th>
+                    <th class="px-4 py-3">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "보관창고" %}</th>
+                    <th class="px-4 py-3">{% trans "생산일" %}</th>
+                    <th class="px-4 py-3">{% trans "출고일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -82,7 +82,7 @@
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
                         </svg>
-                        등록된 시리얼번호가 없습니다.
+                        {% trans "등록된 시리얼번호가 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -99,7 +99,7 @@
         <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
             <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ selected_status }}&product={{ selected_product }}&warehouse={{ selected_warehouse }}"
-               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
             <a href="?page={{ num }}&q={{ q }}&status={{ selected_status }}&product={{ selected_product }}&warehouse={{ selected_warehouse }}"
@@ -109,7 +109,7 @@
             {% endfor %}
             {% if page_obj.has_next %}
             <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ selected_status }}&product={{ selected_product }}&warehouse={{ selected_warehouse }}"
-               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
             {% endif %}
         </nav>
     </div>

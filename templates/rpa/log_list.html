@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}자동화 로그 - ERP Suite{% endblock %}
+{% block page_title %}자동화 실행 로그{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap gap-2 items-center">
+    <form method="get" class="flex gap-2 items-center">
+        <select name="status" class="form-input w-32">
+            <option value="">상태 전체</option>
+            <option value="SUCCESS" {% if request.GET.status == 'SUCCESS' %}selected{% endif %}>성공</option>
+            <option value="PARTIAL" {% if request.GET.status == 'PARTIAL' %}selected{% endif %}>부분성공</option>
+            <option value="FAILED" {% if request.GET.status == 'FAILED' %}selected{% endif %}>실패</option>
+        </select>
+        <button type="submit" class="btn btn-secondary">필터</button>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">규칙</th>
+                    <th class="px-4 py-3">상태</th>
+                    <th class="px-4 py-3 text-center">실행액션</th>
+                    <th class="px-4 py-3 text-center">소요시간</th>
+                    <th class="px-4 py-3">실행시각</th>
+                    <th class="px-4 py-3">오류</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for log in logs %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium">
+                        <a href="{% url 'rpa:rule_detail' log.rule.pk %}" class="text-blue-600 hover:underline">{{ log.rule.name }}</a>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            {% if log.status == 'SUCCESS' %}bg-green-100 text-green-800
+                            {% elif log.status == 'PARTIAL' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ log.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center font-mono">{{ log.actions_executed }}</td>
+                    <td class="px-4 py-3 text-center font-mono text-gray-500">{{ log.duration_ms }}ms</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ log.triggered_at|date:"Y-m-d H:i:s" }}</td>
+                    <td class="px-4 py-3 text-red-500 text-xs max-w-xs truncate">{{ log.error_message|default:"-"|truncatewords:10 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">실행 로그가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_paginated %}
+<div class="mt-4 flex justify-center">{% include "core/pagination.html" %}</div>
+{% endif %}
+{% endblock %}

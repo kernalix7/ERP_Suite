@@ -1,7 +1,10 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem
+from .models import (
+    PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem,
+    RFQ, RFQItem, RFQResponse, VendorScore,
+)
 
 
 class PurchaseOrderItemInline(admin.TabularInline):
@@ -38,3 +41,39 @@ class GoodsReceiptAdmin(SimpleHistoryAdmin):
 @admin.register(GoodsReceiptItem)
 class GoodsReceiptItemAdmin(SimpleHistoryAdmin):
     list_display = ('goods_receipt', 'po_item', 'received_quantity', 'is_inspected')
+
+
+class RFQItemInline(admin.TabularInline):
+    model = RFQItem
+    extra = 1
+
+
+@admin.register(RFQ)
+class RFQAdmin(SimpleHistoryAdmin):
+    list_display = ('rfq_number', 'title', 'status', 'requested_by', 'due_date', 'is_active')
+    list_filter = ('status', 'is_active')
+    search_fields = ('rfq_number', 'title')
+    inlines = [RFQItemInline]
+
+
+@admin.register(RFQItem)
+class RFQItemAdmin(SimpleHistoryAdmin):
+    list_display = ('rfq', 'product', 'quantity', 'is_active')
+    search_fields = ('rfq__rfq_number', 'product__name')
+    raw_id_fields = ('rfq', 'product')
+
+
+@admin.register(RFQResponse)
+class RFQResponseAdmin(SimpleHistoryAdmin):
+    list_display = ('rfq', 'partner', 'response_date', 'total_amount', 'delivery_days', 'is_selected')
+    list_filter = ('is_selected', 'is_active')
+    search_fields = ('rfq__rfq_number', 'partner__name')
+    raw_id_fields = ('rfq', 'partner')
+
+
+@admin.register(VendorScore)
+class VendorScoreAdmin(SimpleHistoryAdmin):
+    list_display = ('partner', 'evaluation_date', 'delivery_score', 'quality_score', 'price_score', 'service_score', 'overall_score')
+    list_filter = ('evaluation_date', 'is_active')
+    search_fields = ('partner__name', 'partner__code')
+    raw_id_fields = ('partner', 'evaluator')

@@ -553,3 +553,668 @@ class PriceRuleSerializer(serializers.ModelSerializer):
             'is_active', 'notes', 'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+
+# === WMS ===
+
+from apps.wms.models import WarehouseZone, PickOrder, PutAwayTask
+
+
+class WarehouseZoneSerializer(serializers.ModelSerializer):
+    warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
+
+    class Meta:
+        model = WarehouseZone
+        fields = [
+            'id', 'warehouse', 'warehouse_name', 'name', 'code',
+            'zone_type', 'description',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class PickOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PickOrder
+        fields = [
+            'id', 'pick_number', 'order', 'status', 'priority',
+            'assigned_to',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['pick_number', 'created_at', 'updated_at']
+
+
+class PutAwayTaskSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
+    class Meta:
+        model = PutAwayTask
+        fields = [
+            'id', 'goods_receipt', 'product', 'product_name',
+            'quantity', 'suggested_bin', 'actual_bin',
+            'status', 'assigned_to',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === CMMS ===
+
+from apps.cmms.models import Equipment, MaintenanceWorkOrder
+
+
+class EquipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Equipment
+        fields = [
+            'id', 'name', 'code', 'category', 'location',
+            'manufacturer', 'model_number', 'serial_number',
+            'purchase_date', 'purchase_cost', 'status', 'department',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class MaintenanceWorkOrderSerializer(serializers.ModelSerializer):
+    equipment_name = serializers.CharField(source='equipment.name', read_only=True)
+
+    class Meta:
+        model = MaintenanceWorkOrder
+        fields = [
+            'id', 'wo_number', 'schedule', 'equipment', 'equipment_name',
+            'status', 'priority', 'description',
+            'started_at', 'completed_at', 'cost',
+            'findings', 'parts_used', 'assigned_to',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['wo_number', 'created_at', 'updated_at']
+
+
+# === PLM ===
+
+from apps.plm.models import EngineeringChangeNotice, Drawing
+
+
+class EngineeringChangeNoticeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EngineeringChangeNotice
+        fields = [
+            'id', 'ecn_number', 'title', 'description',
+            'priority', 'status',
+            'requested_by', 'approved_by', 'target_date',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['ecn_number', 'created_at', 'updated_at']
+
+
+class DrawingSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
+    class Meta:
+        model = Drawing
+        fields = [
+            'id', 'product', 'product_name', 'version',
+            'file', 'drawing_number', 'revision',
+            'description', 'format',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === QMS ===
+
+from apps.qms.models import NonConformance, CAPA, InternalAudit
+
+
+class NonConformanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NonConformance
+        fields = [
+            'id', 'nc_number', 'title', 'description',
+            'source', 'severity', 'product', 'detected_by',
+            'status', 'root_cause', 'corrective_action',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['nc_number', 'created_at', 'updated_at']
+
+
+class CAPASerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CAPA
+        fields = [
+            'id', 'capa_number', 'nc', 'type',
+            'description', 'assigned_to', 'due_date',
+            'status', 'effectiveness_check',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['capa_number', 'created_at', 'updated_at']
+
+
+class InternalAuditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InternalAudit
+        fields = [
+            'id', 'audit_number', 'title', 'audit_type',
+            'scope', 'auditor', 'audit_date',
+            'status', 'findings', 'conclusion',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['audit_number', 'created_at', 'updated_at']
+
+
+# === Forecast ===
+
+from apps.forecast.models import DemandForecast, SOPMeeting
+
+
+class DemandForecastSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
+    class Meta:
+        model = DemandForecast
+        fields = [
+            'id', 'product', 'product_name',
+            'period_start', 'period_end',
+            'forecast_method', 'forecast_qty',
+            'actual_qty', 'accuracy_pct',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class SOPMeetingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SOPMeeting
+        fields = [
+            'id', 'title', 'meeting_date', 'period',
+            'status', 'minutes', 'decisions',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === Helpdesk ===
+
+from apps.helpdesk.models import Ticket, SLA
+
+
+class TicketSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True, default=None)
+
+    class Meta:
+        model = Ticket
+        fields = [
+            'id', 'ticket_number', 'title', 'description',
+            'category', 'category_name', 'priority', 'status',
+            'reporter', 'assigned_to',
+            'sla', 'sla_response_due', 'sla_resolution_due', 'sla_breached',
+            'channel',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['ticket_number', 'created_at', 'updated_at']
+
+
+class SLASerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SLA
+        fields = [
+            'id', 'name', 'response_time_hours',
+            'resolution_time_hours', 'escalation_time_hours',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === Portal ===
+
+from apps.portal.models import PortalUser, PortalDocument
+
+
+class PortalUserSerializer(serializers.ModelSerializer):
+    partner_name = serializers.CharField(source='partner.name', read_only=True)
+
+    class Meta:
+        model = PortalUser
+        fields = [
+            'id', 'user', 'partner', 'partner_name',
+            'portal_type', 'is_verified', 'last_portal_login',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class PortalDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PortalDocument
+        fields = [
+            'id', 'portal_user', 'document_type', 'title', 'file',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === Logistics ===
+
+from apps.logistics.models import Vehicle, DeliveryRoute
+
+
+class VehicleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vehicle
+        fields = [
+            'id', 'name', 'plate_number', 'vehicle_type',
+            'capacity_kg', 'capacity_cbm', 'status', 'driver',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class DeliveryRouteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryRoute
+        fields = [
+            'id', 'route_number', 'name', 'date',
+            'vehicle', 'driver', 'status',
+            'total_distance_km', 'total_cost',
+            'departure_time', 'return_time',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['route_number', 'created_at', 'updated_at']
+
+
+# === EDI ===
+
+from apps.edi.models import EDIPartner, EDITransaction
+
+
+class EDIPartnerSerializer(serializers.ModelSerializer):
+    partner_name = serializers.CharField(source='partner.name', read_only=True)
+
+    class Meta:
+        model = EDIPartner
+        fields = [
+            'id', 'partner', 'partner_name', 'edi_id', 'protocol',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class EDITransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EDITransaction
+        fields = [
+            'id', 'transaction_id', 'partner', 'document_type',
+            'direction', 'status', 'processed_at', 'error_message',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['transaction_id', 'created_at', 'updated_at']
+
+
+# === Subscription ===
+
+from apps.subscription.models import SubscriptionPlan, Subscription, BillingRecord
+
+
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = [
+            'id', 'name', 'code', 'description',
+            'billing_cycle', 'price', 'currency', 'features',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    partner_name = serializers.CharField(source='partner.name', read_only=True)
+    plan_name = serializers.CharField(source='plan.name', read_only=True)
+
+    class Meta:
+        model = Subscription
+        fields = [
+            'id', 'subscription_number', 'partner', 'partner_name',
+            'plan', 'plan_name', 'status',
+            'start_date', 'end_date', 'next_billing_date',
+            'auto_renew', 'cancel_reason',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['subscription_number', 'created_at', 'updated_at']
+
+
+class BillingRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BillingRecord
+        fields = [
+            'id', 'subscription', 'billing_date',
+            'amount', 'tax_amount', 'total', 'status',
+            'invoice', 'order',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['total', 'created_at', 'updated_at']
+
+
+# === Document ===
+
+from apps.document.models import Document, Contract
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
+    class Meta:
+        model = Document
+        fields = [
+            'id', 'document_number', 'title', 'category', 'category_name',
+            'content_file', 'file_type', 'version',
+            'status', 'owner', 'department', 'access_level',
+            'tags', 'expiry_date',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['document_number', 'created_at', 'updated_at']
+
+
+class ContractSerializer(serializers.ModelSerializer):
+    partner_name = serializers.CharField(source='partner.name', read_only=True, default=None)
+
+    class Meta:
+        model = Contract
+        fields = [
+            'id', 'contract_number', 'title', 'contract_type',
+            'partner', 'partner_name',
+            'start_date', 'end_date', 'value',
+            'status', 'auto_renew', 'renewal_notice_days',
+            'signed_date', 'signed_by',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['contract_number', 'created_at', 'updated_at']
+
+
+# === Expense ===
+
+from apps.expense.models import ExpenseClaim, ExpenseCategory as ExpenseCategoryModel
+
+
+class ExpenseClaimSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpenseClaim
+        fields = [
+            'id', 'claim_number', 'employee', 'title',
+            'status', 'submitted_date',
+            'approved_by', 'approved_date',
+            'total_amount', 'paid_date', 'rejection_reason',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['claim_number', 'total_amount', 'created_at', 'updated_at']
+
+
+class ExpenseCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpenseCategoryModel
+        fields = [
+            'id', 'name', 'code', 'account_code',
+            'parent', 'policy',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === ESG ===
+
+from apps.esg.models import CarbonEmission, SafetyIncident, ComplianceRequirement
+
+
+class CarbonEmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CarbonEmission
+        fields = [
+            'id', 'source', 'scope', 'emission_type',
+            'amount_kg', 'period', 'facility', 'calculation_method',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class SafetyIncidentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SafetyIncident
+        fields = [
+            'id', 'incident_number', 'date', 'location',
+            'severity', 'description', 'injured_count',
+            'root_cause', 'corrective_action',
+            'status', 'reported_by',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['incident_number', 'created_at', 'updated_at']
+
+
+class ComplianceRequirementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComplianceRequirement
+        fields = [
+            'id', 'name', 'regulation', 'description',
+            'responsible', 'due_date', 'status',
+            'last_review',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === LMS ===
+
+from apps.lms.models import Course, CourseEnrollment
+
+
+class CourseSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
+    class Meta:
+        model = Course
+        fields = [
+            'id', 'course_number', 'title', 'category', 'category_name',
+            'instructor', 'description', 'level', 'status',
+            'duration_hours', 'pass_score', 'is_mandatory',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['course_number', 'created_at', 'updated_at']
+
+
+class CourseEnrollmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseEnrollment
+        fields = [
+            'id', 'course', 'learner', 'status',
+            'enrolled_at', 'completed_at',
+            'progress_pct', 'final_score',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['enrolled_at', 'created_at', 'updated_at']
+
+
+# === Wiki ===
+
+from apps.wiki.models import WikiArticle, WikiSpace
+
+
+class WikiSpaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WikiSpace
+        fields = [
+            'id', 'name', 'code', 'description',
+            'is_public', 'owner',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class WikiArticleSerializer(serializers.ModelSerializer):
+    space_name = serializers.CharField(source='space.name', read_only=True)
+
+    class Meta:
+        model = WikiArticle
+        fields = [
+            'id', 'article_number', 'space', 'space_name',
+            'category', 'title', 'slug', 'status',
+            'author', 'tags', 'view_count', 'is_pinned',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['article_number', 'view_count', 'created_at', 'updated_at']
+
+
+# === Project ===
+
+from apps.project.models import (
+    Project as ProjectModel, Task as TaskModel, Milestone,
+)
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectModel
+        fields = [
+            'id', 'project_number', 'name', 'category',
+            'status', 'priority', 'manager', 'department',
+            'description', 'start_date', 'due_date', 'completed_date',
+            'budget', 'progress_pct',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['project_number', 'created_at', 'updated_at']
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskModel
+        fields = [
+            'id', 'project', 'milestone', 'parent_task',
+            'title', 'description', 'status', 'priority',
+            'assignee', 'reporter',
+            'start_date', 'due_date', 'completed_date',
+            'estimated_hours', 'actual_hours',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class MilestoneSerializer(serializers.ModelSerializer):
+    project_name = serializers.CharField(source='project.name', read_only=True)
+
+    class Meta:
+        model = Milestone
+        fields = [
+            'id', 'project', 'project_name',
+            'title', 'description',
+            'due_date', 'completed_date', 'status',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === Visitor ===
+
+from apps.visitor.models import VisitRequest, VisitLog
+
+
+class VisitRequestSerializer(serializers.ModelSerializer):
+    visitor_name = serializers.CharField(source='visitor.name', read_only=True)
+
+    class Meta:
+        model = VisitRequest
+        fields = [
+            'id', 'visit_number', 'visitor', 'visitor_name',
+            'host', 'purpose', 'department',
+            'scheduled_at', 'expected_duration_minutes',
+            'status', 'rejection_reason',
+            'approved_by', 'approved_at', 'visitor_count',
+            'description',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['visit_number', 'created_at', 'updated_at']
+
+
+class VisitLogSerializer(serializers.ModelSerializer):
+    visitor_name = serializers.CharField(source='visitor.name', read_only=True)
+
+    class Meta:
+        model = VisitLog
+        fields = [
+            'id', 'visit_request', 'visitor', 'visitor_name',
+            'check_in_at', 'check_out_at', 'badge_number',
+            'receptionist', 'remarks',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === Attendance ===
+
+from apps.attendance.models import AttendanceRecord, LeaveRequest
+
+
+class AttendanceRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AttendanceRecord
+        fields = [
+            'id', 'user', 'date', 'check_in', 'check_out',
+            'status', 'overtime_hours',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class LeaveRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeaveRequest
+        fields = [
+            'id', 'user', 'leave_type',
+            'start_date', 'end_date', 'days', 'reason',
+            'status', 'approved_by', 'approved_at',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+# === Board ===
+
+from apps.board.models import Board as BoardModel, Post
+
+
+class BoardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BoardModel
+        fields = [
+            'id', 'name', 'slug', 'description',
+            'is_notice', 'permission_level',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class PostSerializer(serializers.ModelSerializer):
+    board_name = serializers.CharField(source='board.name', read_only=True)
+
+    class Meta:
+        model = Post
+        fields = [
+            'id', 'board', 'board_name', 'title',
+            'content', 'author', 'is_pinned', 'view_count',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['view_count', 'created_at', 'updated_at']
+
+
+# === Calendar ===
+
+from apps.calendar_app.models import Event
+
+
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = [
+            'id', 'title', 'description',
+            'start_datetime', 'end_datetime', 'all_day',
+            'event_type', 'color', 'location',
+            'creator', 'is_recurring',
+            'is_active', 'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']

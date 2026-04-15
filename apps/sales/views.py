@@ -3134,6 +3134,7 @@ class ShippingCarrierListView(LoginRequiredMixin, ListView):
     model = ShippingCarrier
     template_name = 'sales/carrier_list.html'
     context_object_name = 'carriers'
+    paginate_by = 20
 
     def get_queryset(self):
         return super().get_queryset().filter(is_active=True)
@@ -3297,6 +3298,7 @@ class CustomerTierListView(LoginRequiredMixin, ListView):
     model = CustomerTier
     template_name = 'sales/customer_tier_list.html'
     context_object_name = 'tiers'
+    paginate_by = 20
 
     def get_queryset(self):
         return super().get_queryset().filter(is_active=True).order_by('sort_order')

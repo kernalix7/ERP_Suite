@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}{{ movement.movement_number }} - 입출고 상세 - ERP Suite{% endblock %}
-{% block page_title %}입출고 상세{% endblock %}
+{% block title %}{{ movement.movement_number }}- {% trans "입출고 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "입출고 상세" %}{% endblock %}
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
-    <a href="{% url 'inventory:movement_list' %}" class="btn btn-secondary">목록</a>
+    <a href="{% url 'inventory:movement_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 </div>
 {% endblock %}
 
@@ -31,7 +31,7 @@
         <!-- 상세 정보 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">제품</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "제품" %}</p>
                 <p class="text-sm font-medium text-gray-900">
                     <a href="{% url 'inventory:product_detail' movement.product.pk %}" class="text-blue-600 hover:text-blue-800">
                         {{ movement.product }}
@@ -40,11 +40,11 @@
                 <p class="text-xs text-gray-500 font-mono mt-0.5">{{ movement.product.code }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">창고</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "창고" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ movement.warehouse }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">수량</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "수량" %}</p>
                 <p class="text-lg font-bold
                     {% if movement.movement_type == 'IN' %}text-green-600{% elif movement.movement_type == 'OUT' %}text-red-600{% else %}text-gray-900{% endif %}">
                     {% if movement.movement_type == 'IN' %}+{% elif movement.movement_type == 'OUT' %}-{% endif %}{{ movement.quantity }}
@@ -52,19 +52,19 @@
                 </p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">단가</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "단가" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ movement.unit_price|intcomma }} 원</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">금액</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "금액" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ movement.total_amount|intcomma }} 원</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">참조</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "참조" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ movement.reference|default:"-" }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">처리자</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "처리자" %}</p>
                 <p class="text-sm font-medium text-gray-900">{{ movement.created_by|default:"-" }}</p>
             </div>
         </div>

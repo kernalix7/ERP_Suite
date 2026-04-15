@@ -1,0 +1,23 @@
+{% extends "portal/base_portal.html" %}
+
+{% block title %}알림 - ERP 포털{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-900 mb-6">알림</h1>
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="divide-y divide-gray-100">
+        {% for notif in notifications %}
+        <div class="p-4 {% if not notif.is_read %}bg-blue-50{% endif %}">
+            <div class="flex justify-between">
+                <h4 class="text-sm font-medium text-gray-900">{{ notif.title }}</h4>
+                <span class="text-xs text-gray-500">{{ notif.created_at|date:"Y-m-d H:i" }}</span>
+            </div>
+            <p class="text-sm text-gray-600 mt-1">{{ notif.message|truncatechars:100 }}</p>
+            {% if notif.link %}<a href="{{ notif.link }}" class="text-blue-600 hover:underline text-xs mt-1 inline-block">자세히 보기</a>{% endif %}
+        </div>
+        {% empty %}
+        <div class="p-12 text-center text-gray-400">알림이 없습니다.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

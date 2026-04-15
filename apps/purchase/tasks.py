@@ -5,7 +5,7 @@ from celery import shared_task
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@shared_task(soft_time_limit=300, time_limit=360)
 def check_overdue_purchase_orders():
     """입고 예정일 경과 PO 알림 -- 매일 오전 7시 30분 실행"""
     from django.utils import timezone
@@ -38,7 +38,7 @@ def check_overdue_purchase_orders():
             users='admin',
             title=f'입고 지연 발주 {len(alerts)}건',
             message='\n'.join(alerts[:20]),
-            noti_type='SYSTEM',
+            noti_type='OVERDUE',
         )
 
     return f'{len(alerts)} overdue POs'

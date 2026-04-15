@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "CMMS 대시보드" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "설비보전(CMMS) 대시보드" %}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "가동중 설비" %}</p>
+        <p class="text-2xl font-bold text-green-600 mt-1">{{ total_equipment }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "보전중 설비" %}</p>
+        <p class="text-2xl font-bold text-yellow-600 mt-1">{{ maintenance_count }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "미완료 작업지시" %}</p>
+        <p class="text-2xl font-bold text-blue-600 mt-1">{{ open_work_orders }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "지연 스케줄" %}</p>
+        <p class="text-2xl font-bold text-red-600 mt-1">{{ overdue_schedules }}</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="text-lg font-semibold mb-3">{% trans "바로가기" %}</h3>
+        <div class="space-y-2">
+            <a href="{% url 'cmms:equipment_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">설비 관리</a>
+            <a href="{% url 'cmms:schedule_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">보전스케줄</a>
+            <a href="{% url 'cmms:workorder_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">작업지시</a>
+            <a href="{% url 'cmms:sparepart_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">예비부품</a>
+            <a href="{% url 'cmms:downtime_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">비가동 기록</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

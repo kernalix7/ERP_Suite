@@ -29,7 +29,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.getElementById('scanForm').addEventListener('submit', function(e) {
     e.preventDefault();
     var code = document.getElementById('assetCode').value.trim();

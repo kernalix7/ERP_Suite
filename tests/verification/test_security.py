@@ -254,8 +254,8 @@ class SEC007_SessionManagementTest(TestCase):
                         "SESSION_COOKIE_SECURE=True 미설정")
         self.assertTrue(getattr(prod, 'SESSION_COOKIE_HTTPONLY', False),
                         "SESSION_COOKIE_HTTPONLY=True 미설정")
-        self.assertEqual(getattr(prod, 'SESSION_COOKIE_AGE', 0), 28800,
-                         "SESSION_COOKIE_AGE=28800(8시간) 미설정")
+        self.assertEqual(getattr(prod, 'SESSION_COOKIE_AGE', 0), 3600,
+                         "SESSION_COOKIE_AGE=3600(1시간) 미설정")
         self.assertTrue(getattr(prod, 'SESSION_EXPIRE_AT_BROWSER_CLOSE', False),
                         "SESSION_EXPIRE_AT_BROWSER_CLOSE=True 미설정")
 

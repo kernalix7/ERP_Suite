@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "비가동 기록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "비가동 기록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'cmms:downtime_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "기록 추가" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "설비" %}</th>
+                    <th class="px-4 py-3">{% trans "시작" %}</th>
+                    <th class="px-4 py-3">{% trans "종료" %}</th>
+                    <th class="px-4 py-3">{% trans "시간(h)" %}</th>
+                    <th class="px-4 py-3">{% trans "사유" %}</th>
+                    <th class="px-4 py-3">{% trans "작업지시" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for dt in downtimes %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3">{{ dt.equipment }}</td>
+                    <td class="px-4 py-3">{{ dt.start_time|date:"Y-m-d H:i" }}</td>
+                    <td class="px-4 py-3">{{ dt.end_time|date:"Y-m-d H:i"|default:"진행중" }}</td>
+                    <td class="px-4 py-3">{{ dt.duration_hours|default:"-" }}</td>
+                    <td class="px-4 py-3">{{ dt.reason|truncatewords:10 }}</td>
+                    <td class="px-4 py-3">
+                        {% if dt.work_order %}
+                        <a href="{% url 'cmms:workorder_detail' dt.work_order.pk %}" class="text-blue-600 hover:underline">{{ dt.work_order.wo_number }}</a>
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">비가동 기록이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="p-4 border-t border-gray-200">{% include "includes/pagination.html" %}</div>
+    {% endif %}
+</div>
+{% endblock %}

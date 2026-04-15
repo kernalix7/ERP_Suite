@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "IP 화이트리스트 추가" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "IP 화이트리스트 추가" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto bg-white shadow rounded-lg border border-gray-200 p-6">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-4">
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>
+            {% endif %}
+            {% if field.help_text %}
+            <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="flex justify-end gap-3 mt-6">
+            <a href="{% url 'accounts:ip_whitelist_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+            <button type="submit" class="btn btn-primary">{% trans "추가" %}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -5,21 +5,40 @@ from celery import shared_task
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@shared_task(soft_time_limit=300, time_limit=360)
 def update_overdue_receivables():
-    """매일 AR/AP 연체 상태 자동 전환"""
+    """매일 AR/AP 연체 상태 자동 전환 + 담당자 이메일 알림"""
     from datetime import date
 
     from apps.accounting.models import AccountPayable, AccountReceivable
+    from apps.core.notification import create_notification
 
     today = date.today()
 
-    # AR 연체 전환
-    ar_count = AccountReceivable.objects.filter(
-        is_active=True,
-        due_date__lt=today,
-        status__in=['PENDING', 'PARTIAL'],
-    ).update(status='OVERDUE')
+    # AR 연체 전환 — 개별 조회하여 알림 발송
+    overdue_ars = list(
+        AccountReceivable.objects.filter(
+            is_active=True,
+            due_date__lt=today,
+            status__in=['PENDING', 'PARTIAL'],
+        ).select_related('created_by')
+    )
+    ar_count = len(overdue_ars)
+    if overdue_ars:
+        AccountReceivable.objects.filter(
+            pk__in=[ar.pk for ar in overdue_ars],
+        ).update(status='OVERDUE')
+
+        # 담당자(created_by)에게 알림 + 이메일 (OVERDUE 유형 → 이메일 자동 발송)
+        notify_users = list({ar.created_by for ar in overdue_ars if ar.created_by_id})
+        if notify_users:
+            create_notification(
+                notify_users,
+                f'AR 연체 {ar_count}건 발생',
+                f'오늘({today}) 기준 {ar_count}건의 매출채권이 연체 상태로 전환되었습니다.',
+                noti_type='OVERDUE',
+                link='/accounting/ar/',
+            )
 
     # AP 연체 전환
     ap_count = AccountPayable.objects.filter(

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ route.route_number }} - ERP Suite{% endblock %}
+{% block page_title %}{{ route.route_number }} - {{ route.name }}{% endblock %}
+
+{% block header_actions %}
+{% if user.is_manager_role %}
+<a href="{% url 'logistics:route_update' route.route_number %}" class="btn btn-secondary">수정</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">경유지</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+                            <th class="px-4 py-2">#</th>
+                            <th class="px-4 py-2">{% trans "거래처" %}</th>
+                            <th class="px-4 py-2">{% trans "주소" %}</th>
+                            <th class="px-4 py-2">{% trans "주문" %}</th>
+                            <th class="px-4 py-2 text-center">{% trans "상태" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for stop in stops %}
+                        <tr>
+                            <td class="px-4 py-2 text-gray-500">{{ stop.sequence }}</td>
+                            <td class="px-4 py-2 text-gray-900">{{ stop.partner.name }}</td>
+                            <td class="px-4 py-2 text-gray-600 text-xs">{{ stop.address|truncatechars:30 }}</td>
+                            <td class="px-4 py-2 text-gray-600">{{ stop.order.order_number|default:"-" }}</td>
+                            <td class="px-4 py-2 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ stop.get_status_display }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">경유지가 없습니다.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if user.is_manager_role %}
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h4 class="text-sm font-medium text-gray-700 mb-3">경유지 추가</h4>
+                <form method="post" action="{% url 'logistics:route_stop_create' route.route_number %}" class="grid grid-cols-2 gap-3">
+                    {% csrf_token %}
+                    {% for field in stop_form %}
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ field.label }}</label>
+                        {{ field }}
+                    </div>
+                    {% endfor %}
+                    <div class="col-span-2"><button type="submit" class="btn btn-primary">{% trans "추가" %}</button></div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">운송 비용 (합계: {{ total_freight }}원)</h3>
+            <div class="space-y-2">
+                {% for cost in costs %}
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-700">{{ cost.get_cost_type_display }} {% if cost.description %}- {{ cost.description }}{% endif %}</span>
+                    <span class="font-medium">{{ cost.amount }}원</span>
+                </div>
+                {% empty %}
+                <p class="text-gray-400 text-sm">등록된 비용이 없습니다.</p>
+                {% endfor %}
+            </div>
+            {% if user.is_manager_role %}
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <form method="post" action="{% url 'logistics:route_cost_create' route.route_number %}" class="flex gap-3 items-end">
+                    {% csrf_token %}
+                    {% for field in cost_form %}
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500 mb-1">{{ field.label }}</label>
+                        {{ field }}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary">{% trans "추가" %}</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div>
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">경로 정보</h3>
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">상태</dt><dd>{{ route.get_status_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">배송일</dt><dd>{{ route.date|date:"Y-m-d" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">차량</dt><dd>{{ route.vehicle.name }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">기사</dt><dd>{{ route.driver.user.get_full_name|default:route.driver.user.username }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">총 거리</dt><dd>{{ route.total_distance_km }} km</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">총 비용</dt><dd>{{ route.total_cost }}원</dd></div>
+                {% if route.departure_time %}
+                <div class="flex justify-between"><dt class="text-gray-500">출발</dt><dd>{{ route.departure_time|date:"H:i" }}</dd></div>
+                {% endif %}
+                {% if route.return_time %}
+                <div class="flex justify-between"><dt class="text-gray-500">귀환</dt><dd>{{ route.return_time|date:"H:i" }}</dd></div>
+                {% endif %}
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

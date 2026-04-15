@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "사용량 기록 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "사용량 기록" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "구독" %}</th>
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3">{% trans "항목" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "수량" %}</th>
+                    <th class="px-4 py-3">{% trans "기록일" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "청구됨" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for r in records %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'subscription:subscription_detail' r.subscription.subscription_number %}" class="text-blue-600 hover:underline font-mono">{{ r.subscription.subscription_number }}</a></td>
+                    <td class="px-4 py-3 text-gray-600">{{ r.subscription.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ r.metric_name }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ r.quantity }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ r.recorded_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-center">{% if r.billed %}<span class="text-green-600">O</span>{% else %}<span class="text-gray-400">X</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">사용량 기록이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex gap-1">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>{% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

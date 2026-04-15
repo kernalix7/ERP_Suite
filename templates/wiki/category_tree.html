@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ space.name }} - 카테고리{% endblock %}
+{% block page_title %}{{ space.name }} 카테고리{% endblock %}
+
+{% block header_actions %}
+{% if request.user.is_staff %}
+<a href="{% url 'wiki:category_create' %}?space={{ space.pk }}" class="btn btn-primary">+ 카테고리 추가</a>
+{% endif %}
+<a href="{% url 'wiki:article_list' %}?space={{ space.pk }}" class="btn btn-secondary">문서 목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg border border-gray-200 p-5">
+    {% if root_categories %}
+    <ul class="space-y-2">
+        {% for cat in root_categories %}
+        <li>
+            <div class="flex items-center gap-2 py-1">
+                <span class="font-medium">{{ cat.name }}</span>
+                <a href="{% url 'wiki:article_list' %}?category={{ cat.pk }}" class="text-xs text-blue-600 hover:underline">문서 보기</a>
+            </div>
+            {% if cat.children.all %}
+            <ul class="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3">
+                {% for child in cat.children.all %}
+                <li class="flex items-center gap-2 py-0.5">
+                    <span class="text-sm text-gray-700">{{ child.name }}</span>
+                    <a href="{% url 'wiki:article_list' %}?category={{ child.pk }}" class="text-xs text-blue-600 hover:underline">문서</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-gray-500 text-sm">등록된 카테고리가 없습니다.</p>
+    {% endif %}
+</div>
+{% endblock %}

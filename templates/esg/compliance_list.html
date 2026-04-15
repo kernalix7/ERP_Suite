@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "컴플라이언스 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "컴플라이언스 목록" %}{% endblock %}
+
+{% block header_actions %}
+{% if user.role == 'admin' or user.role == 'manager' %}
+<a href="{% url 'esg:compliance_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "요구사항 등록" %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <select name="status" class="form-input w-auto">
+                <option value="">{% trans "전체 상태" %}</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+            <a href="{% url 'esg:compliance_list' %}" class="btn btn-secondary">{% trans "초기화" %}</a>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "요구사항명" %}</th>
+                    <th class="px-4 py-3">{% trans "관련 법규" %}</th>
+                    <th class="px-4 py-3">{% trans "담당자" %}</th>
+                    <th class="px-4 py-3">{% trans "기한" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "최근 검토일" %}</th>
+                    {% if user.role == 'admin' or user.role == 'manager' %}
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for req in requirements %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ req.name|truncatechars:40 }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ req.regulation|truncatechars:30 }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ req.responsible.get_full_name|default:req.responsible.username|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ req.due_date|date:"Y-m-d"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if req.status == 'COMPLIANT' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "준수" %}</span>
+                        {% elif req.status == 'NON_COMPLIANT' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "미준수" %}</span>
+                        {% elif req.status == 'IN_PROGRESS' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "진행중" %}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{% trans "대기" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ req.last_review|date:"Y-m-d"|default:"-" }}</td>
+                    {% if user.role == 'admin' or user.role == 'manager' %}
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'esg:compliance_update' req.pk %}" class="text-blue-600 hover:underline text-xs">{% trans "수정" %}</a>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 컴플라이언스 요구사항이 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">{% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}</p>
+        <nav class="flex gap-1">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "이전" %}</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "다음" %}</a>{% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

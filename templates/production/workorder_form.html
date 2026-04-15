@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}작업지시 {% if object %}수정{% else %}등록{% endif %} - ERP Suite{% endblock %}
-{% block page_title %}작업지시 {% if object %}수정{% else %}등록{% endif %}{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "작업지시" %} {% if object %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "작업지시" %} {% if object %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'production:workorder_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'production:workorder_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -12,7 +13,7 @@
     {% csrf_token %}
 
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">작업지시 정보</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "작업지시 정보" %}</h2>
 
         {% if form.non_field_errors %}
         <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-800 border border-red-200 text-sm">
@@ -45,7 +46,7 @@
     </div>
 
     <div class="flex justify-end space-x-3">
-        <a href="{% url 'production:workorder_list' %}" class="btn btn-secondary">취소</a>
+        <a href="{% url 'production:workorder_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
         <button type="submit" class="btn btn-primary">
             {% if object %}수정{% else %}등록{% endif %}
         </button>

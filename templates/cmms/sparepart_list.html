@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "예비부품 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "예비부품 목록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'cmms:sparepart_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "부품 등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '부품명/코드 검색...'%}" class="form-input">
+            </div>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "코드" %}</th>
+                    <th class="px-4 py-3">{% trans "부품명" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "현재재고" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "최소재고" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "단가" %}</th>
+                    <th class="px-4 py-3">{% trans "상태" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for part in spare_parts %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-medium">{{ part.code }}</td>
+                    <td class="px-4 py-3">{{ part.name }}</td>
+                    <td class="px-4 py-3 text-right">{{ part.current_stock }}</td>
+                    <td class="px-4 py-3 text-right">{{ part.min_stock }}</td>
+                    <td class="px-4 py-3 text-right">{{ part.unit_cost|intcomma }}</td>
+                    <td class="px-4 py-3">
+                        {% if part.is_below_min %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "부족" %}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "정상" %}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">예비부품이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="p-4 border-t border-gray-200">{% include "includes/pagination.html" %}</div>
+    {% endif %}
+</div>
+{% endblock %}

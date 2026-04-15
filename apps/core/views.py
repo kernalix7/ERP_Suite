@@ -746,3 +746,156 @@ class AddressSearchView(LoginRequiredMixin, View):
                 'results': [], 'error': True,
                 'message': 'Address search API connection failed',
             })
+
+
+# ── 알림센터 뷰 ──────────────────────────────────────────────
+
+class NotificationPreferenceView(LoginRequiredMixin, TemplateView):
+    """사용자 알림 설정"""
+    template_name = 'core/notification_preferences.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from apps.core.notification_center import NotificationChannel, NotificationPreference
+
+        channels = NotificationChannel.objects.filter(is_active=True)
+        event_types = [
+            ('STOCK_LOW', '재고부족'),
+            ('ORDER_NEW', '신규주문'),
+            ('SERVICE_DUE', 'AS기한초과'),
+            ('PRODUCTION', '생산완료'),
+            ('APPROVAL', '결재요청'),
+            ('SYSTEM', '시스템'),
+        ]
+
+        prefs = {}
+        for pref in NotificationPreference.objects.filter(
+            user=self.request.user, is_active=True,
+        ):
+            prefs[(pref.channel_id, pref.event_type)] = pref
+
+        context['channels'] = channels
+        context['event_types'] = event_types
+        context['prefs'] = prefs
+        return context
+
+    def post(self, request, *args, **kwargs):
+        from apps.core.notification_center import NotificationChannel, NotificationPreference
+
+        channels = NotificationChannel.objects.filter(is_active=True)
+        event_types = ['STOCK_LOW', 'ORDER_NEW', 'SERVICE_DUE', 'PRODUCTION', 'APPROVAL', 'SYSTEM']
+
+        for channel in channels:
+            for et in event_types:
+                key = f'pref_{channel.pk}_{et}'
+                is_enabled = key in request.POST
+
+                pref, created = NotificationPreference.objects.update_or_create(
+                    user=request.user,
+                    channel=channel,
+                    event_type=et,
+                    defaults={
+                        'is_enabled': is_enabled,
+                        'created_by': request.user,
+                    },
+                )
+
+        # 방해금지 시간
+        quiet_start = request.POST.get('quiet_hours_start')
+        quiet_end = request.POST.get('quiet_hours_end')
+        if quiet_start and quiet_end:
+            NotificationPreference.objects.filter(
+                user=request.user, is_active=True,
+            ).update(quiet_hours_start=quiet_start, quiet_hours_end=quiet_end)
+
+        messages.success(request, '알림 설정이 저장되었습니다.')
+        return redirect('core:notification_preferences')
+
+
+class NotificationLogView(LoginRequiredMixin, TemplateView):
+    """알림 발송 이력"""
+    template_name = 'core/notification_log.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from apps.core.notification_center import NotificationLog
+
+        logs = NotificationLog.objects.filter(
+            user=self.request.user, is_active=True,
+        ).select_related('channel', 'template')[:50]
+        context['logs'] = logs
+        return context
+
+
+class NotificationDashboardView(LoginRequiredMixin, TemplateView):
+    """알림 대시보드 (관리자)"""
+    template_name = 'core/notification_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        from django.db.models import Count
+        context = super().get_context_data(**kwargs)
+        from apps.core.notification_center import NotificationLog, NotificationChannel
+
+        # 채널별 통계
+        channel_stats = NotificationLog.objects.filter(
+            is_active=True,
+        ).values(
+            'channel__name', 'channel__channel_type',
+        ).annotate(
+            total=Count('id'),
+            sent=Count('id', filter=Q(status='SENT')),
+            delivered=Count('id', filter=Q(status='DELIVERED')),
+            failed=Count('id', filter=Q(status='FAILED')),
+        ).order_by('channel__name')
+        context['channel_stats'] = channel_stats
+
+        # 최근 실패 알림
+        context['recent_failures'] = NotificationLog.objects.filter(
+            is_active=True, status='FAILED',
+        ).select_related('user', 'channel')[:10]
+
+        context['total_channels'] = NotificationChannel.objects.filter(is_active=True).count()
+        return context
+
+
+class PushSubscribeView(LoginRequiredMixin, View):
+    """PWA 푸시 구독 등록 (AJAX)"""
+
+    def post(self, request):
+        body = json.loads(request.body) if request.body else {}
+        endpoint = body.get('endpoint', '')
+        keys = body.get('keys', {})
+        p256dh = keys.get('p256dh', '')
+        auth = keys.get('auth', '')
+
+        if not endpoint or not p256dh or not auth:
+            return JsonResponse({'success': False, 'error': 'Missing subscription data'})
+
+        from apps.core.notification_center import PushSubscription
+        PushSubscription.objects.update_or_create(
+            user=request.user,
+            endpoint=endpoint,
+            defaults={
+                'p256dh_key': p256dh,
+                'auth_key': auth,
+                'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                'created_by': request.user,
+            },
+        )
+        return JsonResponse({'success': True})
+
+
+class PushUnsubscribeView(LoginRequiredMixin, View):
+    """PWA 푸시 구독 해제 (AJAX)"""
+
+    def post(self, request):
+        body = json.loads(request.body) if request.body else {}
+        endpoint = body.get('endpoint', '')
+
+        if endpoint:
+            from apps.core.notification_center import PushSubscription
+            PushSubscription.objects.filter(
+                user=request.user, endpoint=endpoint,
+            ).update(is_active=False)
+
+        return JsonResponse({'success': True})

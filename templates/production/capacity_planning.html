@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% load i18n humanize %}
 
-{% block title %}생산능력 계획 - ERP Suite{% endblock %}
-{% block page_title %}생산능력 계획{% endblock %}
+{% block title %}{% trans "생산능력 계획" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "생산능력 계획" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'production:schedule_list' %}" class="btn btn-secondary">스케줄</a>
-<a href="{% url 'production:workcenter_list' %}" class="btn btn-secondary">작업장</a>
+<a href="{% url 'production:schedule_list' %}" class="btn btn-secondary">{% trans "스케줄" %}</a>
+<a href="{% url 'production:workcenter_list' %}" class="btn btn-secondary">{% trans "작업장" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -16,15 +16,15 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <form method="get" class="flex flex-wrap items-end gap-3">
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">시작일</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "시작일" %}</label>
                 <input type="date" name="date_from" value="{{ date_from }}" class="form-input text-sm">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">종료일</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "종료일" %}</label>
                 <input type="date" name="date_to" value="{{ date_to }}" class="form-input text-sm">
             </div>
-            <button type="submit" class="btn btn-primary text-sm">조회</button>
-            <a href="{% url 'production:capacity_planning' %}" class="btn btn-secondary text-sm">초기화</a>
+            <button type="submit" class="btn btn-primary text-sm">{% trans "조회" %}</button>
+            <a href="{% url 'production:capacity_planning' %}" class="btn btn-secondary text-sm">{% trans "초기화" %}</a>
         </form>
     </div>
 
@@ -57,12 +57,12 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                        <th class="px-4 py-3">작업장</th>
-                        <th class="px-4 py-3 text-right">스케줄 수</th>
-                        <th class="px-4 py-3 text-right">예정시간(h)</th>
-                        <th class="px-4 py-3 text-right">가용시간(h)</th>
-                        <th class="px-4 py-3" style="min-width: 200px;">가동률</th>
-                        <th class="px-4 py-3 text-center">상태</th>
+                        <th class="px-4 py-3">{% trans "작업장" %}</th>
+                        <th class="px-4 py-3 text-right">{% trans "스케줄 수" %}</th>
+                        <th class="px-4 py-3 text-right">{% trans "예정시간(h)" %}</th>
+                        <th class="px-4 py-3 text-right">{% trans "가용시간(h)" %}</th>
+                        <th class="px-4 py-3" style="min-width: 200px;">{% trans "가동률" %}</th>
+                        <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -88,20 +88,20 @@
                         </td>
                         <td class="px-4 py-3 text-center">
                             {% if d.is_bottleneck %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">병목</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "병목" %}</span>
                             {% elif d.utilization > 70 %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">주의</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "주의" %}</span>
                             {% elif d.utilization > 0 %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">정상</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "정상" %}</span>
                             {% else %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">유휴</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{% trans "유휴" %}</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
                         <td colspan="6" class="px-6 py-12 text-center text-gray-400">
-                            등록된 작업장이 없습니다. 먼저 작업장을 등록하세요.
+                            {% trans "등록된 작업장이 없습니다. 먼저 작업장을 등록하세요." %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -116,7 +116,7 @@
             <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            가동률 해석 가이드
+            {% trans "가동률 해석 가이드" %}
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-700">
             <div>

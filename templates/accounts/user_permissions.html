@@ -121,7 +121,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // 색상 업데이트
 document.querySelectorAll('.perm-select').forEach(function(sel) {
     sel.addEventListener('change', function() {

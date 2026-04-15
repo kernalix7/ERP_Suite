@@ -459,6 +459,10 @@ class QualityInspection(BaseModel):
         verbose_name = '품질검수'
         verbose_name_plural = '품질검수'
         ordering = ['-inspection_date', '-pk']
+        indexes = [
+            models.Index(fields=['result', 'inspection_date'], name='idx_qc_result_date'),
+            models.Index(fields=['product', 'inspection_date'], name='idx_qc_product_date'),
+        ]
 
     def __str__(self):
         return (

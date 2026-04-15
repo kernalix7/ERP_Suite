@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "ESG 대시보드" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "ESG 대시보드" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'esg:carbon_dashboard' %}" class="btn btn-secondary">{% trans "탄소 현황" %}</a>
+<a href="{% url 'esg:report_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "보고서 생성" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "올해 탄소 배출(kg)" %}</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{{ yearly_carbon|floatformat:0 }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "안전 사고 (올해)" %}</p>
+        <p class="text-3xl font-bold text-orange-600 mt-1">{{ incident_count }}</p>
+        <p class="text-xs text-red-500 mt-1">{% trans "치명적" %} {{ critical_incidents }}{% trans "건" %}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "미결 사고" %}</p>
+        <p class="text-3xl font-bold text-red-600 mt-1">{{ open_incidents }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "컴플라이언스 준수율" %}</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">
+            {% if total_compliance %}{{ compliant_count|floatformat:0 }}/{{ total_compliance }}{% else %}0{% endif %}
+        </p>
+        <p class="text-xs text-red-500 mt-1">{% trans "미준수" %} {{ non_compliant_count }}{% trans "건" %}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">{% trans "컴플라이언스 현황" %}</h3>
+        <div class="space-y-3">
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600">{% trans "준수" %}</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-32 bg-gray-200 rounded-full h-2">
+                        <div class="bg-green-500 h-2 rounded-full" style="width: {% if total_compliance %}{% widthratio compliant_count total_compliance 100 %}%{% else %}0%{% endif %}"></div>
+                    </div>
+                    <span class="font-medium w-6 text-right">{{ compliant_count }}</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600">{% trans "진행중" %}</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-32 bg-gray-200 rounded-full h-2">
+                        <div class="bg-yellow-500 h-2 rounded-full" style="width: {% if total_compliance %}{% widthratio non_compliant_count total_compliance 100 %}%{% else %}0%{% endif %}"></div>
+                    </div>
+                    <span class="font-medium w-6 text-right">{{ non_compliant_count }}</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600">{% trans "기한 초과" %}</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-32 bg-gray-200 rounded-full h-2">
+                        <div class="bg-red-500 h-2 rounded-full" style="width: {% if total_compliance %}{% widthratio overdue_compliance total_compliance 100 %}%{% else %}0%{% endif %}"></div>
+                    </div>
+                    <span class="font-medium w-6 text-right">{{ overdue_compliance }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-100 flex gap-3">
+            <a href="{% url 'esg:compliance_list' %}" class="text-sm text-blue-600 hover:underline">{% trans "목록 보기" %}</a>
+            {% if user.role == 'admin' or user.role == 'manager' %}
+            <a href="{% url 'esg:compliance_create' %}" class="text-sm text-blue-600 hover:underline">{% trans "새 항목 추가" %}</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">{% trans "ESG 카테고리별 지표 수" %}</h3>
+        <div class="space-y-3">
+            {% for cat in categories %}
+            <div class="flex items-center justify-between text-sm">
+                <span class="flex items-center gap-2">
+                    {% if cat.category_type == 'ENVIRONMENTAL' %}<span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                    {% elif cat.category_type == 'SOCIAL' %}<span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                    {% else %}<span class="w-2 h-2 rounded-full bg-purple-500 inline-block"></span>{% endif %}
+                    {{ cat.name }}
+                </span>
+                <span class="font-medium text-gray-700">{{ cat.metric_count }}{% trans "개" %}</span>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">{% trans "등록된 카테고리가 없습니다." %}</p>
+            {% endfor %}
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-100 flex gap-3">
+            <a href="{% url 'esg:metric_list' %}" class="text-sm text-blue-600 hover:underline">{% trans "지표 목록" %}</a>
+            {% if user.role == 'admin' or user.role == 'manager' %}
+            <a href="{% url 'esg:metric_create' %}" class="text-sm text-blue-600 hover:underline">{% trans "지표 추가" %}</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-2">{% trans "빠른 메뉴" %}</h3>
+        <div class="grid grid-cols-2 gap-3 mt-4">
+            <a href="{% url 'esg:carbon_dashboard' %}" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/></svg>
+                </div>
+                <span class="text-sm font-medium text-gray-700">{% trans "탄소 배출 현황" %}</span>
+            </a>
+            <a href="{% url 'esg:incident_list' %}" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </div>
+                <span class="text-sm font-medium text-gray-700">{% trans "안전 사고 관리" %}</span>
+            </a>
+            <a href="{% url 'esg:compliance_list' %}" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <span class="text-sm font-medium text-gray-700">{% trans "컴플라이언스" %}</span>
+            </a>
+            <a href="{% url 'esg:report_list' %}" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <span class="text-sm font-medium text-gray-700">{% trans "ESG 보고서" %}</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">{% trans "안전 사고 심각도 요약" %}</h3>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between items-center py-1 border-b border-gray-100">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>{% trans "아차사고" %}</span>
+                <span class="font-medium">-</span>
+            </div>
+            <div class="flex justify-between items-center py-1 border-b border-gray-100">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>{% trans "경미" %}</span>
+                <span class="font-medium">-</span>
+            </div>
+            <div class="flex justify-between items-center py-1 border-b border-gray-100">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-orange-500 inline-block"></span>{% trans "중대" %}</span>
+                <span class="font-medium">-</span>
+            </div>
+            <div class="flex justify-between items-center py-1">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-600 inline-block"></span>{% trans "치명적" %}</span>
+                <span class="font-bold text-red-600">{{ critical_incidents }}</span>
+            </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-100">
+            <a href="{% url 'esg:incident_list' %}" class="text-sm text-blue-600 hover:underline">{% trans "전체 사고 목록 보기" %}</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

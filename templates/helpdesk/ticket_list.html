@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ page_title|default:"티켓 목록" }} - ERP Suite{% endblock %}
+{% block page_title %}{{ page_title|default:"티켓 목록" }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'helpdesk:ticket_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    티켓 등록
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px] relative">
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="티켓번호, 제목으로 검색..." class="form-input pl-3">
+            </div>
+            <select name="status" class="form-input w-auto">
+                <option value="">전체 상태</option>
+                <option value="OPEN" {% if request.GET.status == 'OPEN' %}selected{% endif %}>접수</option>
+                <option value="ASSIGNED" {% if request.GET.status == 'ASSIGNED' %}selected{% endif %}>배정</option>
+                <option value="IN_PROGRESS" {% if request.GET.status == 'IN_PROGRESS' %}selected{% endif %}>처리중</option>
+                <option value="WAITING" {% if request.GET.status == 'WAITING' %}selected{% endif %}>대기</option>
+                <option value="RESOLVED" {% if request.GET.status == 'RESOLVED' %}selected{% endif %}>해결</option>
+                <option value="CLOSED" {% if request.GET.status == 'CLOSED' %}selected{% endif %}>종료</option>
+            </select>
+            <select name="priority" class="form-input w-auto">
+                <option value="">전체 우선순위</option>
+                <option value="LOW" {% if request.GET.priority == 'LOW' %}selected{% endif %}>낮음</option>
+                <option value="MEDIUM" {% if request.GET.priority == 'MEDIUM' %}selected{% endif %}>보통</option>
+                <option value="HIGH" {% if request.GET.priority == 'HIGH' %}selected{% endif %}>높음</option>
+                <option value="URGENT" {% if request.GET.priority == 'URGENT' %}selected{% endif %}>긴급</option>
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "티켓번호" %}</th>
+                    <th class="px-4 py-3">{% trans "제목" %}</th>
+                    <th class="px-4 py-3">{% trans "분류" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "우선순위" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "신고자" %}</th>
+                    <th class="px-4 py-3">{% trans "담당자" %}</th>
+                    <th class="px-4 py-3">{% trans "등록일" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for ticket in tickets %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono">
+                        <a href="{% url 'helpdesk:ticket_detail' ticket.ticket_number %}" class="text-blue-600 hover:underline">{{ ticket.ticket_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">{{ ticket.title|truncatechars:40 }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ ticket.category.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if ticket.priority == 'URGENT' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">긴급</span>
+                        {% elif ticket.priority == 'HIGH' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">높음</span>
+                        {% elif ticket.priority == 'MEDIUM' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">보통</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">낮음</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if ticket.status == 'OPEN' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">접수</span>
+                        {% elif ticket.status == 'ASSIGNED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">배정</span>
+                        {% elif ticket.status == 'IN_PROGRESS' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">처리중</span>
+                        {% elif ticket.status == 'WAITING' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">대기</span>
+                        {% elif ticket.status == 'RESOLVED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">해결</span>
+                        {% elif ticket.status == 'CLOSED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">종료</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ ticket.reporter.get_full_name|default:ticket.reporter.username }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ ticket.assigned_to.get_full_name|default:ticket.assigned_to.username|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ ticket.created_at|date:"Y-m-d" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">등록된 티켓이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex gap-1">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>{% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

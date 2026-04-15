@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load humanize %}
 
-{% block title %}주문 미리보기 - ERP Suite{% endblock %}
-{% block page_title %}스토어 주문 미리보기{% endblock %}
+{% block title %}{% trans "주문 미리보기 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "스토어 주문 미리보기" %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">대시보드</a>
@@ -28,7 +29,7 @@
                 <option value="30" {% if period == 30 %}selected{% endif %}>최근 30일</option>
                 <option value="90" {% if period == 90 %}selected{% endif %}>전체 (90일)</option>
             </select>
-            <button type="submit" class="btn btn-secondary text-sm">다시 조회</button>
+            <button type="submit" class="btn btn-secondary text-sm">{% trans "다시 조회" %}</button>
         </form>
 
         <!-- 요약 -->
@@ -41,8 +42,8 @@
 
         <!-- 선택 버튼 -->
         <div class="flex items-center gap-2">
-            <button type="button" id="btn-select-all-new" class="btn btn-secondary text-xs">신규 전체선택</button>
-            <button type="button" id="btn-deselect-all" class="btn btn-secondary text-xs">선택해제</button>
+            <button type="button" id="btn-select-all-new" class="btn btn-secondary text-xs">{% trans "신규 전체선택" %}</button>
+            <button type="button" id="btn-deselect-all" class="btn btn-secondary text-xs">{% trans "선택해제" %}</button>
         </div>
     </div>
 </div>
@@ -175,9 +176,7 @@
         <span class="text-sm text-gray-500" id="selected-count">0건 선택됨</span>
         <div class="flex items-center gap-2">
             <a href="{% url 'marketplace:dashboard' %}" class="btn btn-secondary">취소</a>
-            <button type="submit" class="btn btn-primary" id="btn-import" disabled>
-                선택 주문 가져오기
-            </button>
+            <button type="submit" class="btn btn-primary" id="btn-import" disabled>{% trans "선택 주문 가져오기" %}</button>
         </div>
     </div>
 </form>
@@ -191,7 +190,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('.order-checkbox:not([disabled])');
     const btnSelectAllNew = document.getElementById('btn-select-all-new');

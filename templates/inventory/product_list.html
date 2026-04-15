@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}제품 관리 - ERP Suite{% endblock %}
-{% block page_title %}제품 관리{% endblock %}
+{% block title %}{% trans "제품 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "제품 관리" %}{% endblock %}
 
 {% block header_actions %}
 {% if user.is_manager_role %}
@@ -10,21 +10,21 @@
     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
-    등록
+    {% trans "등록" %}
 </a>
 {% endif %}
-<a href="{% url 'inventory:product_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
+<a href="{% url 'inventory:product_excel' %}" class="btn btn-secondary" title="{% trans 'Excel 다운로드'%}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
     Excel
 </a>
 {% if user.is_manager_role %}
-<a href="{% url 'inventory:product_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+<a href="{% url 'inventory:product_import' %}" class="btn btn-secondary" title="{% trans '일괄 가져오기'%}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
     </svg>
-    가져오기
+    {% trans "가져오기" %}
 </a>
 {% endif %}
 {% endblock %}
@@ -35,18 +35,18 @@
     <div class="p-4 border-b border-gray-200">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1">
-                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="제품코드 또는 제품명으로 검색..."
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '제품코드 또는 제품명으로 검색...'%}"
                        class="form-input">
             </div>
             <div class="w-full sm:w-48">
                 <select name="type" class="form-input">
-                    <option value="">전체 유형</option>
+                    <option value="">{% trans "전체 유형" %}</option>
                     {% for value, label in product_types %}
                     <option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary">검색</button>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
         </form>
     </div>
 
@@ -55,13 +55,13 @@
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">제품코드</th>
-                    <th class="px-4 py-3">제품명</th>
-                    <th class="px-4 py-3">유형</th>
-                    <th class="px-4 py-3 text-right">단가(원가)</th>
-                    <th class="px-4 py-3 text-right">현재고</th>
-                    <th class="px-4 py-3 text-right">가용재고</th>
-                    <th class="px-4 py-3 text-right">안전재고</th>
+                    <th class="px-4 py-3">{% trans "제품코드" %}</th>
+                    <th class="px-4 py-3">{% trans "제품명" %}</th>
+                    <th class="px-4 py-3">{% trans "유형" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "단가(원가)" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "현재고" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "가용재고" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "안전재고" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -102,7 +102,7 @@
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                         </svg>
-                        등록된 제품이 없습니다.
+                        {% trans "등록된 제품이 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -114,12 +114,12 @@
     {% if is_paginated %}
     <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
         <p class="text-sm text-gray-500">
-            총 {{ page_obj.paginator.count }}건
+            {% blocktrans with count=page_obj.paginator.count %}총 {{ count }}건{% endblocktrans %}
         </p>
         <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
             <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&type={{ request.GET.type }}"
-               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
             <a href="?page={{ num }}&q={{ request.GET.q }}&type={{ request.GET.type }}"
@@ -129,7 +129,7 @@
             {% endfor %}
             {% if page_obj.has_next %}
             <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&type={{ request.GET.type }}"
-               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+               class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
             {% endif %}
         </nav>
     </div>

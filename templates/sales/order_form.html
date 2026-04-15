@@ -240,7 +240,7 @@
 {{ product_units_json|json_script:"product-units-data" }}
 {{ product_costs_json|json_script:"product-costs-data" }}
 {{ quote_notes|default:""|json_script:"quote-notes-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 const _productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
 const _productCosts = JSON.parse(document.getElementById('product-costs-data').textContent);
 

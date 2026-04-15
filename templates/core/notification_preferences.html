@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}알림 설정 - ERP Suite{% endblock %}
+{% block page_title %}알림 설정{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'core:notification_log' %}" class="btn btn-secondary">발송 이력</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- 채널별 이벤트 설정 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-4">이벤트별 알림 채널</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-600">
+                        <th class="px-3 py-2">이벤트</th>
+                        {% for channel in channels %}
+                        <th class="px-3 py-2 text-center">{{ channel.name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for et_code, et_label in event_types %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 font-medium text-gray-900">{{ et_label }}</td>
+                        {% for channel in channels %}
+                        <td class="px-3 py-2 text-center">
+                            {% with pref_key=channel.pk %}
+                            <input type="checkbox"
+                                   name="pref_{{ channel.pk }}_{{ et_code }}"
+                                   class="form-checkbox"
+                                   {% if prefs|default:None %}
+                                   checked
+                                   {% endif %}>
+                            {% endwith %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 방해금지 시간 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-4">방해금지 시간</h3>
+        <div class="flex gap-4 items-center">
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">시작</label>
+                <input type="time" name="quiet_hours_start" class="form-input w-32">
+            </div>
+            <span class="text-gray-400 mt-5">~</span>
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">종료</label>
+                <input type="time" name="quiet_hours_end" class="form-input w-32">
+            </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">방해금지 시간에는 푸시 알림이 발송되지 않습니다.</p>
+    </div>
+
+    <!-- PWA 푸시 구독 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-4">푸시 알림</h3>
+        <div id="push-status" class="text-sm text-gray-600 mb-3">푸시 알림 상태를 확인 중...</div>
+        <button type="button" id="btn-push-subscribe" class="btn btn-primary hidden">푸시 알림 구독</button>
+        <button type="button" id="btn-push-unsubscribe" class="btn btn-secondary hidden">푸시 알림 해제</button>
+    </div>
+
+    <div class="flex gap-2">
+        <button type="submit" class="btn btn-primary">설정 저장</button>
+    </div>
+</form>
+
+<script src="/static/js/push-manager.js"></script>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.PushManager && 'serviceWorker' in navigator) {
+        initPushUI();
+    } else {
+        document.getElementById('push-status').textContent = '이 브라우저는 푸시 알림을 지원하지 않습니다.';
+    }
+});
+
+async function initPushUI() {
+    const statusEl = document.getElementById('push-status');
+    const subBtn = document.getElementById('btn-push-subscribe');
+    const unsubBtn = document.getElementById('btn-push-unsubscribe');
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+
+    if (sub) {
+        statusEl.textContent = '푸시 알림이 활성화되어 있습니다.';
+        unsubBtn.classList.remove('hidden');
+        unsubBtn.addEventListener('click', async () => {
+            await unsubscribePush(sub);
+            location.reload();
+        });
+    } else {
+        statusEl.textContent = '푸시 알림이 비활성화되어 있습니다.';
+        subBtn.classList.remove('hidden');
+        subBtn.addEventListener('click', async () => {
+            await subscribePush();
+            location.reload();
+        });
+    }
+}
+</script>
+{% endblock %}

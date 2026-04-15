@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ lesson.title }} - LMS{% endblock %}
+{% block page_title %}{{ lesson.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <span class="text-sm text-gray-500">{{ lesson.get_content_type_display }} · {{ lesson.duration_minutes }}분</span>
+            <a href="{% url 'lms:course_detail' lesson.course.pk %}" class="text-sm text-blue-600 hover:underline">← 강좌로 돌아가기</a>
+        </div>
+        {% if lesson.content_url %}
+        <div class="aspect-video bg-gray-100 rounded flex items-center justify-center mb-4">
+            <a href="{{ lesson.content_url }}" target="_blank" class="btn btn-primary">콘텐츠 열기</a>
+        </div>
+        {% endif %}
+        {% if lesson.content_file %}
+        <a href="{{ lesson.content_file.url }}" class="btn btn-secondary" download>첨부파일 다운로드</a>
+        {% endif %}
+    </div>
+    {% if enrollment and not progress.is_completed %}
+    <div class="bg-white rounded-lg border border-gray-200 p-4 flex justify-between items-center">
+        <span class="text-sm">강의를 모두 학습하셨나요?</span>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">학습 완료</button>
+        </form>
+    </div>
+    {% elif progress.is_completed %}
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 text-sm">
+        이 강의를 완료하였습니다. ({{ progress.completed_at|date:"Y-m-d" }})
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

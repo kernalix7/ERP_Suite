@@ -135,7 +135,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function permGroupForm() {
     return {
         selectAll() {

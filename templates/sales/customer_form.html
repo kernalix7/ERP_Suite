@@ -131,7 +131,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function customerForm() {
     return {
         deletedItems: new Set(),

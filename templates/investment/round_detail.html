@@ -1,26 +1,26 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load humanize %}
 
-{% block title %}라운드 상세 - {{ round.name }} - ERP Suite{% endblock %}
-{% block page_title %}라운드 상세{% endblock %}
+{% block title %}{% trans "라운드 상세" %} - {{ round.name }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "라운드 상세" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'investment:investment_create' %}" class="btn btn-primary">투자내역 추가</a>
-<a href="{% url 'investment:round_update' round.pk %}" class="btn btn-secondary">수정</a>
-<a href="{% url 'investment:round_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'investment:investment_create' %}" class="btn btn-primary">{% trans "투자내역 추가" %}</a>
+<a href="{% url 'investment:round_update' round.pk %}" class="btn btn-secondary">{% trans "수정" %}</a>
+<a href="{% url 'investment:round_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
-<!-- 라운드 정보 -->
 <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4">라운드 정보</h3>
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "라운드 정보" %}</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <div>
-            <p class="text-sm text-gray-500">라운드명</p>
+            <p class="text-sm text-gray-500">{% trans "라운드명" %}</p>
             <p class="mt-1 font-medium text-gray-900">{{ round.name }}</p>
         </div>
         <div>
-            <p class="text-sm text-gray-500">유형</p>
+            <p class="text-sm text-gray-500">{% trans "유형" %}</p>
             <p class="mt-1">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                     {% if round.round_type == '시드' %}bg-purple-100 text-purple-800
@@ -35,52 +35,51 @@
             </p>
         </div>
         <div>
-            <p class="text-sm text-gray-500">투자일</p>
+            <p class="text-sm text-gray-500">{% trans "투자일" %}</p>
             <p class="mt-1 font-medium text-gray-900">{{ round.round_date }}</p>
         </div>
         <div>
-            <p class="text-sm text-gray-500">목표금액</p>
-            <p class="mt-1 font-medium text-gray-900">{{ round.target_amount|intcomma }}원</p>
+            <p class="text-sm text-gray-500">{% trans "목표금액" %}</p>
+            <p class="mt-1 font-medium text-gray-900">{{ round.target_amount|intcomma }}{% trans "원" %}</p>
         </div>
         <div>
-            <p class="text-sm text-gray-500">모집금액</p>
-            <p class="mt-1 font-medium text-gray-900">{{ round.raised_amount|intcomma }}원</p>
+            <p class="text-sm text-gray-500">{% trans "모집금액" %}</p>
+            <p class="mt-1 font-medium text-gray-900">{{ round.raised_amount|intcomma }}{% trans "원" %}</p>
         </div>
         <div>
-            <p class="text-sm text-gray-500">달성률</p>
+            <p class="text-sm text-gray-500">{% trans "달성률" %}</p>
             <p class="mt-1 font-medium text-gray-900">
                 {% widthratio round.raised_amount round.target_amount 100 %}%
             </p>
         </div>
         <div>
-            <p class="text-sm text-gray-500">프리밸류</p>
-            <p class="mt-1 font-medium text-gray-900">{{ round.pre_valuation|intcomma }}원</p>
+            <p class="text-sm text-gray-500">{% trans "프리밸류" %}</p>
+            <p class="mt-1 font-medium text-gray-900">{{ round.pre_valuation|intcomma }}{% trans "원" %}</p>
         </div>
         <div>
-            <p class="text-sm text-gray-500">포스트밸류</p>
-            <p class="mt-1 font-medium text-gray-900">{{ round.post_valuation|intcomma }}원</p>
+            <p class="text-sm text-gray-500">{% trans "포스트밸류" %}</p>
+            <p class="mt-1 font-medium text-gray-900">{{ round.post_valuation|intcomma }}{% trans "원" %}</p>
         </div>
         <div class="md:col-span-2 lg:col-span-3">
-            <p class="text-sm text-gray-500">비고</p>
+            <p class="text-sm text-gray-500">{% trans "비고" %}</p>
             <p class="mt-1 font-medium text-gray-900">{{ round.notes|default:"-" }}</p>
         </div>
     </div>
 </div>
 
-<!-- 참여 투자자 -->
 <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-        <h3 class="text-lg font-semibold text-gray-900">참여 투자자</h3>
-        <a href="{% url 'investment:investment_create' %}" class="btn btn-primary text-sm">투자내역 추가</a>
+        <h3 class="text-lg font-semibold text-gray-900">{% trans "참여 투자자" %}</h3>
+        <a href="{% url 'investment:investment_create' %}" class="btn btn-primary text-sm">{% trans "투자내역 추가" %}</a>
     </div>
     <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">투자자</th>
-                    <th class="px-4 py-3 text-right">투자금액</th>
-                    <th class="px-4 py-3 text-right">지분율</th>
-                    <th class="px-4 py-3">투자일</th>
+                    <th class="px-4 py-3">{% trans "투자자" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "투자금액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "지분율" %}</th>
+                    <th class="px-4 py-3">{% trans "투자일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -91,13 +90,13 @@
                             {{ inv.investor.name }}
                         </a>
                     </td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ inv.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ inv.amount|intcomma }}{% trans "원" %}</td>
                     <td class="px-4 py-3 text-right font-mono text-gray-900">{{ inv.share_percentage }}%</td>
                     <td class="px-4 py-3 text-gray-600">{{ inv.investment_date }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="px-4 py-12 text-center text-gray-400">참여 투자자가 없습니다.</td>
+                    <td colspan="4" class="px-4 py-12 text-center text-gray-400">{% trans "참여 투자자가 없습니다." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

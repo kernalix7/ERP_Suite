@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}문의 상세 - {{ object.title }} - ERP Suite{% endblock %}
-{% block page_title %}문의 상세{% endblock %}
+{% block title %}{% trans "문의 상세" %} - {{ object.title }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "문의 상세" %}{% endblock %}
 
 {% block header_actions %}
 {% if inquiry.status == 'RECEIVED' or inquiry.status == 'WAITING' %}
@@ -13,11 +14,11 @@
         <svg class="w-4 h-4 mr-1.5 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
-        AI 답변 생성
+        {% trans "AI 답변 생성" %}
     </button>
 </form>
 {% endif %}
-<a href="{% url 'inquiry:inquiry_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'inquiry:inquiry_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -25,53 +26,53 @@
     <!-- 문의 정보 -->
     <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-            <h2 class="text-lg font-semibold text-gray-800">문의 정보</h2>
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "문의 정보" %}</h2>
             <div class="flex items-center gap-2">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{{ object.channel }}</span>
                 {% if object.status == '접수' %}
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">접수</span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">{% trans "접수" %}</span>
                 {% elif object.status == '답변대기' %}
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">답변대기</span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">{% trans "답변대기" %}</span>
                 {% elif object.status == '답변완료' %}
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">답변완료</span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">{% trans "답변완료" %}</span>
                 {% elif object.status == '종료' %}
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">종료</span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{% trans "종료" %}</span>
                 {% endif %}
 
                 {% if object.priority == '낮음' %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">낮음</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "낮음" %}</span>
                 {% elif object.priority == '보통' %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">보통</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{% trans "보통" %}</span>
                 {% elif object.priority == '높음' %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">높음</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">{% trans "높음" %}</span>
                 {% elif object.priority == '긴급' %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">긴급</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "긴급" %}</span>
                 {% endif %}
             </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div>
-                <dt class="text-sm text-gray-500">제목</dt>
+                <dt class="text-sm text-gray-500">{% trans "제목" %}</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">{{ object.title }}</dd>
             </div>
             <div>
-                <dt class="text-sm text-gray-500">고객명</dt>
+                <dt class="text-sm text-gray-500">{% trans "고객명" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ object.customer_name }}</dd>
             </div>
             <div>
-                <dt class="text-sm text-gray-500">담당자</dt>
+                <dt class="text-sm text-gray-500">{% trans "담당자" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ object.assignee|default:"-" }}</dd>
             </div>
             <div>
-                <dt class="text-sm text-gray-500">접수일</dt>
+                <dt class="text-sm text-gray-500">{% trans "접수일" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ object.created_at|date:"Y-m-d H:i" }}</dd>
             </div>
             <div class="md:col-span-2 lg:col-span-3">
-                <dt class="text-sm text-gray-500">문의 내용</dt>
+                <dt class="text-sm text-gray-500">{% trans "문의 내용" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ object.content }}</dd>
             </div>
             <div class="md:col-span-2 lg:col-span-3">
-                <dt class="text-sm text-gray-500">비고</dt>
+                <dt class="text-sm text-gray-500">{% trans "비고" %}</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ object.notes|default:"-" }}</dd>
             </div>
         </div>
@@ -80,7 +81,7 @@
     <!-- 답변 목록 -->
     <div class="bg-white shadow rounded-lg border border-gray-200">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-800">답변 목록</h2>
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "답변 목록" %}</h2>
         </div>
         <div class="divide-y divide-gray-100">
             {% for reply in object.replies.all %}
@@ -89,7 +90,7 @@
                     <div class="flex items-center gap-2">
                         <span class="text-sm font-medium text-gray-900">{{ reply.author|default:"시스템" }}</span>
                         {% if reply.is_ai_generated %}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">AI 생성</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">{% trans "AI 생성" %}</span>
                         {% endif %}
                     </div>
                     <span class="text-xs text-gray-500">{{ reply.created_at|date:"Y-m-d H:i" }}</span>
@@ -98,7 +99,7 @@
             </div>
             {% empty %}
             <div class="p-6 text-center text-gray-400 text-sm">
-                아직 답변이 없습니다.
+                {% trans "아직 답변이 없습니다." %}
             </div>
             {% endfor %}
         </div>
@@ -107,7 +108,7 @@
     <!-- 답변 작성 -->
     <div class="bg-white shadow rounded-lg border border-gray-200 p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-            <h2 class="text-lg font-semibold text-gray-800">답변 작성</h2>
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "답변 작성" %}</h2>
             <button type="button"
                     @click="generateAiReply()"
                     :disabled="aiLoading"
@@ -137,7 +138,7 @@
                 </label>
                 {% if field.name == 'content' %}
                 <textarea name="{{ field.name }}" id="id_reply_content" rows="5"
-                          class="form-input" placeholder="답변 내용을 입력하세요..."
+                          class="form-input" placeholder="{% trans '답변 내용을 입력하세요...' %}"
                           x-ref="replyContent">{{ field.value|default:"" }}</textarea>
                 {% else %}
                 {{ field }}
@@ -154,14 +155,14 @@
             </template>
 
             <div class="flex justify-end">
-                <button type="submit" class="btn btn-primary">답변 등록</button>
+                <button type="submit" class="btn btn-primary">{% trans "답변 등록" %}</button>
             </div>
         </form>
     </div>
 </div>
 {% include 'includes/timestamps.html' with obj=object %}
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function inquiryDetail() {
     return {
         aiLoading: false,

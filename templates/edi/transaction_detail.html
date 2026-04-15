@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ transaction.transaction_id }} - ERP Suite{% endblock %}
+{% block page_title %}{{ transaction.transaction_id }}{% endblock %}
+
+{% block header_actions %}
+{% if transaction.status == 'ERROR' and user.is_manager_role %}
+<form method="post" action="{% url 'edi:transaction_retry' transaction.transaction_id %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">{% trans "재시도" %}</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">데이터</h3>
+            <pre class="bg-gray-50 p-4 rounded text-sm overflow-x-auto">{{ transaction.payload|default:"(비어 있음)" }}</pre>
+        </div>
+        {% if transaction.error_message %}
+        <div class="bg-white shadow rounded-lg border border-red-200 p-6 mt-6">
+            <h3 class="text-lg font-semibold text-red-700 mb-4">오류 메시지</h3>
+            <pre class="bg-red-50 p-4 rounded text-sm text-red-800 overflow-x-auto">{{ transaction.error_message }}</pre>
+        </div>
+        {% endif %}
+    </div>
+    <div>
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">트랜잭션 정보</h3>
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">상태</dt><dd>{{ transaction.get_status_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">방향</dt><dd>{{ transaction.get_direction_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">거래처</dt><dd>{{ transaction.partner.partner.name }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">EDI ID</dt><dd>{{ transaction.partner.edi_id }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">문서유형</dt><dd>{{ transaction.document_type.name }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">생성일</dt><dd>{{ transaction.created_at|date:"Y-m-d H:i" }}</dd></div>
+                {% if transaction.processed_at %}
+                <div class="flex justify-between"><dt class="text-gray-500">처리일</dt><dd>{{ transaction.processed_at|date:"Y-m-d H:i" }}</dd></div>
+                {% endif %}
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}방문 예약 상세{% endblock %}
+{% block page_title %}방문 예약 상세{% endblock %}
+
+{% block header_actions %}
+{% if visit_request.status == 'PENDING' %}
+<form method="post" action="{% url 'visitor:visit_request_approve' visit_request.pk %}" class="flex gap-2">
+    {% csrf_token %}
+    <button name="action" value="approve" type="submit" class="btn btn-primary">승인</button>
+    <button name="action" value="reject" type="submit" class="btn btn-danger">거부</button>
+</form>
+{% endif %}
+<a href="{% url 'visitor:visit_request_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <dl class="grid grid-cols-2 gap-4 text-sm">
+            <div><dt class="text-gray-500">방문번호</dt><dd class="font-mono font-medium mt-1">{{ visit_request.visit_number }}</dd></div>
+            <div><dt class="text-gray-500">상태</dt><dd class="mt-1">{{ visit_request.get_status_display }}</dd></div>
+            <div><dt class="text-gray-500">방문자</dt><dd class="font-medium mt-1">{{ visit_request.visitor.name }}</dd></div>
+            <div><dt class="text-gray-500">소속</dt><dd class="mt-1">{{ visit_request.visitor.company }}</dd></div>
+            <div><dt class="text-gray-500">연락처</dt><dd class="mt-1">{{ visit_request.visitor.phone }}</dd></div>
+            <div><dt class="text-gray-500">방문대상</dt><dd class="mt-1">{{ visit_request.host.get_full_name }}</dd></div>
+            <div><dt class="text-gray-500">방문목적</dt><dd class="mt-1">{{ visit_request.purpose.name }}</dd></div>
+            <div><dt class="text-gray-500">방문부서</dt><dd class="mt-1">{{ visit_request.department.name|default:"-" }}</dd></div>
+            <div><dt class="text-gray-500">예정일시</dt><dd class="mt-1">{{ visit_request.scheduled_at|date:"Y-m-d H:i" }}</dd></div>
+            <div><dt class="text-gray-500">예상시간</dt><dd class="mt-1">{{ visit_request.expected_duration_minutes }}분</dd></div>
+            <div><dt class="text-gray-500">방문인원</dt><dd class="mt-1">{{ visit_request.visitor_count }}명</dd></div>
+            {% if visit_request.approved_by %}<div><dt class="text-gray-500">승인자</dt><dd class="mt-1">{{ visit_request.approved_by.get_full_name }}</dd></div>{% endif %}
+        </dl>
+        {% if visit_request.description %}
+        <div class="mt-4 pt-4 border-t border-gray-100">
+            <dt class="text-gray-500 text-sm mb-1">방문 내용</dt>
+            <dd class="text-sm">{{ visit_request.description }}</dd>
+        </div>
+        {% endif %}
+    </div>
+    {% if visit_log %}
+    <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <h3 class="font-semibold mb-3 text-sm">실제 방문 기록</h3>
+        <dl class="grid grid-cols-2 gap-3 text-sm">
+            <div><dt class="text-gray-500">체크인</dt><dd>{{ visit_log.check_in_at|date:"Y-m-d H:i" }}</dd></div>
+            <div><dt class="text-gray-500">체크아웃</dt><dd>{{ visit_log.check_out_at|date:"Y-m-d H:i"|default:"미기록" }}</dd></div>
+            <div><dt class="text-gray-500">방문증</dt><dd>{{ visit_log.badge_number|default:"-" }}</dd></div>
+            {% if visit_log.duration_minutes %}<div><dt class="text-gray-500">체류시간</dt><dd>{{ visit_log.duration_minutes }}분</dd></div>{% endif %}
+        </dl>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

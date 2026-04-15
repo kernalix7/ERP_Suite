@@ -60,13 +60,35 @@ class ServiceRequest(BaseModel):
         ordering = ['-request_number']
         indexes = [
             models.Index(fields=['status'], name='idx_service_status'),
-            models.Index(
-                fields=['received_date'], name='idx_service_date',
-            ),
+            models.Index(fields=['received_date'], name='idx_service_date'),
+            models.Index(fields=['status', 'received_date'], name='idx_service_status_date'),
         ]
 
     def __str__(self):
         return f'{self.request_number} - {self.customer.name}'
+
+    STATUS_TRANSITIONS = {
+        'RECEIVED': ['INSPECTING', 'CANCELLED'],
+        'INSPECTING': ['REPAIRING', 'RETURNED', 'CANCELLED'],
+        'REPAIRING': ['COMPLETED', 'CANCELLED'],
+        'COMPLETED': ['RETURNED'],
+        'RETURNED': [],
+        'CANCELLED': [],
+    }
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        super().clean()
+        if self.pk:
+            old_status = ServiceRequest.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+            if old_status and old_status != self.status:
+                allowed = self.STATUS_TRANSITIONS.get(old_status, [])
+                if self.status not in allowed:
+                    old_label = dict(self.Status.choices).get(old_status, old_status)
+                    new_label = dict(self.Status.choices).get(self.status, self.status)
+                    raise ValidationError(
+                        f'{old_label}에서 {new_label}(으)로 전이할 수 없습니다.'
+                    )
 
     def save(self, *args, **kwargs):
         if not self.request_number:

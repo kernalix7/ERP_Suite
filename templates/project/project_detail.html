@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{{ project.name }} - {% trans "프로젝트" %}{% endblock %}
+{% block page_title %}{{ project.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'project:project_update' project.pk %}" class="btn btn-secondary">{% trans "수정" %}</a>
+<a href="{% url 'project:task_create' %}?project={{ project.pk }}" class="btn btn-primary">{% trans "+ 태스크 추가" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <!-- 태스크 목록 -->
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="p-4 border-b border-gray-200">
+                <h3 class="font-semibold">{% trans "태스크" %} ({{ tasks|length }})</h3>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                {% for task in tasks %}
+                <li class="p-3 flex justify-between items-center hover:bg-gray-50">
+                    <div>
+                        <a href="{% url 'project:task_detail' task.pk %}" class="text-sm font-medium hover:text-blue-600">{{ task.title }}</a>
+                        {% if task.assignee %}<span class="text-xs text-gray-400 ml-2">{{ task.assignee.get_full_name|default:task.assignee.username }}</span>{% endif %}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {% if task.due_date %}<span class="text-xs text-gray-400">{{ task.due_date }}</span>{% endif %}
+                        <span class="px-2 py-0.5 rounded text-xs {% if task.status == 'DONE' %}bg-green-100 text-green-700{% elif task.status == 'IN_PROGRESS' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">{{ task.get_status_display }}</span>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="p-4 text-center text-sm text-gray-500">{% trans "등록된 태스크가 없습니다." %}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <!-- 마일스톤 -->
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-semibold">{% trans "마일스톤" %}</h3>
+                <a href="{% url 'project:milestone_create' %}?project={{ project.pk }}" class="text-sm text-blue-600 hover:underline">{% trans "+ 추가" %}</a>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                {% for ms in milestones %}
+                <li class="p-3 flex justify-between items-center">
+                    <span class="text-sm">{{ ms.title }}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-gray-400">{{ ms.due_date }}</span>
+                        <span class="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{{ ms.get_status_display }}</span>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="p-4 text-center text-sm text-gray-500">{% trans "마일스톤이 없습니다." %}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="space-y-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-3 text-sm">{% trans "프로젝트 정보" %}</h3>
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "번호" %}</dt><dd>{{ project.project_number }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "상태" %}</dt><dd>{{ project.get_status_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "우선순위" %}</dt><dd>{{ project.get_priority_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "관리자" %}</dt><dd>{{ project.manager.get_full_name|default:project.manager.username }}</dd></div>
+                {% if project.start_date %}<div class="flex justify-between"><dt class="text-gray-500">{% trans "시작일" %}</dt><dd>{{ project.start_date }}</dd></div>{% endif %}
+                {% if project.due_date %}<div class="flex justify-between"><dt class="text-gray-500">{% trans "목표완료일" %}</dt><dd>{{ project.due_date }}</dd></div>{% endif %}
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "예산" %}</dt><dd>{{ project.budget|intcomma }}{% trans "원" %}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "총 작업시간" %}</dt><dd>{{ total_logged }}h</dd></div>
+            </dl>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-sm">{% trans "멤버" %} ({{ members|length }})</h3>
+                <a href="{% url 'project:member_create' %}?project={{ project.pk }}" class="text-xs text-blue-600 hover:underline">{% trans "+ 추가" %}</a>
+            </div>
+            <ul class="space-y-2">
+                {% for m in members %}
+                <li class="flex justify-between text-sm">
+                    <span>{{ m.user.get_full_name|default:m.user.username }}</span>
+                    <span class="text-gray-400">{{ m.get_role_display }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

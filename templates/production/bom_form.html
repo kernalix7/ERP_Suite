@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% load i18n humanize %}
 
-{% block title %}BOM {% if object %}수정{% else %}등록{% endif %} - ERP Suite{% endblock %}
-{% block page_title %}BOM {% if object %}수정{% else %}등록{% endif %}{% endblock %}
+{% block title %}{% trans "BOM" %} {% if object %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "BOM" %} {% if object %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'production:bom_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'production:bom_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -14,7 +14,7 @@
 
     <!-- BOM 기본 정보 -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">기본 정보</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "기본 정보" %}</h2>
 
         {% if form.non_field_errors %}
         <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-800 border border-red-200 text-sm">
@@ -42,7 +42,7 @@
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
-                항목 추가
+                {% trans "항목 추가" %}
             </button>
         </div>
 
@@ -58,14 +58,14 @@
             <table class="w-full text-sm" id="formset-table">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                        <th class="px-4 py-3">자재</th>
-                        <th class="px-4 py-3 w-28">구매수량</th>
-                        <th class="px-4 py-3 w-28">생산가능수량</th>
+                        <th class="px-4 py-3">{% trans "자재" %}</th>
+                        <th class="px-4 py-3 w-28">{% trans "구매수량" %}</th>
+                        <th class="px-4 py-3 w-28">{% trans "생산가능수량" %}</th>
                         <th class="px-4 py-3 w-28">소요량<span class="text-xs text-gray-400 font-normal ml-1">(자동)</span></th>
-                        <th class="px-4 py-3 w-24">손실률(%)</th>
-                        <th class="px-4 py-3 w-28 text-right">단가</th>
-                        <th class="px-4 py-3 w-28 text-right">개당원가</th>
-                        <th class="px-4 py-3 w-16 text-center">삭제</th>
+                        <th class="px-4 py-3 w-24">{% trans "손실률(%)" %}</th>
+                        <th class="px-4 py-3 w-28 text-right">{% trans "단가" %}</th>
+                        <th class="px-4 py-3 w-28 text-right">{% trans "개당원가" %}</th>
+                        <th class="px-4 py-3 w-16 text-center">{% trans "삭제" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" id="formset-body">
@@ -128,19 +128,19 @@
 
     <!-- 버튼 -->
     <div class="flex justify-end space-x-3">
-        <a href="{% url 'production:bom_list' %}" class="btn btn-secondary">취소</a>
+        <a href="{% url 'production:bom_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
         <button type="submit" class="btn btn-primary">{% if object %}수정{% else %}등록{% endif %}</button>
     </div>
 </form>
 
 {{ product_units_json|json_script:"product-units-data" }}
 {{ material_prices_json|json_script:"material-prices-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
     const materialPrices = JSON.parse(document.getElementById('material-prices-data').textContent);
 
-    function fmt(n) { return n ? Math.round(n).toLocaleString('ko-KR') + '원' : '-'; }
+    {% trans "function fmt(n) { return n ? Math.round(n).toLocaleString('ko-KR') + '원' : '-'; }" %}
 
     function updateRowUnit(row) {
         const sel = row.querySelector('select[name$="-material"]');
@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const span = row.querySelector('.item-unit');
         const spanQty = row.querySelector('.item-unit-qty');
         if (span) span.textContent = unit;
-        if (spanQty) spanQty.textContent = unit ? unit + '/개' : '';
+        {% trans "if (spanQty) spanQty.textContent = unit ? unit + '/개' : '';" %}
     }
 
     // 구매수량 / 생산가능수량 → 소요량 자동 계산

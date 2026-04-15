@@ -223,6 +223,7 @@ class PermissionGroupListView(AdminRequiredMixin, ListView):
     model = PermissionGroup
     template_name = 'accounts/permission_group_list.html'
     context_object_name = 'groups'
+    paginate_by = 20
 
     def get_queryset(self):
         return (

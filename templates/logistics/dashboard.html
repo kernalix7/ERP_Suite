@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "물류 대시보드 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "물류 대시보드" %}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">계획된 경로</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{{ planned_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">진행 중</p>
+        <p class="text-3xl font-bold text-yellow-600 mt-1">{{ in_progress_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">완료</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">{{ completed_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">가용 차량</p>
+        <p class="text-3xl font-bold text-gray-600 mt-1">{{ vehicle_available }}</p>
+    </div>
+</div>
+
+<div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+    <h3 class="text-lg font-semibold mb-4">최근 배송 경로</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+                    <th class="px-4 py-3">{% trans "경로번호" %}</th>
+                    <th class="px-4 py-3">{% trans "경로명" %}</th>
+                    <th class="px-4 py-3">{% trans "배송일" %}</th>
+                    <th class="px-4 py-3">{% trans "차량" %}</th>
+                    <th class="px-4 py-3">{% trans "기사" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for route in recent_routes %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'logistics:route_detail' route.route_number %}" class="text-blue-600 hover:underline">{{ route.route_number }}</a></td>
+                    <td class="px-4 py-3 text-gray-900">{{ route.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ route.date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ route.vehicle.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ route.driver.user.get_full_name|default:route.driver.user.username }}</td>
+                    <td class="px-4 py-3 text-center"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ route.get_status_display }}</span></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">배송 경로가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "EDI 트랜잭션 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "EDI 트랜잭션" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <select name="status" class="form-input w-auto">
+                <option value="">전체 상태</option>
+                <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>대기</option>
+                <option value="SENT" {% if request.GET.status == 'SENT' %}selected{% endif %}>전송됨</option>
+                <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>수신됨</option>
+                <option value="PROCESSED" {% if request.GET.status == 'PROCESSED' %}selected{% endif %}>처리완료</option>
+                <option value="ERROR" {% if request.GET.status == 'ERROR' %}selected{% endif %}>오류</option>
+            </select>
+            <select name="direction" class="form-input w-auto">
+                <option value="">전체 방향</option>
+                <option value="INBOUND" {% if request.GET.direction == 'INBOUND' %}selected{% endif %}>수신</option>
+                <option value="OUTBOUND" {% if request.GET.direction == 'OUTBOUND' %}selected{% endif %}>발신</option>
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">트랜잭션 ID</th>
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3">{% trans "문서유형" %}</th>
+                    <th class="px-4 py-3">{% trans "방향" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "일시" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for tx in transactions %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'edi:transaction_detail' tx.transaction_id %}" class="text-blue-600 hover:underline font-mono">{{ tx.transaction_id }}</a></td>
+                    <td class="px-4 py-3 text-gray-600">{{ tx.partner.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ tx.document_type.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ tx.get_direction_display }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if tx.status == 'ERROR' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">오류</span>
+                        {% elif tx.status == 'PROCESSED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">처리완료</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ tx.get_status_display }}</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ tx.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">트랜잭션이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex gap-1">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>{% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

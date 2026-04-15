@@ -41,7 +41,7 @@
 
 {{ order_amounts_json|json_script:"order-amounts-data" }}
 {{ commission_rates_json|json_script:"commission-rates-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function() {
     const orderAmounts = JSON.parse(document.getElementById('order-amounts-data').textContent);
     const commissionRates = JSON.parse(document.getElementById('commission-rates-data').textContent);

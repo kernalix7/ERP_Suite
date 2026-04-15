@@ -1,22 +1,22 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load humanize %}
 
-{% block title %}투자 대시보드 - ERP Suite{% endblock %}
-{% block page_title %}투자 대시보드{% endblock %}
+{% block title %}{% trans "투자 대시보드" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "투자 대시보드" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">투자자 관리</a>
-<a href="{% url 'investment:round_list' %}" class="btn btn-primary">라운드 관리</a>
+<a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">{% trans "투자자 관리" %}</a>
+<a href="{% url 'investment:round_list' %}" class="btn btn-primary">{% trans "라운드 관리" %}</a>
 {% endblock %}
 
 {% block content %}
-<!-- 요약 카드 -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-8">
     <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm font-medium text-gray-500">총 투자금</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900">{{ total_invested|intcomma }}원</p>
+                <p class="text-sm font-medium text-gray-500">{% trans "총 투자금" %}</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ total_invested|intcomma }}{% trans "원" %}</p>
             </div>
             <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,8 +28,8 @@
     <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm font-medium text-gray-500">투자자 수</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900">{{ investor_count }}명</p>
+                <p class="text-sm font-medium text-gray-500">{% trans "투자자 수" %}</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ investor_count }}{% trans "명" %}</p>
             </div>
             <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,8 +41,8 @@
     <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm font-medium text-gray-500">최근 기업가치</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900">{{ latest_valuation|intcomma }}원</p>
+                <p class="text-sm font-medium text-gray-500">{% trans "최근 기업가치" %}</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ latest_valuation|intcomma }}{% trans "원" %}</p>
             </div>
             <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,15 +53,14 @@
     </div>
 </div>
 
-<!-- 지분 현황 차트 -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-8">
     <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">지분 현황</h3>
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "지분 현황" %}</h3>
         <div class="flex justify-center">
             <canvas id="equityChart" style="max-height: 320px;"></canvas>
         </div>
         {{ equity_json|json_script:"equity-data" }}
-        <script>
+        <script nonce="{{ request.csp_nonce }}">
             document.addEventListener('DOMContentLoaded', function() {
                 const equityData = JSON.parse(document.getElementById('equity-data').textContent);
                 const colors = [
@@ -100,18 +99,17 @@
         </script>
     </div>
 
-    <!-- 예정 배당 -->
     <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">예정 배당</h3>
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "예정 배당" %}</h3>
         <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                        <th class="px-4 py-3">투자자</th>
-                        <th class="px-4 py-3">분배유형</th>
-                        <th class="px-4 py-3 text-right">금액</th>
-                        <th class="px-4 py-3">예정일</th>
-                        <th class="px-4 py-3">상태</th>
+                        <th class="px-4 py-3">{% trans "투자자" %}</th>
+                        <th class="px-4 py-3">{% trans "분배유형" %}</th>
+                        <th class="px-4 py-3 text-right">{% trans "금액" %}</th>
+                        <th class="px-4 py-3">{% trans "예정일" %}</th>
+                        <th class="px-4 py-3">{% trans "상태" %}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -119,7 +117,7 @@
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3 text-gray-900">{{ dist.investor.name }}</td>
                         <td class="px-4 py-3 text-gray-600">{{ dist.distribution_type }}</td>
-                        <td class="px-4 py-3 text-right font-mono text-gray-900">{{ dist.amount|intcomma }}원</td>
+                        <td class="px-4 py-3 text-right font-mono text-gray-900">{{ dist.amount|intcomma }}{% trans "원" %}</td>
                         <td class="px-4 py-3 text-gray-600">{{ dist.scheduled_date }}</td>
                         <td class="px-4 py-3">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -134,7 +132,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="px-4 py-12 text-center text-gray-400">예정된 배당이 없습니다.</td>
+                        <td colspan="5" class="px-4 py-12 text-center text-gray-400">{% trans "예정된 배당이 없습니다." %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -143,18 +141,17 @@
     </div>
 </div>
 
-<!-- 최근 투자내역 -->
 <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4">최근 투자내역</h3>
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "최근 투자내역" %}</h3>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">투자자</th>
-                    <th class="px-4 py-3">라운드</th>
-                    <th class="px-4 py-3 text-right">투자금액</th>
-                    <th class="px-4 py-3 text-right">지분율</th>
-                    <th class="px-4 py-3">투자일</th>
+                    <th class="px-4 py-3">{% trans "투자자" %}</th>
+                    <th class="px-4 py-3">{% trans "라운드" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "투자금액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "지분율" %}</th>
+                    <th class="px-4 py-3">{% trans "투자일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -162,13 +159,13 @@
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3 font-medium text-gray-900">{{ inv.investor.name }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ inv.round.name }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ inv.amount|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-900">{{ inv.amount|intcomma }}{% trans "원" %}</td>
                     <td class="px-4 py-3 text-right font-mono text-gray-900">{{ inv.share_percentage }}%</td>
                     <td class="px-4 py-3 text-gray-600">{{ inv.investment_date }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="px-4 py-12 text-center text-gray-400">투자내역이 없습니다.</td>
+                    <td colspan="5" class="px-4 py-12 text-center text-gray-400">{% trans "투자내역이 없습니다." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

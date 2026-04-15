@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ object.contract_number }} - ERP Suite{% endblock %}
+{% block page_title %}{{ object.contract_number }} - {{ object.title }}{% endblock %}
+
+{% block header_actions %}
+{% if user.role == 'admin' or user.role == 'manager' %}
+<a href="{% url 'document:milestone_create' object.contract_number %}" class="btn btn-secondary">{% trans "마일스톤 추가" %}</a>
+<a href="{% url 'document:contract_update' object.contract_number %}" class="btn btn-secondary">{% trans "수정" %}</a>
+{% if object.status == 'ACTIVE' %}
+<form method="post" action="{% url 'document:contract_renew' object.contract_number %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary" onclick="return confirm('계약을 갱신하시겠습니까?')">{% trans "갱신" %}</button>
+</form>
+<form method="post" action="{% url 'document:contract_terminate' object.contract_number %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors" onclick="return confirm('계약을 해지하시겠습니까?')">{% trans "해지" %}</button>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "계약 기본 정보" %}</h3>
+            <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                    <dt class="text-gray-500">{% trans "계약번호" %}</dt>
+                    <dd class="font-mono mt-0.5">{{ object.contract_number }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "유형" %}</dt>
+                    <dd class="mt-0.5">{{ object.get_contract_type_display }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "거래처" %}</dt>
+                    <dd class="mt-0.5">{{ object.partner.name|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "계약금액" %}</dt>
+                    <dd class="mt-0.5 font-semibold">{{ object.value|floatformat:0 }}{% trans "원" %}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "시작일" %}</dt>
+                    <dd class="mt-0.5">{{ object.start_date|date:"Y-m-d" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "종료일" %}</dt>
+                    <dd class="mt-0.5">{{ object.end_date|date:"Y-m-d"|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "체결일" %}</dt>
+                    <dd class="mt-0.5">{{ object.signed_date|date:"Y-m-d"|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "체결자" %}</dt>
+                    <dd class="mt-0.5">{{ object.signed_by.get_full_name|default:object.signed_by.username|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "자동갱신" %}</dt>
+                    <dd class="mt-0.5">{% if object.auto_renew %}{% trans "예 (" %}{{ object.renewal_notice_days }}{% trans "일 전 알림)" %}{% else %}{% trans "아니오" %}{% endif %}</dd>
+                </div>
+            </dl>
+        </div>
+
+        {% if object.signed_file %}
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "계약서 파일" %}</h3>
+            <a href="{{ object.signed_file.url }}" class="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm" target="_blank">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                {% trans "계약서 다운로드" %}
+            </a>
+        </div>
+        {% endif %}
+
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold">{% trans "마일스톤" %}</h3>
+                {% if user.role == 'admin' or user.role == 'manager' %}
+                <a href="{% url 'document:milestone_create' object.contract_number %}" class="text-sm text-blue-600 hover:underline">{% trans "+ 추가" %}</a>
+                {% endif %}
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                            <th class="px-3 py-2">{% trans "마일스톤명" %}</th>
+                            <th class="px-3 py-2">{% trans "기한" %}</th>
+                            <th class="px-3 py-2 text-right">{% trans "금액" %}</th>
+                            <th class="px-3 py-2 text-center">{% trans "상태" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for ms in object.milestones.all %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 text-gray-800">{{ ms.title }}</td>
+                            <td class="px-3 py-2 text-gray-600">{{ ms.due_date|date:"Y-m-d" }}</td>
+                            <td class="px-3 py-2 text-right text-gray-700">{{ ms.amount|floatformat:0 }}{% trans "원" %}</td>
+                            <td class="px-3 py-2 text-center">
+                                {% if ms.status == 'PENDING' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">예정</span>
+                                {% elif ms.status == 'COMPLETED' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">완료</span>
+                                {% elif ms.status == 'OVERDUE' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">지연</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="px-3 py-6 text-center text-gray-400">{% trans "등록된 마일스톤이 없습니다." %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "계약 상태" %}</h3>
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between items-center">
+                    <dt class="text-gray-500">{% trans "상태" %}</dt>
+                    <dd>
+                        {% if object.status == 'DRAFT' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">초안</span>
+                        {% elif object.status == 'ACTIVE' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">유효</span>
+                        {% elif object.status == 'EXPIRED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">만료</span>
+                        {% elif object.status == 'TERMINATED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">해지</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "등록일" %}</dt><dd>{{ object.created_at|date:"Y-m-d" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "수정일" %}</dt><dd>{{ object.updated_at|date:"Y-m-d" }}</dd></div>
+            </dl>
+        </div>
+
+        {% if object.notes %}
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-3">{% trans "비고" %}</h3>
+            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ object.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

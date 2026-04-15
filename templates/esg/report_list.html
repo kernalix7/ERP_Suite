@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "ESG 보고서 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "ESG 보고서 목록" %}{% endblock %}
+
+{% block header_actions %}
+{% if user.role == 'admin' or user.role == 'manager' %}
+<a href="{% url 'esg:report_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "보고서 생성" %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "보고서명" %}</th>
+                    <th class="px-4 py-3">{% trans "유형" %}</th>
+                    <th class="px-4 py-3">{% trans "기간 시작" %}</th>
+                    <th class="px-4 py-3">{% trans "기간 종료" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "생성일시" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for report in reports %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium">
+                        <a href="{% url 'esg:report_detail' report.pk %}" class="text-blue-600 hover:underline">{{ report.title|truncatechars:50 }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ report.get_report_type_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ report.period_start|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ report.period_end|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if report.status == 'PUBLISHED' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "발행" %}</span>
+                        {% elif report.status == 'REVIEW' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "검토중" %}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{% trans "초안" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ report.generated_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">{% trans "생성된 ESG 보고서가 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

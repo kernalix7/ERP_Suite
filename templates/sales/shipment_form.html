@@ -61,7 +61,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function() {
     const typeSelect = document.getElementById('id_shipping_type');
     if (!typeSelect) return;
@@ -88,7 +88,7 @@
 </script>
 {% if orderer_info %}
 {{ orderer_info|json_script:"orderer-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function() {
     const cb = document.getElementById('copy-orderer');
     if (!cb) return;

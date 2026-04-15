@@ -87,11 +87,11 @@ def auto_stock_out_on_ship(sender, instance, **kwargs):
     # 상태가 '출고완료'로 변경될 때만
     if old.status not in ('SHIPPED', 'PARTIAL_SHIPPED') and instance.status == 'SHIPPED':
         _auto_full_ship(instance)
-        # CONFIRMED/PARTIAL_SHIPPED에서 전환 시에만 예약재고 해제 (예약된 적이 있는 경우만)
-        if old.status in ('CONFIRMED', 'PARTIAL_SHIPPED'):
+        # CONFIRMED에서 전환 시에만 예약재고 해제 (예약된 적이 있는 경우만)
+        if old.status == 'CONFIRMED':
             _auto_release_reserved_stock(instance, quantity_source='full')
     # 부분출고→출고완료 전환 시: 미출고 잔량 처리
-    if old.status == 'PARTIAL_SHIPPED' and instance.status == 'SHIPPED':
+    elif old.status == 'PARTIAL_SHIPPED' and instance.status == 'SHIPPED':
         _auto_full_ship(instance)
         _auto_release_reserved_stock(instance)
 

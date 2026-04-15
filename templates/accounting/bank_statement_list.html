@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}입출금명세 - ERP Suite{% endblock %}
+{% block page_title %}입출금명세{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <form method="get" class="flex gap-2 items-center flex-wrap">
+        <select name="connection" class="form-input w-auto">
+            <option value="">전체 은행</option>
+            {% for conn in connections %}
+            <option value="{{ conn.pk }}" {% if request.GET.connection == conn.pk|stringformat:"d" %}selected{% endif %}>{{ conn.bank_name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-secondary">검색</button>
+    </form>
+</div>
+
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">은행</th>
+                    <th class="px-4 py-3">명세기간</th>
+                    <th class="px-4 py-3 text-right">시작잔액</th>
+                    <th class="px-4 py-3 text-right">종료잔액</th>
+                    <th class="px-4 py-3 text-center">거래건수</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for stmt in statements %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">{{ stmt.connection.bank_name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ stmt.start_date|date:"Y-m-d" }} ~ {{ stmt.end_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ stmt.opening_balance|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ stmt.closing_balance|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ stmt.transactions.count }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'accounting:bank_statement_detail' stmt.pk %}" class="btn btn-sm btn-secondary">상세</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">입출금명세가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200">
+        {% include "includes/pagination.html" %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

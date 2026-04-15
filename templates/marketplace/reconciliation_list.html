@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load humanize %}
 
-{% block title %}정산 대사 - ERP Suite{% endblock %}
-{% block page_title %}정산 대사{% endblock %}
+{% block title %}{% trans "정산 대사 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "정산 대사" %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'marketplace:reconciliation_run' %}" class="btn btn-primary">대사 실행</a>
@@ -39,7 +40,7 @@
                 <label class="block text-xs text-gray-500 mb-1">종료일</label>
                 <input type="date" name="to_date" value="{{ to_date }}" class="form-input w-auto">
             </div>
-            <button type="submit" class="btn btn-primary">검색</button>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
         </form>
     </div>
 
@@ -48,14 +49,14 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
-                    <th class="px-4 py-3">스토어</th>
-                    <th class="px-4 py-3">정산일</th>
-                    <th class="px-4 py-3">거래처</th>
-                    <th class="px-4 py-3 text-right">예상 정산액</th>
-                    <th class="px-4 py-3 text-right">실제 입금액</th>
-                    <th class="px-4 py-3 text-right">차이</th>
-                    <th class="px-4 py-3 text-center">상태</th>
-                    <th class="px-4 py-3">등록일</th>
+                    <th class="px-4 py-3">{% trans "스토어" %}</th>
+                    <th class="px-4 py-3">{% trans "정산일" %}</th>
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "예상 정산액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "실제 입금액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "차이" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "등록일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">

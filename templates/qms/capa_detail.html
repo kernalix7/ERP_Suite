@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "CAPA 상세" %} - {{ capa.capa_number }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "CAPA 상세" %}{% endblock %}
+
+{% block header_actions %}
+{% if capa.status == 'IN_PROGRESS' %}
+<a href="{% url 'qms:capa_verify' capa.pk %}" class="btn btn-success">{% trans "유효성 검증" %}</a>
+{% endif %}
+<a href="{% url 'qms:capa_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><p class="text-sm text-gray-500">CAPA번호</p><p class="mt-1 font-medium">{{ capa.capa_number }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "유형" %}</p><p class="mt-1 font-medium">{{ capa.get_type_display }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "상태" %}</p><p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+            {% if capa.status == 'VERIFIED' %}bg-blue-100 text-blue-800
+            {% elif capa.status == 'CLOSED' %}bg-green-100 text-green-800
+            {% else %}bg-yellow-100 text-yellow-800
+            {% endif %}">{{ capa.get_status_display }}</span></p></div>
+        <div><p class="text-sm text-gray-500">{% trans "관련 NC" %}</p><p class="mt-1 font-medium">{% if capa.nc %}<a href="{% url 'qms:nc_detail' capa.nc.pk %}" class="text-blue-600">{{ capa.nc.nc_number }}</a>{% else %}-{% endif %}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "담당자" %}</p><p class="mt-1 font-medium">{{ capa.assigned_to|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "기한" %}</p><p class="mt-1 font-medium">{{ capa.due_date|default:"-" }}</p></div>
+    </div>
+    <div class="mt-4"><p class="text-sm text-gray-500">{% trans "조치내용" %}</p><p class="mt-1 whitespace-pre-wrap">{{ capa.description }}</p></div>
+    {% if capa.effectiveness_check %}
+    <div class="mt-4"><p class="text-sm text-gray-500">{% trans "유효성검증" %}</p><p class="mt-1 whitespace-pre-wrap">{{ capa.effectiveness_check }}</p></div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}{{ product.name }} - 제품 상세 - ERP Suite{% endblock %}
-{% block page_title %}제품 상세{% endblock %}
+{% block title %}{{ product.name }}- {% trans "제품 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "제품 상세" %}{% endblock %}
 
 {% block header_actions %}
 <div class="flex flex-wrap items-center gap-2">
-    <a href="{% url 'inventory:product_update' product.pk %}" class="btn btn-primary">수정</a>
-    <a href="{% url 'inventory:product_delete' product.pk %}" class="btn btn-danger">삭제</a>
-    <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary">목록</a>
+    <a href="{% url 'inventory:product_update' product.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+    <a href="{% url 'inventory:product_delete' product.pk %}" class="btn btn-danger">{% trans "삭제" %}</a>
+    <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 </div>
 {% endblock %}
 
@@ -31,35 +31,35 @@
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">카테고리</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "카테고리" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ product.category|default:"-" }}</p>
         </div>
         {% if product.product_type == 'RAW' %}
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">원가(매입단가)</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "원가(매입단가)" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ product.cost_price|intcomma }} 원</p>
         </div>
         {% elif product.product_type == 'SEMI' %}
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">원가</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "원가" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ product.cost_price|intcomma }} 원</p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">판매단가</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "판매단가" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ product.unit_price|intcomma }} 원</p>
         </div>
         {% else %}
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">판매단가</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "판매단가" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ product.unit_price|intcomma }} 원</p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">원가</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "원가" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ product.cost_price|intcomma }} 원</p>
         </div>
         {% endif %}
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">현재고</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "현재고" %}</p>
             <p class="text-sm font-medium {% if product.current_stock < product.safety_stock %}text-red-600{% else %}text-gray-900{% endif %}">
                 {{ product.current_stock }} {{ product.unit|default:"개" }}
                 {% if product.current_stock < product.safety_stock %}
@@ -68,7 +68,7 @@
             </p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">가용재고</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "가용재고" %}</p>
             <p class="text-sm font-medium {% if product.available_stock < product.safety_stock %}text-orange-600{% else %}text-gray-900{% endif %}">
                 {{ product.available_stock }} {{ product.unit|default:"개" }}
                 {% if product.reserved_stock > 0 %}
@@ -77,20 +77,20 @@
             </p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">안전재고</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "안전재고" %}</p>
             <p class="text-sm font-medium text-gray-900">{{ product.safety_stock }} {{ product.unit|default:"개" }}</p>
         </div>
     </div>
 
     {% if product.description %}
     <div class="mt-6 pt-6 border-t border-gray-200">
-        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">설명</p>
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">{% trans "설명" %}</p>
         <p class="text-sm text-gray-700">{{ product.description }}</p>
     </div>
     {% endif %}
 
     <div class="mt-6 pt-6 border-t border-gray-200">
-        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">비고</p>
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">{% trans "비고" %}</p>
         <p class="text-sm text-gray-700">{{ product.notes|default:"-" }}</p>
     </div>
 </div>
@@ -98,18 +98,18 @@
 <!-- 최근 입출고 이력 -->
 <div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 class="text-base font-semibold text-gray-900">최근 입출고 이력</h3>
-        <a href="{% url 'inventory:movement_list' %}?product={{ product.pk }}" class="text-sm text-blue-600 hover:text-blue-800">전체보기</a>
+        <h3 class="text-base font-semibold text-gray-900">{% trans "최근 입출고 이력" %}</h3>
+        <a href="{% url 'inventory:movement_list' %}?product={{ product.pk }}" class="text-sm text-blue-600 hover:text-blue-800">{% trans "전체보기" %}</a>
     </div>
     <div class="table-responsive">
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">전표번호</th>
-                    <th class="px-4 py-3">유형</th>
-                    <th class="px-4 py-3">창고</th>
-                    <th class="px-4 py-3 text-right">수량</th>
-                    <th class="px-4 py-3">입출고일</th>
+                    <th class="px-4 py-3">{% trans "전표번호" %}</th>
+                    <th class="px-4 py-3">{% trans "유형" %}</th>
+                    <th class="px-4 py-3">{% trans "창고" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "수량" %}</th>
+                    <th class="px-4 py-3">{% trans "입출고일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">

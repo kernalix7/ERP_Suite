@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "태스크 목록" %} - {% trans "프로젝트" %}{% endblock %}
+{% block page_title %}{% trans "태스크 목록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'project:task_create' %}" class="btn btn-primary">{% trans "+ 태스크 등록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '태스크명 검색...' %}" class="form-input flex-1 min-w-[200px]">
+            <select name="status" class="form-input w-auto">
+                <option value="">{% trans "전체 상태" %}</option>
+                <option value="TODO">{% trans "할일" %}</option>
+                <option value="IN_PROGRESS">{% trans "진행중" %}</option>
+                <option value="IN_REVIEW">{% trans "검토중" %}</option>
+                <option value="DONE">{% trans "완료" %}</option>
+            </select>
+            <select name="assignee" class="form-input w-auto">
+                <option value="">{% trans "전체" %}</option>
+                <option value="me" {% if request.GET.assignee == 'me' %}selected{% endif %}>{% trans "내 태스크" %}</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "태스크" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "프로젝트" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "담당자" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "우선순위" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "마감일" %}</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for task in tasks %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-medium">
+                        <a href="{% url 'project:task_detail' task.pk %}" class="text-blue-600 hover:underline">{{ task.title }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-sm"><a href="{% url 'project:project_detail' task.project.pk %}" class="text-gray-600 hover:underline">{{ task.project.name }}</a></td>
+                    <td class="px-4 py-3 text-sm">{{ task.assignee.get_full_name|default:task.assignee.username|default:"-" }}</td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="px-2 py-0.5 rounded text-xs {% if task.status == 'DONE' %}bg-green-100 text-green-700{% elif task.status == 'IN_PROGRESS' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {{ task.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm">{{ task.get_priority_display }}</td>
+                    <td class="px-4 py-3 text-sm">{{ task.due_date|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">{% trans "등록된 태스크가 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "partials/pagination.html" %}
+</div>
+{% endblock %}

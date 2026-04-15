@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "계약 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "계약 목록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'document:contract_calendar' %}" class="btn btn-secondary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    {% trans "캘린더" %}
+</a>
+{% if user.role == 'admin' or user.role == 'manager' %}
+<a href="{% url 'document:contract_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "계약 등록" %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans "계약번호, 계약명으로 검색..." %}" class="form-input w-full">
+            </div>
+            <select name="status" class="form-input w-auto">
+                <option value="">{% trans "전체 상태" %}</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="contract_type" class="form-input w-auto">
+                <option value="">{% trans "전체 유형" %}</option>
+                {% for val, label in type_choices %}
+                <option value="{{ val }}" {% if request.GET.contract_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+            {% if request.GET.q or request.GET.status or request.GET.contract_type %}
+            <a href="{% url 'document:contract_list' %}" class="btn btn-secondary">{% trans "초기화" %}</a>
+            {% endif %}
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "계약번호" %}</th>
+                    <th class="px-4 py-3">{% trans "계약명" %}</th>
+                    <th class="px-4 py-3">{% trans "유형" %}</th>
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "계약금액" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "시작일" %}</th>
+                    <th class="px-4 py-3">{% trans "종료일" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for contract in contracts %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono">
+                        <a href="{% url 'document:contract_detail' contract.contract_number %}" class="text-blue-600 hover:underline">{{ contract.contract_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">{{ contract.title|truncatechars:35 }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ contract.get_contract_type_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ contract.partner.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-right text-gray-700">{{ contract.value|floatformat:0 }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if contract.status == 'DRAFT' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "초안" %}</span>
+                        {% elif contract.status == 'ACTIVE' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "유효" %}</span>
+                        {% elif contract.status == 'EXPIRED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "만료" %}</span>
+                        {% elif contract.status == 'TERMINATED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "해지" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ contract.start_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ contract.end_date|date:"Y-m-d"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 계약이 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200">
+        {% include "core/pagination.html" %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -4,6 +4,7 @@ from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     AssetAudit, AssetAuditItem, AssetCategory, AssetTransfer,
     Certification, DepreciationRecord, FixedAsset, LeaseContract, Location,
+    ReservableAsset, ReservationRule, AssetReservation, AssetMaintenance,
 )
 
 
@@ -66,3 +67,30 @@ class AssetAuditAdmin(admin.ModelAdmin):
 class AssetAuditItemAdmin(admin.ModelAdmin):
     list_display = ['audit', 'asset', 'status', 'condition', 'is_active']
     list_filter = ['status', 'condition', 'is_active']
+
+
+@admin.register(ReservableAsset)
+class ReservableAssetAdmin(admin.ModelAdmin):
+    list_display = ['name', 'resource_type', 'location', 'capacity', 'requires_approval', 'is_active']
+    list_filter = ['resource_type', 'requires_approval', 'is_active']
+    search_fields = ['name']
+
+
+@admin.register(ReservationRule)
+class ReservationRuleAdmin(admin.ModelAdmin):
+    list_display = ['asset', 'day_of_week', 'open_time', 'close_time', 'is_closed']
+    list_filter = ['day_of_week', 'is_closed']
+
+
+@admin.register(AssetReservation)
+class AssetReservationAdmin(admin.ModelAdmin):
+    list_display = ['reservation_number', 'asset', 'requester', 'start_datetime', 'end_datetime', 'status']
+    list_filter = ['status', 'is_active']
+    search_fields = ['reservation_number', 'asset__name', 'requester__username']
+
+
+@admin.register(AssetMaintenance)
+class AssetMaintenanceAdmin(admin.ModelAdmin):
+    list_display = ['asset', 'maintenance_type', 'status', 'scheduled_date', 'completed_date', 'cost']
+    list_filter = ['maintenance_type', 'status', 'is_active']
+    search_fields = ['asset__name', 'vendor']

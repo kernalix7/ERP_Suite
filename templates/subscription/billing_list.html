@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "과금 기록 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "과금 기록" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <select name="status" class="form-input w-auto">
+                <option value="">전체 상태</option>
+                <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>대기</option>
+                <option value="INVOICED" {% if request.GET.status == 'INVOICED' %}selected{% endif %}>청구됨</option>
+                <option value="PAID" {% if request.GET.status == 'PAID' %}selected{% endif %}>결제완료</option>
+                <option value="OVERDUE" {% if request.GET.status == 'OVERDUE' %}selected{% endif %}>연체</option>
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "구독" %}</th>
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3">{% trans "과금일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "공급가액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "세액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "합계" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for r in records %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'subscription:subscription_detail' r.subscription.subscription_number %}" class="text-blue-600 hover:underline font-mono">{{ r.subscription.subscription_number }}</a></td>
+                    <td class="px-4 py-3 text-gray-600">{{ r.subscription.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ r.billing_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ r.amount|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">{{ r.tax_amount|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-medium">{{ r.total|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if r.status == 'PAID' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">결제완료</span>
+                        {% elif r.status == 'OVERDUE' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">연체</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ r.get_status_display }}</span>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">과금 기록이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <nav class="flex gap-1">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">이전</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">다음</a>{% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

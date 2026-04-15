@@ -110,7 +110,15 @@
     {% endif %}
 </div>
 
-<script>
+{{ dept_labels_json|json_script:"dept-labels" }}
+{{ dept_bv_json|json_script:"dept-bv" }}
+{{ category_labels_json|json_script:"category-labels" }}
+{{ category_values_json|json_script:"category-values" }}
+{{ status_labels_json|json_script:"status-labels" }}
+{{ status_values_json|json_script:"status-values" }}
+{{ location_labels_json|json_script:"location-labels" }}
+{{ location_counts_json|json_script:"location-counts" }}
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const palette = [
         '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
@@ -118,8 +126,8 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
 
     // 부서별 장부가 (가로 바)
-    const deptLabels = {{ dept_labels_json|safe }};
-    const deptBV = {{ dept_bv_json|safe }};
+    const deptLabels = JSON.parse(document.getElementById('dept-labels').textContent);
+    const deptBV = JSON.parse(document.getElementById('dept-bv').textContent);
     if (deptLabels.length > 0) {
         new Chart(document.getElementById('deptBarChart'), {
             type: 'bar',
@@ -158,8 +166,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 카테고리별 장부가 (파이)
-    const catLabels = {{ category_labels_json|safe }};
-    const catValues = {{ category_values_json|safe }};
+    const catLabels = JSON.parse(document.getElementById('category-labels').textContent);
+    const catValues = JSON.parse(document.getElementById('category-values').textContent);
     if (catLabels.length > 0) {
         new Chart(document.getElementById('categoryPieChart'), {
             type: 'pie',
@@ -187,8 +195,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 상태별 자산수 (도넛)
-    const statusLabels = {{ status_labels_json|safe }};
-    const statusValues = {{ status_values_json|safe }};
+    const statusLabels = JSON.parse(document.getElementById('status-labels').textContent);
+    const statusValues = JSON.parse(document.getElementById('status-values').textContent);
     if (statusLabels.length > 0) {
         new Chart(document.getElementById('statusDoughnutChart'), {
             type: 'doughnut',
@@ -207,8 +215,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 위치별 자산수 (바)
-    const locLabels = {{ location_labels_json|safe }};
-    const locCounts = {{ location_counts_json|safe }};
+    const locLabels = JSON.parse(document.getElementById('location-labels').textContent);
+    const locCounts = JSON.parse(document.getElementById('location-counts').textContent);
     var locCanvas = document.getElementById('locationBarChart');
     if (locCanvas && locLabels.length > 0) {
         new Chart(locCanvas, {

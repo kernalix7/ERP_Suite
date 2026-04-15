@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}은행 연결 관리 - ERP Suite{% endblock %}
+{% block page_title %}은행 연결 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:bank_connection_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    은행 연결 추가
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">은행명</th>
+                    <th class="px-4 py-3">법인</th>
+                    <th class="px-4 py-3">계좌번호</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3">최종 동기화</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for conn in connections %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ conn.bank_name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ conn.company.name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600 font-mono">{{ conn.account_number|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if conn.is_connected %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">연결됨</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">미연결</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-500">{{ conn.last_sync|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex justify-center gap-1">
+                            <a href="{% url 'accounting:bank_connection_update' conn.pk %}" class="btn btn-sm btn-secondary">수정</a>
+                            <form method="post" action="{% url 'accounting:bank_connection_sync' conn.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-primary">동기화</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">등록된 은행 연결이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

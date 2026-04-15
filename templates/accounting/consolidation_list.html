@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}연결결산 - ERP Suite{% endblock %}
+{% block page_title %}연결결산{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:consolidation_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    결산기간 생성
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">연도</th>
+                    <th class="px-4 py-3">월</th>
+                    <th class="px-4 py-3">대상 법인</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3">마감일시</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for period in periods %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900 font-medium">{{ period.year }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ period.month }}월</td>
+                    <td class="px-4 py-3 text-gray-600">
+                        {% for c in period.companies.all %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if period.status == 'CLOSED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">마감</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{{ period.get_status_display }}</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-500">{{ period.consolidated_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex justify-center gap-1">
+                            {% if period.status != 'CLOSED' %}
+                            <form method="post" action="{% url 'accounting:consolidation_close' period.pk %}" class="inline"
+                                  onsubmit="return confirm('연결결산을 마감하시겠습니까?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-primary">마감</button>
+                            </form>
+                            {% endif %}
+                            <a href="{% url 'accounting:consolidated_report' period.pk %}" class="btn btn-sm btn-secondary">리포트</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">연결결산 기간이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

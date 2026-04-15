@@ -94,7 +94,7 @@
 
 {% if breakeven_data %}
 {{ breakeven_json|json_script:"breakeven-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const bepList = JSON.parse(document.getElementById('breakeven-data').textContent);
     const bepData = bepList[0] || {};
     const fixedCost = {{ monthly_fixed_cost }};

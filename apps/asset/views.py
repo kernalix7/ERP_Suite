@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Q, Sum, F
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView, FormView
 
@@ -14,11 +14,13 @@ from apps.core.mixins import ManagerRequiredMixin
 from .models import (
     AssetAudit, AssetAuditItem, AssetCategory, AssetTransfer,
     Certification, DepreciationRecord, FixedAsset, LeaseContract, Location,
+    ReservableAsset, ReservationRule, AssetReservation, AssetMaintenance,
 )
 from .forms import (
     AssetAuditForm, AssetAuditItemForm, AssetCategoryForm, AssetDisposalForm,
     AssetRegisterFilterForm, AssetTransferForm, CertificationForm,
     DepreciationRunForm, FixedAssetForm, LeaseContractForm, LocationForm,
+    ReservableAssetForm, ReservationRuleForm, AssetReservationForm, AssetMaintenanceForm,
 )
 
 
@@ -916,3 +918,150 @@ class AssetQRPrintView(LoginRequiredMixin, TemplateView):
 class AssetQRScanView(LoginRequiredMixin, TemplateView):
     """QR 스캔 페이지"""
     template_name = 'asset/qr_scan.html'
+
+
+# === 자산 예약 ===
+
+class ReservableAssetListView(LoginRequiredMixin, ListView):
+    model = ReservableAsset
+    template_name = 'asset/reservable_asset_list.html'
+    context_object_name = 'reservable_assets'
+
+    def get_queryset(self):
+        qs = ReservableAsset.objects.filter(is_active=True).select_related('location', 'fixed_asset')
+        resource_type = self.request.GET.get('type')
+        if resource_type:
+            qs = qs.filter(resource_type=resource_type)
+        return qs
+
+
+class ReservableAssetCreateView(ManagerRequiredMixin, CreateView):
+    model = ReservableAsset
+    form_class = ReservableAssetForm
+    template_name = 'asset/reservable_asset_form.html'
+    success_url = reverse_lazy('asset:reservable_asset_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, '예약 가능 자산이 등록되었습니다.')
+        return super().form_valid(form)
+
+
+class ReservableAssetDetailView(LoginRequiredMixin, DetailView):
+    model = ReservableAsset
+    template_name = 'asset/reservable_asset_detail.html'
+    context_object_name = 'reservable_asset'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['rules'] = self.object.rules.filter(is_active=True).order_by('day_of_week')
+        ctx['upcoming_reservations'] = self.object.reservations.filter(
+            is_active=True,
+            status__in=[AssetReservation.Status.PENDING, AssetReservation.Status.APPROVED],
+        ).select_related('requester').order_by('start_datetime')[:10]
+        return ctx
+
+
+class AssetReservationListView(LoginRequiredMixin, ListView):
+    model = AssetReservation
+    template_name = 'asset/reservation_list.html'
+    context_object_name = 'reservations'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = AssetReservation.objects.filter(is_active=True).select_related(
+            'asset', 'requester',
+        ).order_by('-start_datetime')
+        mine = self.request.GET.get('mine')
+        if mine:
+            qs = qs.filter(requester=self.request.user)
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+
+class AssetReservationCreateView(LoginRequiredMixin, CreateView):
+    model = AssetReservation
+    form_class = AssetReservationForm
+    template_name = 'asset/reservation_form.html'
+    success_url = reverse_lazy('asset:reservation_list')
+
+    def form_valid(self, form):
+        form.instance.requester = self.request.user
+        form.instance.created_by = self.request.user
+        asset = form.cleaned_data['asset']
+        if not asset.requires_approval:
+            form.instance.status = AssetReservation.Status.APPROVED
+            form.instance.approved_by = self.request.user
+            from django.utils import timezone
+            form.instance.approved_at = timezone.now()
+        messages.success(self.request, '예약이 등록되었습니다.')
+        return super().form_valid(form)
+
+
+class AssetReservationDetailView(LoginRequiredMixin, DetailView):
+    model = AssetReservation
+    template_name = 'asset/reservation_detail.html'
+    context_object_name = 'reservation'
+
+
+class AssetReservationApproveView(ManagerRequiredMixin, DetailView):
+    model = AssetReservation
+
+    def post(self, request, *args, **kwargs):
+        reservation = self.get_object()
+        action = request.POST.get('action')
+        from django.utils import timezone
+        if action == 'approve':
+            reservation.status = AssetReservation.Status.APPROVED
+            reservation.approved_by = request.user
+            reservation.approved_at = timezone.now()
+            reservation.save()
+            messages.success(request, '예약이 승인되었습니다.')
+        elif action == 'reject':
+            reservation.status = AssetReservation.Status.REJECTED
+            reservation.rejection_reason = request.POST.get('rejection_reason', '')
+            reservation.save()
+            messages.warning(request, '예약이 거부되었습니다.')
+        return redirect(reverse('asset:reservation_detail', kwargs={'pk': reservation.pk}))
+
+
+class AssetMaintenanceListView(ManagerRequiredMixin, ListView):
+    model = AssetMaintenance
+    template_name = 'asset/maintenance_list.html'
+    context_object_name = 'maintenances'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = AssetMaintenance.objects.filter(is_active=True).select_related('asset', 'technician')
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        asset_id = self.request.GET.get('asset')
+        if asset_id:
+            qs = qs.filter(asset_id=asset_id)
+        return qs
+
+
+class AssetMaintenanceCreateView(ManagerRequiredMixin, CreateView):
+    model = AssetMaintenance
+    form_class = AssetMaintenanceForm
+    template_name = 'asset/maintenance_form.html'
+    success_url = reverse_lazy('asset:maintenance_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, '유지보수 내역이 등록되었습니다.')
+        return super().form_valid(form)
+
+
+class AssetMaintenanceUpdateView(ManagerRequiredMixin, UpdateView):
+    model = AssetMaintenance
+    form_class = AssetMaintenanceForm
+    template_name = 'asset/maintenance_form.html'
+    success_url = reverse_lazy('asset:maintenance_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, '유지보수 내역이 수정되었습니다.')
+        return super().form_valid(form)

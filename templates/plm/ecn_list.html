@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "ECN 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "설계변경통지(ECN) 목록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'plm:ecn_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "ECN 등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans 'ECN번호/제목 검��...'%}" class="form-input">
+            </div>
+            <select name="status" class="form-input w-auto">
+                <option value="">{% trans "전체 상태" %}</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "ECN번호" %}</th>
+                    <th class="px-4 py-3">{% trans "제목" %}</th>
+                    <th class="px-4 py-3">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "우선순위" %}</th>
+                    <th class="px-4 py-3">{% trans "요청자" %}</th>
+                    <th class="px-4 py-3">{% trans "목표일" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for ecn in ecns %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'plm:ecn_detail' ecn.pk %}" class="text-blue-600 hover:underline">{{ ecn.ecn_number }}</a></td>
+                    <td class="px-4 py-3">{{ ecn.title }}</td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if ecn.status == 'APPROVED' %}bg-green-100 text-green-800
+                            {% elif ecn.status == 'IMPLEMENTED' %}bg-blue-100 text-blue-800
+                            {% elif ecn.status == 'CLOSED' %}bg-gray-100 text-gray-800
+                            {% elif ecn.status == 'REVIEW' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800
+                            {% endif %}">{{ ecn.get_status_display }}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if ecn.priority == 'CRITICAL' %}bg-red-100 text-red-800
+                            {% elif ecn.priority == 'HIGH' %}bg-orange-100 text-orange-800
+                            {% else %}bg-gray-100 text-gray-800
+                            {% endif %}">{{ ecn.get_priority_display }}</span>
+                    </td>
+                    <td class="px-4 py-3">{{ ecn.requested_by|default:"-" }}</td>
+                    <td class="px-4 py-3">{{ ecn.target_date|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ECN이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="p-4 border-t border-gray-200">{% include "includes/pagination.html" %}</div>
+    {% endif %}
+</div>
+{% endblock %}

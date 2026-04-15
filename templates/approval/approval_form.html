@@ -226,7 +226,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // 금액 콤마 포맷팅
     function fmt(v) {

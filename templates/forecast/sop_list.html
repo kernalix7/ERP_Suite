@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "S&OP 회의 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "S&OP 회의 목록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'forecast:sop_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "회의 등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <select name="status" class="form-input w-auto">
+                <option value="">{% trans "전체 상태" %}</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "제목" %}</th>
+                    <th class="px-4 py-3">{% trans "회의일" %}</th>
+                    <th class="px-4 py-3">{% trans "대상기간" %}</th>
+                    <th class="px-4 py-3">{% trans "상태" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for m in meetings %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'forecast:sop_detail' m.pk %}" class="text-blue-600 hover:underline">{{ m.title }}</a></td>
+                    <td class="px-4 py-3">{{ m.meeting_date }}</td>
+                    <td class="px-4 py-3">{{ m.period }}</td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if m.status == 'APPROVED' %}bg-green-100 text-green-800
+                            {% elif m.status == 'IN_PROGRESS' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800
+                            {% endif %}">{{ m.get_status_display }}</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">S&OP 회의가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="p-4 border-t border-gray-200">{% include "includes/pagination.html" %}</div>
+    {% endif %}
+</div>
+{% endblock %}

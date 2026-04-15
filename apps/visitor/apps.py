@@ -1,0 +1,10 @@
+from django.apps import AppConfig
+
+
+class VisitorConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'apps.visitor'
+    verbose_name = '방문자관리'
+
+    def ready(self):
+        import apps.visitor.signals  # noqa: F401

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "수요예측 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "수요예측 목록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'forecast:forecast_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "예측 등록" %}
+</a>
+<a href="{% url 'forecast:accuracy_dashboard' %}" class="btn btn-secondary">{% trans "정확도 대시보드" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '제품명 검색...'%}" class="form-input">
+            </div>
+            <select name="method" class="form-input w-auto">
+                <option value="">{% trans "전체 방법" %}</option>
+                {% for val, label in method_choices %}
+                <option value="{{ val }}" {% if request.GET.method == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "제품" %}</th>
+                    <th class="px-4 py-3">{% trans "기간" %}</th>
+                    <th class="px-4 py-3">{% trans "방법" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "예측수량" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "실제수량" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "정확도" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for fc in forecasts %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'forecast:forecast_detail' fc.pk %}" class="text-blue-600 hover:underline">{{ fc.product }}</a></td>
+                    <td class="px-4 py-3">{{ fc.period_start }} ~ {{ fc.period_end }}</td>
+                    <td class="px-4 py-3">{{ fc.get_forecast_method_display }}</td>
+                    <td class="px-4 py-3 text-right">{{ fc.forecast_qty }}</td>
+                    <td class="px-4 py-3 text-right">{{ fc.actual_qty }}</td>
+                    <td class="px-4 py-3 text-right">
+                        {% if fc.accuracy_pct != None %}
+                        <span class="{% if fc.accuracy_pct >= 90 %}text-green-600{% elif fc.accuracy_pct >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                            {{ fc.accuracy_pct }}%
+                        </span>
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">수요예측이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="p-4 border-t border-gray-200">{% include "includes/pagination.html" %}</div>
+    {% endif %}
+</div>
+{% endblock %}

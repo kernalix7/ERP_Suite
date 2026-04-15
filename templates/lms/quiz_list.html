@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}퀴즈 목록 - LMS{% endblock %}
+{% block page_title %}퀴즈 목록{% endblock %}
+
+{% block header_actions %}
+{% if request.user.is_staff %}
+<a href="{% url 'lms:quiz_create' %}" class="btn btn-primary">+ 퀴즈 등록</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">퀴즈명</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">강좌</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">제한시간</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">합격점수</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for quiz in quizzes %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm font-medium">{{ quiz.title }}</td>
+                <td class="px-4 py-3 text-sm"><a href="{% url 'lms:course_detail' quiz.course.pk %}" class="text-blue-600 hover:underline">{{ quiz.course.title }}</a></td>
+                <td class="px-4 py-3 text-sm">{{ quiz.time_limit_minutes }}분</td>
+                <td class="px-4 py-3 text-sm">{{ quiz.pass_score }}점</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">등록된 퀴즈가 없습니다.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

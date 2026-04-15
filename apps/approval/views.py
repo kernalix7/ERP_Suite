@@ -7,9 +7,11 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from apps.core.mixins import ManagerRequiredMixin
 from apps.approval.models import (
     ApprovalRequest, ApprovalStep, ApprovalAttachment,
+    ApprovalLineTemplate, ApprovalDelegation,
 )
 from apps.approval.forms import (
     ApprovalRequestForm, ApprovalActionForm, ApprovalStepFormSet,
+    ApprovalLineTemplateForm, ApprovalDelegationForm,
 )
 
 
@@ -311,3 +313,59 @@ class ApprovalStepActionView(ManagerRequiredMixin, View):
         return HttpResponseRedirect(
             reverse_lazy('approval:approval_detail', args=[slug])
         )
+
+
+# === 결재선 템플릿 ===
+class ApprovalLineTemplateListView(ManagerRequiredMixin, ListView):
+    model = ApprovalLineTemplate
+    template_name = 'approval/line_template_list.html'
+    context_object_name = 'templates'
+
+    def get_queryset(self):
+        return ApprovalLineTemplate.objects.filter(is_active=True).order_by('-is_default', 'name')
+
+
+class ApprovalLineTemplateCreateView(ManagerRequiredMixin, CreateView):
+    model = ApprovalLineTemplate
+    form_class = ApprovalLineTemplateForm
+    template_name = 'approval/line_template_form.html'
+    success_url = reverse_lazy('approval:line_template_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+# === 결재 위임 ===
+class ApprovalDelegationListView(ManagerRequiredMixin, ListView):
+    model = ApprovalDelegation
+    template_name = 'approval/delegation_list.html'
+    context_object_name = 'delegations'
+
+    def get_queryset(self):
+        return ApprovalDelegation.objects.filter(
+            is_active=True,
+            delegator=self.request.user,
+        ).select_related('delegate').order_by('-start_date')
+
+
+class ApprovalDelegationCreateView(ManagerRequiredMixin, CreateView):
+    model = ApprovalDelegation
+    form_class = ApprovalDelegationForm
+    template_name = 'approval/delegation_form.html'
+    success_url = reverse_lazy('approval:delegation_list')
+
+    def form_valid(self, form):
+        form.instance.delegator = self.request.user
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class ApprovalDelegationDeleteView(ManagerRequiredMixin, View):
+    def post(self, request, pk):
+        delegation = get_object_or_404(
+            ApprovalDelegation, pk=pk, delegator=request.user, is_active=True,
+        )
+        delegation.is_active = False
+        delegation.save(update_fields=['is_active', 'updated_at'])
+        return HttpResponseRedirect(reverse_lazy('approval:delegation_list'))

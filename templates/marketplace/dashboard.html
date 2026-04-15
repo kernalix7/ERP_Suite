@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load humanize %}
 
-{% block title %}스토어 대시보드 - ERP Suite{% endblock %}
-{% block page_title %}스토어 대시보드{% endblock %}
+{% block title %}{% trans "스토어 대시보드 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "스토어 대시보드" %}{% endblock %}
 
 {% block header_actions %}
 <form method="post" action="{% url 'marketplace:sync_preview' %}" class="inline flex items-center gap-2">
@@ -19,7 +20,7 @@
         <option value="30">최근 30일</option>
         <option value="90">전체 (90일)</option>
     </select>
-    <button type="submit" class="btn btn-primary">주문 불러오기</button>
+    <button type="submit" class="btn btn-primary">{% trans "주문 불러오기" %}</button>
 </form>
 <a href="{% url 'marketplace:order_list' %}" class="btn btn-secondary">주문 목록</a>
 {% endblock %}
@@ -116,11 +117,11 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
-                    <th class="px-4 py-3">주문번호</th>
-                    <th class="px-4 py-3">상품명</th>
-                    <th class="px-4 py-3 text-right">금액</th>
-                    <th class="px-4 py-3 text-center">상태</th>
-                    <th class="px-4 py-3">주문일</th>
+                    <th class="px-4 py-3">{% trans "주문번호" %}</th>
+                    <th class="px-4 py-3">{% trans "상품명" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "금액" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "주문일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -164,7 +165,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     var tmplSelect = document.getElementById('template-select');
     var periodSelect = document.getElementById('period-select');

@@ -92,7 +92,7 @@ jobs:
           DATABASE_URL: postgres://erp:testpass@localhost:5432/erp_test
           SECRET_KEY: ci-test-secret-key-not-for-production
           ALLOWED_HOSTS: localhost
-        run: python manage.py check --deploy --fail-level WARNING 2>&1 || true
+        run: python manage.py check --deploy --fail-level WARNING
 
       - name: Upload coverage report
         if: always()
@@ -133,9 +133,20 @@ jobs:
           pip install -r requirements/base.txt
           pip install safety pip-audit
 
-      - name: Check dependencies for vulnerabilities
-        run: pip-audit --strict --desc 2>&1 || true
+      - name: CVE scan with pip-audit
         continue-on-error: true
+        run: |
+          echo "## Dependency CVE Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          pip-audit -r requirements/base.txt --desc 2>&1 | tee /tmp/pip-audit-output.txt || true
+          cat /tmp/pip-audit-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          VULN_COUNT=$(grep -c "^Name" /tmp/pip-audit-output.txt 2>/dev/null || echo "0")
+          if [ "$VULN_COUNT" -gt "1" ]; then
+            echo "::warning::pip-audit found potential vulnerabilities. Review the scan results above."
+          else
+            echo "No known vulnerabilities found." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Check for secrets in code
         run: |

@@ -102,7 +102,15 @@ class Investment(BaseModel):
         verbose_name = '투자내역'
         verbose_name_plural = '투자내역'
         ordering = ['-investment_date']
-        unique_together = ['investor', 'round']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['investor', 'round'],
+                name='uq_investment_investor_round',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['investor', 'investment_date'], name='idx_invest_inv_date'),
+        ]
 
     def __str__(self):
         return f'{self.investor.name} - {self.round.name} ({self.amount:,}원)'
@@ -149,6 +157,9 @@ class EquityChange(BaseModel):
         verbose_name = '지분변동'
         verbose_name_plural = '지분변동'
         ordering = ['-change_date', '-pk']
+        indexes = [
+            models.Index(fields=['investor', 'change_date'], name='idx_equity_inv_date'),
+        ]
 
     def __str__(self):
         return f'{self.investor.name} {self.before_percentage}% → {self.after_percentage}%'
@@ -185,6 +196,11 @@ class Distribution(BaseModel):
         verbose_name = '배당/분배'
         verbose_name_plural = '배당/분배'
         ordering = ['-scheduled_date']
+        indexes = [
+            models.Index(fields=['investor', 'status'], name='idx_dist_inv_status'),
+            models.Index(fields=['fiscal_year', 'status'], name='idx_dist_yr_status'),
+            models.Index(fields=['status', 'scheduled_date'], name='idx_dist_status_date'),
+        ]
 
     def __str__(self):
         return f'{self.investor.name} - {self.get_distribution_type_display()} ({self.fiscal_year})'

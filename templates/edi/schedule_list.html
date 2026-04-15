@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "EDI 스케줄 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "EDI 스케줄" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'edi:schedule_create' %}" class="btn btn-primary">스케줄 추가</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3">{% trans "문서유형" %}</th>
+                    <th class="px-4 py-3">{% trans "빈도" %}</th>
+                    <th class="px-4 py-3">{% trans "최근 실행" %}</th>
+                    <th class="px-4 py-3">{% trans "다음 실행" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for s in schedules %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">{{ s.partner.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.document_type.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.get_frequency_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.last_run|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.next_run|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'edi:schedule_update' s.pk %}" class="text-blue-600 hover:underline text-sm">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">스케줄이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

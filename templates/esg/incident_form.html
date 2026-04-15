@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% if form.instance.pk %}{% trans "안전 사고 수정" %}{% else %}{% trans "안전 사고 보고" %}{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}{% if form.instance.pk %}{% trans "안전 사고 수정" %}{% else %}{% trans "안전 사고 보고" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <form method="post" class="bg-white shadow rounded-lg border border-gray-200 p-6 space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+        <div>
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                {{ field.label }}{% if field.field.required %} <span class="text-red-500">*</span>{% endif %}
+            </label>
+            {{ field }}
+            {% if field.errors %}<p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>{% endif %}
+            {% if field.help_text %}<p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>{% endif %}
+        </div>
+        {% endfor %}
+        <div class="flex gap-3 pt-4">
+            <button type="submit" class="btn btn-primary">{% if form.instance.pk %}{% trans "수정" %}{% else %}{% trans "보고" %}{% endif %}</button>
+            <a href="{% url 'esg:incident_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

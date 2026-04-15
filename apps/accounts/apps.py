@@ -8,3 +8,5 @@ class AccountsConfig(AppConfig):
 
     def ready(self):
         import apps.accounts.permission_signals  # noqa: F401
+        import apps.accounts.session_signals  # noqa: F401
+        import apps.accounts.security_signals  # noqa: F401

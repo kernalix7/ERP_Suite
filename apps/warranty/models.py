@@ -52,6 +52,12 @@ class ProductRegistration(BaseModel):
         verbose_name = '정품등록'
         verbose_name_plural = '정품등록'
         ordering = ['-pk']
+        indexes = [
+            models.Index(fields=['is_verified'], name='idx_prodreg_verified'),
+            models.Index(fields=['purchase_date'], name='idx_prodreg_purchase'),
+            models.Index(fields=['warranty_end'], name='idx_prodreg_wend'),
+            models.Index(fields=['is_verified', 'warranty_end'], name='idx_prodreg_ver_wend'),
+        ]
 
     def __str__(self):
         return f'{self.serial_number} - {self.customer_name}'

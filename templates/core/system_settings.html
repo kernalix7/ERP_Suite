@@ -283,7 +283,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function openAddModal(category) {
     document.getElementById('modal-title').textContent = '설정 추가';
     document.getElementById('form-config-id').value = '';

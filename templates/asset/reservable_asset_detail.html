@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ reservable_asset.name }} - 예약자산{% endblock %}
+{% block page_title %}{{ reservable_asset.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:reservation_create' %}?asset={{ reservable_asset.pk }}" class="btn btn-primary">예약하기</a>
+<a href="{% url 'asset:reservable_asset_list' %}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+            {% if reservable_asset.image %}
+            <img src="{{ reservable_asset.image.url }}" alt="" class="w-full h-48 object-cover rounded mb-4">
+            {% endif %}
+            <p class="text-gray-700">{{ reservable_asset.description }}</p>
+            <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div><dt class="text-gray-500">유형</dt><dd>{{ reservable_asset.get_resource_type_display }}</dd></div>
+                <div><dt class="text-gray-500">위치</dt><dd>{{ reservable_asset.location.name|default:"-" }}</dd></div>
+                <div><dt class="text-gray-500">수용인원</dt><dd>{{ reservable_asset.capacity }}</dd></div>
+                <div><dt class="text-gray-500">최대예약시간</dt><dd>{{ reservable_asset.max_reserve_hours }}h</dd></div>
+                <div><dt class="text-gray-500">승인필요</dt><dd>{% if reservable_asset.requires_approval %}필요{% else %}즉시승인{% endif %}</dd></div>
+            </dl>
+        </div>
+        <!-- 운영시간 규칙 -->
+        {% if rules %}
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-3 text-sm">운영 시간</h3>
+            <table class="w-full text-sm">
+                <thead><tr><th class="text-left text-gray-500 pb-2">요일</th><th class="text-left text-gray-500 pb-2">운영시간</th></tr></thead>
+                <tbody>
+                    {% for rule in rules %}
+                    <tr><td>{{ rule.get_day_of_week_display }}</td><td>{% if rule.is_closed %}휴무{% else %}{{ rule.open_time|time:"H:i" }} - {{ rule.close_time|time:"H:i" }}{% endif %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    <div>
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-3 text-sm">예약 현황</h3>
+            {% for r in upcoming_reservations %}
+            <div class="mb-2 text-sm">
+                <span class="font-medium">{{ r.start_datetime|date:"m/d H:i" }}</span>
+                <span class="text-gray-500 ml-1">{{ r.requester.get_full_name|default:r.requester.username }}</span>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-500">예정된 예약이 없습니다.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

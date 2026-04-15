@@ -23,6 +23,21 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | **Warranty** | Serial number authentication, warranty period management, QR verification |
 | **Approval** | Multi-step approval workflows, document categories (purchase/expense/budget/contract/leave/travel/IT), per-step approvers, file attachments |
 | **Advertising** | Ad platforms (Google/Naver/Kakao/Meta), campaigns, creatives, performance tracking (ROAS/CTR/CPC), budget management |
+| **WMS** | Zone/bin management, putaway rules, pick lists, wave picking, cycle counts, packing stations, shipping labels |
+| **CMMS** | Equipment registry, preventive/corrective maintenance, work orders, spare parts, downtime tracking, MTBF/MTTR analysis |
+| **PLM** | Product versioning, engineering change notices (ECN), drawings/revisions, BOM lifecycle management |
+| **QMS** | Quality plans, inspections (incoming/in-process/outgoing), non-conformance reports, CAPA (Corrective/Preventive Actions), SPC analysis |
+| **Forecast** | Demand forecasting (moving avg/weighted avg/exponential smoothing), S&OP meetings, scenarios, accuracy tracking |
+| **Helpdesk** | Multi-channel ticketing, SLA management, knowledge base, agent assignment, escalation rules, satisfaction surveys |
+| **Portal** | Customer/supplier self-service portal, PO confirmations, invoice viewing, shipment tracking |
+| **Logistics** | Carrier management, shipment tracking, freight cost calculation, route optimization, last-mile delivery |
+| **EDI** | Electronic Data Interchange (purchase orders, invoices, ASNs), partner mapping, message queue, auto-processing |
+| **Subscription** | Recurring billing plans, usage-based metering, subscription lifecycle (trial→active→cancelled), payment scheduling |
+| **Document** | Document management (versioning, categories, retention policies), contract management (milestones, auto-renewal), approval workflow |
+| **Expense** | Expense reports, receipt scanning, policy compliance, multi-level approval, reimbursement tracking, corporate card integration |
+| **ESG** | Carbon emissions tracking, sustainability metrics (GHG Protocol), compliance checklists (ISO 14001/K-ESG), action plans |
+| **BI** | Custom report builder (7 data sources), chart/table/KPI dashboards, drag-and-drop panels, scheduled exports, drill-down analysis |
+| **RPA** | Rule-based automation engine, event/schedule/condition triggers, notification/field update/webhook actions, execution logs |
 
 ### Groupware Modules
 
@@ -33,6 +48,10 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | **Board** | Notice/free boards, posts, comments (nested replies) |
 | **Calendar** | Schedule management with FullCalendar.js, AJAX API |
 | **Messenger** | Internal messaging (1:1 and group chat), real-time WebSocket |
+| **LMS** | Course management, lessons, enrollments, progress tracking, certificates |
+| **Wiki** | Knowledge base with categories, article versioning, search |
+| **Project** | Project management, milestones, tasks (Kanban), time tracking, Gantt charts |
+| **Visitor** | Visit requests, approval workflow, check-in/out, NDA management, badge printing |
 
 ### System Modules
 
@@ -162,7 +181,26 @@ ERP_Suite/
 │   ├── store_modules/   # Modular store architecture (pluggable per-channel)
 │   ├── modules/         # Channel modules (Naver SmartStore, Coupang, direct sales)
 │   ├── module_manager/  # Feature module registry, enable/disable, country-based filtering
-│   └── api/             # REST API (34 DRF ViewSets, JWT auth)
+│   ├── api/             # REST API (34 DRF ViewSets, JWT auth)
+│   ├── wms/             # Warehouse management (zones, bins, putaway, picking, packing)
+│   ├── cmms/            # Equipment maintenance (preventive/corrective, work orders, spare parts)
+│   ├── plm/             # Product lifecycle (versioning, ECN, drawings)
+│   ├── qms/             # Quality management (inspections, NCR, CAPA, SPC)
+│   ├── forecast/        # Demand forecasting, S&OP meetings and scenarios
+│   ├── helpdesk/        # Ticketing, SLA management, knowledge base
+│   ├── portal/          # Customer/supplier self-service portal
+│   ├── logistics/       # Carrier management, freight, shipment tracking
+│   ├── edi/             # Electronic Data Interchange (EDI messages, partner mapping)
+│   ├── subscription/    # Recurring billing, plans, usage metering
+│   ├── document/        # Document/contract management, versioning, approval
+│   ├── expense/         # Expense reports, receipt scanning, reimbursement
+│   ├── esg/             # ESG/compliance (carbon tracking, sustainability metrics)
+│   ├── lms/             # Learning management (courses, lessons, certificates)
+│   ├── wiki/            # Knowledge base (articles, categories, versioning)
+│   ├── project/         # Project management (milestones, tasks, time tracking)
+│   ├── visitor/         # Visitor management (requests, check-in/out, NDA)
+│   ├── bi/              # BI dashboards (report builder, chart panels, scheduled exports)
+│   └── rpa/             # Automation engine (rules, conditions, actions, schedules)
 ├── config/              # Django settings (base/dev/prod), celery, asgi, wsgi
 ├── templates/           # 250+ HTML templates (Tailwind CSS, responsive)
 ├── static/              # CSS, JS, PWA (manifest.json, sw.js)
@@ -200,7 +238,7 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**Test coverage: 1162+ tests (unit)**
+**Test coverage: 1500+ tests (unit)**
 
 Verification criteria cover 152 items across 10 categories:
 - SEC-001~035: Security (OWASP Top 10)
@@ -270,12 +308,13 @@ Verification criteria cover 152 items across 10 categories:
 
 ## Scale
 
-- **25 apps**, **140+ models** (all with history tracking)
-- **450+ views**, **260+ templates**, **380+ URL endpoints**
-- **~35,000 lines** of Python (excluding migrations)
-- **1162+ tests** (unit), **17 E2E test files**, **load test suite**
-- **130+ migrations**, **25+ packages**
+- **44 apps**, **250+ models** (all with history tracking)
+- **650+ views**, **370+ templates**, **580+ URL endpoints**
+- **~55,000 lines** of Python (excluding migrations)
+- **1500+ tests** (unit), **17 E2E test files**, **load test suite**
+- **200+ migrations**, **25+ packages**
 - **34 REST API ViewSets** with JWT authentication
+- **49 registered modules** (InstalledModule)
 
 ## Contributing
 

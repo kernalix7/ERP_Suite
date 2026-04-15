@@ -329,9 +329,12 @@ class BankAccountListView(ManagerRequiredMixin, ListView):
     model = BankAccount
     template_name = 'accounting/bankaccount_list.html'
     context_object_name = 'accounts'
+    paginate_by = 20
 
     def get_queryset(self):
-        return super().get_queryset().filter(is_active=True)
+        return super().get_queryset().filter(is_active=True).select_related(
+            'account_code', 'employee', 'partner',
+        )
 
 
 class BankAccountCreateView(ManagerRequiredMixin, CreateView):
@@ -509,7 +512,7 @@ class AccountCodeListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return super().get_queryset().filter(is_active=True)
+        return super().get_queryset().filter(is_active=True).select_related('parent')
 
 
 class AccountCodeCreateView(ManagerRequiredMixin, CreateView):
@@ -2803,6 +2806,7 @@ class CurrencyListView(ManagerRequiredMixin, ListView):
     model = Currency
     template_name = 'accounting/currency_list.html'
     context_object_name = 'currencies'
+    paginate_by = 20
 
     def get_queryset(self):
         return super().get_queryset().filter(is_active=True)
@@ -3197,14 +3201,14 @@ class CashFlowView(ManagerRequiredMixin, TemplateView):
                 is_active=True,
                 created_at__date__gte=from_date,
                 created_at__date__lte=to_date,
-            ).aggregate(s=Sum('balance'))['s'] or 0
+            ).aggregate(s=Sum(F('amount') - F('paid_amount')))['s'] or 0
         )
         ap_change = int(
             AccountPayable.objects.filter(
                 is_active=True,
                 created_at__date__gte=from_date,
                 created_at__date__lte=to_date,
-            ).aggregate(s=Sum('balance'))['s'] or 0
+            ).aggregate(s=Sum(F('amount') - F('paid_amount')))['s'] or 0
         )
 
         operating = revenue_total - expense_total - ar_change + ap_change
@@ -3269,7 +3273,9 @@ class CreditCardListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(is_active=True)
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'employee', 'payment_account', 'account_code',
+        )
         card_type = self.request.GET.get('card_type')
         if card_type:
             qs = qs.filter(card_type=card_type)
@@ -3651,6 +3657,7 @@ class CostCenterListView(ManagerRequiredMixin, ListView):
     model = CostCenter
     template_name = 'accounting/cost_center_list.html'
     context_object_name = 'cost_centers'
+    paginate_by = 20
 
     def get_queryset(self):
         return CostCenter.objects.filter(
@@ -4015,4 +4022,333 @@ class AdvancedReportView(ManagerRequiredMixin, TemplateView):
                 'margin': margin,
             })
         ctx['product_data'] = product_data
+        return ctx
+
+
+# ──── Phase 15: 다중법인/연결회계 ────
+
+class CompanyListView(ManagerRequiredMixin, ListView):
+    model = None  # set below
+    template_name = 'accounting/company_list.html'
+    context_object_name = 'companies'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from .models import Company
+        return Company.objects.filter(is_active=True).select_related('parent', 'currency')
+
+    def get(self, request, *args, **kwargs):
+        from .models import Company
+        self.model = Company
+        return super().get(request, *args, **kwargs)
+
+
+class CompanyCreateView(ManagerRequiredMixin, CreateView):
+    template_name = 'accounting/company_form.html'
+    success_url = reverse_lazy('accounting:company_list')
+
+    def get_form_class(self):
+        from .forms import CompanyForm
+        return CompanyForm
+
+    def get_model(self):
+        from .models import Company
+        return Company
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, '법인이 등록되었습니다.')
+        return super().form_valid(form)
+
+
+class CompanyUpdateView(ManagerRequiredMixin, UpdateView):
+    template_name = 'accounting/company_form.html'
+    success_url = reverse_lazy('accounting:company_list')
+
+    def get_form_class(self):
+        from .forms import CompanyForm
+        return CompanyForm
+
+    def get_queryset(self):
+        from .models import Company
+        return Company.objects.filter(is_active=True)
+
+    def form_valid(self, form):
+        messages.success(self.request, '법인 정보가 수정되었습니다.')
+        return super().form_valid(form)
+
+
+class InterCompanyTransactionListView(ManagerRequiredMixin, ListView):
+    template_name = 'accounting/ic_transaction_list.html'
+    context_object_name = 'transactions'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from .models import InterCompanyTransaction
+        return InterCompanyTransaction.objects.filter(is_active=True).select_related(
+            'from_company', 'to_company',
+        )
+
+
+class InterCompanyTransactionCreateView(ManagerRequiredMixin, CreateView):
+    template_name = 'accounting/ic_transaction_form.html'
+    success_url = reverse_lazy('accounting:ic_transaction_list')
+
+    def get_form_class(self):
+        from .forms import InterCompanyTransactionForm
+        return InterCompanyTransactionForm
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, '내부거래가 등록되었습니다.')
+        return super().form_valid(form)
+
+
+class InterCompanyTransactionConfirmView(ManagerRequiredMixin, View):
+    def post(self, request, pk):
+        from .models import InterCompanyTransaction
+        txn = get_object_or_404(InterCompanyTransaction, pk=pk, is_active=True)
+        txn.status = InterCompanyTransaction.Status.CONFIRMED
+        txn.save(update_fields=['status', 'updated_at'])
+        messages.success(request, '내부거래가 확정되었습니다.')
+        return redirect('accounting:ic_transaction_list')
+
+
+class ConsolidationPeriodListView(ManagerRequiredMixin, ListView):
+    template_name = 'accounting/consolidation_list.html'
+    context_object_name = 'periods'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from .models import ConsolidationPeriod
+        return ConsolidationPeriod.objects.filter(is_active=True).prefetch_related('companies')
+
+
+class ConsolidationPeriodCreateView(ManagerRequiredMixin, CreateView):
+    template_name = 'accounting/consolidation_form.html'
+    success_url = reverse_lazy('accounting:consolidation_list')
+
+    def get_form_class(self):
+        from .forms import ConsolidationPeriodForm
+        return ConsolidationPeriodForm
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, '연결결산 기간이 생성되었습니다.')
+        return super().form_valid(form)
+
+
+class ConsolidationPeriodCloseView(ManagerRequiredMixin, View):
+    def post(self, request, pk):
+        from .models import ConsolidationPeriod, InterCompanyTransaction
+        period = get_object_or_404(ConsolidationPeriod, pk=pk, is_active=True)
+
+        # Collect elimination entries from confirmed IC transactions
+        from datetime import date as date_cls
+        start = date_cls(period.year, period.month, 1)
+        if period.month == 12:
+            end = date_cls(period.year + 1, 1, 1)
+        else:
+            end = date_cls(period.year, period.month + 1, 1)
+
+        ic_txns = InterCompanyTransaction.objects.filter(
+            is_active=True,
+            status=InterCompanyTransaction.Status.CONFIRMED,
+            transaction_date__gte=start,
+            transaction_date__lt=end,
+        )
+        eliminations = []
+        for txn in ic_txns:
+            eliminations.append({
+                'from': txn.from_company.code,
+                'to': txn.to_company.code,
+                'amount': str(txn.amount),
+                'description': txn.description,
+            })
+            txn.status = InterCompanyTransaction.Status.ELIMINATED
+            txn.save(update_fields=['status', 'updated_at'])
+
+        period.elimination_entries = eliminations
+        period.status = ConsolidationPeriod.Status.CLOSED
+        period.consolidated_at = timezone.now()
+        period.save(update_fields=['elimination_entries', 'status', 'consolidated_at', 'updated_at'])
+        messages.success(request, '연결결산이 마감되었습니다.')
+        return redirect('accounting:consolidation_list')
+
+
+class ConsolidatedReportView(ManagerRequiredMixin, DetailView):
+    template_name = 'accounting/consolidated_report.html'
+
+    def get_object(self):
+        from .models import ConsolidationPeriod
+        return get_object_or_404(ConsolidationPeriod, pk=self.kwargs['pk'], is_active=True)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        period = self.object
+        ctx['period'] = period
+        ctx['reports'] = period.reports.filter(is_active=True)
+        ctx['elimination_entries'] = period.elimination_entries
+        return ctx
+
+
+# ──── Phase 15: 오픈뱅킹 연동 ────
+
+class BankConnectionListView(ManagerRequiredMixin, ListView):
+    template_name = 'accounting/bank_connection_list.html'
+    context_object_name = 'connections'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from .models import BankConnection
+        return BankConnection.objects.filter(is_active=True).select_related('company')
+
+
+class BankConnectionCreateView(ManagerRequiredMixin, CreateView):
+    template_name = 'accounting/bank_connection_form.html'
+    success_url = reverse_lazy('accounting:bank_connection_list')
+
+    def get_form_class(self):
+        from .forms import BankConnectionForm
+        return BankConnectionForm
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, '은행 연결이 등록되었습니다.')
+        return super().form_valid(form)
+
+
+class BankConnectionUpdateView(ManagerRequiredMixin, UpdateView):
+    template_name = 'accounting/bank_connection_form.html'
+    success_url = reverse_lazy('accounting:bank_connection_list')
+
+    def get_form_class(self):
+        from .forms import BankConnectionForm
+        return BankConnectionForm
+
+    def get_queryset(self):
+        from .models import BankConnection
+        return BankConnection.objects.filter(is_active=True)
+
+    def form_valid(self, form):
+        messages.success(self.request, '은행 연결이 수정되었습니다.')
+        return super().form_valid(form)
+
+
+class BankConnectionSyncView(ManagerRequiredMixin, View):
+    def post(self, request, pk):
+        from .models import BankConnection
+        conn = get_object_or_404(BankConnection, pk=pk, is_active=True)
+        conn.last_sync = timezone.now()
+        conn.save(update_fields=['last_sync', 'updated_at'])
+        messages.success(request, f'{conn.bank_name} 동기화가 완료되었습니다.')
+        return redirect('accounting:bank_connection_list')
+
+
+class BankStatementListView(ManagerRequiredMixin, ListView):
+    template_name = 'accounting/bank_statement_list.html'
+    context_object_name = 'statements'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from .models import BankStatement
+        qs = BankStatement.objects.filter(is_active=True).select_related('connection')
+        connection = self.request.GET.get('connection')
+        if connection:
+            qs = qs.filter(connection_id=connection)
+        return qs
+
+
+class BankStatementDetailView(ManagerRequiredMixin, DetailView):
+    template_name = 'accounting/bank_statement_detail.html'
+
+    def get_queryset(self):
+        from .models import BankStatement
+        return BankStatement.objects.filter(is_active=True).select_related(
+            'connection',
+        ).prefetch_related('transactions')
+
+
+class BankTransactionListView(ManagerRequiredMixin, ListView):
+    template_name = 'accounting/bank_transaction_list.html'
+    context_object_name = 'transactions'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from .models import BankTransaction
+        qs = BankTransaction.objects.filter(is_active=True).select_related(
+            'statement__connection', 'matched_voucher', 'matched_payment',
+        )
+        match_status = self.request.GET.get('match_status')
+        if match_status:
+            qs = qs.filter(match_status=match_status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .models import BankTransaction
+        ctx['match_status_choices'] = BankTransaction.MatchStatus.choices
+        return ctx
+
+
+class BankTransactionMatchView(ManagerRequiredMixin, View):
+    def post(self, request, pk):
+        from .models import BankTransaction
+        txn = get_object_or_404(BankTransaction, pk=pk, is_active=True)
+        voucher_id = request.POST.get('voucher_id')
+        payment_id = request.POST.get('payment_id')
+        if voucher_id:
+            from .models import Voucher
+            txn.matched_voucher = get_object_or_404(Voucher, pk=voucher_id, is_active=True)
+            txn.match_status = BankTransaction.MatchStatus.MANUAL_MATCHED
+        elif payment_id:
+            from .models import Payment
+            txn.matched_payment = get_object_or_404(Payment, pk=payment_id, is_active=True)
+            txn.match_status = BankTransaction.MatchStatus.MANUAL_MATCHED
+        txn.save(update_fields=['matched_voucher', 'matched_payment', 'match_status', 'updated_at'])
+        messages.success(request, '거래가 매칭되었습니다.')
+        return redirect('accounting:bank_transaction_list')
+
+
+class BankAutoReconcileView(ManagerRequiredMixin, View):
+    """자동 대사 실행 — 금액+날짜 매칭"""
+    def post(self, request):
+        from .models import BankTransaction, Payment
+        unmatched = BankTransaction.objects.filter(
+            is_active=True, match_status=BankTransaction.MatchStatus.UNMATCHED,
+        )
+        matched_count = 0
+        for txn in unmatched:
+            # Try matching by amount and date
+            payment = Payment.objects.filter(
+                is_active=True,
+                amount=abs(txn.amount),
+                payment_date=txn.transaction_date,
+            ).first()
+            if payment:
+                txn.matched_payment = payment
+                txn.match_status = BankTransaction.MatchStatus.AUTO_MATCHED
+                txn.save(update_fields=['matched_payment', 'match_status', 'updated_at'])
+                matched_count += 1
+        messages.success(request, f'자동 대사 완료: {matched_count}건 매칭')
+        return redirect('accounting:bank_transaction_list')
+
+
+class BankReconciliationDashboardView(ManagerRequiredMixin, TemplateView):
+    template_name = 'accounting/bank_reconciliation_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .models import BankTransaction, BankConnection
+        ctx['connections'] = BankConnection.objects.filter(is_active=True)
+        ctx['total_transactions'] = BankTransaction.objects.filter(is_active=True).count()
+        ctx['unmatched_count'] = BankTransaction.objects.filter(
+            is_active=True, match_status=BankTransaction.MatchStatus.UNMATCHED,
+        ).count()
+        ctx['auto_matched_count'] = BankTransaction.objects.filter(
+            is_active=True, match_status=BankTransaction.MatchStatus.AUTO_MATCHED,
+        ).count()
+        ctx['manual_matched_count'] = BankTransaction.objects.filter(
+            is_active=True, match_status=BankTransaction.MatchStatus.MANUAL_MATCHED,
+        ).count()
         return ctx

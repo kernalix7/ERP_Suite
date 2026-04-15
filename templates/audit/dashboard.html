@@ -217,13 +217,18 @@
 
 {% block extra_js %}
 {{ block.super }}
-<script>
+{{ chart_labels|json_script:"chart-labels" }}
+{{ chart_access_data|json_script:"chart-access-data" }}
+{{ chart_change_data|json_script:"chart-change-data" }}
+{{ chart_login_success|json_script:"chart-login-success" }}
+{{ chart_login_fail|json_script:"chart-login-fail" }}
+<script nonce="{{ request.csp_nonce }}">
 (function() {
-    var labels = {{ chart_labels|safe }};
-    var accessData = {{ chart_access_data|safe }};
-    var changeData = {{ chart_change_data|safe }};
-    var loginSuccess = {{ chart_login_success|safe }};
-    var loginFail = {{ chart_login_fail|safe }};
+    var labels = JSON.parse(document.getElementById('chart-labels').textContent);
+    var accessData = JSON.parse(document.getElementById('chart-access-data').textContent);
+    var changeData = JSON.parse(document.getElementById('chart-change-data').textContent);
+    var loginSuccess = JSON.parse(document.getElementById('chart-login-success').textContent);
+    var loginFail = JSON.parse(document.getElementById('chart-login-fail').textContent);
 
     // 접근/변경 추이
     var ctx1 = document.getElementById('accessChangeChart');

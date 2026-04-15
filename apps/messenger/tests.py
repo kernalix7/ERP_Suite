@@ -2,8 +2,10 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from io import BytesIO
+from django.core.files.uploadedfile import SimpleUploadedFile
 
-from apps.messenger.models import ChatRoom, ChatParticipant, Message
+from apps.messenger.models import ChatRoom, ChatParticipant, Message, MessageAttachment, ReadReceipt
 
 User = get_user_model()
 
@@ -413,3 +415,194 @@ class ChatRoomFormTest(TestCase):
             'participants': [self.user1.pk],
         })
         self.assertFalse(form.is_valid())
+
+
+class MessageAttachmentModelTest(TestCase):
+    """MessageAttachment 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='attachuser', password='testpass123', name='첨부유저',
+        )
+        self.room = ChatRoom.objects.create(
+            room_type=ChatRoom.RoomType.DIRECT,
+            created_by=self.user,
+        )
+        self.message = Message.objects.create(
+            room=self.room, sender=self.user, content='파일 메시지',
+            message_type=Message.MessageType.FILE, created_by=self.user,
+        )
+
+    def test_attachment_creation(self):
+        """첨부파일 생성"""
+        att = MessageAttachment.objects.create(
+            message=self.message,
+            file='messenger/attachments/test.txt',
+            filename='test.txt',
+            file_size=1024,
+            content_type='text/plain',
+            created_by=self.user,
+        )
+        self.assertEqual(att.filename, 'test.txt')
+        self.assertEqual(att.file_size, 1024)
+
+    def test_attachment_str(self):
+        """첨부파일 문자열 표현"""
+        att = MessageAttachment.objects.create(
+            message=self.message,
+            file='messenger/attachments/doc.pdf',
+            filename='문서.pdf',
+            file_size=2048,
+            created_by=self.user,
+        )
+        self.assertEqual(str(att), '문서.pdf')
+
+    def test_attachment_belongs_to_message(self):
+        """첨부파일-메시지 연관"""
+        MessageAttachment.objects.create(
+            message=self.message, file='f1.txt', filename='f1.txt',
+            file_size=100, created_by=self.user,
+        )
+        MessageAttachment.objects.create(
+            message=self.message, file='f2.txt', filename='f2.txt',
+            file_size=200, created_by=self.user,
+        )
+        self.assertEqual(self.message.attachments.count(), 2)
+
+    def test_history_tracked(self):
+        """이력 추적"""
+        att = MessageAttachment.objects.create(
+            message=self.message, file='h.txt', filename='h.txt',
+            file_size=10, created_by=self.user,
+        )
+        att.filename = 'renamed.txt'
+        att.save()
+        self.assertTrue(att.history.count() >= 2)
+
+
+class ReadReceiptModelTest(TestCase):
+    """ReadReceipt 모델 테스트"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(
+            username='rruser1', password='testpass123', name='읽음유저1',
+        )
+        self.user2 = User.objects.create_user(
+            username='rruser2', password='testpass123', name='읽음유저2',
+        )
+        self.room = ChatRoom.objects.create(
+            room_type=ChatRoom.RoomType.DIRECT,
+            created_by=self.user1,
+        )
+        self.message = Message.objects.create(
+            room=self.room, sender=self.user1, content='읽음 테스트',
+            created_by=self.user1,
+        )
+
+    def test_read_receipt_creation(self):
+        """읽음 영수증 생성"""
+        rr = ReadReceipt.objects.create(
+            message=self.message, user=self.user2, created_by=self.user2,
+        )
+        self.assertEqual(rr.message, self.message)
+        self.assertEqual(rr.user, self.user2)
+        self.assertIsNotNone(rr.read_at)
+
+    def test_unique_constraint(self):
+        """같은 메시지+사용자 중복 읽음 불가"""
+        ReadReceipt.objects.create(
+            message=self.message, user=self.user2, created_by=self.user2,
+        )
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            ReadReceipt.objects.create(
+                message=self.message, user=self.user2, created_by=self.user2,
+            )
+
+    def test_get_or_create_idempotent(self):
+        """get_or_create로 중복 생성 방지"""
+        rr1, created1 = ReadReceipt.objects.get_or_create(
+            message=self.message, user=self.user2,
+            defaults={'created_by': self.user2},
+        )
+        rr2, created2 = ReadReceipt.objects.get_or_create(
+            message=self.message, user=self.user2,
+            defaults={'created_by': self.user2},
+        )
+        self.assertTrue(created1)
+        self.assertFalse(created2)
+        self.assertEqual(rr1.pk, rr2.pk)
+
+    def test_str_representation(self):
+        """문자열 표현"""
+        rr = ReadReceipt.objects.create(
+            message=self.message, user=self.user2, created_by=self.user2,
+        )
+        self.assertIn('rruser2', str(rr))
+
+
+class MessageSearchViewTest(TestCase):
+    """메시지 검색 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='searchuser', password='testpass123', name='검색유저',
+        )
+        self.room = ChatRoom.objects.create(
+            room_type=ChatRoom.RoomType.DIRECT, created_by=self.user,
+        )
+        ChatParticipant.objects.create(room=self.room, user=self.user)
+        Message.objects.create(
+            room=self.room, sender=self.user,
+            content='Django 프레임워크 사용법', created_by=self.user,
+        )
+        Message.objects.create(
+            room=self.room, sender=self.user,
+            content='Python 개발 환경', created_by=self.user,
+        )
+
+    def test_search_requires_login(self):
+        """비로그인 접근 불가"""
+        client = Client()
+        response = client.get(reverse('messenger:message_search'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_search_accessible(self):
+        """검색 뷰 접근"""
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('messenger:message_search'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_search_returns_matching_messages(self):
+        """키워드 매칭 메시지 반환"""
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse('messenger:message_search') + '?q=Django'
+        )
+        self.assertEqual(response.status_code, 200)
+        messages = response.context['messages']
+        self.assertEqual(len(messages), 1)
+        self.assertIn('Django', messages[0].content)
+
+    def test_search_no_results(self):
+        """없는 키워드 검색"""
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse('messenger:message_search') + '?q=없는키워드'
+        )
+        self.assertEqual(response.context['messages'].count(), 0)
+
+    def test_search_empty_query(self):
+        """빈 키워드 검색 — 결과 없음"""
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('messenger:message_search') + '?q=')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(list(response.context['messages'])), 0)
+
+    def test_search_context_has_keyword(self):
+        """컨텍스트에 keyword 포함"""
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse('messenger:message_search') + '?q=Python'
+        )
+        self.assertEqual(response.context['keyword'], 'Python')

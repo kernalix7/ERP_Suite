@@ -49,7 +49,7 @@ class MarketplaceOrderListView(ManagerRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(is_active=True)
+        qs = super().get_queryset().filter(is_active=True).select_related('erp_order', 'erp_quotation')
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "기사 관리 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "배송 기사" %}{% endblock %}
+
+{% block header_actions %}
+{% if user.is_manager_role %}
+<a href="{% url 'logistics:driver_create' %}" class="btn btn-primary">기사 등록</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "이름" %}</th>
+                    <th class="px-4 py-3">{% trans "면허번호" %}</th>
+                    <th class="px-4 py-3">{% trans "면허종류" %}</th>
+                    <th class="px-4 py-3">{% trans "면허만료일" %}</th>
+                    <th class="px-4 py-3">{% trans "연락처" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for d in drivers %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">{{ d.user.get_full_name|default:d.user.username }}</td>
+                    <td class="px-4 py-3 font-mono text-gray-600">{{ d.license_number }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ d.get_license_type_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ d.license_expiry|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ d.phone }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'logistics:driver_update' d.pk %}" class="text-blue-600 hover:underline text-sm">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">등록된 기사가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

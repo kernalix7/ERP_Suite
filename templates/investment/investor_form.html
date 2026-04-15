@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}투자자 {% if form.instance.pk %}수정{% else %}등록{% endif %} - ERP Suite{% endblock %}
-{% block page_title %}투자자 {% if form.instance.pk %}수정{% else %}등록{% endif %}{% endblock %}
+{% block title %}{% trans "투자자" %} {% if form.instance.pk %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "투자자" %} {% if form.instance.pk %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -53,9 +54,9 @@
             </div>
 
             <div class="mt-8 flex justify-end gap-3">
-                <a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">취소</a>
+                <a href="{% url 'investment:investor_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
                 <button type="submit" class="btn btn-primary">
-                    {% if form.instance.pk %}수정{% else %}등록{% endif %}
+                    {% if form.instance.pk %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %}
                 </button>
             </div>
         </form>

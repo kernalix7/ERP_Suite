@@ -2,7 +2,7 @@ from datetime import date
 
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
@@ -336,6 +336,9 @@ class VoucherLine(BaseModel):
         verbose_name = '전표항목'
         verbose_name_plural = '전표항목'
         ordering = ['pk']
+        indexes = [
+            models.Index(fields=['account', 'voucher'], name='idx_voucherline_acct_vch'),
+        ]
 
     def __str__(self):
         return f'{self.account.name} 차:{self.debit} 대:{self.credit}'
@@ -503,10 +506,17 @@ class BankAccount(BaseModel):
 
     def save(self, *args, **kwargs):
         if self.is_default:
-            # 다른 기본계좌 해제
-            BankAccount.objects.filter(
-                is_default=True,
-            ).exclude(pk=self.pk).update(is_default=False)
+            with transaction.atomic():
+                # 같은 소유자(거래처 또는 직원) 내 다른 기본계좌만 해제
+                qs = BankAccount.objects.filter(is_default=True).exclude(pk=self.pk)
+                if self.partner_id:
+                    qs = qs.filter(partner_id=self.partner_id)
+                elif self.employee_id:
+                    qs = qs.filter(employee_id=self.employee_id)
+                else:
+                    # 거래처/직원 미연결 계좌끼리만
+                    qs = qs.filter(partner__isnull=True, employee__isnull=True)
+                qs.update(is_default=False)
         super().save(*args, **kwargs)
 
 
@@ -629,6 +639,9 @@ class CardTransaction(BaseModel):
         verbose_name = '카드거래'
         verbose_name_plural = '카드거래'
         ordering = ['-transaction_date', '-pk']
+        indexes = [
+            models.Index(fields=['card', 'transaction_date'], name='idx_cardtx_card_date'),
+        ]
 
     def __str__(self):
         return f'{self.card.name} {self.merchant_name} {self.amount:,}원'
@@ -962,6 +975,9 @@ class SalesSettlement(BaseModel):
         verbose_name = '매출정산'
         verbose_name_plural = '매출정산'
         ordering = ['-settlement_date', '-pk']
+        indexes = [
+            models.Index(fields=['settlement_date'], name='idx_settlement_date'),
+        ]
 
     def __str__(self):
         return f'{self.settlement_number} ({self.settlement_date})'
@@ -1074,6 +1090,9 @@ class Budget(BaseModel):
                 fields=['account', 'year', 'month'],
                 name='uq_budget_account_period',
             ),
+        ]
+        indexes = [
+            models.Index(fields=['account', 'year', 'month'], name='idx_budget_acct_yr_mo'),
         ]
 
     def __str__(self):
@@ -1220,3 +1239,266 @@ class DashboardWidget(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+# ──── Phase 15: 다중법인/연결회계 ────
+
+class Company(BaseModel):
+    """법인(회사)"""
+    name = models.CharField('법인명', max_length=100)
+    code = models.CharField('법인코드', max_length=20, unique=True)
+    legal_name = models.CharField('법적 명칭', max_length=200, blank=True)
+    tax_id = models.CharField('사업자등록번호', max_length=20, blank=True)
+    country_code = models.CharField('국가코드', max_length=5, default='KR')
+    currency = models.ForeignKey(
+        Currency, verbose_name='기준통화',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    address = models.TextField('주소', blank=True)
+    parent = models.ForeignKey(
+        'self', verbose_name='모회사',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='subsidiaries',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '법인'
+        verbose_name_plural = '법인'
+        ordering = ['code']
+
+    def __str__(self):
+        return f'[{self.code}] {self.name}'
+
+
+class InterCompanyTransaction(BaseModel):
+    """내부거래"""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', '작성중'
+        CONFIRMED = 'CONFIRMED', '확정'
+        ELIMINATED = 'ELIMINATED', '제거완료'
+
+    from_company = models.ForeignKey(
+        Company, verbose_name='거래 발생 법인',
+        on_delete=models.PROTECT, related_name='ic_transactions_from',
+    )
+    to_company = models.ForeignKey(
+        Company, verbose_name='거래 상대 법인',
+        on_delete=models.PROTECT, related_name='ic_transactions_to',
+    )
+    transaction_date = models.DateField('거래일')
+    description = models.CharField('적요', max_length=200)
+    amount = models.DecimalField(
+        '금액', max_digits=15, decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    currency_code = models.CharField('통화', max_length=3, default='KRW')
+    voucher_from = models.ForeignKey(
+        Voucher, verbose_name='발생법인 전표',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='ic_from',
+    )
+    voucher_to = models.ForeignKey(
+        Voucher, verbose_name='상대법인 전표',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='ic_to',
+    )
+    status = models.CharField(
+        '상태', max_length=20,
+        choices=Status.choices, default=Status.DRAFT,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '내부거래'
+        verbose_name_plural = '내부거래'
+        ordering = ['-transaction_date', '-pk']
+
+    def __str__(self):
+        return f'{self.from_company.code}→{self.to_company.code} {self.amount:,}원'
+
+
+class ConsolidationPeriod(BaseModel):
+    """연결결산 기간"""
+
+    class Status(models.TextChoices):
+        OPEN = 'OPEN', '진행중'
+        CLOSED = 'CLOSED', '마감'
+
+    year = models.PositiveIntegerField('연도')
+    month = models.PositiveSmallIntegerField('월')
+    status = models.CharField(
+        '상태', max_length=10,
+        choices=Status.choices, default=Status.OPEN,
+    )
+    companies = models.ManyToManyField(
+        Company, verbose_name='대상 법인', blank=True,
+        related_name='consolidation_periods',
+    )
+    elimination_entries = models.JSONField('내부거래 제거 내역', default=list, blank=True)
+    consolidated_at = models.DateTimeField('연결일시', null=True, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '연결결산기간'
+        verbose_name_plural = '연결결산기간'
+        ordering = ['-year', '-month']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['year', 'month'],
+                name='uq_consolidation_period',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.year}년 {self.month:02d}월 연결결산'
+
+
+class ConsolidatedReport(BaseModel):
+    """연결재무보고서"""
+
+    class ReportType(models.TextChoices):
+        PL = 'PL', '연결 손익계산서'
+        BS = 'BS', '연결 재무상태표'
+        CF = 'CF', '연결 현금흐름표'
+
+    period = models.ForeignKey(
+        ConsolidationPeriod, verbose_name='연결기간',
+        on_delete=models.CASCADE, related_name='reports',
+    )
+    report_type = models.CharField(
+        '보고서 유형', max_length=5,
+        choices=ReportType.choices,
+    )
+    data = models.JSONField('보고서 데이터', default=dict)
+    generated_at = models.DateTimeField('생성일시', null=True, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '연결보고서'
+        verbose_name_plural = '연결보고서'
+        ordering = ['-pk']
+
+    def __str__(self):
+        return f'{self.period} - {self.get_report_type_display()}'
+
+
+# ──── Phase 15: 오픈뱅킹 연동 ────
+
+class BankConnection(BaseModel):
+    """은행 연결"""
+
+    class ConnectionType(models.TextChoices):
+        OPENBANKING = 'OPENBANKING', '오픈뱅킹'
+        SCRAPING = 'SCRAPING', '스크래핑'
+        MANUAL = 'MANUAL', '수동'
+
+    class ConnectionStatus(models.TextChoices):
+        ACTIVE = 'ACTIVE', '활성'
+        INACTIVE = 'INACTIVE', '비활성'
+        ERROR = 'ERROR', '오류'
+
+    bank_name = models.CharField('은행명', max_length=50)
+    bank_code = models.CharField('은행코드', max_length=10)
+    account_number = models.CharField('계좌번호', max_length=50)
+    account_holder = models.CharField('예금주', max_length=50)
+    connection_type = models.CharField(
+        '연결방식', max_length=20,
+        choices=ConnectionType.choices, default=ConnectionType.MANUAL,
+    )
+    api_key_encrypted = models.TextField('API 키(암호화)', blank=True)
+    status = models.CharField(
+        '상태', max_length=20,
+        choices=ConnectionStatus.choices, default=ConnectionStatus.ACTIVE,
+    )
+    last_sync = models.DateTimeField('마지막 동기화', null=True, blank=True)
+    company = models.ForeignKey(
+        Company, verbose_name='법인',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='bank_connections',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '은행연결'
+        verbose_name_plural = '은행연결'
+        ordering = ['bank_name']
+
+    def __str__(self):
+        return f'{self.bank_name} {self.account_number}'
+
+
+class BankStatement(BaseModel):
+    """은행 명세서"""
+
+    class Status(models.TextChoices):
+        IMPORTED = 'IMPORTED', '가져옴'
+        RECONCILED = 'RECONCILED', '대사완료'
+
+    connection = models.ForeignKey(
+        BankConnection, verbose_name='은행연결',
+        on_delete=models.PROTECT, related_name='statements',
+    )
+    statement_date = models.DateField('명세일')
+    opening_balance = models.DecimalField('기초잔액', max_digits=15, decimal_places=0, default=0)
+    closing_balance = models.DecimalField('기말잔액', max_digits=15, decimal_places=0, default=0)
+    transaction_count = models.PositiveIntegerField('거래건수', default=0)
+    imported_at = models.DateTimeField('가져온 일시', null=True, blank=True)
+    status = models.CharField(
+        '상태', max_length=20,
+        choices=Status.choices, default=Status.IMPORTED,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '은행명세서'
+        verbose_name_plural = '은행명세서'
+        ordering = ['-statement_date']
+
+    def __str__(self):
+        return f'{self.connection.bank_name} {self.statement_date}'
+
+
+class BankTransaction(BaseModel):
+    """은행 거래"""
+
+    class MatchStatus(models.TextChoices):
+        UNMATCHED = 'UNMATCHED', '미매칭'
+        AUTO_MATCHED = 'AUTO_MATCHED', '자동매칭'
+        MANUAL_MATCHED = 'MANUAL_MATCHED', '수동매칭'
+        EXCLUDED = 'EXCLUDED', '제외'
+
+    statement = models.ForeignKey(
+        BankStatement, verbose_name='명세서',
+        on_delete=models.CASCADE, related_name='transactions',
+    )
+    transaction_date = models.DateField('거래일')
+    description = models.CharField('적요', max_length=200)
+    amount = models.DecimalField('금액', max_digits=15, decimal_places=0)
+    balance_after = models.DecimalField('잔액', max_digits=15, decimal_places=0, default=0)
+    counterparty = models.CharField('상대방', max_length=100, blank=True)
+    reference_number = models.CharField('참조번호', max_length=50, blank=True)
+    matched_voucher = models.ForeignKey(
+        Voucher, verbose_name='매칭 전표',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='bank_transactions',
+    )
+    matched_payment = models.ForeignKey(
+        Payment, verbose_name='매칭 입출금',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='bank_transactions',
+    )
+    match_status = models.CharField(
+        '매칭상태', max_length=20,
+        choices=MatchStatus.choices, default=MatchStatus.UNMATCHED,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '은행거래'
+        verbose_name_plural = '은행거래'
+        ordering = ['-transaction_date', '-pk']
+
+    def __str__(self):
+        return f'{self.transaction_date} {self.description} {self.amount:,}원'

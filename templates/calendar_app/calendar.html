@@ -50,7 +50,7 @@
 </div>
 
 <script src="{% static 'vendor/js/fullcalendar.global.min.js' %}"></script>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
     var calendar = new FullCalendar.Calendar(calendarEl, {

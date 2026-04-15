@@ -146,4 +146,26 @@ urlpatterns = [
     path('withholding/excel/', excel_views.WithholdingTaxExcelView.as_view(), name='withholding_excel'),
     # 부가세 신고서
     path('vat-return/', views.VATReturnView.as_view(), name='vat_return'),
+    # ──── Phase 15: 다중법인/연결회계 ────
+    path('companies/', views.CompanyListView.as_view(), name='company_list'),
+    path('companies/create/', views.CompanyCreateView.as_view(), name='company_create'),
+    path('companies/<int:pk>/edit/', views.CompanyUpdateView.as_view(), name='company_update'),
+    path('ic-transactions/', views.InterCompanyTransactionListView.as_view(), name='ic_transaction_list'),
+    path('ic-transactions/create/', views.InterCompanyTransactionCreateView.as_view(), name='ic_transaction_create'),
+    path('ic-transactions/<int:pk>/confirm/', views.InterCompanyTransactionConfirmView.as_view(), name='ic_transaction_confirm'),
+    path('consolidation/', views.ConsolidationPeriodListView.as_view(), name='consolidation_list'),
+    path('consolidation/create/', views.ConsolidationPeriodCreateView.as_view(), name='consolidation_create'),
+    path('consolidation/<int:pk>/close/', views.ConsolidationPeriodCloseView.as_view(), name='consolidation_close'),
+    path('consolidation/<int:pk>/report/', views.ConsolidatedReportView.as_view(), name='consolidated_report'),
+    # ──── Phase 15: 오픈뱅킹 연동 ────
+    path('bank-connections/', views.BankConnectionListView.as_view(), name='bank_connection_list'),
+    path('bank-connections/create/', views.BankConnectionCreateView.as_view(), name='bank_connection_create'),
+    path('bank-connections/<int:pk>/edit/', views.BankConnectionUpdateView.as_view(), name='bank_connection_update'),
+    path('bank-connections/<int:pk>/sync/', views.BankConnectionSyncView.as_view(), name='bank_connection_sync'),
+    path('bank-statements/', views.BankStatementListView.as_view(), name='bank_statement_list'),
+    path('bank-statements/<int:pk>/', views.BankStatementDetailView.as_view(), name='bank_statement_detail'),
+    path('bank-transactions/', views.BankTransactionListView.as_view(), name='bank_transaction_list'),
+    path('bank-transactions/<int:pk>/match/', views.BankTransactionMatchView.as_view(), name='bank_transaction_match'),
+    path('bank-auto-reconcile/', views.BankAutoReconcileView.as_view(), name='bank_auto_reconcile'),
+    path('bank-reconciliation-dashboard/', views.BankReconciliationDashboardView.as_view(), name='bank_reconciliation_dashboard'),
 ]

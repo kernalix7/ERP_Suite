@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}경비관리 대시보드 - ERP Suite{% endblock %}
+{% block page_title %}경비관리 대시보드{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'expense:claim_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "경비 청구" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "전체 청구" %}</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{{ total_claims }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "승인 대기" %}</p>
+        <p class="text-3xl font-bold text-yellow-600 mt-1">{{ pending_claims }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "승인 누계" %}</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">{{ approved_total|floatformat:0 }}{% trans "원" %}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">{% trans "이번 달 승인" %}</p>
+        <p class="text-3xl font-bold text-indigo-600 mt-1">{{ monthly_total|floatformat:0 }}{% trans "원" %}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">{% trans "최근 경비 청구" %}</h3>
+        <div class="space-y-2">
+            {% for claim in recent_claims %}
+            <div class="flex justify-between items-center text-sm">
+                <a href="{% url 'expense:claim_detail' claim.claim_number %}" class="text-blue-600 hover:underline truncate mr-2">{{ claim.title|truncatechars:30 }}</a>
+                <span class="text-gray-500 whitespace-nowrap">{{ claim.created_at|date:"m/d" }}</span>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">{% trans "최근 청구가 없습니다." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">{% trans "법인카드 미매칭 거래" %}</h3>
+        <div class="flex items-center justify-between">
+            <span class="text-gray-600">{% trans "미매칭 건수" %}</span>
+            <span class="text-2xl font-bold text-red-600">{{ unmatched_transactions }}{% trans "건" %}</span>
+        </div>
+        {% if unmatched_transactions > 0 %}
+        <a href="{% url 'expense:transaction_list' %}?matched=no" class="mt-4 block text-sm text-blue-600 hover:underline">{% trans "미매칭 거래 확인 &rarr;" %}</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

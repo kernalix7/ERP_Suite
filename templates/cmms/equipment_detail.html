@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "설비 상세" %} - {{ equipment.name }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "설비 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'cmms:equipment_update' equipment.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+<a href="{% url 'cmms:equipment_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "기본 정보" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><p class="text-sm text-gray-500">{% trans "설비코드" %}</p><p class="mt-1 font-medium">{{ equipment.code }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "설비명" %}</p><p class="mt-1 font-medium">{{ equipment.name }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "분류" %}</p><p class="mt-1 font-medium">{{ equipment.category|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "위치" %}</p><p class="mt-1 font-medium">{{ equipment.location|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "제조사" %}</p><p class="mt-1 font-medium">{{ equipment.manufacturer|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "모델번호" %}</p><p class="mt-1 font-medium">{{ equipment.model_number|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "시리얼번호" %}</p><p class="mt-1 font-medium">{{ equipment.serial_number|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "구입일" %}</p><p class="mt-1 font-medium">{{ equipment.purchase_date|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "상태" %}</p><p class="mt-1">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                {% if equipment.status == 'ACTIVE' %}bg-green-100 text-green-800
+                {% elif equipment.status == 'MAINTENANCE' %}bg-yellow-100 text-yellow-800
+                {% elif equipment.status == 'RETIRED' %}bg-red-100 text-red-800
+                {% endif %}">{{ equipment.get_status_display }}</span>
+        </p></div>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "최근 작업지시" %}</h3>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "작업번호" %}</th>
+                    <th class="px-4 py-3">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "우선순위" %}</th>
+                    <th class="px-4 py-3">{% trans "생성일" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for wo in recent_work_orders %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'cmms:workorder_detail' wo.pk %}" class="text-blue-600 hover:underline">{{ wo.wo_number }}</a></td>
+                    <td class="px-4 py-3">{{ wo.get_status_display }}</td>
+                    <td class="px-4 py-3">{{ wo.get_priority_display }}</td>
+                    <td class="px-4 py-3">{{ wo.created_at|date:"Y-m-d" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">작업지시가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

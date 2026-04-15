@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "수요예측 상세" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "수요예측 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'forecast:forecast_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><p class="text-sm text-gray-500">{% trans "제품" %}</p><p class="mt-1 font-medium">{{ forecast.product }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "기간" %}</p><p class="mt-1 font-medium">{{ forecast.period_start }} ~ {{ forecast.period_end }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "예측방법" %}</p><p class="mt-1 font-medium">{{ forecast.get_forecast_method_display }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "예측수량" %}</p><p class="mt-1 font-medium text-lg">{{ forecast.forecast_qty }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "실제수량" %}</p><p class="mt-1 font-medium text-lg">{{ forecast.actual_qty }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "정확도" %}</p><p class="mt-1 font-medium text-lg
+            {% if forecast.accuracy_pct != None %}
+                {% if forecast.accuracy_pct >= 90 %}text-green-600{% elif forecast.accuracy_pct >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}
+            {% endif %}">
+            {% if forecast.accuracy_pct != None %}{{ forecast.accuracy_pct }}%{% else %}-{% endif %}
+        </p></div>
+    </div>
+</div>
+{% endblock %}

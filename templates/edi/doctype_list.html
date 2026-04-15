@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "EDI 문서유형 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "EDI 문서유형" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'edi:doctype_create' %}" class="btn btn-primary">문서유형 추가</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "코드" %}</th>
+                    <th class="px-4 py-3">{% trans "문서명" %}</th>
+                    <th class="px-4 py-3">{% trans "방향" %}</th>
+                    <th class="px-4 py-3">{% trans "포맷" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for dt in doc_types %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ dt.code }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ dt.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ dt.get_direction_display }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ dt.get_format_display }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'edi:doctype_update' dt.pk %}" class="text-blue-600 hover:underline text-sm">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-12 text-center text-gray-400">등록된 문서유형이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

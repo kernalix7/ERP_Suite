@@ -1,0 +1,46 @@
+{% extends "portal/base_portal.html" %}
+
+{% block title %}{{ order.order_number }} - ERP 포털{% endblock %}
+
+{% block content %}
+<div class="mb-4"><a href="{% url 'portal:order_list' %}" class="text-blue-600 hover:underline text-sm">주문 내역으로</a></div>
+<h1 class="text-2xl font-bold text-gray-900 mb-6">{{ order.order_number }}</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">주문 항목</h3>
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+                        <th class="px-4 py-2">제품</th>
+                        <th class="px-4 py-2 text-right">수량</th>
+                        <th class="px-4 py-2 text-right">단가</th>
+                        <th class="px-4 py-2 text-right">금액</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in items %}
+                    <tr>
+                        <td class="px-4 py-2 text-gray-900">{{ item.product.name }}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">{{ item.quantity }}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">{{ item.unit_price }}</td>
+                        <td class="px-4 py-2 text-right text-gray-900">{{ item.amount }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div>
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">주문 정보</h3>
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">상태</dt><dd>{{ order.get_status_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">주문일</dt><dd>{{ order.order_date|date:"Y-m-d" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">합계</dt><dd class="font-medium">{{ order.total_amount|default:"-" }}</dd></div>
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

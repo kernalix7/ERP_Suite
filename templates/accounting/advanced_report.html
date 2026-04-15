@@ -202,9 +202,10 @@
 
 {% block extra_js %}
 <script src="/static/vendor/chart.js/chart.umd.min.js"></script>
-<script>
+{{ monthly_json|json_script:"monthly-data" }}
+<script nonce="{{ request.csp_nonce }}">
 (function() {
-    const data = {{ monthly_json|safe }};
+    const data = JSON.parse(document.getElementById('monthly-data').textContent);
     const labels = data.map(d => d.label);
     const salesData = data.map(d => d.sales);
     const purchaseData = data.map(d => d.purchase);

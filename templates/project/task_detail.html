@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ task.title }} - {% trans "태스크" %}{% endblock %}
+{% block page_title %}{{ task.title }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'project:task_update' task.pk %}" class="btn btn-secondary">{% trans "수정" %}</a>
+<a href="{% url 'project:project_detail' task.project.pk %}" class="btn btn-secondary">{% trans "← 프로젝트" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+            <p class="text-gray-700">{{ task.description|linebreaks }}</p>
+        </div>
+        <!-- 서브 태스크 -->
+        {% if sub_tasks %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="p-4 border-b border-gray-200"><h3 class="font-semibold">{% trans "하위 태스크" %}</h3></div>
+            <ul class="divide-y divide-gray-100">
+                {% for sub in sub_tasks %}
+                <li class="p-3 flex justify-between items-center">
+                    <a href="{% url 'project:task_detail' sub.pk %}" class="text-sm hover:text-blue-600">{{ sub.title }}</a>
+                    <span class="text-xs px-2 py-0.5 rounded bg-gray-100">{{ sub.get_status_display }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <!-- 댓글 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-3">{% trans "댓글" %}</h3>
+            {% for comment in comments %}
+            <div class="mb-3 pb-3 border-b border-gray-100 last:border-0">
+                <div class="flex justify-between text-sm">
+                    <span class="font-medium">{{ comment.author.get_full_name|default:comment.author.username }}</span>
+                    <span class="text-gray-400">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <p class="text-sm mt-1 text-gray-700">{{ comment.content }}</p>
+            </div>
+            {% endfor %}
+            <form method="post" action="{% url 'project:task_comment_create' task.pk %}">
+                {% csrf_token %}
+                <textarea name="content" rows="2" class="form-input w-full mb-2" placeholder="{% trans '댓글...' %}"></textarea>
+                <button type="submit" class="btn btn-sm btn-secondary">{% trans "댓글 등록" %}</button>
+            </form>
+        </div>
+        <!-- 작업시간 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-3">{% trans "작업시간 기록" %}</h3>
+            {% for log in time_logs %}
+            <div class="flex justify-between text-sm mb-2">
+                <span>{{ log.worker.get_full_name|default:log.worker.username }} — {{ log.work_date }}</span>
+                <span class="font-medium">{{ log.hours }}h</span>
+            </div>
+            {% endfor %}
+            <form method="post" action="{% url 'project:timelog_create' task.pk %}" class="mt-3 flex gap-2">
+                {% csrf_token %}
+                <input type="hidden" name="task" value="{{ task.pk }}">
+                <input type="date" name="work_date" class="form-input flex-1" required>
+                <input type="number" name="hours" step="0.5" min="0.5" class="form-input w-24" placeholder="{% trans '시간' %}" required>
+                <input type="text" name="description" class="form-input flex-1" placeholder="{% trans '작업내용' %}">
+                <button type="submit" class="btn btn-sm btn-secondary">{% trans "기록" %}</button>
+            </form>
+        </div>
+    </div>
+    <div class="space-y-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "상태" %}</dt><dd>{{ task.get_status_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "우선순위" %}</dt><dd>{{ task.get_priority_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "담당자" %}</dt><dd>{{ task.assignee.get_full_name|default:"-" }}</dd></div>
+                {% if task.due_date %}<div class="flex justify-between"><dt class="text-gray-500">{% trans "마감일" %}</dt><dd>{{ task.due_date }}</dd></div>{% endif %}
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "예상시간" %}</dt><dd>{{ task.estimated_hours }}h</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "실제시간" %}</dt><dd>{{ task.actual_hours }}h</dd></div>
+                {% if task.milestone %}<div class="flex justify-between"><dt class="text-gray-500">{% trans "마일스톤" %}</dt><dd>{{ task.milestone.title }}</dd></div>{% endif %}
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

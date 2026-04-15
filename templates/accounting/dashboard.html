@@ -103,7 +103,7 @@
 {{ fixed_costs_json|json_script:"fixed-costs-data" }}
 {{ variable_costs_json|json_script:"variable-costs-data" }}
 {{ product_margins_json|json_script:"product-margins-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const months = JSON.parse(document.getElementById('months-data').textContent);
     const revenueData = JSON.parse(document.getElementById('revenue-data').textContent);
     const fixedCostsData = JSON.parse(document.getElementById('fixed-costs-data').textContent);

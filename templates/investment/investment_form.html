@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}투자내역 등록 - ERP Suite{% endblock %}
-{% block page_title %}투자내역 등록{% endblock %}
+{% block title %}{% trans "투자내역 등록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "투자내역 등록" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'investment:dashboard' %}" class="btn btn-secondary">대시보드로</a>
+<a href="{% url 'investment:dashboard' %}" class="btn btn-secondary">{% trans "대시보드로" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -43,8 +44,8 @@
             </div>
 
             <div class="mt-8 flex justify-end gap-3">
-                <a href="{% url 'investment:dashboard' %}" class="btn btn-secondary">취소</a>
-                <button type="submit" class="btn btn-primary">등록</button>
+                <a href="{% url 'investment:dashboard' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+                <button type="submit" class="btn btn-primary">{% trans "등록" %}</button>
             </div>
         </form>
     </div>

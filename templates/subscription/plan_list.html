@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "구독 플랜 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "구독 플랜" %}{% endblock %}
+
+{% block header_actions %}
+{% if user.is_manager_role %}
+<a href="{% url 'subscription:plan_create' %}" class="btn btn-primary">플랜 추가</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    {% for plan in plans %}
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900">{{ plan.name }}</h3>
+        <p class="text-sm text-gray-500 mt-1">{{ plan.code }}</p>
+        <div class="mt-4">
+            <p class="text-3xl font-bold text-gray-900">{{ plan.price|floatformat:0 }}<span class="text-base font-normal text-gray-500">원/{{ plan.get_billing_cycle_display }}</span></p>
+        </div>
+        {% if plan.description %}
+        <p class="text-sm text-gray-600 mt-3">{{ plan.description }}</p>
+        {% endif %}
+        {% if plan.features %}
+        <ul class="mt-4 space-y-2 text-sm text-gray-600">
+            {% for feat in plan.features %}
+            <li>- {{ feat }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if user.is_manager_role %}
+        <div class="mt-4 pt-4 border-t border-gray-200">
+            <a href="{% url 'subscription:plan_update' plan.pk %}" class="text-blue-600 hover:underline text-sm">수정</a>
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="col-span-3 text-center text-gray-400 py-12">등록된 플랜이 없습니다.</div>
+    {% endfor %}
+</div>
+{% endblock %}

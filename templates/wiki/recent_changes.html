@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}위키 - 최근 변경{% endblock %}
+{% block page_title %}최근 변경 문서{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'wiki:space_list' %}" class="btn btn-secondary">공간 목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white rounded-lg border border-gray-200 p-5">
+        {% if articles %}
+        <ul class="divide-y divide-gray-100">
+            {% for article in articles %}
+            <li class="py-3 flex items-start justify-between gap-4">
+                <div>
+                    <a href="{% url 'wiki:article_detail' article.slug %}" class="font-medium hover:text-blue-600">{{ article.title }}</a>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        <a href="{% url 'wiki:article_list' %}?space={{ article.space.pk }}" class="hover:underline">{{ article.space.name }}</a>
+                        {% if article.category %} / {{ article.category.name }}{% endif %}
+                        — {{ article.author.get_full_name|default:article.author.username }}
+                    </p>
+                </div>
+                <span class="text-xs text-gray-400 whitespace-nowrap">{{ article.updated_at|date:"Y-m-d H:i" }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-center text-gray-500 py-10">최근 변경된 문서가 없습니다.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

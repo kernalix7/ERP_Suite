@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "ISO 문서 상세" %} - {{ document.document_number }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "ISO 문서 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'qms:isodoc_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><p class="text-sm text-gray-500">{% trans "문서번호" %}</p><p class="mt-1 font-medium">{{ document.document_number }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "제목" %}</p><p class="mt-1 font-medium">{{ document.title }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "분류" %}</p><p class="mt-1 font-medium">{{ document.category|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "리비전" %}</p><p class="mt-1 font-medium">{{ document.revision }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "상태" %}</p><p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+            {% if document.status == 'ACTIVE' %}bg-green-100 text-green-800
+            {% elif document.status == 'OBSOLETE' %}bg-red-100 text-red-800
+            {% else %}bg-gray-100 text-gray-800
+            {% endif %}">{{ document.get_status_display }}</span></p></div>
+        <div><p class="text-sm text-gray-500">{% trans "유효일" %}</p><p class="mt-1 font-medium">{{ document.effective_date|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "검토예정일" %}</p><p class="mt-1 font-medium">{{ document.review_date|default:"-" }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "승인자" %}</p><p class="mt-1 font-medium">{{ document.approved_by|default:"-" }}</p></div>
+    </div>
+    {% if document.content %}
+    <div class="mt-6 border-t border-gray-200 pt-4">
+        <p class="text-sm text-gray-500 mb-2">내용</p>
+        <div class="prose max-w-none text-gray-900 whitespace-pre-wrap">{{ document.content }}</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

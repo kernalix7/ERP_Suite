@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}품질검수 - ERP Suite{% endblock %}
-{% block page_title %}품질검수{% endblock %}
+{% block title %}{% trans "품질검수" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "품질검수" %}{% endblock %}
 
 {% block header_actions %}
 {% if user.is_manager_role %}
@@ -10,7 +10,7 @@
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
-    검수 등록
+    {% trans "검수 등록" %}
 </a>
 {% endif %}
 {% endblock %}
@@ -19,16 +19,16 @@
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 sm:mb-6">
     <form method="get" class="flex flex-wrap gap-3 items-end">
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">결과</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "결과" %}</label>
             <select name="result" class="form-input rounded-lg border-gray-300">
-                <option value="">전체</option>
-                <option value="PENDING" {% if request.GET.result == 'PENDING' %}selected{% endif %}>대기</option>
-                <option value="PASS" {% if request.GET.result == 'PASS' %}selected{% endif %}>합격</option>
-                <option value="FAIL" {% if request.GET.result == 'FAIL' %}selected{% endif %}>불합격</option>
-                <option value="CONDITIONAL" {% if request.GET.result == 'CONDITIONAL' %}selected{% endif %}>조건부합격</option>
+                <option value="">{% trans "전체" %}</option>
+                <option value="PENDING" {% if request.GET.result == 'PENDING' %}selected{% endif %}>{% trans "대기" %}</option>
+                <option value="PASS" {% if request.GET.result == 'PASS' %}selected{% endif %}>{% trans "합격" %}</option>
+                <option value="FAIL" {% if request.GET.result == 'FAIL' %}selected{% endif %}>{% trans "불합격" %}</option>
+                <option value="CONDITIONAL" {% if request.GET.result == 'CONDITIONAL' %}selected{% endif %}>{% trans "조건부합격" %}</option>
             </select>
         </div>
-        <button type="submit" class="btn btn-primary">조회</button>
+        <button type="submit" class="btn btn-primary">{% trans "조회" %}</button>
     </form>
 </div>
 
@@ -37,16 +37,16 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">검수번호</th>
-                    <th class="px-4 py-3">유형</th>
-                    <th class="px-4 py-3">제품</th>
-                    <th class="px-4 py-3">검수일</th>
-                    <th class="px-4 py-3 text-right">검수수량</th>
-                    <th class="px-4 py-3 text-right">합격</th>
-                    <th class="px-4 py-3 text-right">불합격</th>
-                    <th class="px-4 py-3 text-right">합격률</th>
-                    <th class="px-4 py-3 text-center">결과</th>
-                    <th class="px-4 py-3">작성일</th>
+                    <th class="px-4 py-3">{% trans "검수번호" %}</th>
+                    <th class="px-4 py-3">{% trans "유형" %}</th>
+                    <th class="px-4 py-3">{% trans "제품" %}</th>
+                    <th class="px-4 py-3">{% trans "검수일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "검수수량" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "합격" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "불합격" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "합격률" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "결과" %}</th>
+                    <th class="px-4 py-3">{% trans "작성일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -64,13 +64,13 @@
                     <td class="px-4 py-3 text-right font-mono">{{ qc.pass_rate }}%</td>
                     <td class="px-4 py-3 text-center">
                         {% if qc.result == 'PASS' %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">합격</span>
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">{% trans "합격" %}</span>
                         {% elif qc.result == 'FAIL' %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">불합격</span>
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">{% trans "불합격" %}</span>
                         {% elif qc.result == 'CONDITIONAL' %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">조건부</span>
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">{% trans "조건부" %}</span>
                         {% else %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">대기</span>
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">{% trans "대기" %}</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-400 text-xs">{{ qc.created_at|date:"m-d H:i" }}</td>
@@ -81,7 +81,7 @@
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        등록된 품질검수가 없습니다.
+                        {% trans "등록된 품질검수가 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -92,10 +92,10 @@
 
 {% if is_paginated %}
 <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
-    <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+    <p class="text-sm text-gray-500">{% blocktrans with count=page_obj.paginator.count %}총 {{ count }}건{% endblocktrans %}</p>
     <nav class="flex flex-wrap items-center gap-1">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}&result={{ request.GET.result }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+        <a href="?page={{ page_obj.previous_page_number }}&result={{ request.GET.result }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
         {% endif %}
         {% for num in page_obj.paginator.page_range %}
         <a href="?page={{ num }}&result={{ request.GET.result }}"
@@ -104,7 +104,7 @@
         </a>
         {% endfor %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}&result={{ request.GET.result }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+        <a href="?page={{ page_obj.next_page_number }}&result={{ request.GET.result }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
         {% endif %}
     </nav>
 </div>

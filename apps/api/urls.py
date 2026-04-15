@@ -22,6 +22,46 @@ from apps.api.views import (
     AccountPayableViewSet, BudgetViewSet,
     PurchaseOrderViewSet, ShippingCarrierViewSet,
     PriceRuleViewSet,
+    # WMS
+    WarehouseZoneViewSet, PickOrderViewSet, PutAwayTaskViewSet,
+    # CMMS
+    EquipmentViewSet, MaintenanceWorkOrderViewSet,
+    # PLM
+    EngineeringChangeNoticeViewSet, DrawingViewSet,
+    # QMS
+    NonConformanceViewSet, CAPAViewSet, InternalAuditViewSet,
+    # Forecast
+    DemandForecastViewSet, SOPMeetingViewSet,
+    # Helpdesk
+    TicketViewSet, SLAViewSet,
+    # Portal
+    PortalUserViewSet, PortalDocumentViewSet,
+    # Logistics
+    VehicleViewSet, DeliveryRouteViewSet,
+    # EDI
+    EDIPartnerViewSet, EDITransactionViewSet,
+    # Subscription
+    SubscriptionPlanViewSet, SubscriptionViewSet, BillingRecordViewSet,
+    # Document
+    DocumentViewSet, ContractViewSet,
+    # Expense
+    ExpenseClaimViewSet, ExpenseCategoryViewSet,
+    # ESG
+    CarbonEmissionViewSet, SafetyIncidentViewSet, ComplianceRequirementViewSet,
+    # LMS
+    CourseViewSet, CourseEnrollmentViewSet,
+    # Wiki
+    WikiSpaceViewSet, WikiArticleViewSet,
+    # Project
+    ProjectViewSet, ProjectTaskViewSet, MilestoneViewSet,
+    # Visitor
+    VisitRequestViewSet, VisitLogViewSet,
+    # Attendance
+    AttendanceRecordViewSet, LeaveRequestViewSet,
+    # Board
+    BoardViewSet, PostViewSet,
+    # Calendar
+    EventViewSet,
 )
 
 router = DefaultRouter()
@@ -61,6 +101,70 @@ router.register('budgets', BudgetViewSet)
 router.register('purchase-orders', PurchaseOrderViewSet)
 router.register('shipping-carriers', ShippingCarrierViewSet)
 router.register('price-rules', PriceRuleViewSet)
+# WMS
+router.register('wms-zones', WarehouseZoneViewSet)
+router.register('wms-pick-orders', PickOrderViewSet)
+router.register('wms-putaway-tasks', PutAwayTaskViewSet)
+# CMMS
+router.register('equipment', EquipmentViewSet)
+router.register('maintenance-work-orders', MaintenanceWorkOrderViewSet)
+# PLM
+router.register('ecns', EngineeringChangeNoticeViewSet)
+router.register('drawings', DrawingViewSet)
+# QMS
+router.register('non-conformances', NonConformanceViewSet)
+router.register('capas', CAPAViewSet)
+router.register('internal-audits', InternalAuditViewSet)
+# Forecast
+router.register('demand-forecasts', DemandForecastViewSet)
+router.register('sop-meetings', SOPMeetingViewSet)
+# Helpdesk
+router.register('tickets', TicketViewSet)
+router.register('slas', SLAViewSet)
+# Portal
+router.register('portal-users', PortalUserViewSet)
+router.register('portal-documents', PortalDocumentViewSet)
+# Logistics
+router.register('vehicles', VehicleViewSet)
+router.register('delivery-routes', DeliveryRouteViewSet)
+# EDI
+router.register('edi-partners', EDIPartnerViewSet)
+router.register('edi-transactions', EDITransactionViewSet)
+# Subscription
+router.register('subscription-plans', SubscriptionPlanViewSet)
+router.register('subscriptions', SubscriptionViewSet)
+router.register('billing-records', BillingRecordViewSet)
+# Document
+router.register('documents', DocumentViewSet)
+router.register('contracts', ContractViewSet)
+# Expense
+router.register('expense-claims', ExpenseClaimViewSet)
+router.register('expense-categories', ExpenseCategoryViewSet)
+# ESG
+router.register('carbon-emissions', CarbonEmissionViewSet)
+router.register('safety-incidents', SafetyIncidentViewSet)
+router.register('compliance-requirements', ComplianceRequirementViewSet)
+# LMS
+router.register('courses', CourseViewSet)
+router.register('course-enrollments', CourseEnrollmentViewSet)
+# Wiki
+router.register('wiki-spaces', WikiSpaceViewSet)
+router.register('wiki-articles', WikiArticleViewSet)
+# Project
+router.register('projects', ProjectViewSet)
+router.register('project-tasks', ProjectTaskViewSet)
+router.register('milestones', MilestoneViewSet)
+# Visitor
+router.register('visit-requests', VisitRequestViewSet)
+router.register('visit-logs', VisitLogViewSet)
+# Attendance
+router.register('attendance-records', AttendanceRecordViewSet)
+router.register('leave-requests', LeaveRequestViewSet)
+# Board
+router.register('boards', BoardViewSet)
+router.register('posts', PostViewSet)
+# Calendar
+router.register('events', EventViewSet)
 
 urlpatterns = router.urls + [
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

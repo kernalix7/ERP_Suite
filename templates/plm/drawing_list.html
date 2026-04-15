@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "도면 목록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "도면 목록" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'plm:drawing_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    {% trans "도면 업로드" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '도면번호/제품명 검색...'%}" class="form-input">
+            </div>
+            <button type="submit" class="btn btn-primary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "도면번호" %}</th>
+                    <th class="px-4 py-3">{% trans "제품" %}</th>
+                    <th class="px-4 py-3">{% trans "리비전" %}</th>
+                    <th class="px-4 py-3">{% trans "포맷" %}</th>
+                    <th class="px-4 py-3">{% trans "설명" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for d in drawings %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-medium">{{ d.drawing_number }}</td>
+                    <td class="px-4 py-3">{{ d.product }}</td>
+                    <td class="px-4 py-3">{{ d.revision }}</td>
+                    <td class="px-4 py-3">{{ d.format|default:"-" }}</td>
+                    <td class="px-4 py-3">{{ d.description|truncatewords:15|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">도면이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="p-4 border-t border-gray-200">{% include "includes/pagination.html" %}</div>
+    {% endif %}
+</div>
+{% endblock %}

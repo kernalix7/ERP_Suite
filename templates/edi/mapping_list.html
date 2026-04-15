@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "EDI 매핑 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "EDI 매핑" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'edi:mapping_create' %}" class="btn btn-primary">매핑 추가</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">{% trans "문서유형" %}</th>
+                    <th class="px-4 py-3">{% trans "원본 필드" %}</th>
+                    <th class="px-4 py-3">{% trans "대상 모델" %}</th>
+                    <th class="px-4 py-3">{% trans "대상 필드" %}</th>
+                    <th class="px-4 py-3">{% trans "변환" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for m in mappings %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">{{ m.document_type.code }}</td>
+                    <td class="px-4 py-3 font-mono text-gray-600">{{ m.source_field }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ m.target_model }}</td>
+                    <td class="px-4 py-3 font-mono text-gray-600">{{ m.target_field }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ m.transformation|default:"-" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'edi:mapping_update' m.pk %}" class="text-blue-600 hover:underline text-sm">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">매핑이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

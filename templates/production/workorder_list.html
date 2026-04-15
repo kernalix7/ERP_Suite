@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}작업지시 - ERP Suite{% endblock %}
-{% block page_title %}작업지시{% endblock %}
+{% block title %}{% trans "작업지시" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "작업지시" %}{% endblock %}
 
 {% block header_actions %}
 {% if user.is_manager_role %}
@@ -10,10 +10,10 @@
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
-    등록
+    {% trans "등록" %}
 </a>
 {% endif %}
-<a href="{% url 'production:workorder_excel' %}" class="btn btn-secondary" title="Excel 다운로드">
+<a href="{% url 'production:workorder_excel' %}" class="btn btn-secondary" title="{% trans 'Excel 다운로드'%}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
@@ -27,27 +27,27 @@
     <a href="{% url 'production:workorder_list' %}"
        class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
        :class="current === '' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
-        전체
+        {% trans "전체" %}
     </a>
     <a href="?status=PENDING"
        class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
        :class="current === 'PENDING' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
-        대기
+        {% trans "대기" %}
     </a>
     <a href="?status=IN_PROGRESS"
        class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
        :class="current === 'IN_PROGRESS' ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
-        작업중
+        {% trans "작업중" %}
     </a>
     <a href="?status=COMPLETED"
        class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
        :class="current === 'COMPLETED' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
-        완료
+        {% trans "완료" %}
     </a>
     <a href="?status=CANCELLED"
        class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
        :class="current === 'CANCELLED' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
-        취소
+        {% trans "취소" %}
     </a>
 </div>
 
@@ -56,14 +56,14 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">지시번호</th>
-                    <th class="px-4 py-3">생산계획</th>
-                    <th class="px-4 py-3 text-right">지시수량</th>
-                    <th class="px-4 py-3 text-center">상태</th>
-                    <th class="px-4 py-3">담당자</th>
-                    <th class="px-4 py-3">작업시작</th>
-                    <th class="px-4 py-3">작성일</th>
-                    <th class="px-4 py-3 text-right">관리</th>
+                    <th class="px-4 py-3">{% trans "지시번호" %}</th>
+                    <th class="px-4 py-3">{% trans "생산계획" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "지시수량" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "담당자" %}</th>
+                    <th class="px-4 py-3">{% trans "작업시작" %}</th>
+                    <th class="px-4 py-3">{% trans "작성일" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "관리" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -82,13 +82,13 @@
                     <td class="px-4 py-3 text-right text-gray-700">{{ wo.quantity|intcomma }}</td>
                     <td class="px-4 py-3 text-center">
                         {% if wo.status == 'PENDING' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">대기</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "대기" %}</span>
                         {% elif wo.status == 'IN_PROGRESS' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">작업중</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "작업중" %}</span>
                         {% elif wo.status == 'COMPLETED' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">완료</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "완료" %}</span>
                         {% elif wo.status == 'CANCELLED' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">취소</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "취소" %}</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-700">{{ wo.assigned_to.name|default:"-" }}</td>
@@ -108,7 +108,7 @@
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                         </svg>
-                        등록된 작업지시가 없습니다.
+                        {% trans "등록된 작업지시가 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -118,16 +118,16 @@
 
     {% if is_paginated %}
     <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <p class="text-sm text-gray-500">{% blocktrans with count=page_obj.paginator.count %}총 {{ count }}건{% endblocktrans %}</p>
         <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
             <a href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
             {% endfor %}
             {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
             {% endif %}
         </nav>
     </div>

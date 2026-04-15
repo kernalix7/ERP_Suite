@@ -1,10 +1,12 @@
 from django.urls import path
 from . import views
+from apps.core import excel_views
 
 app_name = 'asset'
 
 urlpatterns = [
     path('', views.AssetListView.as_view(), name='asset_list'),
+    path('excel/', excel_views.FixedAssetExcelView.as_view(), name='asset_excel'),
     path('create/', views.AssetCreateView.as_view(), name='asset_create'),
     path('depreciation-run/', views.AssetDepreciationRunView.as_view(), name='depreciation_run'),
     path('categories/', views.AssetCategoryListView.as_view(), name='category_list'),
@@ -37,10 +39,25 @@ urlpatterns = [
 
     # 자산 이관
     path('transfers/', views.AssetTransferListView.as_view(), name='transfer_list'),
+    path('transfers/excel/', excel_views.AssetTransferExcelView.as_view(), name='transfer_excel'),
 
     # QR 코드
     path('qr/print/', views.AssetQRPrintView.as_view(), name='qr_print'),
     path('qr/scan/', views.AssetQRScanView.as_view(), name='qr_scan'),
+
+    # 자산 예약
+    path('reservable/', views.ReservableAssetListView.as_view(), name='reservable_asset_list'),
+    path('reservable/create/', views.ReservableAssetCreateView.as_view(), name='reservable_asset_create'),
+    path('reservable/<int:pk>/', views.ReservableAssetDetailView.as_view(), name='reservable_asset_detail'),
+    path('reservations/', views.AssetReservationListView.as_view(), name='reservation_list'),
+    path('reservations/create/', views.AssetReservationCreateView.as_view(), name='reservation_create'),
+    path('reservations/<int:pk>/', views.AssetReservationDetailView.as_view(), name='reservation_detail'),
+    path('reservations/<int:pk>/approve/', views.AssetReservationApproveView.as_view(), name='reservation_approve'),
+
+    # 유지보수
+    path('maintenance/', views.AssetMaintenanceListView.as_view(), name='maintenance_list'),
+    path('maintenance/create/', views.AssetMaintenanceCreateView.as_view(), name='maintenance_create'),
+    path('maintenance/<int:pk>/edit/', views.AssetMaintenanceUpdateView.as_view(), name='maintenance_update'),
 
     # 개별 자산 (slug 라우트는 맨 마지막)
     path('<str:slug>/', views.AssetDetailView.as_view(), name='asset_detail'),

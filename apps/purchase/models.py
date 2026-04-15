@@ -193,6 +193,10 @@ class GoodsReceipt(BaseModel):
         verbose_name = '입고확인'
         verbose_name_plural = '입고확인'
         ordering = ['-receipt_number']
+        indexes = [
+            models.Index(fields=['receipt_date'], name='idx_gr_receipt_date'),
+            models.Index(fields=['purchase_order', 'receipt_date'], name='idx_gr_po_date'),
+        ]
 
     def __str__(self):
         return self.receipt_number
@@ -325,6 +329,9 @@ class RFQResponse(BaseModel):
         verbose_name = '견적응답'
         verbose_name_plural = '견적응답'
         ordering = ['total_amount']
+        indexes = [
+            models.Index(fields=['rfq', 'is_selected'], name='idx_rfqresp_rfq_selected'),
+        ]
 
     def __str__(self):
         return f'{self.partner.name} - {self.total_amount}'

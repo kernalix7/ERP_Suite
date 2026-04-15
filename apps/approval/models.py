@@ -144,6 +144,64 @@ class ApprovalStep(BaseModel):
         return f'{self.request.request_number} - {self.step_order}단계 ({self.approver})'
 
 
+class ApprovalLineTemplate(BaseModel):
+    """결재선 템플릿 — 자주 사용하는 결재 흐름을 미리 저장"""
+    name = models.CharField('템플릿명', max_length=100)
+    description = models.TextField('설명', blank=True)
+    # steps: [{"approver_id": 1, "role": "팀장", "order": 1}, ...]
+    steps = models.JSONField('결재 단계', default=list)
+    is_default = models.BooleanField('기본 템플릿', default=False)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '결재선 템플릿'
+        verbose_name_plural = '결재선 템플릿'
+        ordering = ['-is_default', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+class ApprovalDelegation(BaseModel):
+    """결재 위임 — 부재 시 대리자에게 결재권 위임"""
+    delegator = models.ForeignKey(
+        'accounts.User', verbose_name='위임자',
+        on_delete=models.PROTECT, related_name='delegations_given',
+    )
+    delegate = models.ForeignKey(
+        'accounts.User', verbose_name='대리자',
+        on_delete=models.PROTECT, related_name='delegations_received',
+    )
+    start_date = models.DateField('위임 시작일')
+    end_date = models.DateField('위임 종료일')
+    reason = models.TextField('위임 사유', blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '결재 위임'
+        verbose_name_plural = '결재 위임'
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f'{self.delegator} → {self.delegate} ({self.start_date}~{self.end_date})'
+
+    @classmethod
+    def get_active_delegate(cls, user, date=None):
+        """특정 날짜 기준 활성 대리자 반환 (없으면 None)"""
+        from django.utils import timezone
+        if date is None:
+            date = timezone.localdate()
+        delegation = cls.objects.filter(
+            delegator=user,
+            is_active=True,
+            start_date__lte=date,
+            end_date__gte=date,
+        ).first()
+        return delegation.delegate if delegation else None
+
+
 class ApprovalAttachment(BaseModel):
     """결재 첨부파일"""
     request = models.ForeignKey(

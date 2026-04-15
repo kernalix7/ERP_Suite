@@ -1,6 +1,8 @@
 from django.conf import settings
+from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.permissions import ACTION_CHOICES, MODULE_CHOICES
@@ -200,3 +202,111 @@ class UserPermission(BaseModel):
     def __str__(self):
         prefix = '+' if self.grant else '-'
         return f'{prefix}{self.permission} → {self.user}'
+
+
+# ── 2FA (TOTP) ──
+
+class TOTPDevice(BaseModel):
+    """TOTP 2차 인증 장치"""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='사용자',
+        related_name='totp_device',
+    )
+    secret_key = EncryptedCharField('비밀키', max_length=500)
+    is_verified = models.BooleanField('인증완료', default=False)
+    backup_codes = models.JSONField('백업코드', default=list, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = 'TOTP 장치'
+        verbose_name_plural = 'TOTP 장치'
+
+    def __str__(self):
+        status = '인증됨' if self.is_verified else '미인증'
+        return f'{self.user} TOTP ({status})'
+
+    def verify_backup_code(self, code):
+        """백업코드 사용 — 일회용이므로 사용 후 제거"""
+        if code in self.backup_codes:
+            self.backup_codes.remove(code)
+            self.save(update_fields=['backup_codes', 'updated_at'])
+            return True
+        return False
+
+
+# ── 비밀번호 정책 ──
+
+class PasswordHistory(BaseModel):
+    """비밀번호 변경 이력 — 최근 N개 재사용 금지"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='사용자',
+        related_name='password_histories',
+    )
+    password_hash = models.CharField('비밀번호 해시', max_length=256)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '비밀번호 이력'
+        verbose_name_plural = '비밀번호 이력'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user} - {self.created_at:%Y-%m-%d %H:%M}'
+
+
+# ── IP 화이트리스트 ──
+
+class IPWhitelist(BaseModel):
+    """IP 화이트리스트 — 접근 제한 관리"""
+
+    class Scope(models.TextChoices):
+        ALL = 'ALL', '전체'
+        ADMIN = 'ADMIN', '관리자 페이지'
+        AUDIT = 'AUDIT', '감사 로그'
+
+    ip_address = models.GenericIPAddressField('IP 주소')
+    description = models.CharField('설명', max_length=200, blank=True)
+    scope = models.CharField(
+        '적용 범위',
+        max_length=10,
+        choices=Scope.choices,
+        default=Scope.ALL,
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = 'IP 화이트리스트'
+        verbose_name_plural = 'IP 화이트리스트'
+        unique_together = ['ip_address', 'scope']
+
+    def __str__(self):
+        return f'{self.ip_address} ({self.get_scope_display()})'
+
+
+# ── 세션 관리 ──
+
+class UserSession(BaseModel):
+    """동시 로그인 세션 관리"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='사용자',
+        related_name='user_sessions',
+    )
+    session_key = models.CharField('세션키', max_length=40, unique=True)
+    ip_address = models.GenericIPAddressField('IP 주소', null=True, blank=True)
+    user_agent = models.CharField('브라우저', max_length=500, blank=True)
+    last_activity = models.DateTimeField('최근 활동', default=timezone.now)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '사용자 세션'
+        verbose_name_plural = '사용자 세션'
+        ordering = ['-last_activity']
+
+    def __str__(self):
+        return f'{self.user} - {self.ip_address} ({self.last_activity:%Y-%m-%d %H:%M})'

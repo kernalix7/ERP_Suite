@@ -1271,3 +1271,391 @@ class BusinessKeyFieldTest(TestCase):
         product.restore()
         product.refresh_from_db()
         self.assertTrue(product.is_active)
+
+
+# ── Backup Command Tests ─────────────────────────────────────
+
+import gzip
+import os
+import shutil
+import tempfile
+
+from django.core.management import call_command
+from django.core.management.base import CommandError
+
+
+class BackupDbCommandTest(TestCase):
+    """backup_db management command 테스트"""
+
+    def setUp(self):
+        self.backup_dir = tempfile.mkdtemp()
+        # Create a temporary SQLite file for backup testing
+        self.temp_db = os.path.join(self.backup_dir, 'test.sqlite3')
+        with open(self.temp_db, 'wb') as f:
+            f.write(b'SQLite format 3\x00' + b'\x00' * 100)
+
+    def tearDown(self):
+        shutil.rmtree(self.backup_dir, ignore_errors=True)
+
+    def _run_backup(self, **kwargs):
+        """Run backup with DB overridden to file-based SQLite."""
+        from unittest.mock import patch
+        db_override = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': self.temp_db,
+            }
+        }
+        with patch('django.conf.settings.DATABASES', db_override):
+            return call_command('backup_db', output_dir=self.backup_dir, **kwargs)
+
+    def test_sqlite_backup_creates_gzipped_file(self):
+        """SQLite 백업 생성 시 .sqlite3.gz 파일 생성 확인"""
+        self._run_backup()
+
+        files = os.listdir(self.backup_dir)
+        gz_files = [f for f in files if f.endswith('.sqlite3.gz')]
+        self.assertEqual(len(gz_files), 1)
+
+        # Verify it's valid gzip
+        filepath = os.path.join(self.backup_dir, gz_files[0])
+        with gzip.open(filepath, 'rb') as f:
+            data = f.read()
+        self.assertGreater(len(data), 0)
+
+    def test_backup_filename_format(self):
+        """백업 파일명이 backup_YYYYMMDD_HHMMSS.sqlite3.gz 형식 확인"""
+        import re
+        self._run_backup()
+
+        files = os.listdir(self.backup_dir)
+        pattern = re.compile(r'^backup_\d{8}_\d{6}\.sqlite3\.gz$')
+        matching = [f for f in files if pattern.match(f)]
+        self.assertEqual(len(matching), 1)
+
+    def test_retention_policy_removes_old_backups(self):
+        """보존 정책에 따라 오래된 백업 삭제 확인"""
+        # Create 10 fake backup files with different timestamps
+        for i in range(10):
+            filename = f'backup_20260401_{i:02d}0000.sqlite3.gz'
+            filepath = os.path.join(self.backup_dir, filename)
+            with gzip.open(filepath, 'wb') as f:
+                f.write(b'fake backup data')
+            # Set different mtimes so sorting works
+            os.utime(filepath, (1000000 + i * 86400, 1000000 + i * 86400))
+
+        # Run with retention_daily=3
+        self._run_backup(
+            retention_daily=3,
+            retention_weekly=1,
+            retention_monthly=1,
+        )
+
+        # Should have 3 daily + 1 new backup + weekly/monthly overlap
+        files = [f for f in os.listdir(self.backup_dir)
+                 if f.endswith('.gz') and f != 'test.sqlite3']
+        # At most daily + weekly + monthly + new = reasonable amount
+        self.assertLessEqual(len(files), 6)
+
+    def test_backup_output_dir_created(self):
+        """존재하지 않는 출력 디렉토리 자동 생성 확인"""
+        from unittest.mock import patch
+        new_dir = os.path.join(self.backup_dir, 'nested', 'backup')
+        db_override = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': self.temp_db,
+            }
+        }
+        with patch('django.conf.settings.DATABASES', db_override):
+            call_command('backup_db', output_dir=new_dir)
+        self.assertTrue(os.path.isdir(new_dir))
+        files = [f for f in os.listdir(new_dir) if f.endswith('.gz')]
+        self.assertEqual(len(files), 1)
+
+    def test_in_memory_db_raises_error(self):
+        """인메모리 SQLite는 백업 불가 에러 확인"""
+        from unittest.mock import patch
+        db_override = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': 'file:memorydb?mode=memory&cache=shared',
+            }
+        }
+        with patch('django.conf.settings.DATABASES', db_override):
+            with self.assertRaises(CommandError):
+                call_command('backup_db', output_dir=self.backup_dir)
+
+    def test_backup_command_output_message(self):
+        """backup_db 명령이 성공 메시지를 출력하는지 확인"""
+        from io import StringIO
+        from unittest.mock import patch
+        out = StringIO()
+        db_override = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': self.temp_db,
+            }
+        }
+        with patch('django.conf.settings.DATABASES', db_override):
+            call_command('backup_db', output_dir=self.backup_dir, stdout=out)
+        output = out.getvalue()
+        self.assertIn('Backup saved:', output)
+
+
+# ── JSONFormatter Tests ──────────────────────────────────────
+
+import json
+import logging as stdlib_logging
+
+from apps.core.logging import JSONFormatter
+
+
+class JSONFormatterTest(TestCase):
+    """JSONFormatter 구조화 로깅 테스트"""
+
+    def setUp(self):
+        self.formatter = JSONFormatter()
+        self.logger = stdlib_logging.getLogger('test.json_formatter')
+
+    def _make_record(self, message, level=stdlib_logging.INFO, **extra):
+        record = self.logger.makeRecord(
+            name='test.json_formatter',
+            level=level,
+            fn='test_file.py',
+            lno=42,
+            msg=message,
+            args=(),
+            exc_info=None,
+        )
+        for key, value in extra.items():
+            setattr(record, key, value)
+        return record
+
+    def test_output_is_valid_json(self):
+        """출력이 유효한 JSON인지 확인"""
+        record = self._make_record('Test message')
+        output = self.formatter.format(record)
+        parsed = json.loads(output)
+        self.assertIsInstance(parsed, dict)
+
+    def test_required_fields_present(self):
+        """필수 필드(timestamp, level, logger, message) 포함 확인"""
+        record = self._make_record('Test message')
+        output = self.formatter.format(record)
+        parsed = json.loads(output)
+
+        self.assertIn('timestamp', parsed)
+        self.assertIn('level', parsed)
+        self.assertIn('logger', parsed)
+        self.assertIn('message', parsed)
+        self.assertEqual(parsed['level'], 'INFO')
+        self.assertEqual(parsed['message'], 'Test message')
+        self.assertEqual(parsed['logger'], 'test.json_formatter')
+
+    def test_extra_fields_included(self):
+        """extra 딕트의 필드가 JSON 출력에 포함되는지 확인"""
+        record = self._make_record(
+            'Login failed',
+            ip_address='192.168.1.1',
+            username='testuser',
+        )
+        output = self.formatter.format(record)
+        parsed = json.loads(output)
+
+        self.assertEqual(parsed['ip_address'], '192.168.1.1')
+        self.assertEqual(parsed['username'], 'testuser')
+
+    def test_exception_info_included(self):
+        """예외 정보가 JSON에 포함되는지 확인"""
+        try:
+            raise ValueError('test error')
+        except ValueError:
+            import sys
+            exc_info = sys.exc_info()
+
+        record = self.logger.makeRecord(
+            name='test.json_formatter',
+            level=stdlib_logging.ERROR,
+            fn='test_file.py',
+            lno=99,
+            msg='Something went wrong',
+            args=(),
+            exc_info=exc_info,
+        )
+        output = self.formatter.format(record)
+        parsed = json.loads(output)
+
+        self.assertIn('exception', parsed)
+        self.assertEqual(parsed['exception']['type'], 'ValueError')
+        self.assertEqual(parsed['exception']['message'], 'test error')
+        self.assertIsInstance(parsed['exception']['traceback'], list)
+
+    def test_different_log_levels(self):
+        """다양한 로그 레벨이 올바르게 출력되는지 확인"""
+        for level, name in [
+            (stdlib_logging.DEBUG, 'DEBUG'),
+            (stdlib_logging.WARNING, 'WARNING'),
+            (stdlib_logging.ERROR, 'ERROR'),
+            (stdlib_logging.CRITICAL, 'CRITICAL'),
+        ]:
+            record = self._make_record('Level test', level=level)
+            output = self.formatter.format(record)
+            parsed = json.loads(output)
+            self.assertEqual(parsed['level'], name)
+
+    def test_non_serializable_extra_converted_to_string(self):
+        """직렬화 불가능한 extra 값이 문자열로 변환되는지 확인"""
+        record = self._make_record(
+            'Test',
+            custom_obj=object(),
+        )
+        output = self.formatter.format(record)
+        parsed = json.loads(output)
+        self.assertIn('custom_obj', parsed)
+        self.assertIsInstance(parsed['custom_obj'], str)
+
+
+# ═══════════════════════════════════════════════════
+# PII 마스킹 필터 테스트
+# ═══════════════════════════════════════════════════
+
+class PIIMaskingFilterTest(TestCase):
+    """PII 마스킹 템플릿 필터 테스트"""
+
+    def test_mask_ssn_standard(self):
+        """주민등록번호 마스킹: 123456-1234567 → 123456-*******"""
+        from apps.core.templatetags.pii_filters import mask_ssn
+        self.assertEqual(mask_ssn('123456-1234567'), '123456-*******')
+
+    def test_mask_ssn_no_hyphen(self):
+        """하이픈 없는 주민등록번호도 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_ssn
+        self.assertEqual(mask_ssn('1234561234567'), '123456-*******')
+
+    def test_mask_ssn_empty(self):
+        """빈 값은 그대로 반환"""
+        from apps.core.templatetags.pii_filters import mask_ssn
+        self.assertEqual(mask_ssn(''), '')
+        self.assertIsNone(mask_ssn(None))
+
+    def test_mask_account_with_hyphens(self):
+        """계좌번호 마스킹: 110-123-456789 → ***-***-**6789"""
+        from apps.core.templatetags.pii_filters import mask_account
+        result = mask_account('110-123-456789')
+        self.assertTrue(result.endswith('6789'))
+        self.assertIn('*', result)
+
+    def test_mask_account_without_hyphens(self):
+        """하이픈 없는 계좌번호 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_account
+        result = mask_account('1101234567890')
+        self.assertTrue(result.endswith('7890'))
+        self.assertIn('*', result)
+
+    def test_mask_phone_standard(self):
+        """전화번호 마스킹: 010-1234-5678 → 010-****-5678"""
+        from apps.core.templatetags.pii_filters import mask_phone
+        self.assertEqual(mask_phone('010-1234-5678'), '010-****-5678')
+
+    def test_mask_phone_no_hyphens(self):
+        """하이픈 없는 전화번호 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_phone
+        self.assertEqual(mask_phone('01012345678'), '010-****-5678')
+
+    def test_mask_phone_international(self):
+        """국제 전화번호 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_phone
+        result = mask_phone('+82-10-1234-5678')
+        self.assertIn('+82', result)
+        self.assertIn('5678', result)
+        self.assertIn('****', result)
+
+    def test_mask_email_standard(self):
+        """이메일 마스킹: user@example.com → us***@example.com"""
+        from apps.core.templatetags.pii_filters import mask_email
+        self.assertEqual(mask_email('user@example.com'), 'us***@example.com')
+
+    def test_mask_email_short_local(self):
+        """짧은 이메일 주소 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_email
+        result = mask_email('a@b.com')
+        self.assertIn('@b.com', result)
+        self.assertIn('*', result)
+
+    def test_mask_name_3_chars(self):
+        """3글자 이름 마스킹: 홍길동 → 홍*동"""
+        from apps.core.templatetags.pii_filters import mask_name
+        self.assertEqual(mask_name('홍길동'), '홍*동')
+
+    def test_mask_name_2_chars(self):
+        """2글자 이름 마스킹: 김철 → 김*"""
+        from apps.core.templatetags.pii_filters import mask_name
+        self.assertEqual(mask_name('김철'), '김*')
+
+    def test_mask_name_4_chars(self):
+        """4글자 이름 마스킹: 남궁민수 → 남**수"""
+        from apps.core.templatetags.pii_filters import mask_name
+        self.assertEqual(mask_name('남궁민수'), '남**수')
+
+
+# ═══════════════════════════════════════════════════
+# Excel 다운로드 감사 로그 테스트
+# ═══════════════════════════════════════════════════
+
+class ExcelDownloadLogTest(TestCase):
+    """Excel 다운로드 감사 로그 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='exceluser', password='testpass123', role='manager',
+        )
+
+    def test_log_download_creates_record(self):
+        """다운로드 로그 생성"""
+        from apps.core.excel_audit import ExcelDownloadLog
+        ExcelDownloadLog.log_download(
+            user=self.user,
+            view_name='PartnerExcelView',
+            row_count=100,
+            ip_address='127.0.0.1',
+        )
+        self.assertEqual(ExcelDownloadLog.objects.filter(user=self.user).count(), 1)
+        log = ExcelDownloadLog.objects.first()
+        self.assertEqual(log.view_name, 'PartnerExcelView')
+        self.assertEqual(log.row_count, 100)
+
+    def test_excessive_downloads_trigger_notification(self):
+        """1일 50건 이상 다운로드 시 관리자 알림 생성"""
+        from apps.core.excel_audit import ExcelDownloadLog
+        from apps.core.notification import Notification
+
+        admin = User.objects.create_user(
+            username='exceladmin', password='testpass123', role='admin',
+        )
+
+        # 50건 다운로드 생성
+        for i in range(50):
+            ExcelDownloadLog.log_download(
+                user=self.user,
+                view_name=f'TestView{i}',
+                row_count=10,
+            )
+
+        # 관리자에게 알림이 생성되었는지 확인
+        admin_notifs = Notification.objects.filter(
+            user=admin,
+            title__contains='Excel',
+        )
+        self.assertTrue(admin_notifs.exists())
+
+    def test_log_str(self):
+        """로그 __str__ 출력"""
+        from apps.core.excel_audit import ExcelDownloadLog
+        log = ExcelDownloadLog.objects.create(
+            user=self.user,
+            view_name='TestView',
+            row_count=50,
+        )
+        self.assertIn('exceluser', str(log))
+        self.assertIn('TestView', str(log))

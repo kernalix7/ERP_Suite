@@ -3,7 +3,8 @@ from simple_history.admin import SimpleHistoryAdmin
 
 from .models import (
     BOM, BOMItem, ProductionPlan, WorkOrder,
-    ProductionRecord, StandardCost,
+    ProductionRecord, StandardCost, QualityInspection,
+    WorkCenter, ProductionSchedule,
 )
 
 
@@ -47,3 +48,29 @@ class StandardCostAdmin(SimpleHistoryAdmin):
     )
     list_filter = ('is_current', 'effective_date')
     search_fields = ('product__name', 'version')
+
+
+@admin.register(QualityInspection)
+class QualityInspectionAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'inspection_number', 'inspection_type', 'product',
+        'inspected_quantity', 'pass_quantity', 'fail_quantity',
+        'result', 'inspection_date',
+    )
+    list_filter = ('inspection_type', 'result', 'is_active')
+    search_fields = ('inspection_number', 'product__name')
+    raw_id_fields = ('product', 'production_record', 'inspector')
+
+
+@admin.register(WorkCenter)
+class WorkCenterAdmin(SimpleHistoryAdmin):
+    list_display = ('code', 'name', 'capacity_per_day', 'efficiency_rate', 'operating_hours', 'is_active')
+    search_fields = ('code', 'name')
+
+
+@admin.register(ProductionSchedule)
+class ProductionScheduleAdmin(SimpleHistoryAdmin):
+    list_display = ('work_order', 'work_center', 'scheduled_start', 'scheduled_end', 'status', 'is_active')
+    list_filter = ('status', 'is_active')
+    search_fields = ('work_order__order_number', 'work_center__code')
+    raw_id_fields = ('work_order', 'work_center')

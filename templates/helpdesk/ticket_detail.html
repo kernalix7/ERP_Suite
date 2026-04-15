@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ ticket.ticket_number }} - ERP Suite{% endblock %}
+{% block page_title %}{{ ticket.ticket_number }} - {{ ticket.title }}{% endblock %}
+
+{% block header_actions %}
+{% if user.is_manager_role %}
+<a href="{% url 'helpdesk:ticket_update' ticket.ticket_number %}" class="btn btn-secondary">수정</a>
+{% endif %}
+{% if ticket.status != 'RESOLVED' and ticket.status != 'CLOSED' %}
+<form method="post" action="{% url 'helpdesk:ticket_resolve' ticket.ticket_number %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">{% trans "해결" %}</button>
+</form>
+{% endif %}
+{% if ticket.status == 'RESOLVED' and user.is_manager_role %}
+<form method="post" action="{% url 'helpdesk:ticket_close' ticket.ticket_number %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-secondary">{% trans "종료" %}</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">내용</h3>
+            <p class="text-gray-700 whitespace-pre-wrap">{{ ticket.description }}</p>
+        </div>
+
+        {% if attachments %}
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">첨부파일</h3>
+            <ul class="space-y-2">
+                {% for att in attachments %}
+                <li><a href="{{ att.file.url }}" class="text-blue-600 hover:underline">{{ att.file.name }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">코멘트</h3>
+            <div class="space-y-4 mb-6">
+                {% for comment in comments %}
+                <div class="p-4 rounded-lg {% if comment.is_internal %}bg-yellow-50 border border-yellow-200{% else %}bg-gray-50{% endif %}">
+                    <div class="flex justify-between text-sm text-gray-500 mb-2">
+                        <span class="font-medium text-gray-700">{{ comment.author.get_full_name|default:comment.author.username }}</span>
+                        <span>{{ comment.created_at|date:"Y-m-d H:i" }}{% if comment.is_internal %} <span class="text-yellow-600">[내부]</span>{% endif %}</span>
+                    </div>
+                    <p class="text-gray-700 whitespace-pre-wrap">{{ comment.content }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-400">코멘트가 없습니다.</p>
+                {% endfor %}
+            </div>
+            <form method="post" action="{% url 'helpdesk:ticket_comment' ticket.ticket_number %}" class="space-y-3">
+                {% csrf_token %}
+                {{ comment_form.content }}
+                <div class="flex items-center gap-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-600">
+                        {{ comment_form.is_internal }} 내부 메모
+                    </label>
+                    <button type="submit" class="btn btn-primary">{% trans "코멘트 등록" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">티켓 정보</h3>
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">상태</dt><dd>{{ ticket.get_status_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">우선순위</dt><dd>{{ ticket.get_priority_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">분류</dt><dd>{{ ticket.category.name|default:"-" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">채널</dt><dd>{{ ticket.get_channel_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">신고자</dt><dd>{{ ticket.reporter.get_full_name|default:ticket.reporter.username }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">담당자</dt><dd>{{ ticket.assigned_to.get_full_name|default:ticket.assigned_to.username|default:"-" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">SLA</dt><dd>{{ ticket.sla.name|default:"-" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">SLA 위반</dt><dd>{% if ticket.sla_breached %}<span class="text-red-600">예</span>{% else %}아니오{% endif %}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">등록일</dt><dd>{{ ticket.created_at|date:"Y-m-d H:i" }}</dd></div>
+            </dl>
+        </div>
+
+        {% if user.is_manager_role and ticket.status != 'CLOSED' %}
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">담당자 배정</h3>
+            <form method="post" action="{% url 'helpdesk:ticket_assign' ticket.ticket_number %}">
+                {% csrf_token %}
+                {{ assign_form.assigned_to }}
+                <button type="submit" class="btn btn-primary mt-3 w-full">{% trans "배정" %}</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

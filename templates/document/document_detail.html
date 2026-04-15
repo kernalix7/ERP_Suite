@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ object.document_number }} - ERP Suite{% endblock %}
+{% block page_title %}{{ object.document_number }} - {{ object.title }}{% endblock %}
+
+{% block header_actions %}
+{% if user.role == 'admin' or user.role == 'manager' or object.owner == user %}
+<a href="{% url 'document:document_update' object.document_number %}" class="btn btn-secondary">{% trans "수정" %}</a>
+{% endif %}
+{% if object.status == 'DRAFT' or object.status == 'APPROVED' %}
+<a href="{% url 'document:document_version_create' object.document_number %}" class="btn btn-secondary">{% trans "버전 등록" %}</a>
+{% endif %}
+{% if object.status == 'DRAFT' %}
+<a href="{% url 'document:document_approval_request' object.document_number %}" class="btn btn-primary">{% trans "결재 요청" %}</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "문서 정보" %}</h3>
+            <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                    <dt class="text-gray-500">{% trans "문서번호" %}</dt>
+                    <dd class="font-mono mt-0.5">{{ object.document_number }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "버전" %}</dt>
+                    <dd class="mt-0.5">v{{ object.version }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "카테고리" %}</dt>
+                    <dd class="mt-0.5">{{ object.category.name }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "부서" %}</dt>
+                    <dd class="mt-0.5">{{ object.department.name|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "소유자" %}</dt>
+                    <dd class="mt-0.5">{{ object.owner.get_full_name|default:object.owner.username }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">{% trans "만료일" %}</dt>
+                    <dd class="mt-0.5">{{ object.expiry_date|date:"Y-m-d"|default:"-" }}</dd>
+                </div>
+                {% if object.notes %}
+                <div class="col-span-2">
+                    <dt class="text-gray-500">{% trans "비고" %}</dt>
+                    <dd class="mt-0.5 whitespace-pre-wrap">{{ object.notes }}</dd>
+                </div>
+                {% endif %}
+            </dl>
+        </div>
+
+        {% if object.content_file %}
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "첨부파일" %}</h3>
+            <a href="{{ object.content_file.url }}" class="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm" target="_blank">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                {{ object.content_file.name }}
+            </a>
+        </div>
+        {% endif %}
+
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "버전 이력" %}</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                            <th class="px-3 py-2">{% trans "버전" %}</th>
+                            <th class="px-3 py-2">{% trans "변경 요약" %}</th>
+                            <th class="px-3 py-2">{% trans "등록자" %}</th>
+                            <th class="px-3 py-2">{% trans "등록일" %}</th>
+                            <th class="px-3 py-2">{% trans "파일" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for ver in object.versions.all %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 font-medium">v{{ ver.version_number }}</td>
+                            <td class="px-3 py-2 text-gray-600">{{ ver.change_summary|truncatechars:40|default:"-" }}</td>
+                            <td class="px-3 py-2 text-gray-600">{{ ver.created_by.get_full_name|default:ver.created_by.username|default:"-" }}</td>
+                            <td class="px-3 py-2 text-gray-600">{{ ver.created_at|date:"Y-m-d" }}</td>
+                            <td class="px-3 py-2">
+                                <a href="{{ ver.file.url }}" class="text-blue-600 hover:underline text-xs" target="_blank">{% trans "다운로드" %}</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="px-3 py-6 text-center text-gray-400">{% trans "버전 이력이 없습니다." %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="space-y-6">
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "문서 상태" %}</h3>
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between items-center">
+                    <dt class="text-gray-500">{% trans "상태" %}</dt>
+                    <dd>
+                        {% if object.status == 'DRAFT' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "초안" %}</span>
+                        {% elif object.status == 'REVIEW' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "검토중" %}</span>
+                        {% elif object.status == 'APPROVED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "승인" %}</span>
+                        {% elif object.status == 'PUBLISHED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{% trans "발행" %}</span>
+                        {% elif object.status == 'ARCHIVED' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">{% trans "보관" %}</span>
+                        {% elif object.status == 'OBSOLETE' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "폐기" %}</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div class="flex justify-between items-center">
+                    <dt class="text-gray-500">{% trans "접근등급" %}</dt>
+                    <dd>
+                        {% if object.access_level == 'SECRET' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "극비" %}</span>
+                        {% elif object.access_level == 'CONFIDENTIAL' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">{% trans "대외비" %}</span>
+                        {% elif object.access_level == 'INTERNAL' %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{% trans "사내" %}</span>
+                        {% else %}<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "공개" %}</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "등록일" %}</dt><dd>{{ object.created_at|date:"Y-m-d" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">{% trans "수정일" %}</dt><dd>{{ object.updated_at|date:"Y-m-d" }}</dd></div>
+            </dl>
+        </div>
+
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-4">{% trans "결재 현황" %}</h3>
+            <div class="space-y-3">
+                {% for approval in object.approvals.all %}
+                <div class="text-sm border border-gray-100 rounded-lg p-3">
+                    <div class="flex justify-between items-start">
+                        <span class="font-medium text-gray-800">{{ approval.approver.get_full_name|default:approval.approver.username }}</span>
+                        {% if approval.status == 'PENDING' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "대기" %}</span>
+                        {% elif approval.status == 'APPROVED' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "승인" %}</span>
+                        {% elif approval.status == 'REJECTED' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{% trans "반려" %}</span>
+                        {% endif %}
+                    </div>
+                    {% if approval.comment %}<p class="mt-1 text-gray-500 text-xs">{{ approval.comment }}</p>{% endif %}
+                    {% if approval.approved_at %}<p class="mt-1 text-gray-400 text-xs">{{ approval.approved_at|date:"Y-m-d H:i" }}</p>{% endif %}
+                    {% if approval.status == 'PENDING' and approval.approver == user %}
+                    <div class="mt-2 flex gap-2">
+                        <form method="post" action="{% url 'document:approval_action' approval.pk 'approve' %}" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="comment" value="">
+                            <button type="submit" class="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">{% trans "승인" %}</button>
+                        </form>
+                        <a href="#reject-{{ approval.pk }}" class="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700" onclick="document.getElementById('reject-{{ approval.pk }}').classList.toggle('hidden'); return false;">{% trans "반려" %}</a>
+                    </div>
+                    <div id="reject-{{ approval.pk }}" class="hidden mt-2">
+                        <form method="post" action="{% url 'document:approval_action' approval.pk 'reject' %}">
+                            {% csrf_token %}
+                            <textarea name="comment" rows="2" placeholder="{% trans "반려 사유를 입력하세요" %}" class="form-input text-xs w-full mb-2"></textarea>
+                            <button type="submit" class="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">{% trans "반려 확인" %}</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <p class="text-gray-400 text-sm">{% trans "결재 이력이 없습니다." %}</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if object.tags %}
+        <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold mb-3">{% trans "태그" %}</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for tag in object.tags %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ tag }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

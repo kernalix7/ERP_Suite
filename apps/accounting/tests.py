@@ -2400,3 +2400,98 @@ class AdvancedReportViewTests(TestCase):
         self.assertIn('current', resp.context)
         self.assertIn('mom', resp.context)
         self.assertIn('yoy', resp.context)
+
+
+# ──── Phase 15: 다중법인/연결회계 테스트 ────
+
+class CompanyModelTest(TestCase):
+    def test_create_company(self):
+        from apps.accounting.models import Company
+        company = Company.objects.create(
+            name='테스트법인', code='TC01',
+            legal_name='(주)테스트', tax_id='123-45-67890',
+        )
+        self.assertEqual(str(company), '[TC01] 테스트법인')
+        self.assertTrue(company.is_active)
+
+    def test_parent_subsidiary(self):
+        from apps.accounting.models import Company
+        parent = Company.objects.create(name='모회사', code='PARENT')
+        sub = Company.objects.create(name='자회사', code='SUB01', parent=parent)
+        self.assertEqual(sub.parent, parent)
+        self.assertIn(sub, parent.subsidiaries.all())
+
+
+class InterCompanyTransactionModelTest(TestCase):
+    def test_create_ic_transaction(self):
+        from apps.accounting.models import Company, InterCompanyTransaction
+        c1 = Company.objects.create(name='법인A', code='A01')
+        c2 = Company.objects.create(name='법인B', code='B01')
+        txn = InterCompanyTransaction.objects.create(
+            from_company=c1, to_company=c2,
+            transaction_date=date.today(),
+            description='내부매출', amount=Decimal('5000000'),
+        )
+        self.assertEqual(txn.status, InterCompanyTransaction.Status.DRAFT)
+        self.assertIn('A01', str(txn))
+
+
+class ConsolidationPeriodModelTest(TestCase):
+    def test_create_period(self):
+        from apps.accounting.models import ConsolidationPeriod
+        period = ConsolidationPeriod.objects.create(year=2026, month=4)
+        self.assertEqual(period.status, ConsolidationPeriod.Status.OPEN)
+        self.assertIn('2026', str(period))
+
+
+class BankConnectionModelTest(TestCase):
+    def test_create_connection(self):
+        from apps.accounting.models import BankConnection
+        conn = BankConnection.objects.create(
+            bank_name='국민은행', bank_code='004',
+            account_number='123-456-789', account_holder='홍길동',
+        )
+        self.assertIn('국민은행', str(conn))
+
+    def test_default_status(self):
+        from apps.accounting.models import BankConnection
+        conn = BankConnection.objects.create(
+            bank_name='신한은행', bank_code='088',
+            account_number='999-888-777', account_holder='김철수',
+        )
+        self.assertEqual(conn.status, BankConnection.ConnectionStatus.ACTIVE)
+
+
+class BankStatementModelTest(TestCase):
+    def test_create_statement(self):
+        from apps.accounting.models import BankConnection, BankStatement
+        conn = BankConnection.objects.create(
+            bank_name='우리은행', bank_code='020',
+            account_number='111-222-333', account_holder='이영희',
+        )
+        stmt = BankStatement.objects.create(
+            connection=conn, statement_date=date.today(),
+            opening_balance=Decimal('1000000'),
+            closing_balance=Decimal('1500000'),
+            transaction_count=5,
+        )
+        self.assertEqual(stmt.status, BankStatement.Status.IMPORTED)
+
+
+class BankTransactionModelTest(TestCase):
+    def test_create_transaction(self):
+        from apps.accounting.models import BankConnection, BankStatement, BankTransaction
+        conn = BankConnection.objects.create(
+            bank_name='하나은행', bank_code='081',
+            account_number='444-555-666', account_holder='박철수',
+        )
+        stmt = BankStatement.objects.create(
+            connection=conn, statement_date=date.today(),
+        )
+        txn = BankTransaction.objects.create(
+            statement=stmt, transaction_date=date.today(),
+            description='입금', amount=Decimal('500000'),
+            balance_after=Decimal('1500000'),
+        )
+        self.assertEqual(txn.match_status, BankTransaction.MatchStatus.UNMATCHED)
+        self.assertIn('입금', str(txn))

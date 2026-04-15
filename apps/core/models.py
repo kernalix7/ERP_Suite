@@ -59,3 +59,8 @@ from apps.core.notification import Notification  # noqa: E402, F401
 from apps.core.attachment import Attachment  # noqa: E402, F401
 from apps.core.audit import AuditAccessLog  # noqa: E402, F401
 from apps.core.system_config import SystemConfig  # noqa: E402, F401
+from apps.core.notification_center import (  # noqa: E402, F401
+    NotificationChannel, NotificationTemplate,
+    NotificationPreference, NotificationLog, PushSubscription,
+)
+from apps.core.excel_audit import ExcelDownloadLog  # noqa: E402, F401

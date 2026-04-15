@@ -1,4 +1,18 @@
 services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - static_files:/app/staticfiles:ro
+      - media_files:/app/media:ro
+    depends_on:
+      - web
+    networks:
+      - frontend
+    restart: unless-stopped
+
   db:
     image: postgres:16-alpine
     volumes:
@@ -7,16 +21,16 @@ services:
       POSTGRES_DB: erp_suite
       POSTGRES_USER: erp
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 환경변수를 설정하세요}
-    ports:
-      - "${DB_PORT:-127.0.0.1:5432}:5432"
+    networks:
+      - backend
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "${REDIS_PORT:-127.0.0.1:6379}:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - backend
     restart: unless-stopped
 
   web:
@@ -25,8 +39,7 @@ services:
     volumes:
       - static_files:/app/staticfiles
       - media_files:/app/media
-    ports:
-      - "${WEB_PORT:-8000}:8000"
+      - backup_data:/app/local/backups
     environment:
       - DATABASE_URL=postgres://erp:${DB_PASSWORD}@db:5432/erp_suite
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY 환경변수를 설정하세요}
@@ -40,11 +53,22 @@ services:
     depends_on:
       - db
       - redis
+    networks:
+      - frontend
+      - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   celery_worker:
     build: .
     command: celery -A config worker -l info
+    volumes:
+      - backup_data:/app/local/backups
     environment:
       - DATABASE_URL=postgres://erp:${DB_PASSWORD}@db:5432/erp_suite
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY 환경변수를 설정하세요}
@@ -58,7 +82,14 @@ services:
     depends_on:
       - db
       - redis
+    networks:
+      - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "celery", "-A", "config", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   celery_beat:
     build: .
@@ -76,6 +107,8 @@ services:
     depends_on:
       - db
       - redis
+    networks:
+      - backend
     restart: unless-stopped
 
   prometheus:
@@ -83,8 +116,9 @@ services:
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
-    ports:
-      - "${PROMETHEUS_PORT:-127.0.0.1:9090}:9090"
+    networks:
+      - monitoring
+      - backend
     restart: unless-stopped
 
   grafana:
@@ -100,7 +134,40 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD 환경변수를 설정하세요}
     depends_on:
       - prometheus
+    networks:
+      - monitoring
     restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+      - /var/log:/var/log:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true
+  monitoring:
+    driver: bridge
+    internal: true
 
 volumes:
   postgres_data:
@@ -109,3 +176,5 @@ volumes:
   media_files:
   prometheus_data:
   grafana_data:
+  loki_data:
+  backup_data:

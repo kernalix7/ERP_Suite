@@ -193,7 +193,7 @@
     </a>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // 실시간 시계
     function updateClock() {
         const now = new Date();

@@ -1,0 +1,33 @@
+{% extends "portal/base_portal.html" %}
+
+{% block title %}주문 내역 - ERP 포털{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-900 mb-6">주문 내역</h1>
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">주문번호</th>
+                    <th class="px-4 py-3">주문일</th>
+                    <th class="px-4 py-3 text-center">상태</th>
+                    <th class="px-4 py-3 text-right">금액</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for order in orders %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3"><a href="{% url 'portal:order_detail' order.order_number %}" class="text-blue-600 hover:underline">{{ order.order_number }}</a></td>
+                    <td class="px-4 py-3 text-gray-600">{{ order.order_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-center"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ order.get_status_display }}</span></td>
+                    <td class="px-4 py-3 text-right text-gray-900">{{ order.total_amount|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-4 py-12 text-center text-gray-400">주문 내역이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

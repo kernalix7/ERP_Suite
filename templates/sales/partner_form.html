@@ -151,7 +151,7 @@
 </div>
 
 {% if next_codes %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const nextCodes = {
         'CUSTOMER': '{{ next_codes.CUSTOMER }}',
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endif %}
 
 {% if commission_formset %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('commission-forms');
     const totalForms = document.getElementById('id_comm-TOTAL_FORMS');

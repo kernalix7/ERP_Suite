@@ -1374,3 +1374,782 @@ class UserListPerformanceTest(TestCase):
         response = self.client.get(reverse('accounts:permission_group_create'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '멤버 관리')
+
+
+# ═══════════════════════════════════════════════════
+# IP 화이트리스트 테스트
+# ═══════════════════════════════════════════════════
+
+class IPWhitelistModelTest(TestCase):
+    """IP 화이트리스트 모델 테스트"""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='ipadmin', password='testpass123', role='admin',
+        )
+
+    def test_create_ip_whitelist(self):
+        """IP 화이트리스트 항목 생성"""
+        from apps.accounts.models import IPWhitelist
+        entry = IPWhitelist.objects.create(
+            ip_address='192.168.1.100',
+            description='사무실 IP',
+            scope='ALL',
+            created_by=self.admin,
+        )
+        self.assertEqual(entry.ip_address, '192.168.1.100')
+        self.assertEqual(entry.scope, 'ALL')
+        self.assertTrue(entry.is_active)
+
+    def test_ip_whitelist_unique_constraint(self):
+        """동일 IP+scope 중복 등록 차단"""
+        from django.db import IntegrityError
+        from apps.accounts.models import IPWhitelist
+        IPWhitelist.objects.create(
+            ip_address='10.0.0.1', scope='ADMIN',
+        )
+        with self.assertRaises(IntegrityError):
+            IPWhitelist.objects.create(
+                ip_address='10.0.0.1', scope='ADMIN',
+            )
+
+    def test_ip_whitelist_str(self):
+        """__str__ 출력"""
+        from apps.accounts.models import IPWhitelist
+        entry = IPWhitelist.objects.create(
+            ip_address='172.16.0.1', scope='AUDIT',
+        )
+        self.assertIn('172.16.0.1', str(entry))
+        self.assertIn('감사', str(entry))
+
+
+@override_settings(AXES_ENABLED=False)
+class IPWhitelistViewTest(TestCase):
+    """IP 화이트리스트 뷰 테스트"""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='ipadminv', password='testpass123', role='admin',
+        )
+        self.staff = User.objects.create_user(
+            username='ipstaff', password='testpass123', role='staff',
+        )
+
+    def test_list_view_admin_only(self):
+        """관리자만 IP 화이트리스트 목록 접근 가능"""
+        self.client.login(username='ipstaff', password='testpass123')
+        response = self.client.get(reverse('accounts:ip_whitelist_list'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_list_view_admin_access(self):
+        """관리자는 IP 화이트리스트 목록 접근 가능"""
+        self.client.login(username='ipadminv', password='testpass123')
+        response = self.client.get(reverse('accounts:ip_whitelist_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_create_ip_entry(self):
+        """IP 화이트리스트 항목 생성"""
+        self.client.login(username='ipadminv', password='testpass123')
+        response = self.client.post(reverse('accounts:ip_whitelist_create'), {
+            'ip_address': '192.168.1.50',
+            'description': '테스트 IP',
+            'scope': 'ALL',
+        })
+        self.assertEqual(response.status_code, 302)
+        from apps.accounts.models import IPWhitelist
+        self.assertTrue(IPWhitelist.objects.filter(ip_address='192.168.1.50').exists())
+
+    def test_delete_ip_entry(self):
+        """IP 화이트리스트 항목 삭제 (soft delete)"""
+        from apps.accounts.models import IPWhitelist
+        # 테스트 클라이언트 IP (127.0.0.1) 도 허용해야 차단 안 됨
+        IPWhitelist.objects.create(ip_address='127.0.0.1', scope='ALL')
+        entry = IPWhitelist.objects.create(
+            ip_address='10.0.0.5', scope='ALL',
+        )
+        self.client.login(username='ipadminv', password='testpass123')
+        response = self.client.post(
+            reverse('accounts:ip_whitelist_delete', kwargs={'pk': entry.pk}),
+        )
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertFalse(entry.is_active)
+
+
+@override_settings(AXES_ENABLED=False)
+class IPRestrictionMiddlewareTest(TestCase):
+    """IP 제한 미들웨어 테스트"""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='ipmid_admin', password='testpass123', role='admin',
+        )
+        self.staff = User.objects.create_user(
+            username='ipmid_staff', password='testpass123', role='staff',
+        )
+
+    def test_no_whitelist_allows_all(self):
+        """화이트리스트가 비어있으면 모든 IP 허용"""
+        self.client.login(username='ipmid_staff', password='testpass123')
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertNotEqual(response.status_code, 403)
+
+    def test_whitelist_blocks_unlisted_ip(self):
+        """ALL 화이트리스트에 IP가 없으면 차단"""
+        from apps.accounts.models import IPWhitelist
+        # 다른 IP만 허용
+        IPWhitelist.objects.create(ip_address='10.99.99.99', scope='ALL')
+        self.client.login(username='ipmid_staff', password='testpass123')
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_whitelist_allows_listed_ip(self):
+        """ALL 화이트리스트에 IP가 있으면 허용"""
+        from apps.accounts.models import IPWhitelist
+        # 테스트 클라이언트의 기본 IP는 127.0.0.1
+        IPWhitelist.objects.create(ip_address='127.0.0.1', scope='ALL')
+        self.client.login(username='ipmid_staff', password='testpass123')
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertNotEqual(response.status_code, 403)
+
+
+# ═══════════════════════════════════════════════════
+# 세션 동시 로그인 제한 테스트
+# ═══════════════════════════════════════════════════
+
+@override_settings(AXES_ENABLED=False)
+class UserSessionModelTest(TestCase):
+    """UserSession 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='sessionuser', password='testpass123', role='staff',
+        )
+
+    def test_session_created_on_login(self):
+        """로그인 시 UserSession 레코드 생성"""
+        from apps.accounts.models import UserSession
+        self.client.login(username='sessionuser', password='testpass123')
+        self.assertTrue(UserSession.objects.filter(user=self.user).exists())
+
+    def test_session_removed_on_logout(self):
+        """로그아웃 시 UserSession 비활성화"""
+        from apps.accounts.models import UserSession
+        self.client.login(username='sessionuser', password='testpass123')
+        self.client.logout()
+        active_sessions = UserSession.objects.filter(
+            user=self.user, is_active=True,
+        ).count()
+        self.assertEqual(active_sessions, 0)
+
+    def test_max_concurrent_sessions_enforced(self):
+        """최대 동시 세션 수 초과 시 오래된 세션 삭제"""
+        from apps.accounts.models import UserSession
+        # 여러 클라이언트로 로그인하여 세션 생성
+        for i in range(5):
+            c = Client()
+            c.login(username='sessionuser', password='testpass123')
+
+        active_count = UserSession.objects.filter(
+            user=self.user, is_active=True,
+        ).count()
+        # MAX_CONCURRENT_SESSIONS 기본값 3 이하여야 함
+        self.assertLessEqual(active_count, 3)
+
+
+@override_settings(AXES_ENABLED=False)
+class ActiveSessionsViewTest(TestCase):
+    """활성 세션 뷰 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='sessionview', password='testpass123', role='staff',
+        )
+
+    def test_active_sessions_view(self):
+        """활성 세션 목록 페이지 접근"""
+        self.client.login(username='sessionview', password='testpass123')
+        response = self.client.get(reverse('accounts:active_sessions'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_terminate_other_session(self):
+        """다른 세션 강제 종료"""
+        from apps.accounts.models import UserSession
+        # 두 번째 세션 생성
+        c2 = Client()
+        c2.login(username='sessionview', password='testpass123')
+
+        # 첫 번째 클라이언트로 로그인
+        self.client.login(username='sessionview', password='testpass123')
+
+        other_sessions = UserSession.objects.filter(
+            user=self.user, is_active=True,
+        ).exclude(session_key=self.client.session.session_key)
+
+        if other_sessions.exists():
+            other = other_sessions.first()
+            response = self.client.post(
+                reverse('accounts:terminate_session', kwargs={'pk': other.pk}),
+            )
+            self.assertEqual(response.status_code, 302)
+            other.refresh_from_db()
+            self.assertFalse(other.is_active)
+
+    def test_terminate_all_sessions(self):
+        """현재 세션 외 모든 세션 종료"""
+        from apps.accounts.models import UserSession
+        # 여러 세션 생성
+        for _ in range(3):
+            c = Client()
+            c.login(username='sessionview', password='testpass123')
+
+        self.client.login(username='sessionview', password='testpass123')
+        response = self.client.post(reverse('accounts:terminate_all_sessions'))
+        self.assertEqual(response.status_code, 302)
+
+        active_count = UserSession.objects.filter(
+            user=self.user, is_active=True,
+        ).count()
+        self.assertEqual(active_count, 1)  # 현재 세션만 남음
+
+
+# ═══════════════════════════════════════════════════
+# TOTP 2FA 테스트
+# ═══════════════════════════════════════════════════
+
+class TOTPTest(TestCase):
+    """Pure Python TOTP 구현 테스트"""
+
+    def test_generate_secret(self):
+        """시크릿 키 생성"""
+        from apps.accounts.totp import generate_secret
+        secret = generate_secret()
+        self.assertEqual(len(secret), 32)  # base32 encoded 20 bytes
+        self.assertTrue(all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=' for c in secret))
+
+    def test_totp_generation(self):
+        """TOTP 코드 생성"""
+        from apps.accounts.totp import totp
+        secret = 'JBSWY3DPEHPK3PXP'  # known test secret
+        code = totp(secret, now=0)
+        self.assertEqual(len(code), 6)
+        self.assertTrue(code.isdigit())
+
+    def test_totp_verification(self):
+        """TOTP 코드 검증"""
+        from apps.accounts.totp import generate_secret, totp, verify_totp
+        secret = generate_secret()
+        code = totp(secret)
+        self.assertTrue(verify_totp(secret, code))
+
+    def test_totp_wrong_code_rejected(self):
+        """잘못된 코드는 거부"""
+        from apps.accounts.totp import generate_secret, verify_totp
+        secret = generate_secret()
+        self.assertFalse(verify_totp(secret, '000000'))
+
+    def test_totp_uri_generation(self):
+        """OTP URI 생성"""
+        from apps.accounts.totp import get_totp_uri
+        uri = get_totp_uri('JBSWY3DPEHPK3PXP', 'testuser')
+        self.assertTrue(uri.startswith('otpauth://totp/'))
+        self.assertIn('JBSWY3DPEHPK3PXP', uri)
+        self.assertIn('testuser', uri)
+        self.assertIn('ERP+Suite', uri)
+
+    def test_generate_backup_codes(self):
+        """백업코드 생성"""
+        from apps.accounts.totp import generate_backup_codes
+        codes = generate_backup_codes(count=10, length=8)
+        self.assertEqual(len(codes), 10)
+        self.assertTrue(all(len(c) == 8 for c in codes))
+
+
+class TOTPDeviceModelTest(TestCase):
+    """TOTPDevice 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='totpuser', password='TestPass123!@#',
+            name='TOTP유저', role='manager',
+        )
+
+    def test_totp_device_creation(self):
+        """TOTP 장치 생성"""
+        from apps.accounts.models import TOTPDevice
+        from apps.accounts.totp import generate_secret
+        device = TOTPDevice.objects.create(
+            user=self.user,
+            secret_key=generate_secret(),
+        )
+        self.assertFalse(device.is_verified)
+        self.assertEqual(device.backup_codes, [])
+
+    def test_totp_device_str(self):
+        """TOTP 장치 __str__"""
+        from apps.accounts.models import TOTPDevice
+        device = TOTPDevice.objects.create(
+            user=self.user,
+            secret_key='TESTKEY12345678901',
+        )
+        self.assertIn('미인증', str(device))
+        device.is_verified = True
+        device.save()
+        self.assertIn('인증됨', str(device))
+
+    def test_backup_code_verification(self):
+        """백업코드 사용 — 일회용"""
+        from apps.accounts.models import TOTPDevice
+        device = TOTPDevice.objects.create(
+            user=self.user,
+            secret_key='TESTKEY12345678901',
+            backup_codes=['abc12345', 'def67890'],
+            is_verified=True,
+        )
+        self.assertTrue(device.verify_backup_code('abc12345'))
+        self.assertFalse(device.verify_backup_code('abc12345'))  # already used
+        device.refresh_from_db()
+        self.assertEqual(len(device.backup_codes), 1)
+
+    def test_backup_code_invalid(self):
+        """잘못된 백업코드 거부"""
+        from apps.accounts.models import TOTPDevice
+        device = TOTPDevice.objects.create(
+            user=self.user,
+            secret_key='TESTKEY12345678901',
+            backup_codes=['abc12345'],
+            is_verified=True,
+        )
+        self.assertFalse(device.verify_backup_code('wrong'))
+
+
+class TwoFactorViewTest(TestCase):
+    """2FA 뷰 테스트"""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username='twofamanager', password='TestPass123!@#',
+            name='2FA매니저', role='manager',
+        )
+        self.staff = User.objects.create_user(
+            username='twofastaff', password='TestPass123!@#',
+            name='2FA직원', role='staff',
+        )
+
+    def test_setup_page_accessible(self):
+        """2FA 설정 페이지 접근 가능"""
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('accounts:two_factor_setup'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '비밀키')
+
+    def test_setup_creates_device(self):
+        """2FA 설정 시 TOTPDevice 생성"""
+        from apps.accounts.models import TOTPDevice
+        self.client.force_login(self.manager)
+        self.client.get(reverse('accounts:two_factor_setup'))
+        self.assertTrue(
+            TOTPDevice.all_objects.filter(user=self.manager).exists()
+        )
+
+    def test_setup_verify_correct_code(self):
+        """올바른 코드로 2FA 설정 완료"""
+        from apps.accounts.models import TOTPDevice
+        from apps.accounts.totp import generate_secret, totp
+        self.client.force_login(self.manager)
+        # Create device manually with known secret
+        secret = generate_secret()
+        TOTPDevice.objects.create(
+            user=self.manager, secret_key=secret, is_verified=False,
+        )
+        code = totp(secret)
+        response = self.client.post(reverse('accounts:two_factor_setup'), {'code': code})
+        self.assertEqual(response.status_code, 302)
+        device = TOTPDevice.objects.get(user=self.manager)
+        self.assertTrue(device.is_verified)
+        self.assertTrue(len(device.backup_codes) > 0)
+
+    def test_setup_wrong_code_rejected(self):
+        """잘못된 코드는 거부"""
+        from apps.accounts.models import TOTPDevice
+        self.client.force_login(self.manager)
+        TOTPDevice.objects.create(
+            user=self.manager, secret_key='TESTKEY12345678901', is_verified=False,
+        )
+        response = self.client.post(reverse('accounts:two_factor_setup'), {'code': '000000'})
+        self.assertEqual(response.status_code, 302)
+        device = TOTPDevice.objects.get(user=self.manager)
+        self.assertFalse(device.is_verified)
+
+    def test_verify_page(self):
+        """2FA 검증 페이지 접근"""
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('accounts:two_factor_verify'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_disable_2fa(self):
+        """2FA 비활성화"""
+        from apps.accounts.models import TOTPDevice
+        self.client.force_login(self.manager)
+        TOTPDevice.objects.create(
+            user=self.manager, secret_key='TESTKEY12345678901',
+            is_verified=True, backup_codes=['code1'],
+        )
+        response = self.client.post(reverse('accounts:two_factor_disable'))
+        self.assertEqual(response.status_code, 302)
+        device = TOTPDevice.all_objects.get(user=self.manager)
+        self.assertFalse(device.is_verified)
+        self.assertFalse(device.is_active)
+
+    def test_backup_codes_view(self):
+        """백업코드 조회 페이지"""
+        from apps.accounts.models import TOTPDevice
+        self.client.force_login(self.manager)
+        TOTPDevice.objects.create(
+            user=self.manager, secret_key='TESTKEY12345678901',
+            is_verified=True, backup_codes=['abc12345', 'def67890'],
+        )
+        response = self.client.get(reverse('accounts:two_factor_backup_codes'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'abc12345')
+
+    def test_regenerate_backup_codes(self):
+        """백업코드 재발급"""
+        from apps.accounts.models import TOTPDevice
+        self.client.force_login(self.manager)
+        TOTPDevice.objects.create(
+            user=self.manager, secret_key='TESTKEY12345678901',
+            is_verified=True, backup_codes=['old_code'],
+        )
+        response = self.client.post(reverse('accounts:two_factor_regenerate_backup'))
+        self.assertEqual(response.status_code, 302)
+        device = TOTPDevice.objects.get(user=self.manager)
+        self.assertEqual(len(device.backup_codes), 10)
+        self.assertNotIn('old_code', device.backup_codes)
+
+
+class TwoFactorMiddlewareTest(TestCase):
+    """2FA 미들웨어 테스트"""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username='mw_manager', password='TestPass123!@#',
+            role='manager',
+        )
+        self.staff = User.objects.create_user(
+            username='mw_staff', password='TestPass123!@#',
+            role='staff',
+        )
+
+    def test_staff_not_redirected(self):
+        """staff 역할은 2FA 미들웨어에 걸리지 않음"""
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertNotEqual(response.status_code, 302)
+
+    def test_manager_without_device_not_redirected(self):
+        """2FA 미설정 매니저는 리다이렉트 안 됨"""
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('core:dashboard'))
+        # Should not redirect to 2FA verify
+        if response.status_code == 302:
+            self.assertNotIn('two-factor/verify', response.url)
+
+    def test_manager_with_device_redirected(self):
+        """2FA 설정된 매니저는 검증 페이지로 리다이렉트"""
+        from apps.accounts.models import TOTPDevice
+        from apps.accounts.totp import generate_secret
+        TOTPDevice.objects.create(
+            user=self.manager, secret_key=generate_secret(),
+            is_verified=True,
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('two-factor/verify', response.url)
+
+    def test_2fa_verified_session_passes(self):
+        """세션에 2fa_verified 있으면 통과"""
+        from apps.accounts.models import TOTPDevice
+        from apps.accounts.totp import generate_secret
+        TOTPDevice.objects.create(
+            user=self.manager, secret_key=generate_secret(),
+            is_verified=True,
+        )
+        self.client.force_login(self.manager)
+        session = self.client.session
+        session['2fa_verified'] = True
+        session.save()
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertNotEqual(response.status_code, 302)
+
+
+# ═══════════════════════════════════════════════════
+# 비밀번호 정책 테스트
+# ═══════════════════════════════════════════════════
+
+class PasswordValidatorTest(TestCase):
+    """커스텀 비밀번호 검증 테스트"""
+
+    def test_complexity_validator_requires_uppercase(self):
+        """대문자 필수"""
+        from django.core.exceptions import ValidationError
+        from apps.accounts.validators import ComplexityValidator
+        v = ComplexityValidator()
+        with self.assertRaises(ValidationError):
+            v.validate('abcdefgh1!')
+
+    def test_complexity_validator_requires_lowercase(self):
+        """소문자 필수"""
+        from django.core.exceptions import ValidationError
+        from apps.accounts.validators import ComplexityValidator
+        v = ComplexityValidator()
+        with self.assertRaises(ValidationError):
+            v.validate('ABCDEFGH1!')
+
+    def test_complexity_validator_requires_digit(self):
+        """숫자 필수"""
+        from django.core.exceptions import ValidationError
+        from apps.accounts.validators import ComplexityValidator
+        v = ComplexityValidator()
+        with self.assertRaises(ValidationError):
+            v.validate('Abcdefghij!')
+
+    def test_complexity_validator_requires_special(self):
+        """특수문자 필수"""
+        from django.core.exceptions import ValidationError
+        from apps.accounts.validators import ComplexityValidator
+        v = ComplexityValidator()
+        with self.assertRaises(ValidationError):
+            v.validate('Abcdefgh1x')
+
+    def test_complexity_validator_requires_min_length(self):
+        """최소 10자"""
+        from django.core.exceptions import ValidationError
+        from apps.accounts.validators import ComplexityValidator
+        v = ComplexityValidator()
+        with self.assertRaises(ValidationError):
+            v.validate('Abc1!xyz')
+
+    def test_complexity_validator_accepts_valid(self):
+        """유효한 비밀번호 통과"""
+        from apps.accounts.validators import ComplexityValidator
+        v = ComplexityValidator()
+        v.validate('Abcdefgh1!')  # Should not raise
+
+    def test_no_reuse_validator(self):
+        """최근 5개 비밀번호 재사용 금지"""
+        from django.core.exceptions import ValidationError
+        from django.contrib.auth.hashers import make_password
+        from apps.accounts.models import PasswordHistory
+        from apps.accounts.validators import NoReuseValidator
+
+        user = User.objects.create_user(
+            username='reusetest', password='OldPass123!@#',
+        )
+        # Record old password in history
+        PasswordHistory.objects.create(
+            user=user,
+            password_hash=make_password('OldPass123!@#'),
+        )
+        v = NoReuseValidator()
+        with self.assertRaises(ValidationError):
+            v.validate('OldPass123!@#', user=user)
+
+    def test_no_reuse_validator_allows_different(self):
+        """다른 비밀번호는 허용"""
+        from django.contrib.auth.hashers import make_password
+        from apps.accounts.models import PasswordHistory
+        from apps.accounts.validators import NoReuseValidator
+
+        user = User.objects.create_user(
+            username='reusetest2', password='OldPass123!@#',
+        )
+        PasswordHistory.objects.create(
+            user=user,
+            password_hash=make_password('OldPass123!@#'),
+        )
+        v = NoReuseValidator()
+        v.validate('NewDifferent9!@', user=user)  # Should not raise
+
+    def test_no_reuse_validator_no_user(self):
+        """사용자 없으면 통과"""
+        from apps.accounts.validators import NoReuseValidator
+        v = NoReuseValidator()
+        v.validate('AnyPassword1!', user=None)  # Should not raise
+
+
+class PasswordHistorySignalTest(TestCase):
+    """비밀번호 변경 시 히스토리 기록 테스트"""
+
+    def test_password_change_records_history(self):
+        """비밀번호 변경 시 PasswordHistory 기록"""
+        from apps.accounts.models import PasswordHistory
+        user = User.objects.create_user(
+            username='histtest', password='OldPass123!@#',
+        )
+        user.set_password('NewPass456!@#')
+        user.save()
+        count = PasswordHistory.objects.filter(user=user).count()
+        self.assertGreaterEqual(count, 1)
+
+
+# ═══════════════════════════════════════════════════
+# PII 마스킹 템플릿 필터 테스트
+# ═══════════════════════════════════════════════════
+
+class PIIMaskingTest(TestCase):
+    """PII 마스킹 필터 테스트"""
+
+    def test_mask_ssn_with_dash(self):
+        """주민번호 마스킹 (하이픈 포함)"""
+        from apps.core.templatetags.pii_filters import mask_ssn
+        self.assertEqual(mask_ssn('123456-1234567'), '123456-*******')
+
+    def test_mask_ssn_without_dash(self):
+        """주민번호 마스킹 (하이픈 없음)"""
+        from apps.core.templatetags.pii_filters import mask_ssn
+        self.assertEqual(mask_ssn('1234561234567'), '123456-*******')
+
+    def test_mask_ssn_empty(self):
+        """빈 값은 그대로"""
+        from apps.core.templatetags.pii_filters import mask_ssn
+        self.assertEqual(mask_ssn(''), '')
+        self.assertIsNone(mask_ssn(None))
+
+    def test_mask_account_with_dashes(self):
+        """계좌번호 마스킹 (하이픈 포함)"""
+        from apps.core.templatetags.pii_filters import mask_account
+        result = mask_account('110-123-456789')
+        self.assertTrue(result.endswith('6789'))
+        self.assertIn('*', result)
+
+    def test_mask_account_without_dashes(self):
+        """계좌번호 마스킹 (하이픈 없음)"""
+        from apps.core.templatetags.pii_filters import mask_account
+        result = mask_account('110123456789')
+        self.assertTrue(result.endswith('6789'))
+        self.assertIn('*', result)
+
+    def test_mask_phone(self):
+        """전화번호 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_phone
+        self.assertEqual(mask_phone('010-1234-5678'), '010-****-5678')
+
+    def test_mask_phone_international(self):
+        """국제 전화번호 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_phone
+        result = mask_phone('+82-10-1234-5678')
+        self.assertIn('+82', result)
+        self.assertIn('5678', result)
+        self.assertIn('****', result)
+
+    def test_mask_email(self):
+        """이메일 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_email
+        result = mask_email('abcdef@example.com')
+        self.assertTrue(result.startswith('ab'))
+        self.assertIn('***', result)
+        self.assertTrue(result.endswith('@example.com'))
+
+    def test_mask_email_short_local(self):
+        """짧은 이메일 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_email
+        result = mask_email('ab@test.com')
+        self.assertTrue(result.startswith('a'))
+        self.assertTrue(result.endswith('@test.com'))
+
+    def test_mask_name_korean(self):
+        """한국 이름 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_name
+        self.assertEqual(mask_name('홍길동'), '홍*동')
+
+    def test_mask_name_two_chars(self):
+        """2글자 이름 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_name
+        self.assertEqual(mask_name('김철'), '김*')
+
+    def test_mask_name_four_chars(self):
+        """4글자 이름 마스킹"""
+        from apps.core.templatetags.pii_filters import mask_name
+        self.assertEqual(mask_name('남궁민수'), '남**수')
+
+    def test_mask_name_empty(self):
+        """빈 이름"""
+        from apps.core.templatetags.pii_filters import mask_name
+        self.assertEqual(mask_name(''), '')
+
+
+# ═══════════════════════════════════════════════════
+# Excel 감사 로그 테스트
+# ═══════════════════════════════════════════════════
+
+class ExcelDownloadLogTest(TestCase):
+    """Excel 다운로드 감사 로그 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='exceluser', password='TestPass123!@#',
+            name='Excel유저', role='manager',
+        )
+
+    def test_log_creation(self):
+        """다운로드 로그 기록"""
+        from apps.core.excel_audit import ExcelDownloadLog
+        ExcelDownloadLog.log_download(
+            user=self.user,
+            view_name='TestExcelView',
+            row_count=100,
+            ip_address='127.0.0.1',
+        )
+        self.assertEqual(
+            ExcelDownloadLog.objects.filter(user=self.user).count(), 1,
+        )
+
+    def test_log_str(self):
+        """__str__ 출력"""
+        from apps.core.excel_audit import ExcelDownloadLog
+        log = ExcelDownloadLog.objects.create(
+            user=self.user,
+            view_name='TestView',
+            row_count=50,
+            ip_address='127.0.0.1',
+        )
+        self.assertIn('TestView', str(log))
+
+
+class EmployeeMaskedPropertyTest(TestCase):
+    """EmployeeProfile 마스킹 프로퍼티 테스트"""
+
+    def test_masked_account_number(self):
+        """계좌번호 마스킹 프로퍼티"""
+        user = User.objects.create_user(
+            username='emp_mask', password='TestPass123!@#',
+            name='테스트', role='staff',
+        )
+        from apps.hr.models import EmployeeProfile
+        from datetime import date
+        emp = EmployeeProfile.objects.create(
+            user=user,
+            hire_date=date(2024, 1, 1),
+            bank_name='국민은행',
+            bank_account='110-123-456789',
+        )
+        masked = emp.masked_account_number
+        self.assertTrue(masked.endswith('6789'))
+        self.assertIn('*', masked)
+
+    def test_masked_account_number_empty(self):
+        """빈 계좌번호"""
+        user = User.objects.create_user(
+            username='emp_mask2', password='TestPass123!@#',
+            name='테스트2', role='staff',
+        )
+        from apps.hr.models import EmployeeProfile
+        from datetime import date
+        emp = EmployeeProfile.objects.create(
+            user=user,
+            hire_date=date(2024, 1, 1),
+            bank_account='',
+        )
+        self.assertEqual(emp.masked_account_number, '')

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}포털 사용자 관리 - ERP Suite{% endblock %}
+{% block page_title %}포털 사용자 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'portal:admin_user_create' %}" class="btn btn-primary">포털 사용자 추가</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">사용자</th>
+                    <th class="px-4 py-3">거래처</th>
+                    <th class="px-4 py-3">유형</th>
+                    <th class="px-4 py-3 text-center">인증</th>
+                    <th class="px-4 py-3">최근 로그인</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for pu in portal_users %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">{{ pu.user.username }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ pu.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ pu.get_portal_type_display }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if pu.is_verified %}<span class="text-green-600">인증됨</span>{% else %}<span class="text-gray-400">미인증</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ pu.last_portal_login|date:"Y-m-d H:i"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-12 text-center text-gray-400">포털 사용자가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

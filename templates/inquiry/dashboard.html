@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}문의 대시보드 - ERP Suite{% endblock %}
-{% block page_title %}문의 대시보드{% endblock %}
+{% block title %}{% trans "문의 대시보드" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "문의 대시보드" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'inquiry:inquiry_list' %}" class="btn btn-secondary">문의 목록</a>
+<a href="{% url 'inquiry:inquiry_list' %}" class="btn btn-secondary">{% trans "문의 목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -13,7 +14,7 @@
     <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm font-medium text-gray-500">접수</p>
+                <p class="text-sm font-medium text-gray-500">{% trans "접수" %}</p>
                 <p class="mt-2 text-2xl font-bold text-blue-600">{{ received_count|default:0 }}</p>
             </div>
             <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -26,7 +27,7 @@
     <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm font-medium text-gray-500">답변대기</p>
+                <p class="text-sm font-medium text-gray-500">{% trans "답변대기" %}</p>
                 <p class="mt-2 text-2xl font-bold text-yellow-600">{{ waiting_count|default:0 }}</p>
             </div>
             <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -39,7 +40,7 @@
     <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm font-medium text-gray-500">답변완료</p>
+                <p class="text-sm font-medium text-gray-500">{% trans "답변완료" %}</p>
                 <p class="mt-2 text-2xl font-bold text-green-600">{{ answered_count|default:0 }}</p>
             </div>
             <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -52,7 +53,7 @@
     <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm font-medium text-gray-500">종료</p>
+                <p class="text-sm font-medium text-gray-500">{% trans "종료" %}</p>
                 <p class="mt-2 text-2xl font-bold text-gray-600">{{ closed_count|default:0 }}</p>
             </div>
             <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
@@ -67,18 +68,18 @@
 <!-- 최근 문의 5건 -->
 <div class="bg-white shadow rounded-lg border border-gray-200">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-800">최근 문의</h3>
-        <a href="{% url 'inquiry:inquiry_list' %}" class="text-sm text-blue-600 hover:text-blue-800">전체보기</a>
+        <h3 class="text-lg font-semibold text-gray-800">{% trans "최근 문의" %}</h3>
+        <a href="{% url 'inquiry:inquiry_list' %}" class="text-sm text-blue-600 hover:text-blue-800">{% trans "전체보기" %}</a>
     </div>
     <div class="table-responsive">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
-                    <th class="px-4 py-3 text-center">채널</th>
-                    <th class="px-4 py-3">제목</th>
-                    <th class="px-4 py-3">고객명</th>
-                    <th class="px-4 py-3 text-center">상태</th>
-                    <th class="px-4 py-3">접수일</th>
+                    <th class="px-4 py-3 text-center">{% trans "채널" %}</th>
+                    <th class="px-4 py-3">{% trans "제목" %}</th>
+                    <th class="px-4 py-3">{% trans "고객명" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3">{% trans "접수일" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -95,20 +96,20 @@
                     <td class="px-4 py-3 text-gray-900">{{ inquiry.customer_name }}</td>
                     <td class="px-4 py-3 text-center">
                         {% if inquiry.status == '접수' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">접수</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{% trans "접수" %}</span>
                         {% elif inquiry.status == '답변대기' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">답변대기</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "답변대기" %}</span>
                         {% elif inquiry.status == '답변완료' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">답변완료</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "답변완료" %}</span>
                         {% elif inquiry.status == '종료' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">종료</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "종료" %}</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ inquiry.created_at|date:"Y-m-d" }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">최근 문의가 없습니다.</td>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "최근 문의가 없습니다." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}{% if form.instance.pk %}입출고 수정{% else %}입출고 등록{% endif %} - ERP Suite{% endblock %}
-{% block page_title %}{% if form.instance.pk %}입출고 수정{% else %}입출고 등록{% endif %}{% endblock %}
+{% load i18n %}
+{% block title %}{% if form.instance.pk %}{% trans "입출고 수정" %}{% else %}{% trans "입출고 등록" %}{% endif %} - ERP Suite{% endblock %}
+{% block page_title %}{% if form.instance.pk %}{% trans "입출고 수정" %}{% else %}{% trans "입출고 등록" %}{% endif %}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'inventory:movement_list' %}" class="btn btn-secondary">
     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
     </svg>
-    목록
+    {% trans "목록" %}
 </a>
 {% endblock %}
 
@@ -41,11 +42,11 @@
                     {% elif field.name == 'unit_price' %}
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs text-gray-500 mb-1">총액</label>
-                            <input type="number" id="id_total_amount" class="form-input w-full" min="0" placeholder="총 구매금액">
+                            <label class="block text-xs text-gray-500 mb-1">{% trans "총액" %}</label>
+                            <input type="number" id="id_total_amount" class="form-input w-full" min="0" placeholder="{% trans '총 구매금액'%}">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-500 mb-1">단가 (자동계산)</label>
+                            <label class="block text-xs text-gray-500 mb-1">{% trans "단가 (자동계산)" %}</label>
                             {{ field }}
                         </div>
                     </div>
@@ -68,9 +69,9 @@
             </div>
 
             <div class="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
-                <a href="{% url 'inventory:movement_list' %}" class="btn btn-secondary">취소</a>
+                <a href="{% url 'inventory:movement_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
                 <button type="submit" class="btn btn-primary">
-                    {% if form.instance.pk %}수정{% else %}등록{% endif %}
+                    {% if form.instance.pk %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %}
                 </button>
             </div>
         </form>
@@ -80,7 +81,7 @@
 
 {% block extra_js %}
 {{ form.product_units_json|json_script:"product-units-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
     const productSelect = document.getElementById('id_product');
@@ -98,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const unitPriceInput = document.getElementById('id_unit_price');
     const quantityInput = document.getElementById('id_quantity');
     if (totalInput && unitPriceInput && quantityInput) {
-        let lastEdited = 'unit_price';  // 마지막 수정 필드 추적
+        {% trans "let lastEdited = 'unit_price';  // 마지막 수정 필드 추적" %}
 
         totalInput.addEventListener('input', function() {
             lastEdited = 'total';

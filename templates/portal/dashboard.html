@@ -1,0 +1,69 @@
+{% extends "portal/base_portal.html" %}
+
+{% block title %}포털 대시보드 - ERP Suite{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-900 mb-6">{{ partner.name }} 대시보드</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    {% if portal_user.portal_type == 'CUSTOMER' %}
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">주문 건수</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{{ order_count|default:0 }}</p>
+    </div>
+    {% else %}
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">발주 건수</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{{ po_count|default:0 }}</p>
+    </div>
+    {% endif %}
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">읽지 않은 알림</p>
+        <p class="text-3xl font-bold text-orange-600 mt-1">{{ unread_notifications }}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        {% if portal_user.portal_type == 'CUSTOMER' %}
+        <h3 class="text-lg font-semibold mb-4">최근 주문</h3>
+        <div class="space-y-2">
+            {% for order in recent_orders %}
+            <div class="flex justify-between items-center text-sm">
+                <a href="{% url 'portal:order_detail' order.order_number %}" class="text-blue-600 hover:underline">{{ order.order_number }}</a>
+                <span class="text-gray-500">{{ order.get_status_display }}</span>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">주문 내역이 없습니다.</p>
+            {% endfor %}
+        </div>
+        {% else %}
+        <h3 class="text-lg font-semibold mb-4">최근 발주</h3>
+        <div class="space-y-2">
+            {% for po in recent_pos %}
+            <div class="flex justify-between items-center text-sm">
+                <span class="text-gray-900">{{ po.po_number }}</span>
+                <span class="text-gray-500">{{ po.get_status_display }}</span>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">발주 내역이 없습니다.</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">최근 알림</h3>
+        <div class="space-y-2">
+            {% for notif in recent_notifications %}
+            <div class="flex justify-between items-center text-sm">
+                <span class="{% if not notif.is_read %}font-medium{% endif %} text-gray-700">{{ notif.title|truncatechars:30 }}</span>
+                <span class="text-gray-500">{{ notif.created_at|date:"m/d" }}</span>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">알림이 없습니다.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

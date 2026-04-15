@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}은행 거래내역 - ERP Suite{% endblock %}
+{% block page_title %}은행 거래내역{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <form method="get" class="flex gap-2 items-center flex-wrap">
+        <select name="match_status" class="form-input w-auto">
+            <option value="">전체 상태</option>
+            {% for value, label in match_status_choices %}
+            <option value="{{ value }}" {% if request.GET.match_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-secondary">검색</button>
+    </form>
+</div>
+
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">거래일</th>
+                    <th class="px-4 py-3">은행</th>
+                    <th class="px-4 py-3">적요</th>
+                    <th class="px-4 py-3 text-right">금액</th>
+                    <th class="px-4 py-3 text-center">유형</th>
+                    <th class="px-4 py-3 text-center">매칭상태</th>
+                    <th class="px-4 py-3 text-center">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for txn in transactions %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-600">{{ txn.transaction_date|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ txn.statement.connection.bank_name }}</td>
+                    <td class="px-4 py-3 text-gray-900">{{ txn.description|truncatewords:10 }}</td>
+                    <td class="px-4 py-3 text-right font-medium {% if txn.amount < 0 %}text-red-600{% else %}text-gray-900{% endif %}">{{ txn.amount|floatformat:0 }}</td>
+                    <td class="px-4 py-3 text-center">{{ txn.get_transaction_type_display }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if txn.match_status == 'MATCHED' or txn.match_status == 'AUTO_MATCHED' or txn.match_status == 'MANUAL_MATCHED' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">매칭됨</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{{ txn.get_match_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if txn.match_status == 'UNMATCHED' %}
+                        <form method="post" action="{% url 'accounting:bank_transaction_match' txn.pk %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-primary">매칭</button>
+                        </form>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">거래내역이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200">
+        {% include "includes/pagination.html" %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

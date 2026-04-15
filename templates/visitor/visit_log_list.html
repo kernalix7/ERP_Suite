@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}방문 기록{% endblock %}
+{% block page_title %}방문 기록{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <input type="text" name="q" value="{{ request.GET.q }}" placeholder="방문자명/방문증 검색..." class="form-input flex-1 min-w-[200px]">
+            <input type="date" name="date" value="{{ request.GET.date }}" class="form-input w-auto">
+            <button type="submit" class="btn btn-secondary">검색</button>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">방문자</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">소속</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">방문증</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">체크인</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">체크아웃</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">체류</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">액션</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for log in visit_logs %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-medium">{{ log.visitor.name }}</td>
+                    <td class="px-4 py-3 text-sm">{{ log.visitor.company }}</td>
+                    <td class="px-4 py-3 text-sm font-mono">{{ log.badge_number|default:"-" }}</td>
+                    <td class="px-4 py-3 text-sm">{{ log.check_in_at|date:"H:i" }}</td>
+                    <td class="px-4 py-3 text-sm">{{ log.check_out_at|date:"H:i"|default:"체류중" }}</td>
+                    <td class="px-4 py-3 text-sm">{{ log.duration_minutes|default:"-" }}{% if log.duration_minutes %}분{% endif %}</td>
+                    <td class="px-4 py-3 text-sm">
+                        {% if not log.check_out_at %}
+                        <a href="{% url 'visitor:check_out' log.pk %}" class="text-blue-600 hover:underline text-xs">체크아웃</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">방문 기록이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "partials/pagination.html" %}
+</div>
+{% endblock %}

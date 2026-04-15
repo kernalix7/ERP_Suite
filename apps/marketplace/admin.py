@@ -1,7 +1,15 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import ImportSession, MarketplaceConfig, MarketplaceOrder, SyncLog
+from .models import (
+    ImportSession,
+    ImportTemplate,
+    MarketplaceConfig,
+    MarketplaceOrder,
+    ProductMapping,
+    SettlementReconciliation,
+    SyncLog,
+)
 
 
 @admin.register(MarketplaceConfig)
@@ -27,3 +35,21 @@ class ImportSessionAdmin(SimpleHistoryAdmin):
 class SyncLogAdmin(SimpleHistoryAdmin):
     list_display = ('direction', 'started_at', 'completed_at', 'total_count', 'success_count', 'error_count')
     list_filter = ('direction', 'started_at')
+
+
+@admin.register(ImportTemplate)
+class ImportTemplateAdmin(SimpleHistoryAdmin):
+    list_display = ('__str__', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+
+
+@admin.register(ProductMapping)
+class ProductMappingAdmin(SimpleHistoryAdmin):
+    list_display = ('__str__', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+
+
+@admin.register(SettlementReconciliation)
+class SettlementReconciliationAdmin(SimpleHistoryAdmin):
+    list_display = ('__str__', 'is_active', 'created_at')
+    list_filter = ('is_active',)

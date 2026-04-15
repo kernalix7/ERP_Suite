@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ article.title }} - 위키{% endblock %}
+{% block page_title %}{{ article.title }}{% endblock %}
+
+{% block header_actions %}
+{% if request.user == article.author or request.user.is_staff %}
+<a href="{% url 'wiki:article_update' article.slug %}" class="btn btn-secondary">편집</a>
+{% endif %}
+<a href="{% url 'wiki:article_history' article.slug %}" class="btn btn-secondary">수정 이력</a>
+<a href="{% url 'wiki:article_list' %}?space={{ article.space.pk }}" class="btn btn-secondary">목록</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="lg:col-span-3 space-y-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="flex flex-wrap gap-4 text-sm text-gray-500 mb-4 pb-4 border-b border-gray-100">
+                <span>공간: <a href="{% url 'wiki:article_list' %}?space={{ article.space.pk }}" class="text-blue-600 hover:underline">{{ article.space.name }}</a></span>
+                {% if article.category %}<span>카테고리: {{ article.category.name }}</span>{% endif %}
+                <span>작성자: {{ article.author.get_full_name|default:article.author.username }}</span>
+                <span>수정일: {{ article.updated_at|date:"Y-m-d H:i" }}</span>
+                <span>조회: {{ article.view_count }}</span>
+                <span class="font-mono text-xs text-gray-400">{{ article.article_number }}</span>
+            </div>
+            <div class="prose max-w-none">{{ article.content|linebreaks }}</div>
+            {% if article.tags %}
+            <div class="mt-4 pt-4 border-t border-gray-100 flex gap-2 flex-wrap">
+                {% for tag in article.tags %}
+                <a href="{% url 'wiki:article_search' %}?tag={{ tag }}" class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200">#{{ tag }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <!-- 첨부파일 -->
+        {% if attachments %}
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-3 text-sm">첨부파일</h3>
+            <ul class="space-y-2">
+                {% for att in attachments %}
+                <li class="flex items-center gap-2 text-sm">
+                    <a href="{{ att.file.url }}" class="text-blue-600 hover:underline">{{ att.file_name }}</a>
+                    <span class="text-gray-400 text-xs">({{ att.file_size|filesizeformat }})</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <!-- 댓글 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-3">댓글 {{ comments|length }}개</h3>
+            {% for comment in comments %}
+            <div class="mb-4 pb-4 border-b border-gray-100 last:border-0 {% if comment.parent %}ml-6{% endif %}">
+                <div class="flex justify-between text-sm">
+                    <span class="font-medium">{{ comment.author.get_full_name|default:comment.author.username }}</span>
+                    <span class="text-gray-400">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <p class="text-sm mt-1 text-gray-700">{{ comment.content|linebreaks }}</p>
+            </div>
+            {% endfor %}
+            <form method="post" action="{% url 'wiki:comment_create' article.pk %}">
+                {% csrf_token %}
+                <textarea name="content" rows="3" placeholder="댓글을 작성하세요..." class="form-input w-full mb-2"></textarea>
+                <button type="submit" class="btn btn-primary btn-sm">댓글 등록</button>
+            </form>
+        </div>
+    </div>
+    <div class="space-y-4">
+        <!-- 수정 이력 -->
+        {% if revisions %}
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-2 text-sm">최근 수정 이력</h3>
+            <ul class="space-y-1">
+                {% for rev in revisions %}
+                <li class="text-xs">
+                    <a href="{% url 'wiki:revision_detail' rev.pk %}" class="text-blue-600 hover:underline">v{{ rev.revision_number }}</a>
+                    <span class="text-gray-400">— {{ rev.revised_by.get_full_name|default:rev.revised_by.username }} ({{ rev.created_at|date:"Y-m-d" }})</span>
+                    {% if rev.change_summary %}<p class="text-gray-500 mt-0.5">{{ rev.change_summary|truncatechars:50 }}</p>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            <a href="{% url 'wiki:article_history' article.slug %}" class="text-xs text-blue-600 hover:underline mt-2 block">전체 이력 보기</a>
+        </div>
+        {% endif %}
+        <!-- 같은 공간의 최근 문서 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="font-semibold mb-2 text-sm">관련 링크</h3>
+            <ul class="space-y-1 text-xs">
+                <li><a href="{% url 'wiki:article_list' %}?space={{ article.space.pk }}" class="text-blue-600 hover:underline">{{ article.space.name }} 문서 목록</a></li>
+                <li><a href="{% url 'wiki:category_tree' article.space.code %}" class="text-gray-600 hover:underline">카테고리</a></li>
+                <li><a href="{% url 'wiki:recent_changes' %}" class="text-gray-600 hover:underline">최근 변경</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

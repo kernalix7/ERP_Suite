@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "SLA 관리 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "SLA 관리" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'helpdesk:sla_create' %}" class="btn btn-primary">SLA 추가</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">SLA명</th>
+                    <th class="px-4 py-3">{% trans "응답 시간(시간)" %}</th>
+                    <th class="px-4 py-3">{% trans "해결 시간(시간)" %}</th>
+                    <th class="px-4 py-3">{% trans "에스컬레이션 시간(시간)" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for sla in slas %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">{{ sla.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ sla.response_time_hours }}h</td>
+                    <td class="px-4 py-3 text-gray-600">{{ sla.resolution_time_hours }}h</td>
+                    <td class="px-4 py-3 text-gray-600">{{ sla.escalation_time_hours }}h</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'helpdesk:sla_update' sla.pk %}" class="text-blue-600 hover:underline text-sm">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-12 text-center text-gray-400">등록된 SLA가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

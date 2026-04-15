@@ -1,5 +1,8 @@
+import json
+
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Max, Prefetch
+from django.db.models import Max, Prefetch, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -8,7 +11,7 @@ from django.views.generic import ListView, DetailView, FormView
 
 from apps.accounts.models import User
 from .forms import GroupChatForm
-from .models import ChatRoom, ChatParticipant, Message
+from .models import ChatRoom, ChatParticipant, Message, MessageAttachment
 
 
 class ChatListView(LoginRequiredMixin, ListView):
@@ -192,3 +195,84 @@ class CreateGroupChatView(LoginRequiredMixin, FormView):
                 ChatParticipant.objects.create(room=room, user=user, created_by=self.request.user)
 
         return redirect('messenger:chat_room', pk=room.pk)
+
+
+class MessageSearchView(LoginRequiredMixin, ListView):
+    """키워드 기반 메시지 검색"""
+    template_name = 'messenger/search.html'
+    context_object_name = 'messages'
+    paginate_by = 30
+
+    def get_queryset(self):
+        keyword = self.request.GET.get('q', '').strip()
+        if not keyword:
+            return Message.objects.none()
+        user_rooms = ChatRoom.objects.filter(
+            chatparticipant__user=self.request.user,
+            is_active=True,
+        )
+        return (
+            Message.objects.filter(
+                room__in=user_rooms,
+                content__icontains=keyword,
+            )
+            .select_related('sender', 'room')
+            .order_by('-sent_at')
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['keyword'] = self.request.GET.get('q', '')
+        return ctx
+
+
+class FileUploadView(LoginRequiredMixin, View):
+    """파일 업로드 → MessageAttachment 생성"""
+
+    def post(self, request):
+        room_id = request.POST.get('room_id')
+        message_id = request.POST.get('message_id')
+        uploaded_file = request.FILES.get('file')
+
+        if not uploaded_file or not room_id:
+            return JsonResponse({'error': '파일과 채팅방 ID가 필요합니다.'}, status=400)
+
+        room = get_object_or_404(
+            ChatRoom,
+            pk=room_id,
+            chatparticipant__user=request.user,
+            is_active=True,
+        )
+
+        max_size = 10 * 1024 * 1024
+        if uploaded_file.size > max_size:
+            return JsonResponse({'error': '파일 크기는 10MB를 초과할 수 없습니다.'}, status=400)
+
+        if message_id:
+            message = get_object_or_404(Message, pk=message_id, room=room)
+        else:
+            message = Message.objects.create(
+                room=room,
+                sender=request.user,
+                content=uploaded_file.name,
+                message_type=Message.MessageType.FILE,
+                created_by=request.user,
+            )
+            room.save(update_fields=['updated_at'])
+
+        attachment = MessageAttachment.objects.create(
+            message=message,
+            file=uploaded_file,
+            filename=uploaded_file.name,
+            file_size=uploaded_file.size,
+            content_type=uploaded_file.content_type or '',
+            created_by=request.user,
+        )
+
+        return JsonResponse({
+            'message_id': message.pk,
+            'attachment_id': attachment.pk,
+            'filename': attachment.filename,
+            'file_url': attachment.file.url,
+            'file_size': attachment.file_size,
+        })

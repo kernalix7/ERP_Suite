@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "프로젝트 목록" %}{% endblock %}
+{% block page_title %}{% trans "프로젝트 관리" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'project:project_create' %}" class="btn btn-primary">{% trans "+ 프로젝트 등록" %}</a>
+<a href="{% url 'project:task_list' %}" class="btn btn-secondary">{% trans "전체 태스크" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex flex-wrap gap-3">
+            <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans '프로젝트명 검색...' %}" class="form-input flex-1 min-w-[200px]">
+            <select name="status" class="form-input w-auto">
+                <option value="">{% trans "전체 상태" %}</option>
+                <option value="PLANNING" {% if request.GET.status == 'PLANNING' %}selected{% endif %}>{% trans "기획" %}</option>
+                <option value="ACTIVE" {% if request.GET.status == 'ACTIVE' %}selected{% endif %}>{% trans "진행중" %}</option>
+                <option value="COMPLETED" {% if request.GET.status == 'COMPLETED' %}selected{% endif %}>{% trans "완료" %}</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">{% trans "검색" %}</button>
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "번호" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "프로젝트명" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "관리자" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "우선순위" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "목표완료일" %}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "진행률" %}</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for project in projects %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-mono">{{ project.project_number }}</td>
+                    <td class="px-4 py-3 text-sm font-medium">
+                        <a href="{% url 'project:project_detail' project.pk %}" class="text-blue-600 hover:underline">{{ project.name }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-sm">{{ project.manager.get_full_name|default:project.manager.username }}</td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="px-2 py-0.5 rounded-full text-xs {% if project.status == 'ACTIVE' %}bg-green-100 text-green-800{% elif project.status == 'COMPLETED' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {{ project.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm">{{ project.get_priority_display }}</td>
+                    <td class="px-4 py-3 text-sm">{{ project.due_date|default:"-" }}</td>
+                    <td class="px-4 py-3 text-sm">{{ project.progress_pct }}%</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">{% trans "등록된 프로젝트가 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "partials/pagination.html" %}
+</div>
+{% endblock %}

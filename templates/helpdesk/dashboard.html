@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "헬프데스크 대시보드 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "헬프데스크 대시보드" %}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">미해결 티켓</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{{ open_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">SLA 위반</p>
+        <p class="text-3xl font-bold text-red-600 mt-1">{{ breached_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">해결 완료</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">{{ resolved_count }}</p>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500">종료</p>
+        <p class="text-3xl font-bold text-gray-600 mt-1">{{ closed_count }}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">우선순위별 현황</h3>
+        <div class="space-y-2">
+            {% for item in by_priority %}
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-700">{{ item.priority }}</span>
+                <span class="text-sm font-medium">{{ item.count }}건</span>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">미해결 티켓이 없습니다.</p>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">최근 티켓</h3>
+        <div class="space-y-2">
+            {% for ticket in recent_tickets %}
+            <div class="flex justify-between items-center text-sm">
+                <a href="{% url 'helpdesk:ticket_detail' ticket.ticket_number %}" class="text-blue-600 hover:underline truncate mr-2">{{ ticket.title|truncatechars:30 }}</a>
+                <span class="text-gray-500 whitespace-nowrap">{{ ticket.created_at|date:"m/d" }}</span>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">최근 티켓이 없습니다.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

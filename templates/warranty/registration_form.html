@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load i18n %}
 
 {% block title %}정품등록 {{ form.instance.pk|yesno:"수정,등록" }} - ERP Suite{% endblock %}
 {% block page_title %}정품등록 {{ form.instance.pk|yesno:"수정,등록" }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -14,7 +15,7 @@
     <!-- 제품 정보 -->
     <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-800">제품 정보</h2>
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "제품 정보" %}</h2>
         </div>
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
             {% for field in form %}
@@ -40,7 +41,7 @@
     <!-- 고객 정보 -->
     <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-800">고객 정보</h2>
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "고객 정보" %}</h2>
         </div>
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
             <!-- 고객 선택 -->
@@ -105,7 +106,7 @@
     <!-- 보증 정보 -->
     <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-800">보증 정보</h2>
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "보증 정보" %}</h2>
         </div>
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
             {% for field in form %}
@@ -131,9 +132,9 @@
     <!-- 인증 / 사진 / 비고 -->
     <div class="bg-white shadow rounded-lg border border-gray-200 mb-6" id="verification-section">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-800">인증 정보</h2>
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "인증 정보" %}</h2>
             {% if not form.instance.is_verified %}
-            <span class="text-xs text-gray-400">인증 완료 후 활성화됩니다</span>
+            <span class="text-xs text-gray-400">{% trans "인증 완료 후 활성화됩니다" %}</span>
             {% endif %}
         </div>
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -157,14 +158,14 @@
     </div>
 
     <div class="flex justify-end gap-3">
-        <a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">취소</a>
-        <button type="submit" class="btn btn-primary">저장</button>
+        <a href="{% url 'warranty:registration_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        <button type="submit" class="btn btn-primary">{% trans "저장" %}</button>
     </div>
 </form>
 
 {% if customer_data_json %}
 {{ customer_data_json|json_script:"customer-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function() {
     const customers = JSON.parse(document.getElementById('customer-data').textContent);
     const customerSel = document.getElementById('id_customer');

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}자산 유지보수{% endblock %}
+{% block page_title %}자산 유지보수 관리{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'asset:maintenance_create' %}" class="btn btn-primary">+ 등록</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="p-4 border-b border-gray-200">
+        <form method="get" class="flex gap-3">
+            <select name="status" class="form-input w-auto">
+                <option value="">전체 상태</option>
+                <option value="SCHEDULED">예정</option>
+                <option value="IN_PROGRESS">진행중</option>
+                <option value="COMPLETED">완료</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">필터</button>
+        </form>
+    </div>
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">자산</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">예정일</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">완료일</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">비용</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">담당</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">액션</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for m in maintenances %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm">{{ m.asset.name }}</td>
+                <td class="px-4 py-3 text-sm">{{ m.get_maintenance_type_display }}</td>
+                <td class="px-4 py-3 text-sm">
+                    <span class="px-2 py-0.5 rounded text-xs {% if m.status == 'COMPLETED' %}bg-green-100 text-green-700{% elif m.status == 'IN_PROGRESS' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                        {{ m.get_status_display }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-sm">{{ m.scheduled_date }}</td>
+                <td class="px-4 py-3 text-sm">{{ m.completed_date|default:"-" }}</td>
+                <td class="px-4 py-3 text-sm">{{ m.cost|default:"0" }}원</td>
+                <td class="px-4 py-3 text-sm">{{ m.technician.get_full_name|default:"-" }}</td>
+                <td class="px-4 py-3 text-sm">
+                    <a href="{% url 'asset:maintenance_update' m.pk %}" class="text-blue-600 hover:underline text-xs">수정</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">유지보수 데이터가 없습니다.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% include "partials/pagination.html" %}
+</div>
+{% endblock %}

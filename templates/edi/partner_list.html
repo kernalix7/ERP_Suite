@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "EDI 거래처 - ERP Suite" %}{% endblock %}
+{% block page_title %}{% trans "EDI 거래처" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'edi:partner_create' %}" class="btn btn-primary">거래처 추가</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase font-medium">
+                    <th class="px-4 py-3">EDI ID</th>
+                    <th class="px-4 py-3">{% trans "거래처" %}</th>
+                    <th class="px-4 py-3">{% trans "프로토콜" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for ep in edi_partners %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ ep.edi_id }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ ep.partner.name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ ep.get_protocol_display }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'edi:partner_update' ep.pk %}" class="text-blue-600 hover:underline text-sm">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-4 py-12 text-center text-gray-400">EDI 거래처가 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

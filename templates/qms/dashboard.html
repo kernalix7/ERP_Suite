@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "QMS 대시보드" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "품질관리(QMS) 대시보드" %}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "미해결 부적합" %}</p>
+        <p class="text-2xl font-bold text-red-600 mt-1">{{ open_ncs }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "진행중 CAPA" %}</p>
+        <p class="text-2xl font-bold text-yellow-600 mt-1">{{ open_capas }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "예정 감사" %}</p>
+        <p class="text-2xl font-bold text-blue-600 mt-1">{{ planned_audits }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-sm text-gray-500">{% trans "유효 ISO 문서" %}</p>
+        <p class="text-2xl font-bold text-green-600 mt-1">{{ active_docs }}</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 class="text-lg font-semibold mb-3">{% trans "바로가기" %}</h3>
+        <div class="space-y-2">
+            <a href="{% url 'qms:nc_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">부적합 관리</a>
+            <a href="{% url 'qms:capa_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">CAPA 관리</a>
+            <a href="{% url 'qms:audit_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">내부감사</a>
+            <a href="{% url 'qms:isodoc_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">ISO 문서</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

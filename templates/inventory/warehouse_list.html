@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}창고 관리 - ERP Suite{% endblock %}
-{% block page_title %}창고 관리{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "창고 관리" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "창고 관리" %}{% endblock %}
 
 {% block header_actions %}
 {% if user.is_manager_role %}
@@ -9,13 +10,13 @@
     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
-    등록
+    {% trans "등록" %}
 </a>
-<a href="{% url 'inventory:warehouse_import' %}" class="btn btn-secondary" title="일괄 가져오기">
+<a href="{% url 'inventory:warehouse_import' %}" class="btn btn-secondary" title="{% trans '일괄 가져오기'%}">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
     </svg>
-    가져오기
+    {% trans "가져오기" %}
 </a>
 {% endif %}
 {% endblock %}
@@ -26,12 +27,12 @@
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">창고코드</th>
-                    <th class="px-4 py-3">창고명</th>
-                    <th class="px-4 py-3">위치</th>
-                    <th class="px-4 py-3">담당자</th>
-                    <th class="px-4 py-3 text-center">상태</th>
-                    <th class="px-4 py-3 text-center">관리</th>
+                    <th class="px-4 py-3">{% trans "창고코드" %}</th>
+                    <th class="px-4 py-3">{% trans "창고명" %}</th>
+                    <th class="px-4 py-3">{% trans "위치" %}</th>
+                    <th class="px-4 py-3">{% trans "담당자" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "상태" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -43,15 +44,15 @@
                     <td class="px-4 py-3 text-gray-600">{{ warehouse.manager|default:"-" }}</td>
                     <td class="px-4 py-3 text-center">
                         {% if warehouse.is_active %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">사용중</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "사용중" %}</span>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">미사용</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{% trans "미사용" %}</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
                             <a href="{% url 'inventory:warehouse_update' warehouse.pk %}"
-                               class="text-blue-600 hover:text-blue-800 text-xs font-medium">수정</a>
+                               class="text-blue-600 hover:text-blue-800 text-xs font-medium">{% trans "수정" %}</a>
                         </div>
                     </td>
                 </tr>
@@ -61,7 +62,7 @@
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
                         </svg>
-                        등록된 창고가 없습니다.
+                        {% trans "등록된 창고가 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
