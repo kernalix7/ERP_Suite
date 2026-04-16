@@ -1,7 +1,7 @@
 from django import forms
 from django.core.validators import FileExtensionValidator
 from apps.core.forms import BaseForm
-from .models import Category, Product, Warehouse, StockMovement, StockTransfer
+from .models import Category, Product, Warehouse, StockMovement, StockTransfer, CostBasisConfig
 
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5MB
 
@@ -18,7 +18,8 @@ class ProductForm(BaseForm):
         fields = [
             'code', 'name', 'product_type', 'category', 'unit',
             'unit_price', 'cost_price', 'valuation_method',
-            'safety_stock', 'specification', 'image', 'notes',
+            'safety_stock', 'specification', 'image',
+            'auto_standard_cost', 'notes',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -160,3 +161,9 @@ class StockOutForm(BaseForm):
             str(p.pk): p.unit or ''
             for p in Product.objects.filter(is_active=True)
         }
+
+
+class CostBasisConfigForm(BaseForm):
+    class Meta:
+        model = CostBasisConfig
+        fields = ['stage', 'primary_basis', 'fallback_basis']

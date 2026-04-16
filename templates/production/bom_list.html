@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% load i18n %}
+{% load i18n humanize %}
 {% block title %}{% trans "BOM 관리" %} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "BOM 관리" %}{% endblock %}
 
@@ -58,7 +58,7 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-500">{{ bom.created_at|date:"Y-m-d" }}</td>
-                    <td class="px-4 py-3 text-center text-gray-700">{{ bom.items.count }}개</td>
+                    <td class="px-4 py-3 text-center text-gray-700">{{ bom.items.count }}{% trans "개" %}</td>
                     <td class="px-4 py-3 text-right">
                         <a href="{% url 'production:bom_update' bom.pk %}" class="text-gray-500 hover:text-blue-600">
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">

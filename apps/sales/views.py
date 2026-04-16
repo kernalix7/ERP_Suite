@@ -37,13 +37,24 @@ def _product_units_json():
     return {str(p.pk): p.unit or '' for p in Product.objects.filter(is_active=True)}
 
 
-def _product_costs_json():
-    """제품별 생산원가 JSON (최신 생산실적 unit_cost → BOM 원가 → product.cost_price 순)"""
-    from django.db.models import Max, Subquery, OuterRef
-    from apps.production.models import BOM, ProductionRecord
+def _product_costs_json(stage='QUOTATION'):
+    """제품별 원가 JSON — CostBasisConfig 설정에 따라 단계별 원가 반환.
+
+    설정이 없으면 기존 로직(생산원가 → BOM → 제품원가)으로 폴백.
+    """
+    from apps.inventory.models import CostBasisConfig
 
     products = list(Product.objects.filter(is_active=True))
     product_ids = [p.pk for p in products]
+
+    # CostBasisConfig 설정이 있으면 설정 기반 조회
+    config = CostBasisConfig.objects.filter(stage=stage, is_active=True).first()
+    if config:
+        return CostBasisConfig.get_costs_bulk(product_ids, stage)
+
+    # 설정 없으면 기존 로직 (하위 호환)
+    from django.db.models import Max
+    from apps.production.models import BOM, ProductionRecord
 
     # 1순위: 제품별 최신 생산실적의 unit_cost (배치 조회)
     latest_costs = dict(
@@ -335,7 +346,7 @@ class OrderCreateView(ManagerRequiredMixin, CreateView):
         else:
             ctx['formset'] = OrderItemFormSet()
         ctx['product_units_json'] = _product_units_json()
-        ctx['product_costs_json'] = _product_costs_json()
+        ctx['product_costs_json'] = _product_costs_json(stage='ORDER')
         ctx['quote_notes'] = ''
         return ctx
 
@@ -464,7 +475,7 @@ class OrderUpdateView(ManagerRequiredMixin, UpdateView):
         else:
             ctx['formset'] = OrderItemFormSet(instance=self.object)
         ctx['product_units_json'] = _product_units_json()
-        ctx['product_costs_json'] = _product_costs_json()
+        ctx['product_costs_json'] = _product_costs_json(stage='ORDER')
         ctx['is_settled'] = self.object.is_settled
         # 견적서 비고 (있으면)
         quote = self.object.source_quotation.first()
@@ -669,7 +680,7 @@ class OrderModifyView(ManagerRequiredMixin, UpdateView):
         else:
             ctx['formset'] = OrderItemFormSet(instance=self.object)
         ctx['product_units_json'] = _product_units_json()
-        ctx['product_costs_json'] = _product_costs_json()
+        ctx['product_costs_json'] = _product_costs_json(stage='ORDER')
         ctx['is_modify'] = True
         return ctx
 

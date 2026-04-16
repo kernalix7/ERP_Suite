@@ -997,16 +997,18 @@ def generate_settlement_pdf(settlement):
     if items_qs.exists():
         elements.append(Paragraph('정산 주문 내역', styles['KorSubTitle']))
         headers = [
-            'No', '주문번호', '거래처', '공급가액', '원가',
+            'No', '주문번호', '거래처', '고객', '공급가액', '원가',
             '배송비', '플랫폼', '수수료율', '정산수수료', '이익',
         ]
         rows = []
         for idx, item in enumerate(items_qs, 1):
             partner = item.order.partner
+            customer = item.order.customer
             rows.append([
                 str(idx),
                 item.order.order_number,
                 partner.name[:6] if partner else '-',
+                customer.name[:4] if customer else '-',
                 format_won(item.revenue),
                 format_won(item.cost),
                 format_won(item.shipping),
@@ -1017,8 +1019,8 @@ def generate_settlement_pdf(settlement):
             ])
         t = _items_table(headers, rows)
         t._colWidths = [
-            7*mm, 28*mm, 18*mm, 20*mm, 18*mm,
-            16*mm, 16*mm, 14*mm, 18*mm, 18*mm,
+            7*mm, 26*mm, 17*mm, 13*mm, 19*mm, 17*mm,
+            15*mm, 15*mm, 13*mm, 17*mm, 17*mm,
         ]
         elements.append(t)
 

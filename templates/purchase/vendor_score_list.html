@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}공급처 평가 - ERP Suite{% endblock %}
-{% block page_title %}공급처 평가{% endblock %}
+{% block title %}{% trans "공급처 평가" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "공급처 평가" %}{% endblock %}
 
 {% block header_actions %}
 {% if user.is_manager_role %}
@@ -10,14 +10,14 @@
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
     </svg>
-    평가 등록
+    {% trans "평가 등록" %}
 </a>
 {% endif %}
 <a href="{% url 'purchase:vendor_scorecard' %}" class="btn btn-secondary">
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
     </svg>
-    스코어카드
+    {% trans "스코어카드" %}
 </a>
 {% endblock %}
 
@@ -26,7 +26,7 @@
 <div class="mb-4">
     <select onchange="if(this.value) location.href='?partner='+this.value; else location.href='{% url 'purchase:vendor_score_list' %}';"
             class="form-input text-sm">
-        <option value="">공급처 전체</option>
+        <option value="">{% trans "공급처 전체" %}</option>
         {% for p in partners %}
         <option value="{{ p.pk }}" {% if request.GET.partner == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.name }}</option>
         {% endfor %}
@@ -38,14 +38,14 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                    <th class="px-4 py-3">공급처</th>
-                    <th class="px-4 py-3">평가일</th>
-                    <th class="px-4 py-3 text-center">납기</th>
-                    <th class="px-4 py-3 text-center">품질</th>
-                    <th class="px-4 py-3 text-center">가격</th>
-                    <th class="px-4 py-3 text-center">서비스</th>
-                    <th class="px-4 py-3 text-center">종합</th>
-                    <th class="px-4 py-3">평가자</th>
+                    <th class="px-4 py-3">{% trans "공급처" %}</th>
+                    <th class="px-4 py-3">{% trans "평가일" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "납기" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "품질" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "가격" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "서비스" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "종합" %}</th>
+                    <th class="px-4 py-3">{% trans "평가자" %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -83,7 +83,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="8" class="px-6 py-12 text-center text-gray-400">
-                        등록된 평가가 없습니다.
+                        {% trans "등록된 평가가 없습니다." %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -96,13 +96,13 @@
         <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
         <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">이전</a>
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
             <a href="?page={{ num }}" class="px-3 py-1.5 text-sm rounded-lg {% if page_obj.number == num %}bg-blue-600 text-white{% else %}hover:bg-gray-100 text-gray-600{% endif %}">{{ num }}</a>
             {% endfor %}
             {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">다음</a>
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "다음" %}</a>
             {% endif %}
         </nav>
     </div>

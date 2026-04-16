@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load i18n static %}
 
-{% block title %}바코드/QR 스캔{% endblock %}
+{% block title %}{% trans "바코드/QR 스캔" %} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "바코드/QR 스캔" %}{% endblock %}
 
 {% block content %}
@@ -88,7 +88,7 @@ function scannerApp() {
         statusType: 'info',
 
         startScanner() {
-            {% trans "this.statusMessage = '카메라를 준비하고 있습니다...';" %}
+            this.statusMessage = '카메라를 준비하고 있습니다...';
             this.statusType = 'info';
 
             this.scanner = new Html5Qrcode("reader");
@@ -107,10 +107,10 @@ function scannerApp() {
                 }
             ).then(() => {
                 this.scanning = true;
-                {% trans "this.statusMessage = '바코드 또는 QR코드를 카메라에 비춰주세요.';" %}
+                this.statusMessage = '바코드 또는 QR코드를 카메라에 비춰주세요.';
                 this.statusType = 'info';
             }).catch((err) => {
-                {% trans "this.statusMessage = '카메라를 사용할 수 없습니다. 수동 입력을 이용해주세요.';" %}
+                this.statusMessage = '카메라를 사용할 수 없습니다. 수동 입력을 이용해주세요.';
                 this.statusType = 'error';
                 console.error('Scanner start error:', err);
             });
@@ -120,14 +120,14 @@ function scannerApp() {
             if (this.scanner && this.scanning) {
                 this.scanner.stop().then(() => {
                     this.scanning = false;
-                    {% trans "this.statusMessage = '스캐너가 중지되었습니다.';" %}
+                    this.statusMessage = '스캐너가 중지되었습니다.';
                     this.statusType = 'info';
                 }).catch(console.error);
             }
         },
 
         onScanSuccess(decodedText) {
-            {% trans "this.statusMessage = '코드 감지: ' + decodedText;" %}
+            this.statusMessage = '코드 감지: ' + decodedText;
             this.statusType = 'success';
 
             // 스캐너 중지 후 폼 전송

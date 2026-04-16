@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}견적요청 등록 - ERP Suite{% endblock %}
-{% block page_title %}견적요청 등록{% endblock %}
+{% block title %}{% trans "견적요청 등록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "견적요청 등록" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'purchase:rfq_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'purchase:rfq_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -12,7 +13,7 @@
     {% csrf_token %}
 
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">견적요청 정보</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "견적요청 정보" %}</h2>
 
         {% if form.non_field_errors %}
         <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-800 border border-red-200 text-sm">
@@ -43,17 +44,17 @@
 
     <!-- 요청 항목 -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">요청 항목</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "요청 항목" %}</h2>
         {{ formset.management_form }}
 
         <div class="table-responsive">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 text-left text-gray-600 font-medium">
-                        <th class="px-3 py-2">제품</th>
-                        <th class="px-3 py-2">수량</th>
-                        <th class="px-3 py-2">사양</th>
-                        <th class="px-3 py-2 text-center w-16">삭제</th>
+                        <th class="px-3 py-2">{% trans "제품" %}</th>
+                        <th class="px-3 py-2">{% trans "수량" %}</th>
+                        <th class="px-3 py-2">{% trans "사양" %}</th>
+                        <th class="px-3 py-2 text-center w-16">{% trans "삭제" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -74,8 +75,8 @@
     </div>
 
     <div class="flex justify-end space-x-3">
-        <a href="{% url 'purchase:rfq_list' %}" class="btn btn-secondary">취소</a>
-        <button type="submit" class="btn btn-primary">등록</button>
+        <a href="{% url 'purchase:rfq_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        <button type="submit" class="btn btn-primary">{% trans "등록" %}</button>
     </div>
 </form>
 {% endblock %}

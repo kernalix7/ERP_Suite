@@ -74,6 +74,13 @@ def _update_weighted_avg_cost(product_id, in_qty, in_price):
             product.code, existing_cost, new_cost,
             in_qty, in_price,
         )
+        # 이 자재를 사용하는 상위 BOM 완제품 원가 캐스케이드
+        if new_cost != existing_cost:
+            try:
+                from apps.production.signals import _cascade_cost_to_parents
+                _cascade_cost_to_parents(product_id)
+            except ImportError:
+                pass
 
 
 def _generate_lot_number(product, date):
@@ -412,6 +419,13 @@ def reverse_stock_on_soft_delete(sender, instance, **kwargs):
                             Product.objects.filter(
                                 pk=old.product_id,
                             ).update(cost_price=new_cost)
+                            # 이동평균 역산 후 캐스케이드
+                            if new_cost != old_cost:
+                                try:
+                                    from apps.production.signals import _cascade_cost_to_parents
+                                    _cascade_cost_to_parents(old.product_id)
+                                except ImportError:
+                                    pass
                         # new_stock <= 0: cost_price 유지
 
                 Product.objects.filter(pk=old.product_id).update(

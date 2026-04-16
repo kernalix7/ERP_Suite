@@ -17,11 +17,11 @@
     <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "기본 정보" %}</h2>
     <dl class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
         <div>
-            <dt class="text-sm font-medium text-gray-500">계획번호</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "계획번호" %}</dt>
             <dd class="mt-1 text-sm text-gray-900 font-medium">{{ object.plan_number }}</dd>
         </div>
         <div>
-            <dt class="text-sm font-medium text-gray-500">생산제품</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "생산제품" %}</dt>
             <dd class="mt-1 text-sm text-gray-900">{{ object.product.name }}</dd>
         </div>
         <div>
@@ -31,11 +31,11 @@
             </dd>
         </div>
         <div>
-            <dt class="text-sm font-medium text-gray-500">계획수량</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "계획수량" %}</dt>
             <dd class="mt-1 text-sm text-gray-900 font-medium">{{ object.planned_quantity|intcomma }}</dd>
         </div>
         <div>
-            <dt class="text-sm font-medium text-gray-500">상태</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "상태" %}</dt>
             <dd class="mt-1">
                 {% if object.status == 'DRAFT' %}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{% trans "작성중" %}</span>
@@ -51,11 +51,11 @@
             </dd>
         </div>
         <div>
-            <dt class="text-sm font-medium text-gray-500">기간</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "기간" %}</dt>
             <dd class="mt-1 text-sm text-gray-900">{{ object.planned_start|date:"Y-m-d" }} ~ {{ object.planned_end|date:"Y-m-d" }}</dd>
         </div>
         <div>
-            <dt class="text-sm font-medium text-gray-500">진행률</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "진행률" %}</dt>
             <dd class="mt-1">
                 <div class="flex items-center">
                     <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
@@ -66,11 +66,11 @@
             </dd>
         </div>
         <div>
-            <dt class="text-sm font-medium text-gray-500">생산실적</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "생산실적" %}</dt>
             <dd class="mt-1 text-sm text-gray-900">{{ object.produced_quantity }} / {{ object.planned_quantity }}</dd>
         </div>
         <div class="md:col-span-2 lg:col-span-3">
-            <dt class="text-sm font-medium text-gray-500">비고</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "비고" %}</dt>
             <dd class="mt-1 text-sm text-gray-900">{{ object.notes|default:"-" }}</dd>
         </div>
     </dl>
@@ -81,29 +81,29 @@
     <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "원가 분석" %}</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <div class="bg-gray-50 rounded-lg p-4">
-            <dt class="text-sm font-medium text-gray-500">계획 원가</dt>
-            <dd class="mt-1 text-lg font-bold text-gray-900">{{ estimated_cost|intcomma }}원</dd>
-            <p class="mt-1 text-xs text-gray-400">BOM 기준 × 계획수량</p>
+            <dt class="text-sm font-medium text-gray-500">{% trans "계획 원가" %}</dt>
+            <dd class="mt-1 text-lg font-bold text-gray-900">{{ estimated_cost|intcomma }}{% trans "원" %}</dd>
+            <p class="mt-1 text-xs text-gray-400">{% trans "BOM 기준 × 계획수량" %}</p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
-            <dt class="text-sm font-medium text-gray-500">실제 원가</dt>
-            <dd class="mt-1 text-lg font-bold text-gray-900">{{ actual_cost|intcomma }}원</dd>
-            <p class="mt-1 text-xs text-gray-400">실적 단가 × 생산수량(양품+불량)</p>
+            <dt class="text-sm font-medium text-gray-500">{% trans "실제 원가" %}</dt>
+            <dd class="mt-1 text-lg font-bold text-gray-900">{{ actual_cost|intcomma }}{% trans "원" %}</dd>
+            <p class="mt-1 text-xs text-gray-400">{% trans "실적 단가 × 생산수량(양품+불량)" %}</p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
-            <dt class="text-sm font-medium text-gray-500">원가 차이</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "원가 차이" %}</dt>
             <dd class="mt-1 text-lg font-bold {% if cost_diff > 0 %}text-red-600{% elif cost_diff < 0 %}text-blue-600{% else %}text-gray-900{% endif %}">
-                {% if cost_diff > 0 %}+{% endif %}{{ cost_diff|intcomma }}원
+                {% if cost_diff > 0 %}+{% endif %}{{ cost_diff|intcomma }}{% trans "원" %}
                 <span class="text-sm font-medium ml-1">({% if cost_diff > 0 %}+{% endif %}{{ cost_diff_rate }}%)</span>
             </dd>
-            <p class="mt-1 text-xs text-gray-400">{% if cost_diff > 0 %}초과{% elif cost_diff < 0 %}절감{% else %}동일{% endif %}</p>
+            <p class="mt-1 text-xs text-gray-400">{% if cost_diff > 0 %}{% trans "초과" %}{% elif cost_diff < 0 %}{% trans "절감" %}{% else %}{% trans "동일" %}{% endif %}</p>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
-            <dt class="text-sm font-medium text-gray-500">불량률</dt>
+            <dt class="text-sm font-medium text-gray-500">{% trans "불량률" %}</dt>
             <dd class="mt-1 text-lg font-bold {% if defect_rate > 5 %}text-red-600{% elif defect_rate > 0 %}text-yellow-600{% else %}text-green-600{% endif %}">
                 {{ defect_rate }}%
             </dd>
-            <p class="mt-1 text-xs text-gray-400">양품 {{ total_good|intcomma }} / 불량 {{ total_defect|intcomma }}</p>
+            <p class="mt-1 text-xs text-gray-400">{% trans "양품" %} {{ total_good|intcomma }} / {% trans "불량" %} {{ total_defect|intcomma }}</p>
         </div>
     </div>
 </div>
@@ -118,7 +118,7 @@
             <h3 class="text-sm font-semibold text-amber-800">{% trans "원자재 부족 경고 (잔여 생산량 기준)" %}</h3>
             <ul class="mt-1 text-sm text-amber-700 space-y-1">
                 {% for s in material_shortages %}
-                <li>[{{ s.material.code }}] {{ s.material.name }} — 필요 {{ s.required|floatformat:0 }}, 현재고 {{ s.available|floatformat:0 }}, <strong>부족 {{ s.shortage|floatformat:0 }}</strong></li>
+                <li>[{{ s.material.code }}] {{ s.material.name }} — {% trans "필요" %} {{ s.required|floatformat:0 }}, {% trans "현재고" %} {{ s.available|floatformat:0 }}, <strong>{% trans "부족" %} {{ s.shortage|floatformat:0 }}</strong></li>
                 {% endfor %}
             </ul>
         </div>

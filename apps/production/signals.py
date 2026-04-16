@@ -190,14 +190,16 @@ def _create_movements(instance, warehouse):
     product = plan.product
 
     # 완제품 생산입고 (재고 추적 대상만)
+    # unit_price에 BOM 기반 실제 생산원가 반영 (이동평균 정확도 향상)
     if instance.good_quantity > 0 and product.is_stockable:
+        prod_unit_price = instance.unit_cost if instance.unit_cost else product.cost_price
         StockMovement.objects.create(
             movement_number=f'PI-{_record_ref_prefix(work_order, instance)}',
             movement_type='PROD_IN',
             product=product,
             warehouse=warehouse,
             quantity=instance.good_quantity,
-            unit_price=product.cost_price,
+            unit_price=prod_unit_price,
             movement_date=instance.record_date,
             reference=f'작업지시 {work_order.order_number}',
             created_by=instance.created_by,
@@ -445,20 +447,90 @@ def cancel_work_order_cascade(sender, instance, **kwargs):
 # ── BOM/StandardCost → Product.cost_price 자동 동기화 ────────────
 
 
+def _auto_version_standard_cost(product):
+    """auto_standard_cost 활성화 시 BOM 기반 표준원가 새 버전 자동 생성.
+
+    자재원가만 BOM에서 갱신. 노무비/간접비는 0으로 설정 (수동 관리 영역).
+    자재원가 변동이 없으면 스킵 (불필요한 버전 방지).
+    save() 호출로 합계 자동 계산 + is_current 토글.
+    """
+    from apps.production.models import BOM, StandardCost
+    from django.utils import timezone
+
+    bom = BOM.objects.filter(
+        product=product, is_default=True, is_active=True,
+    ).prefetch_related('items__material').first()
+    if not bom:
+        return
+
+    material_cost = int(bom.total_material_cost or 0)
+    if not material_cost:
+        return
+
+    # 기존 현행 표준원가
+    current_std = StandardCost.objects.filter(
+        product=product, is_current=True, is_active=True,
+    ).first()
+
+    # 자재원가 변동 없으면 스킵
+    if current_std and current_std.material_cost == material_cost:
+        return
+
+    # 새 버전 번호 생성
+    today_str = timezone.now().strftime('%Y%m%d')
+    base_version = f'AUTO-{today_str}'
+    existing_count = StandardCost.all_objects.filter(
+        product=product, version__startswith=base_version,
+    ).count()
+    version = f'{base_version}-{existing_count + 1}' if existing_count else base_version
+
+    # 새 버전 생성 — 자재원가만, 노무비/간접비는 0 (수동 관리)
+    StandardCost.objects.create(
+        product=product,
+        version=version,
+        effective_date=timezone.now().date(),
+        material_cost=material_cost,
+        direct_labor_hours=0,
+        labor_rate_per_hour=0,
+        overhead_rate=0,
+        is_current=True,
+    )
+    logger.info(
+        'StandardCost auto-versioned: %s v%s (material: %s, prev: %s)',
+        product.code, version, material_cost,
+        current_std.version if current_std else 'none',
+    )
+
+
 def _sync_product_cost_price(product):
-    """제품 원가 자동 동기화. 우선순위: StandardCost > BOM > 기존값 유지"""
+    """제품 원가 자동 동기화. 우선순위: StandardCost > BOM > 기존값 유지.
+    Returns True if cost_price changed.
+
+    auto_standard_cost가 켜져 있으면:
+    - 기존 표준원가의 자재원가를 BOM에서 자동 갱신 (갱신 후 표준원가 우선)
+    - 표준원가가 없으면 BOM 경로에서 자동 생성
+    """
     from apps.production.models import BOM, StandardCost
 
-    # 1순위: 현행 표준원가
+    # auto_standard_cost: BOM 기반 표준원가 새 버전 자동 생성
+    # (자재원가 변동 시만 동작, 변동 없으면 스킵)
+    if getattr(product, 'auto_standard_cost', False):
+        _auto_version_standard_cost(product)
+
+    old_cost = product.cost_price
+
+    # 1순위: 현행 표준원가 (위에서 auto-version 됐을 수 있음)
     std_cost = StandardCost.objects.filter(
         product=product, is_current=True, is_active=True,
     ).first()
     if std_cost and std_cost.total_standard_cost > 0:
-        if product.cost_price != std_cost.total_standard_cost:
+        if old_cost != std_cost.total_standard_cost:
             Product.objects.filter(pk=product.pk).update(
                 cost_price=std_cost.total_standard_cost,
             )
-        return
+            product.cost_price = std_cost.total_standard_cost
+            return True
+        return False
 
     # 2순위: 기본 BOM 자재원가
     default_bom = BOM.objects.filter(
@@ -466,36 +538,78 @@ def _sync_product_cost_price(product):
     ).prefetch_related('items__material').first()
     if default_bom:
         bom_cost = default_bom.total_material_cost
-        if bom_cost and bom_cost > 0 and product.cost_price != bom_cost:
+        if bom_cost and bom_cost > 0 and old_cost != bom_cost:
             Product.objects.filter(pk=product.pk).update(
                 cost_price=int(bom_cost),
             )
-        return
+            product.cost_price = int(bom_cost)
+            # auto_standard_cost: 표준원가 자동 생성 (없었으므로 여기서 생성)
+            if getattr(product, 'auto_standard_cost', False):
+                _auto_version_standard_cost(product)
+            return True
 
     # 3순위: 기존값 유지 (아무것도 안함)
+    return False
+
+
+def _cascade_cost_to_parents(product_id, _visited=None):
+    """자재 원가 변경 → 이 자재를 사용하는 상위 BOM 완제품 원가 자동 재계산.
+
+    반제품→완제품 체인인 경우 다단계로 전파.
+    _visited 세트로 무한루프 방지.
+    """
+    if _visited is None:
+        _visited = set()
+    if product_id in _visited:
+        return
+    _visited.add(product_id)
+
+    from apps.production.models import BOMItem
+
+    parent_items = BOMItem.objects.filter(
+        material_id=product_id,
+        bom__is_default=True,
+        bom__is_active=True,
+        is_active=True,
+    ).select_related('bom__product')
+
+    for item in parent_items:
+        parent = item.bom.product
+        if parent.pk in _visited:
+            continue
+        changed = _sync_product_cost_price(parent)
+        if changed:
+            logger.info(
+                'Cost cascaded: material %s → product %s (new cost: %s)',
+                product_id, parent.code, parent.cost_price,
+            )
+            _cascade_cost_to_parents(parent.pk, _visited)
 
 
 @receiver(post_save, sender='production.BOMItem')
 def sync_cost_on_bom_item_save(sender, instance, **kwargs):
-    """BOMItem 저장 시 해당 BOM 완제품의 cost_price 동기화"""
+    """BOMItem 저장 시 해당 BOM 완제품의 cost_price 동기화 + 캐스케이드"""
     bom = instance.bom
     if bom.is_default and bom.is_active:
         _sync_product_cost_price(bom.product)
+        _cascade_cost_to_parents(bom.product.pk)
 
 
 @receiver(post_delete, sender='production.BOMItem')
 def sync_cost_on_bom_item_delete(sender, instance, **kwargs):
-    """BOMItem 삭제 시 해당 BOM 완제품의 cost_price 동기화"""
+    """BOMItem 삭제 시 해당 BOM 완제품의 cost_price 동기화 + 캐스케이드"""
     bom = instance.bom
     if bom.is_default and bom.is_active:
         _sync_product_cost_price(bom.product)
+        _cascade_cost_to_parents(bom.product.pk)
 
 
 @receiver(post_save, sender='production.BOM')
 def sync_cost_on_bom_save(sender, instance, **kwargs):
-    """BOM 저장 시 (is_default 변경 등) 완제품의 cost_price 동기화"""
+    """BOM 저장 시 (is_default 변경 등) 완제품의 cost_price 동기화 + 캐스케이드"""
     if instance.is_default and instance.is_active:
         _sync_product_cost_price(instance.product)
+        _cascade_cost_to_parents(instance.product.pk)
 
 
 @receiver(post_save, sender='production.QualityInspection')
@@ -524,6 +638,7 @@ def notify_conditional_approval(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='production.StandardCost')
 def sync_cost_on_standard_cost_save(sender, instance, **kwargs):
-    """StandardCost 저장 시 완제품의 cost_price 동기화"""
+    """StandardCost 저장 시 완제품의 cost_price 동기화 + 캐스케이드"""
     if instance.is_current and instance.is_active:
         _sync_product_cost_price(instance.product)
+        _cascade_cost_to_parents(instance.product.pk)

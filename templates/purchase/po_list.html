@@ -24,7 +24,7 @@
     <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
     </svg>
-    가져오기
+    {% trans "가져오기" %}
 </a>
 {% endif %}
 {% endblock %}
@@ -117,7 +117,7 @@
     <!-- 페이지네이션 -->
     {% if is_paginated %}
     <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <p class="text-sm text-gray-500">총 {{ page_obj.paginator.count }}건</p>
+        <p class="text-sm text-gray-500">{% blocktrans with count=page_obj.paginator.count %}총 {{ count }}건{% endblocktrans %}</p>
         <nav class="flex flex-wrap items-center gap-1">
             {% if page_obj.has_previous %}
             <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600">{% trans "이전" %}</a>

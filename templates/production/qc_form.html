@@ -45,7 +45,7 @@
             </div>
 
             <div class="mt-6 flex gap-3">
-                <button type="submit" class="btn btn-primary">{% if object %}수정{% else %}등록{% endif %}</button>
+                <button type="submit" class="btn btn-primary">{% if object %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %}</button>
                 <a href="{% url 'production:qc_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
             </div>
         </form>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load i18n humanize %}
 
-{% block title %}바코드 - {{ object.name }}{% endblock %}
+{% block title %}{% trans "바코드" %} - {{ object.name }}{% endblock %}
 {% block page_title %}{% trans "제품 바코드" %}{% endblock %}
 
 {% block content %}
@@ -19,9 +19,9 @@
         <div class="text-center mb-4 sm:mb-6">
             <h2 class="text-xl font-bold text-gray-900">{{ object.name }}</h2>
             <div class="mt-2 flex justify-center gap-4 text-sm text-gray-600">
-                <span>코드: <strong>{{ object.code }}</strong></span>
-                <span>유형: <strong>{{ object.get_product_type_display }}</strong></span>
-                <span>단가: <strong>{{ object.unit_price|intcomma }}원</strong></span>
+                <span>{% trans "코드" %}: <strong>{{ object.code }}</strong></span>
+                <span>{% trans "유형" %}: <strong>{{ object.get_product_type_display }}</strong></span>
+                <span>{% trans "단가" %}: <strong>{{ object.unit_price|intcomma }}{% trans "원" %}</strong></span>
             </div>
         </div>
 
@@ -39,13 +39,13 @@
 
             <!-- QR코드 -->
             <div class="text-center">
-                <h3 class="text-sm font-medium text-gray-700 mb-3">QR코드</h3>
+                <h3 class="text-sm font-medium text-gray-700 mb-3">{% trans "QR코드" %}</h3>
                 <div class="bg-white border border-gray-100 rounded-lg p-4 inline-block">
                     <img src="data:image/png;base64,{{ qr_image }}"
                          alt="QR코드 {{ object.code }}"
                          class="w-48 h-48">
                 </div>
-                <p class="text-xs text-gray-500 mt-2">스캔 시 제품 상세 페이지로 이동</p>
+                <p class="text-xs text-gray-500 mt-2">{% trans "스캔 시 제품 상세 페이지로 이동" %}</p>
             </div>
         </div>
 

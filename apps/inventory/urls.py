@@ -60,6 +60,8 @@ urlpatterns = [
     path('warehouse-stock/', views.WarehouseStockView.as_view(), name='warehouse_stock'),
     # 재고평가
     path('valuation/', views.InventoryValuationView.as_view(), name='valuation'),
+    # 원가기준 설정
+    path('cost-basis/', views.CostBasisConfigView.as_view(), name='cost_basis_config'),
     # 바코드/QR
     path('products/<int:pk>/barcode/', views.ProductBarcodeView.as_view(), name='product_barcode'),
     path('products/<int:pk>/barcode/print/', views.ProductBarcodePrintView.as_view(), name='product_barcode_print'),

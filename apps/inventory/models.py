@@ -152,12 +152,48 @@ class Product(BaseModel):
         '시리얼접두사', max_length=20, blank=True, default='',
         help_text='예: SN-PRD001-',
     )
+    auto_standard_cost = models.BooleanField(
+        '표준원가 자동갱신', default=False,
+        help_text='활성화 시 원가 변동 시 표준원가 자동 생성/갱신',
+    )
 
     @property
     def profit_margin(self):
         if self.unit_price == 0:
             return 0
         return round((self.unit_price - self.cost_price) / self.unit_price * 100, 1)
+
+    def recalculate_cost_price(self):
+        """BOM/StandardCost 기반 원가 재계산 후 저장. 변경 여부 반환."""
+        from apps.production.models import BOM, StandardCost
+
+        old_cost = self.cost_price
+
+        # 1순위: 현행 표준원가
+        std = StandardCost.objects.filter(
+            product=self, is_current=True, is_active=True,
+        ).first()
+        if std and std.total_standard_cost > 0:
+            new_cost = std.total_standard_cost
+        else:
+            # 2순위: 기본 BOM 자재원가
+            bom = BOM.objects.filter(
+                product=self, is_default=True, is_active=True,
+            ).prefetch_related('items__material').first()
+            if bom:
+                bom_cost = bom.total_material_cost
+                if bom_cost and bom_cost > 0:
+                    new_cost = int(bom_cost)
+                else:
+                    return False
+            else:
+                return False
+
+        if old_cost != new_cost:
+            Product.objects.filter(pk=self.pk).update(cost_price=new_cost)
+            self.cost_price = Decimal(str(new_cost))
+            return True
+        return False
 
 
 class Warehouse(BaseModel):
@@ -489,3 +525,168 @@ class SerialNumber(BaseModel):
 
     def __str__(self):
         return f'{self.serial} ({self.product.name})'
+
+
+class CostBasisConfig(BaseModel):
+    """원가기준 설정 — 단계별 원가 산출 방식 지정"""
+
+    class CostBasis(models.TextChoices):
+        PRODUCT_COST = 'PRODUCT', '제품 현재원가'
+        BOM_COST = 'BOM', 'BOM 자재원가'
+        STANDARD_COST = 'STANDARD', '표준원가'
+        LAST_PRODUCTION = 'PRODUCTION', '최근 생산원가'
+
+    class Stage(models.TextChoices):
+        QUOTATION = 'QUOTATION', '견적'
+        ORDER = 'ORDER', '주문'
+        PRODUCTION = 'PRODUCTION', '생산'
+        SETTLEMENT = 'SETTLEMENT', '정산'
+
+    stage = models.CharField(
+        '적용단계', max_length=20,
+        choices=Stage.choices, unique=True,
+    )
+    primary_basis = models.CharField(
+        '1순위 원가기준', max_length=20,
+        choices=CostBasis.choices, default=CostBasis.PRODUCT_COST,
+    )
+    fallback_basis = models.CharField(
+        '2순위 원가기준', max_length=20,
+        choices=CostBasis.choices, default=CostBasis.BOM_COST,
+        help_text='1순위 원가가 없을 때 적용',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '원가기준설정'
+        verbose_name_plural = '원가기준설정'
+        ordering = ['stage']
+
+    def __str__(self):
+        return f'{self.get_stage_display()} — {self.get_primary_basis_display()}'
+
+    @classmethod
+    def get_cost_for_product(cls, product, stage):
+        """단계별 설정된 원가기준에 따라 제품 원가 반환"""
+        config = cls.objects.filter(stage=stage, is_active=True).first()
+        if not config:
+            # 설정 없으면 제품 현재원가 반환 (하위 호환)
+            return int(product.cost_price or 0)
+
+        cost = cls._resolve_cost(product, config.primary_basis)
+        if not cost:
+            cost = cls._resolve_cost(product, config.fallback_basis)
+        return cost or int(product.cost_price or 0)
+
+    @classmethod
+    def get_costs_bulk(cls, product_ids, stage):
+        """제품 목록에 대해 단계별 원가를 일괄 조회 (성능 최적화)"""
+        config = cls.objects.filter(stage=stage, is_active=True).first()
+        products = list(Product.objects.filter(pk__in=product_ids, is_active=True))
+
+        if not config:
+            return {str(p.pk): int(p.cost_price or 0) for p in products}
+
+        primary = cls._batch_resolve(product_ids, config.primary_basis, products)
+        fallback = cls._batch_resolve(product_ids, config.fallback_basis, products)
+
+        costs = {}
+        for p in products:
+            pk_str = str(p.pk)
+            if primary.get(p.pk):
+                costs[pk_str] = primary[p.pk]
+            elif fallback.get(p.pk):
+                costs[pk_str] = fallback[p.pk]
+            else:
+                costs[pk_str] = int(p.cost_price or 0)
+        return costs
+
+    @staticmethod
+    def _resolve_cost(product, basis):
+        """단일 제품의 원가기준별 원가 조회"""
+        if basis == 'PRODUCT':
+            return int(product.cost_price or 0)
+
+        elif basis == 'BOM':
+            from apps.production.models import BOM
+            bom = BOM.objects.filter(
+                product=product, is_default=True, is_active=True,
+            ).prefetch_related('items__material').first()
+            if bom:
+                cost = bom.total_material_cost
+                if cost and cost > 0:
+                    return int(cost)
+            return 0
+
+        elif basis == 'STANDARD':
+            from apps.production.models import StandardCost
+            std = StandardCost.objects.filter(
+                product=product, is_current=True, is_active=True,
+            ).first()
+            if std and std.total_standard_cost > 0:
+                return int(std.total_standard_cost)
+            return 0
+
+        elif basis == 'PRODUCTION':
+            from apps.production.models import ProductionRecord
+            from django.db.models import Max
+            result = ProductionRecord.objects.filter(
+                work_order__production_plan__product=product,
+                is_active=True, unit_cost__gt=0,
+            ).aggregate(latest_cost=Max('unit_cost'))
+            if result['latest_cost']:
+                return int(result['latest_cost'])
+            return 0
+
+        return 0
+
+    @staticmethod
+    def _batch_resolve(product_ids, basis, products):
+        """일괄 원가 조회 (배치 쿼리 최적화)"""
+        if basis == 'PRODUCT':
+            return {p.pk: int(p.cost_price or 0) for p in products}
+
+        elif basis == 'BOM':
+            from apps.production.models import BOM
+            costs = {}
+            boms = BOM.objects.filter(
+                product_id__in=product_ids, is_active=True,
+            ).prefetch_related('items__material').order_by(
+                'product_id', '-is_default', 'pk',
+            )
+            for bom in boms:
+                pid = bom.product_id
+                if pid not in costs:
+                    cost = bom.total_material_cost
+                    if cost:
+                        costs[pid] = int(cost)
+            return costs
+
+        elif basis == 'STANDARD':
+            from apps.production.models import StandardCost
+            return dict(
+                StandardCost.objects.filter(
+                    product_id__in=product_ids,
+                    is_current=True, is_active=True,
+                ).filter(total_standard_cost__gt=0).values_list(
+                    'product_id', 'total_standard_cost',
+                )
+            )
+
+        elif basis == 'PRODUCTION':
+            from apps.production.models import ProductionRecord
+            from django.db.models import Max
+            return dict(
+                ProductionRecord.objects.filter(
+                    work_order__production_plan__product_id__in=product_ids,
+                    is_active=True, unit_cost__gt=0,
+                ).values(
+                    'work_order__production_plan__product_id',
+                ).annotate(
+                    latest_cost=Max('unit_cost'),
+                ).values_list(
+                    'work_order__production_plan__product_id', 'latest_cost',
+                )
+            )
+
+        return {}

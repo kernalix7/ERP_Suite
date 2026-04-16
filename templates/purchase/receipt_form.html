@@ -108,7 +108,7 @@
                         <td class="px-4 py-3">
                             <div x-show="isAsset" x-cloak>
                                 <select name="asset_category_{{ item.pk }}" class="form-input w-full text-sm">
-                                    <option value="">-- 선택 --</option>
+                                    <option value="">-- {% trans "선택" %} --</option>
                                     {% for cat in asset_categories %}
                                     <option value="{{ cat.pk }}">{{ cat }}</option>
                                     {% endfor %}

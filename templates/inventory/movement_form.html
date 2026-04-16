@@ -50,7 +50,7 @@
                             {{ field }}
                         </div>
                     </div>
-                    <p class="mt-1 text-xs text-gray-500">총액 입력 시 단가 자동 계산, 단가 입력 시 총액 자동 계산</p>
+                    <p class="mt-1 text-xs text-gray-500">{% trans "총액 입력 시 단가 자동 계산, 단가 입력 시 총액 자동 계산" %}</p>
                     {% else %}
                     {{ field }}
                     {% endif %}
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const unitPriceInput = document.getElementById('id_unit_price');
     const quantityInput = document.getElementById('id_quantity');
     if (totalInput && unitPriceInput && quantityInput) {
-        {% trans "let lastEdited = 'unit_price';  // 마지막 수정 필드 추적" %}
+        let lastEdited = 'unit_price';  // 마지막 수정 필드 추적
 
         totalInput.addEventListener('input', function() {
             lastEdited = 'total';

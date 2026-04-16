@@ -37,7 +37,7 @@
     <!-- BOM 항목 (Formset) -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 class="text-lg font-semibold text-gray-800">BOM 항목</h2>
+            <h2 class="text-lg font-semibold text-gray-800">{% trans "BOM 항목" %}</h2>
             <button type="button" id="add-item" class="btn btn-secondary text-xs">
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -61,7 +61,7 @@
                         <th class="px-4 py-3">{% trans "자재" %}</th>
                         <th class="px-4 py-3 w-28">{% trans "구매수량" %}</th>
                         <th class="px-4 py-3 w-28">{% trans "생산가능수량" %}</th>
-                        <th class="px-4 py-3 w-28">소요량<span class="text-xs text-gray-400 font-normal ml-1">(자동)</span></th>
+                        <th class="px-4 py-3 w-28">{% trans "소요량" %}<span class="text-xs text-gray-400 font-normal ml-1">({% trans "자동" %})</span></th>
                         <th class="px-4 py-3 w-24">{% trans "손실률(%)" %}</th>
                         <th class="px-4 py-3 w-28 text-right">{% trans "단가" %}</th>
                         <th class="px-4 py-3 w-28 text-right">{% trans "개당원가" %}</th>
@@ -117,7 +117,7 @@
                 </tbody>
                 <tfoot>
                     <tr class="bg-gray-50 font-semibold">
-                        <td colspan="6" class="px-4 py-3 text-right text-gray-700">완제품 1개당 총 자재원가</td>
+                        <td colspan="6" class="px-4 py-3 text-right text-gray-700">{% trans "완제품 1개당 총 자재원가" %}</td>
                         <td class="px-4 py-3 text-right text-gray-900" id="bom-total-cost">-</td>
                         <td></td>
                     </tr>
@@ -129,7 +129,7 @@
     <!-- 버튼 -->
     <div class="flex justify-end space-x-3">
         <a href="{% url 'production:bom_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
-        <button type="submit" class="btn btn-primary">{% if object %}수정{% else %}등록{% endif %}</button>
+        <button type="submit" class="btn btn-primary">{% if object %}{% trans "수정" %}{% else %}{% trans "등록" %}{% endif %}</button>
     </div>
 </form>
 
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const productUnits = JSON.parse(document.getElementById('product-units-data').textContent);
     const materialPrices = JSON.parse(document.getElementById('material-prices-data').textContent);
 
-    {% trans "function fmt(n) { return n ? Math.round(n).toLocaleString('ko-KR') + '원' : '-'; }" %}
+    function fmt(n) { return n ? Math.round(n).toLocaleString('ko-KR') + '{% trans "원" %}' : '-'; }
 
     function updateRowUnit(row) {
         const sel = row.querySelector('select[name$="-material"]');
@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const span = row.querySelector('.item-unit');
         const spanQty = row.querySelector('.item-unit-qty');
         if (span) span.textContent = unit;
-        {% trans "if (spanQty) spanQty.textContent = unit ? unit + '/개' : '';" %}
+        if (spanQty) spanQty.textContent = unit ? unit + '/{% trans "개" %}' : '';
     }
 
     // 구매수량 / 생산가능수량 → 소요량 자동 계산

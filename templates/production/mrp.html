@@ -1,6 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
-{% load humanize i18n %}
+{% load i18n humanize %}
 
 {% block title %}{% trans "MRP (소요량계획)" %} - ERP Suite{% endblock %}
 {% block page_title %}{% trans "MRP (자재 소요량 계획)" %}{% endblock %}
@@ -17,7 +16,7 @@
                 </svg>
                 {% trans "대상 생산계획" %}
             </h3>
-            <span class="text-sm text-gray-500">{{ plans|length }}건</span>
+            <span class="text-sm text-gray-500">{{ plans|length }}{% trans "건" %}</span>
         </div>
 
         <form method="get" action="{% url 'production:mrp' %}" id="planFilterForm">

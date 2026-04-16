@@ -14,8 +14,8 @@ from apps.core.barcode import generate_barcode_image, generate_qr_image, generat
 from apps.core.import_views import BaseImportView
 from apps.core.mixins import ManagerRequiredMixin
 
-from .models import Category, Product, Warehouse, StockMovement, StockTransfer, StockCount, StockCountItem, StockLot, SerialNumber
-from .forms import ProductForm, CategoryForm, WarehouseForm, StockMovementForm, StockTransferForm, StockInForm, StockOutForm
+from .models import Category, Product, Warehouse, StockMovement, StockTransfer, StockCount, StockCountItem, StockLot, SerialNumber, CostBasisConfig
+from .forms import ProductForm, CategoryForm, WarehouseForm, StockMovementForm, StockTransferForm, StockInForm, StockOutForm, CostBasisConfigForm
 from .resources import ProductResource
 
 
@@ -947,3 +947,51 @@ class InventoryValuationView(LoginRequiredMixin, TemplateView):
         context['valuation_filter'] = valuation_filter
         context['valuation_choices'] = Product.ValuationMethod.choices
         return context
+
+
+class CostBasisConfigView(ManagerRequiredMixin, TemplateView):
+    """원가기준 설정 — 단계별 원가 산출 기준 관리"""
+    template_name = 'inventory/cost_basis_config.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        configs = []
+        for stage_value, stage_label in CostBasisConfig.Stage.choices:
+            obj, _ = CostBasisConfig.objects.get_or_create(
+                stage=stage_value,
+                defaults={
+                    'primary_basis': CostBasisConfig.CostBasis.PRODUCT_COST,
+                    'fallback_basis': CostBasisConfig.CostBasis.BOM_COST,
+                },
+            )
+            form = CostBasisConfigForm(instance=obj, prefix=stage_value)
+            configs.append({
+                'stage_value': stage_value,
+                'stage_label': stage_label,
+                'form': form,
+                'obj': obj,
+            })
+        ctx['configs'] = configs
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        stage = request.POST.get('stage')
+        if not stage:
+            messages.error(request, '단계를 선택해주세요.')
+            return redirect('inventory:cost_basis_config')
+
+        try:
+            obj = CostBasisConfig.objects.get(stage=stage)
+        except CostBasisConfig.DoesNotExist:
+            obj = CostBasisConfig(stage=stage)
+
+        form = CostBasisConfigForm(request.POST, instance=obj, prefix=stage)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                f'{obj.get_stage_display()} 원가기준이 저장되었습니다.',
+            )
+        else:
+            messages.error(request, '입력값을 확인해주세요.')
+        return redirect('inventory:cost_basis_config')

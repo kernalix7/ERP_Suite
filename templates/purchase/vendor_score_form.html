@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}공급처 평가 등록 - ERP Suite{% endblock %}
-{% block page_title %}공급처 평가 등록{% endblock %}
+{% block title %}{% trans "공급처 평가 등록" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "공급처 평가 등록" %}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'purchase:vendor_score_list' %}" class="btn btn-secondary">목록</a>
+<a href="{% url 'purchase:vendor_score_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
 {% endblock %}
 
 {% block content %}
@@ -12,7 +13,7 @@
     {% csrf_token %}
 
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">평가 정보</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{% trans "평가 정보" %}</h2>
 
         {% if form.non_field_errors %}
         <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-800 border border-red-200 text-sm">
@@ -45,20 +46,20 @@
 
         <!-- 점수 가이드 -->
         <div class="mt-4 pt-4 border-t border-gray-100">
-            <p class="text-xs text-gray-500 mb-2">점수 기준</p>
+            <p class="text-xs text-gray-500 mb-2">{% trans "점수 기준" %}</p>
             <div class="flex flex-wrap gap-3 text-xs">
-                <span class="px-2 py-1 bg-red-50 text-red-700 rounded">1 = 매우 불량</span>
-                <span class="px-2 py-1 bg-orange-50 text-orange-700 rounded">2 = 불량</span>
-                <span class="px-2 py-1 bg-yellow-50 text-yellow-700 rounded">3 = 보통</span>
-                <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded">4 = 우수</span>
-                <span class="px-2 py-1 bg-green-50 text-green-700 rounded">5 = 매우 우수</span>
+                <span class="px-2 py-1 bg-red-50 text-red-700 rounded">{% trans "1 = 매우 불량" %}</span>
+                <span class="px-2 py-1 bg-orange-50 text-orange-700 rounded">{% trans "2 = 불량" %}</span>
+                <span class="px-2 py-1 bg-yellow-50 text-yellow-700 rounded">{% trans "3 = 보통" %}</span>
+                <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded">{% trans "4 = 우수" %}</span>
+                <span class="px-2 py-1 bg-green-50 text-green-700 rounded">{% trans "5 = 매우 우수" %}</span>
             </div>
         </div>
     </div>
 
     <div class="flex justify-end space-x-3">
-        <a href="{% url 'purchase:vendor_score_list' %}" class="btn btn-secondary">취소</a>
-        <button type="submit" class="btn btn-primary">등록</button>
+        <a href="{% url 'purchase:vendor_score_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        <button type="submit" class="btn btn-primary">{% trans "등록" %}</button>
     </div>
 </form>
 {% endblock %}

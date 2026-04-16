@@ -53,11 +53,11 @@
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "단가" %}</p>
-                <p class="text-sm font-medium text-gray-900">{{ movement.unit_price|intcomma }} 원</p>
+                <p class="text-sm font-medium text-gray-900">{{ movement.unit_price|intcomma }}{% trans " 원" %}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "금액" %}</p>
-                <p class="text-sm font-medium text-gray-900">{{ movement.total_amount|intcomma }} 원</p>
+                <p class="text-sm font-medium text-gray-900">{{ movement.total_amount|intcomma }}{% trans " 원" %}</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">{% trans "참조" %}</p>
@@ -70,14 +70,14 @@
         </div>
 
         <div class="md:col-span-2 lg:col-span-3">
-            <dt class="text-sm text-gray-500">비고</dt>
+            <dt class="text-sm text-gray-500">{% trans "비고" %}</dt>
             <dd class="mt-1 text-sm text-gray-900">{{ movement.notes|default:"-" }}</dd>
         </div>
 
         <div class="mt-6 pt-6 border-t border-gray-200 text-xs text-gray-400">
-            <p>등록일시: {{ movement.created_at|date:"Y-m-d H:i" }}</p>
+            <p>{% trans "등록일시" %}: {{ movement.created_at|date:"Y-m-d H:i" }}</p>
             {% if movement.updated_at %}
-            <p>수정일시: {{ movement.updated_at|date:"Y-m-d H:i" }}</p>
+            <p>{% trans "수정일시" %}: {{ movement.updated_at|date:"Y-m-d H:i" }}</p>
             {% endif %}
         </div>
     </div>

@@ -36,7 +36,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
             </svg>
             <p class="text-sm font-medium text-red-800">
-                병목 작업장 {{ bottleneck_count }}건 (가동률 90% 초과)
+                {% blocktrans with count=bottleneck_count %}병목 작업장 {{ count }}건 (가동률 90% 초과){% endblocktrans %}
             </p>
         </div>
     </div>
@@ -49,7 +49,7 @@
                 <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
-                작업장별 가동률 ({{ date_from }} ~ {{ date_to }})
+                {% blocktrans with date_from=date_from date_to=date_to %}작업장별 가동률 ({{ date_from }} ~ {{ date_to }}){% endblocktrans %}
             </h3>
         </div>
 
@@ -120,16 +120,16 @@
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-700">
             <div>
-                <p class="font-medium mb-1">90% 이상 = 병목</p>
-                <p class="text-blue-600">작업 과부하. 작업장 추가 또는 일정 분산 필요.</p>
+                <p class="font-medium mb-1">{% trans "90% 이상 = 병목" %}</p>
+                <p class="text-blue-600">{% trans "작업 과부하. 작업장 추가 또는 일정 분산 필요." %}</p>
             </div>
             <div>
-                <p class="font-medium mb-1">70~90% = 주의</p>
-                <p class="text-blue-600">적정 가동 수준이나 추가 투입 시 병목 위험.</p>
+                <p class="font-medium mb-1">{% trans "70~90% = 주의" %}</p>
+                <p class="text-blue-600">{% trans "적정 가동 수준이나 추가 투입 시 병목 위험." %}</p>
             </div>
             <div>
-                <p class="font-medium mb-1">70% 미만 = 정상/유휴</p>
-                <p class="text-blue-600">여유 있는 상태. 추가 작업 배정 가능.</p>
+                <p class="font-medium mb-1">{% trans "70% 미만 = 정상/유휴" %}</p>
+                <p class="text-blue-600">{% trans "여유 있는 상태. 추가 작업 배정 가능." %}</p>
             </div>
         </div>
     </div>

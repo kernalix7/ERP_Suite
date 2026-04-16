@@ -53,10 +53,10 @@
                     </td>
                     <td class="px-4 py-3 text-gray-700">{{ sc.version }}</td>
                     <td class="px-4 py-3 text-gray-500">{{ sc.effective_date|date:"Y-m-d" }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.material_cost|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.labor_cost|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.overhead_cost|intcomma }}원</td>
-                    <td class="px-4 py-3 text-right font-mono font-semibold text-gray-900">{{ sc.total_standard_cost|intcomma }}원</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.material_cost|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.labor_cost|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700">{{ sc.overhead_cost|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold text-gray-900">{{ sc.total_standard_cost|intcomma }}{% trans "원" %}</td>
                     <td class="px-4 py-3 text-center">
                         {% if sc.is_current %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "현행" %}</span>

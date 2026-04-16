@@ -36,20 +36,20 @@
     {% if variance_list %}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-            <p class="text-sm text-gray-500 mb-1">표준원가 합계</p>
-            <p class="text-2xl font-bold text-gray-900">{{ grand_std_total|intcomma }}원</p>
+            <p class="text-sm text-gray-500 mb-1">{% trans "표준원가 합계" %}</p>
+            <p class="text-2xl font-bold text-gray-900">{{ grand_std_total|intcomma }}{% trans "원" %}</p>
         </div>
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-            <p class="text-sm text-gray-500 mb-1">실제원가 합계</p>
-            <p class="text-2xl font-bold text-gray-900">{{ grand_act_total|intcomma }}원</p>
+            <p class="text-sm text-gray-500 mb-1">{% trans "실제원가 합계" %}</p>
+            <p class="text-2xl font-bold text-gray-900">{{ grand_act_total|intcomma }}{% trans "원" %}</p>
         </div>
         <div class="bg-white rounded-lg shadow-sm border {% if grand_var_total > 0 %}border-red-200 bg-red-50{% elif grand_var_total < 0 %}border-green-200 bg-green-50{% else %}border-gray-200{% endif %} p-5">
-            <p class="text-sm text-gray-500 mb-1">총 원가차이</p>
+            <p class="text-sm text-gray-500 mb-1">{% trans "총 원가차이" %}</p>
             <p class="text-2xl font-bold {% if grand_var_total > 0 %}text-red-600{% elif grand_var_total < 0 %}text-green-600{% else %}text-gray-900{% endif %}">
-                {% if grand_var_total > 0 %}+{% endif %}{{ grand_var_total|intcomma }}원
+                {% if grand_var_total > 0 %}+{% endif %}{{ grand_var_total|intcomma }}{% trans "원" %}
             </p>
             <p class="text-xs mt-1 {% if grand_var_total > 0 %}text-red-500{% elif grand_var_total < 0 %}text-green-500{% else %}text-gray-500{% endif %}">
-                {% if grand_var_total > 0 %}불리한 차이 (실제 > 표준){% elif grand_var_total < 0 %}유리한 차이 (실제 < 표준){% else %}차이 없음{% endif %}
+                {% if grand_var_total > 0 %}{% trans "불리한 차이 (실제 > 표준)" %}{% elif grand_var_total < 0 %}{% trans "유리한 차이 (실제 < 표준)" %}{% else %}{% trans "차이 없음" %}{% endif %}
             </p>
         </div>
     </div>
@@ -152,20 +152,20 @@
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
             <div>
-                <p class="font-medium mb-1">양(+)의 차이 = 불리한 차이</p>
-                <p class="text-blue-600">실제원가가 표준원가보다 높아 원가 초과 발생. 원인 분석 필요.</p>
+                <p class="font-medium mb-1">{% trans "양(+)의 차이 = 불리한 차이" %}</p>
+                <p class="text-blue-600">{% trans "실제원가가 표준원가보다 높아 원가 초과 발생. 원인 분석 필요." %}</p>
             </div>
             <div>
-                <p class="font-medium mb-1">음(-)의 차이 = 유리한 차이</p>
-                <p class="text-blue-600">실제원가가 표준원가보다 낮아 원가 절감 달성.</p>
+                <p class="font-medium mb-1">{% trans "음(-)의 차이 = 유리한 차이" %}</p>
+                <p class="text-blue-600">{% trans "실제원가가 표준원가보다 낮아 원가 절감 달성." %}</p>
             </div>
             <div>
-                <p class="font-medium mb-1">자재차이 원인</p>
-                <p class="text-blue-600">가격차이(단가변동), 수량차이(투입량변동), 배합차이(자재구성변동)</p>
+                <p class="font-medium mb-1">{% trans "자재차이 원인" %}</p>
+                <p class="text-blue-600">{% trans "가격차이(단가변동), 수량차이(투입량변동), 배합차이(자재구성변동)" %}</p>
             </div>
             <div>
-                <p class="font-medium mb-1">노무비/간접비 차이 원인</p>
-                <p class="text-blue-600">임률차이(시간당 단가변동), 능률차이(작업시간변동), 조업도차이(가동률변동)</p>
+                <p class="font-medium mb-1">{% trans "노무비/간접비 차이 원인" %}</p>
+                <p class="text-blue-600">{% trans "임률차이(시간당 단가변동), 능률차이(작업시간변동), 조업도차이(가동률변동)" %}</p>
             </div>
         </div>
     </div>

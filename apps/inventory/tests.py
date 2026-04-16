@@ -1575,3 +1575,361 @@ class ReorderPointTaskTest(TestCase):
             created_by=self.user,
         )
         self.assertEqual(p.reorder_point, 0)
+
+
+class CostCascadeTest(TestCase):
+    """자재 원가 변동 시 BOM 완제품 원가 캐스케이드 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='costuser', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-CC', name='원가테스트창고', created_by=self.user,
+        )
+        # 원자재 2종
+        self.mat_a = Product.objects.create(
+            code='MAT-A', name='자재A', product_type='RAW',
+            cost_price=1000, created_by=self.user,
+        )
+        self.mat_b = Product.objects.create(
+            code='MAT-B', name='자재B', product_type='RAW',
+            cost_price=2000, created_by=self.user,
+        )
+        # 완제품
+        self.finished = Product.objects.create(
+            code='FIN-CC', name='완제품', product_type='FINISHED',
+            cost_price=0, created_by=self.user,
+        )
+        # BOM: 자재A x 2 + 자재B x 1 = 2000 + 2000 = 4000
+        from apps.production.models import BOM, BOMItem
+        self.bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.mat_a,
+            quantity=2, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.mat_b,
+            quantity=1, created_by=self.user,
+        )
+
+    def test_bom_item_save_syncs_product_cost(self):
+        """BOMItem 저장 시 완제품 cost_price가 BOM 원가로 동기화"""
+        self.finished.refresh_from_db()
+        # BOM 원가: 1000*2 + 2000*1 = 4000
+        self.assertEqual(self.finished.cost_price, 4000)
+
+    def test_material_cost_change_cascades_to_finished(self):
+        """자재 원가 변경 시 완제품 cost_price 자동 재계산"""
+        # 자재A 원가 1000 → 1500 (이동평균 시뮬레이션: 직접 업데이트 + 캐스케이드)
+        Product.objects.filter(pk=self.mat_a.pk).update(cost_price=1500)
+        from apps.production.signals import _cascade_cost_to_parents
+        _cascade_cost_to_parents(self.mat_a.pk)
+
+        self.finished.refresh_from_db()
+        # 새 BOM 원가: 1500*2 + 2000*1 = 5000
+        self.assertEqual(self.finished.cost_price, 5000)
+
+    def test_multilevel_cascade(self):
+        """반제품→완제품 다단계 캐스케이드"""
+        from apps.production.models import BOM, BOMItem
+
+        # 반제품 생성 (자재A x 3 = 3000)
+        semi = Product.objects.create(
+            code='SEMI-CC', name='반제품', product_type='SEMI',
+            cost_price=0, created_by=self.user,
+        )
+        semi_bom = BOM.objects.create(
+            product=semi, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=semi_bom, material=self.mat_a,
+            quantity=3, created_by=self.user,
+        )
+        semi.refresh_from_db()
+        self.assertEqual(semi.cost_price, 3000)
+
+        # 최종완제품 (반제품 x 1 + 자재B x 1)
+        final = Product.objects.create(
+            code='FIN-ML', name='최종완제품', product_type='FINISHED',
+            cost_price=0, created_by=self.user,
+        )
+        final_bom = BOM.objects.create(
+            product=final, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=final_bom, material=semi,
+            quantity=1, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=final_bom, material=self.mat_b,
+            quantity=1, created_by=self.user,
+        )
+        final.refresh_from_db()
+        # 반제품(3000) + 자재B(2000) = 5000
+        self.assertEqual(final.cost_price, 5000)
+
+        # 자재A 원가 변경: 1000 → 2000
+        Product.objects.filter(pk=self.mat_a.pk).update(cost_price=2000)
+        from apps.production.signals import _cascade_cost_to_parents
+        _cascade_cost_to_parents(self.mat_a.pk)
+
+        semi.refresh_from_db()
+        # 반제품: 2000*3 = 6000
+        self.assertEqual(semi.cost_price, 6000)
+
+        final.refresh_from_db()
+        # 최종: 반제품(6000) + 자재B(2000) = 8000
+        self.assertEqual(final.cost_price, 8000)
+
+    def test_weighted_avg_triggers_cascade(self):
+        """입고 시 이동평균 원가 변동 → 상위 BOM 캐스케이드"""
+        # 자재A 현재고 10, 원가 1000 → 입고 10 @ 2000
+        Product.objects.filter(pk=self.mat_a.pk).update(
+            current_stock=10, cost_price=1000,
+        )
+        mv_seq = 0
+        mv_seq += 1
+        StockMovement.objects.create(
+            movement_number=f'CC-IN-{mv_seq:04d}',
+            movement_type='IN',
+            product=self.mat_a,
+            warehouse=self.warehouse,
+            quantity=10,
+            unit_price=2000,
+            movement_date=date.today(),
+            created_by=self.user,
+        )
+        # 이동평균: (10*1000 + 10*2000) / 20 = 1500
+        self.mat_a.refresh_from_db()
+        self.assertEqual(self.mat_a.cost_price, 1500)
+
+        # 완제품 원가도 갱신: 1500*2 + 2000*1 = 5000
+        self.finished.refresh_from_db()
+        self.assertEqual(self.finished.cost_price, 5000)
+
+
+class CostBasisConfigTest(TestCase):
+    """원가기준 설정 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='cfguser', password='testpass123', role='staff',
+        )
+        self.product = Product.objects.create(
+            code='CFG-001', name='테스트제품', product_type='FINISHED',
+            cost_price=5000, created_by=self.user,
+        )
+
+    def test_default_returns_product_cost(self):
+        """설정 없으면 제품 현재원가 반환"""
+        from apps.inventory.models import CostBasisConfig
+        cost = CostBasisConfig.get_cost_for_product(self.product, 'ORDER')
+        self.assertEqual(cost, 5000)
+
+    def test_configured_basis_product(self):
+        """PRODUCT 기준 설정 시 제품 현재원가 반환"""
+        from apps.inventory.models import CostBasisConfig
+        CostBasisConfig.objects.create(
+            stage='ORDER', primary_basis='PRODUCT',
+            fallback_basis='BOM', created_by=self.user,
+        )
+        cost = CostBasisConfig.get_cost_for_product(self.product, 'ORDER')
+        self.assertEqual(cost, 5000)
+
+    def test_configured_basis_bom_with_fallback(self):
+        """BOM 기준인데 BOM 없으면 fallback으로 제품원가"""
+        from apps.inventory.models import CostBasisConfig
+        CostBasisConfig.objects.create(
+            stage='QUOTATION', primary_basis='BOM',
+            fallback_basis='PRODUCT', created_by=self.user,
+        )
+        cost = CostBasisConfig.get_cost_for_product(self.product, 'QUOTATION')
+        # BOM 없으므로 fallback → PRODUCT → 5000
+        self.assertEqual(cost, 5000)
+
+    def test_bulk_costs(self):
+        """일괄 원가 조회"""
+        from apps.inventory.models import CostBasisConfig
+        p2 = Product.objects.create(
+            code='CFG-002', name='테스트제품2', product_type='RAW',
+            cost_price=3000, created_by=self.user,
+        )
+        CostBasisConfig.objects.create(
+            stage='ORDER', primary_basis='PRODUCT',
+            fallback_basis='BOM', created_by=self.user,
+        )
+        costs = CostBasisConfig.get_costs_bulk(
+            [self.product.pk, p2.pk], 'ORDER',
+        )
+        self.assertEqual(costs[str(self.product.pk)], 5000)
+        self.assertEqual(costs[str(p2.pk)], 3000)
+
+    def test_recalculate_cost_price_from_bom(self):
+        """Product.recalculate_cost_price()가 BOM 기반으로 원가 재계산"""
+        from apps.production.models import BOM, BOMItem
+        mat = Product.objects.create(
+            code='MAT-RC', name='재계산자재', product_type='RAW',
+            cost_price=1000, created_by=self.user,
+        )
+        bom = BOM.objects.create(
+            product=self.product, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=bom, material=mat, quantity=3, created_by=self.user,
+        )
+        # BOM 시그널이 이미 동기화했을 수 있으므로 수동 호출 테스트
+        self.product.refresh_from_db()
+        self.product.cost_price = 0  # 리셋
+        Product.objects.filter(pk=self.product.pk).update(cost_price=0)
+        changed = self.product.recalculate_cost_price()
+        self.assertTrue(changed)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.cost_price, 3000)
+
+
+class AutoStandardCostTest(TestCase):
+    """auto_standard_cost 활성화 시 표준원가 자동 버전 생성 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='autostd', password='testpass123', role='staff',
+        )
+        self.mat = Product.objects.create(
+            code='MAT-AS', name='자재', product_type='RAW',
+            cost_price=1000, created_by=self.user,
+        )
+        self.finished = Product.objects.create(
+            code='FIN-AS', name='완제품', product_type='FINISHED',
+            cost_price=0, auto_standard_cost=True,
+            created_by=self.user,
+        )
+        from apps.production.models import BOM, BOMItem
+        self.bom = BOM.objects.create(
+            product=self.finished, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.mat,
+            quantity=5, created_by=self.user,
+        )
+
+    def test_auto_creates_standard_cost_on_bom_sync(self):
+        """BOM 동기화 시 auto_standard_cost가 켜져 있으면 표준원가 자동 생성"""
+        from apps.production.models import StandardCost
+        stds = StandardCost.objects.filter(
+            product=self.finished, is_current=True, is_active=True,
+        )
+        self.assertEqual(stds.count(), 1)
+        std = stds.first()
+        self.assertTrue(std.version.startswith('AUTO-'))
+        self.assertEqual(std.material_cost, 5000)  # 1000 * 5
+        self.assertEqual(std.total_standard_cost, 5000)  # 노무비/간접비 없음
+
+    def test_auto_versions_on_material_cost_change(self):
+        """자재 원가 변동 시 새 표준원가 버전 생성"""
+        from apps.production.models import StandardCost
+        from apps.production.signals import _cascade_cost_to_parents
+
+        # 초기 표준원가 확인
+        self.assertEqual(
+            StandardCost.objects.filter(product=self.finished, is_active=True).count(), 1,
+        )
+
+        # 자재 원가 변경: 1000 → 2000
+        Product.objects.filter(pk=self.mat.pk).update(cost_price=2000)
+        _cascade_cost_to_parents(self.mat.pk)
+
+        # 새 버전 생성 확인
+        all_stds = StandardCost.objects.filter(
+            product=self.finished, is_active=True,
+        ).order_by('-effective_date', '-pk')
+        self.assertGreaterEqual(all_stds.count(), 2)
+
+        # 현행 표준원가 = 새 자재원가
+        current = all_stds.filter(is_current=True).first()
+        self.assertEqual(current.material_cost, 10000)  # 2000 * 5
+        self.assertEqual(current.total_standard_cost, 10000)
+
+        # 이전 버전은 is_current=False
+        old = all_stds.filter(is_current=False).first()
+        self.assertIsNotNone(old)
+        self.assertEqual(old.material_cost, 5000)
+
+    def test_auto_version_material_cost_only(self):
+        """자동생성 표준원가는 자재원가만 기록, 노무비/간접비는 0 (수동 관리)"""
+        from apps.production.models import StandardCost
+        from apps.production.signals import _cascade_cost_to_parents
+
+        # 기존 표준원가에 노무비/간접비 수동 설정
+        std = StandardCost.objects.filter(
+            product=self.finished, is_current=True,
+        ).first()
+        std.direct_labor_hours = 2
+        std.labor_rate_per_hour = 10000
+        std.overhead_rate = 50  # 간접비 50%
+        std.save()
+
+        # 자재 원가 변경 트리거
+        Product.objects.filter(pk=self.mat.pk).update(cost_price=1500)
+        _cascade_cost_to_parents(self.mat.pk)
+
+        current = StandardCost.objects.filter(
+            product=self.finished, is_current=True,
+        ).first()
+        # 자동생성은 자재원가만 — 노무비/간접비는 0
+        self.assertEqual(current.material_cost, 7500)  # 1500*5
+        self.assertEqual(current.direct_labor_hours, 0)
+        self.assertEqual(current.labor_rate_per_hour, 0)
+        self.assertEqual(current.overhead_rate, 0)
+        self.assertEqual(current.labor_cost, 0)
+        self.assertEqual(current.overhead_cost, 0)
+        self.assertEqual(current.total_standard_cost, 7500)  # 자재원가만
+
+    def test_no_version_when_disabled(self):
+        """auto_standard_cost=False이면 표준원가 자동 생성 안함"""
+        from apps.production.models import StandardCost, BOM, BOMItem
+        from apps.production.signals import _cascade_cost_to_parents
+
+        product = Product.objects.create(
+            code='FIN-NO', name='수동제품', product_type='FINISHED',
+            cost_price=0, auto_standard_cost=False,
+            created_by=self.user,
+        )
+        bom = BOM.objects.create(
+            product=product, version='1.0',
+            is_default=True, created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=bom, material=self.mat, quantity=3, created_by=self.user,
+        )
+        # auto_standard_cost=False → 표준원가 생성 안됨
+        self.assertEqual(
+            StandardCost.objects.filter(product=product).count(), 0,
+        )
+
+    def test_skip_when_no_cost_change(self):
+        """자재원가 변동 없으면 새 버전 생성하지 않음"""
+        from apps.production.models import StandardCost
+        from apps.production.signals import _sync_product_cost_price
+
+        initial_count = StandardCost.objects.filter(
+            product=self.finished, is_active=True,
+        ).count()
+
+        # 같은 원가로 다시 동기화 → 변동 없음 → 새 버전 없음
+        self.finished.refresh_from_db()
+        _sync_product_cost_price(self.finished)
+
+        self.assertEqual(
+            StandardCost.objects.filter(
+                product=self.finished, is_active=True,
+            ).count(),
+            initial_count,
+        )
