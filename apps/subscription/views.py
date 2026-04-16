@@ -14,6 +14,7 @@ from django.views.generic import (
 )
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 
 from .forms import (
     BillingRecordForm,
@@ -33,7 +34,8 @@ from .models import (
 
 # ── Plan views ──
 
-class PlanListView(LoginRequiredMixin, ListView):
+class PlanListView(ModuleRequiredMixin, ListView):
+    required_module = 'subscription'
     model = SubscriptionPlan
     template_name = 'subscription/plan_list.html'
     context_object_name = 'plans'
@@ -43,7 +45,8 @@ class PlanListView(LoginRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True)
 
 
-class PlanCreateView(ManagerRequiredMixin, CreateView):
+class PlanCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'subscription'
     model = SubscriptionPlan
     form_class = SubscriptionPlanForm
     template_name = 'subscription/plan_form.html'
@@ -54,7 +57,8 @@ class PlanCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class PlanUpdateView(ManagerRequiredMixin, UpdateView):
+class PlanUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'subscription'
     model = SubscriptionPlan
     form_class = SubscriptionPlanForm
     template_name = 'subscription/plan_form.html'
@@ -63,7 +67,8 @@ class PlanUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Subscription views ──
 
-class SubscriptionListView(LoginRequiredMixin, ListView):
+class SubscriptionListView(ModuleRequiredMixin, ListView):
+    required_module = 'subscription'
     model = Subscription
     template_name = 'subscription/subscription_list.html'
     context_object_name = 'subscriptions'
@@ -77,7 +82,8 @@ class SubscriptionListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class SubscriptionCreateView(ManagerRequiredMixin, CreateView):
+class SubscriptionCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'subscription'
     model = Subscription
     form_class = SubscriptionForm
     template_name = 'subscription/subscription_form.html'
@@ -88,7 +94,8 @@ class SubscriptionCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class SubscriptionDetailView(LoginRequiredMixin, DetailView):
+class SubscriptionDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'subscription'
     model = Subscription
     template_name = 'subscription/subscription_detail.html'
     context_object_name = 'subscription'
@@ -107,7 +114,8 @@ class SubscriptionDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class SubscriptionUpdateView(ManagerRequiredMixin, UpdateView):
+class SubscriptionUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'subscription'
     model = Subscription
     form_class = SubscriptionForm
     template_name = 'subscription/subscription_form.html'
@@ -121,7 +129,9 @@ class SubscriptionUpdateView(ManagerRequiredMixin, UpdateView):
         )
 
 
-class SubscriptionPauseView(ManagerRequiredMixin, View):
+class SubscriptionPauseView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'subscription'
+
     def post(self, request, subscription_number):
         sub = get_object_or_404(
             Subscription, subscription_number=subscription_number, is_active=True,
@@ -132,7 +142,9 @@ class SubscriptionPauseView(ManagerRequiredMixin, View):
         return redirect('subscription:subscription_detail', subscription_number=sub.subscription_number)
 
 
-class SubscriptionCancelView(ManagerRequiredMixin, View):
+class SubscriptionCancelView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'subscription'
+
     def post(self, request, subscription_number):
         sub = get_object_or_404(
             Subscription, subscription_number=subscription_number, is_active=True,
@@ -144,7 +156,9 @@ class SubscriptionCancelView(ManagerRequiredMixin, View):
         return redirect('subscription:subscription_detail', subscription_number=sub.subscription_number)
 
 
-class SubscriptionRenewView(ManagerRequiredMixin, View):
+class SubscriptionRenewView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'subscription'
+
     def post(self, request, subscription_number):
         sub = get_object_or_404(
             Subscription, subscription_number=subscription_number, is_active=True,
@@ -155,7 +169,9 @@ class SubscriptionRenewView(ManagerRequiredMixin, View):
         return redirect('subscription:subscription_detail', subscription_number=sub.subscription_number)
 
 
-class SubscriptionItemCreateView(ManagerRequiredMixin, View):
+class SubscriptionItemCreateView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'subscription'
+
     def post(self, request, subscription_number):
         sub = get_object_or_404(
             Subscription, subscription_number=subscription_number, is_active=True,
@@ -171,7 +187,8 @@ class SubscriptionItemCreateView(ManagerRequiredMixin, View):
 
 # ── Billing views ──
 
-class BillingRecordListView(LoginRequiredMixin, ListView):
+class BillingRecordListView(ModuleRequiredMixin, ListView):
+    required_module = 'subscription'
     model = BillingRecord
     template_name = 'subscription/billing_list.html'
     context_object_name = 'records'
@@ -189,7 +206,8 @@ class BillingRecordListView(LoginRequiredMixin, ListView):
 
 # ── Usage views ──
 
-class UsageRecordListView(LoginRequiredMixin, ListView):
+class UsageRecordListView(ModuleRequiredMixin, ListView):
+    required_module = 'subscription'
     model = UsageRecord
     template_name = 'subscription/usage_list.html'
     context_object_name = 'records'
@@ -203,7 +221,8 @@ class UsageRecordListView(LoginRequiredMixin, ListView):
 
 # ── Dashboard ──
 
-class SubscriptionDashboardView(LoginRequiredMixin, TemplateView):
+class SubscriptionDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'subscription'
     template_name = 'subscription/dashboard.html'
 
     def get_context_data(self, **kwargs):

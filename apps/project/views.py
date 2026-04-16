@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import Project, ProjectCategory, ProjectMember, Milestone, Task, TaskComment, TimeLog
 from .forms import (
     ProjectForm, ProjectCategoryForm, ProjectMemberForm, MilestoneForm,
@@ -14,7 +15,8 @@ from .forms import (
 )
 
 
-class ProjectListView(LoginRequiredMixin, ListView):
+class ProjectListView(ModuleRequiredMixin, ListView):
+    required_module = 'project'
     model = Project
     template_name = 'project/project_list.html'
     context_object_name = 'projects'
@@ -34,7 +36,8 @@ class ProjectListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class ProjectDetailView(LoginRequiredMixin, DetailView):
+class ProjectDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'project'
     model = Project
     template_name = 'project/project_detail.html'
     context_object_name = 'project'
@@ -52,7 +55,8 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class ProjectCreateView(ManagerRequiredMixin, CreateView):
+class ProjectCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'project'
     model = Project
     form_class = ProjectForm
     template_name = 'project/project_form.html'
@@ -64,7 +68,8 @@ class ProjectCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ProjectUpdateView(ManagerRequiredMixin, UpdateView):
+class ProjectUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'project'
     model = Project
     form_class = ProjectForm
     template_name = 'project/project_form.html'
@@ -77,7 +82,8 @@ class ProjectUpdateView(ManagerRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class TaskListView(LoginRequiredMixin, ListView):
+class TaskListView(ModuleRequiredMixin, ListView):
+    required_module = 'project'
     model = Task
     template_name = 'project/task_list.html'
     context_object_name = 'tasks'
@@ -102,7 +108,8 @@ class TaskListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class TaskDetailView(LoginRequiredMixin, DetailView):
+class TaskDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'project'
     model = Task
     template_name = 'project/task_detail.html'
     context_object_name = 'task'
@@ -117,7 +124,8 @@ class TaskDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class TaskCreateView(LoginRequiredMixin, CreateView):
+class TaskCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'project'
     model = Task
     form_class = TaskForm
     template_name = 'project/task_form.html'
@@ -131,7 +139,8 @@ class TaskCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class TaskUpdateView(LoginRequiredMixin, UpdateView):
+class TaskUpdateView(ModuleRequiredMixin, UpdateView):
+    required_module = 'project'
     model = Task
     form_class = TaskForm
     template_name = 'project/task_form.html'
@@ -144,7 +153,8 @@ class TaskUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class TaskCommentCreateView(LoginRequiredMixin, CreateView):
+class TaskCommentCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'project'
     model = TaskComment
     form_class = TaskCommentForm
 
@@ -158,7 +168,8 @@ class TaskCommentCreateView(LoginRequiredMixin, CreateView):
         return redirect('project:task_detail', pk=task.pk)
 
 
-class TimeLogCreateView(LoginRequiredMixin, CreateView):
+class TimeLogCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'project'
     model = TimeLog
     form_class = TimeLogForm
 
@@ -175,7 +186,8 @@ class TimeLogCreateView(LoginRequiredMixin, CreateView):
         return redirect('project:task_detail', pk=task.pk)
 
 
-class MilestoneCreateView(ManagerRequiredMixin, CreateView):
+class MilestoneCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'project'
     model = Milestone
     form_class = MilestoneForm
     template_name = 'project/milestone_form.html'
@@ -189,7 +201,8 @@ class MilestoneCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ProjectMemberCreateView(ManagerRequiredMixin, CreateView):
+class ProjectMemberCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'project'
     model = ProjectMember
     form_class = ProjectMemberForm
     template_name = 'project/member_form.html'

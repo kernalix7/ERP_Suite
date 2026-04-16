@@ -12,6 +12,7 @@ from django.views.generic import (
 )
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .forms import (
     ContractForm, ContractMilestoneForm, DocumentApprovalActionForm,
     DocumentApprovalForm, DocumentCategoryForm, DocumentForm,
@@ -25,7 +26,8 @@ from .models import (
 
 # ──── Document Category ────
 
-class DocumentCategoryListView(ManagerRequiredMixin, ListView):
+class DocumentCategoryListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'document'
     model = DocumentCategory
     template_name = 'document/category_list.html'
     context_object_name = 'categories'
@@ -35,7 +37,8 @@ class DocumentCategoryListView(ManagerRequiredMixin, ListView):
         return DocumentCategory.objects.filter(is_active=True).select_related('parent')
 
 
-class DocumentCategoryCreateView(ManagerRequiredMixin, CreateView):
+class DocumentCategoryCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'document'
     model = DocumentCategory
     form_class = DocumentCategoryForm
     template_name = 'document/category_form.html'
@@ -47,7 +50,8 @@ class DocumentCategoryCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class DocumentCategoryUpdateView(ManagerRequiredMixin, UpdateView):
+class DocumentCategoryUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'document'
     model = DocumentCategory
     form_class = DocumentCategoryForm
     template_name = 'document/category_form.html'
@@ -60,7 +64,8 @@ class DocumentCategoryUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ──── Document CRUD ────
 
-class DocumentListView(LoginRequiredMixin, ListView):
+class DocumentListView(ModuleRequiredMixin, ListView):
+    required_module = 'document'
     model = Document
     template_name = 'document/document_list.html'
     context_object_name = 'documents'
@@ -90,7 +95,8 @@ class DocumentListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class DocumentCreateView(LoginRequiredMixin, CreateView):
+class DocumentCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'document'
     model = Document
     form_class = DocumentForm
     template_name = 'document/document_form.html'
@@ -105,7 +111,8 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy('document:document_detail', kwargs={'slug': self.object.document_number})
 
 
-class DocumentDetailView(LoginRequiredMixin, DetailView):
+class DocumentDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'document'
     model = Document
     template_name = 'document/document_detail.html'
     slug_field = 'document_number'
@@ -116,7 +123,8 @@ class DocumentDetailView(LoginRequiredMixin, DetailView):
         ).prefetch_related('versions', 'approvals__approver')
 
 
-class DocumentUpdateView(LoginRequiredMixin, UpdateView):
+class DocumentUpdateView(ModuleRequiredMixin, UpdateView):
+    required_module = 'document'
     model = Document
     form_class = DocumentForm
     template_name = 'document/document_form.html'
@@ -136,7 +144,8 @@ class DocumentUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy('document:document_detail', kwargs={'slug': self.object.document_number})
 
 
-class DocumentSearchView(LoginRequiredMixin, ListView):
+class DocumentSearchView(ModuleRequiredMixin, ListView):
+    required_module = 'document'
     model = Document
     template_name = 'document/document_search.html'
     context_object_name = 'documents'
@@ -166,7 +175,8 @@ class DocumentSearchView(LoginRequiredMixin, ListView):
 
 # ──── Document Version ────
 
-class DocumentVersionCreateView(LoginRequiredMixin, CreateView):
+class DocumentVersionCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'document'
     model = DocumentVersion
     form_class = DocumentVersionForm
     template_name = 'document/version_form.html'
@@ -201,7 +211,8 @@ class DocumentVersionCreateView(LoginRequiredMixin, CreateView):
 
 # ──── Document Approval ────
 
-class DocumentApprovalRequestView(LoginRequiredMixin, CreateView):
+class DocumentApprovalRequestView(ModuleRequiredMixin, CreateView):
+    required_module = 'document'
     model = DocumentApproval
     form_class = DocumentApprovalForm
     template_name = 'document/approval_request_form.html'
@@ -229,7 +240,9 @@ class DocumentApprovalRequestView(LoginRequiredMixin, CreateView):
         return ctx
 
 
-class DocumentApprovalActionView(LoginRequiredMixin, View):
+class DocumentApprovalActionView(ModuleRequiredMixin, View):
+    required_module = 'document'
+
     def post(self, request, pk, action):
         approval = get_object_or_404(
             DocumentApproval, pk=pk, approver=request.user, is_active=True,
@@ -273,7 +286,8 @@ class DocumentApprovalActionView(LoginRequiredMixin, View):
 
 # ──── Contract CRUD ────
 
-class ContractListView(LoginRequiredMixin, ListView):
+class ContractListView(ModuleRequiredMixin, ListView):
+    required_module = 'document'
     model = Contract
     template_name = 'document/contract_list.html'
     context_object_name = 'contracts'
@@ -301,7 +315,8 @@ class ContractListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ContractCreateView(ManagerRequiredMixin, CreateView):
+class ContractCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'document'
     model = Contract
     form_class = ContractForm
     template_name = 'document/contract_form.html'
@@ -315,7 +330,8 @@ class ContractCreateView(ManagerRequiredMixin, CreateView):
         return reverse_lazy('document:contract_detail', kwargs={'slug': self.object.contract_number})
 
 
-class ContractDetailView(LoginRequiredMixin, DetailView):
+class ContractDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'document'
     model = Contract
     template_name = 'document/contract_detail.html'
     slug_field = 'contract_number'
@@ -326,7 +342,8 @@ class ContractDetailView(LoginRequiredMixin, DetailView):
         ).prefetch_related('milestones')
 
 
-class ContractUpdateView(ManagerRequiredMixin, UpdateView):
+class ContractUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'document'
     model = Contract
     form_class = ContractForm
     template_name = 'document/contract_form.html'
@@ -343,7 +360,9 @@ class ContractUpdateView(ManagerRequiredMixin, UpdateView):
         return reverse_lazy('document:contract_detail', kwargs={'slug': self.object.contract_number})
 
 
-class ContractTerminateView(ManagerRequiredMixin, View):
+class ContractTerminateView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'document'
+
     def post(self, request, slug):
         contract = get_object_or_404(Contract, contract_number=slug, is_active=True)
         contract.status = Contract.Status.TERMINATED
@@ -352,7 +371,9 @@ class ContractTerminateView(ManagerRequiredMixin, View):
         return redirect('document:contract_detail', slug=slug)
 
 
-class ContractRenewView(ManagerRequiredMixin, View):
+class ContractRenewView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'document'
+
     def post(self, request, slug):
         contract = get_object_or_404(Contract, contract_number=slug, is_active=True)
         if contract.end_date:
@@ -366,7 +387,8 @@ class ContractRenewView(ManagerRequiredMixin, View):
 
 # ──── Contract Milestone ────
 
-class ContractMilestoneCreateView(ManagerRequiredMixin, CreateView):
+class ContractMilestoneCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'document'
     model = ContractMilestone
     form_class = ContractMilestoneForm
     template_name = 'document/milestone_form.html'
@@ -394,7 +416,8 @@ class ContractMilestoneCreateView(ManagerRequiredMixin, CreateView):
 
 # ──── Contract Calendar ────
 
-class ContractCalendarView(LoginRequiredMixin, ListView):
+class ContractCalendarView(ModuleRequiredMixin, ListView):
+    required_module = 'document'
     model = Contract
     template_name = 'document/contract_calendar.html'
     context_object_name = 'contracts'
@@ -413,7 +436,8 @@ class ContractCalendarView(LoginRequiredMixin, ListView):
 
 # ──── Dashboard ────
 
-class DocumentDashboardView(LoginRequiredMixin, TemplateView):
+class DocumentDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'document'
     template_name = 'document/dashboard.html'
 
     def get_context_data(self, **kwargs):

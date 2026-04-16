@@ -6,6 +6,7 @@ from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import WikiSpace, WikiArticle, WikiCategory, ArticleRevision, ArticleComment, ArticleAttachment
 from .forms import (
     WikiSpaceForm, WikiArticleForm, WikiCategoryForm,
@@ -15,7 +16,8 @@ from .forms import (
 
 # ---- WikiSpace ----
 
-class WikiSpaceListView(LoginRequiredMixin, ListView):
+class WikiSpaceListView(ModuleRequiredMixin, ListView):
+    required_module = 'wiki'
     model = WikiSpace
     template_name = 'wiki/space_list.html'
     context_object_name = 'spaces'
@@ -28,7 +30,8 @@ class WikiSpaceListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class WikiSpaceCreateView(ManagerRequiredMixin, CreateView):
+class WikiSpaceCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'wiki'
     model = WikiSpace
     form_class = WikiSpaceForm
     template_name = 'wiki/space_form.html'
@@ -44,8 +47,9 @@ class WikiSpaceCreateView(ManagerRequiredMixin, CreateView):
 
 # ---- WikiCategory ----
 
-class WikiCategoryTreeView(LoginRequiredMixin, DetailView):
+class WikiCategoryTreeView(ModuleRequiredMixin, DetailView):
     """공간 내 카테고리 트리"""
+    required_module = 'wiki'
     model = WikiSpace
     template_name = 'wiki/category_tree.html'
     context_object_name = 'space'
@@ -60,7 +64,8 @@ class WikiCategoryTreeView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class WikiCategoryListView(ManagerRequiredMixin, ListView):
+class WikiCategoryListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'wiki'
     model = WikiCategory
     template_name = 'wiki/category_list.html'
     context_object_name = 'categories'
@@ -79,7 +84,8 @@ class WikiCategoryListView(ManagerRequiredMixin, ListView):
         return ctx
 
 
-class WikiCategoryCreateView(ManagerRequiredMixin, CreateView):
+class WikiCategoryCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'wiki'
     model = WikiCategory
     form_class = WikiCategoryForm
     template_name = 'wiki/category_form.html'
@@ -93,7 +99,8 @@ class WikiCategoryCreateView(ManagerRequiredMixin, CreateView):
 
 # ---- WikiArticle ----
 
-class WikiArticleListView(LoginRequiredMixin, ListView):
+class WikiArticleListView(ModuleRequiredMixin, ListView):
+    required_module = 'wiki'
     model = WikiArticle
     template_name = 'wiki/article_list.html'
     context_object_name = 'articles'
@@ -123,7 +130,8 @@ class WikiArticleListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class WikiArticleDetailView(LoginRequiredMixin, DetailView):
+class WikiArticleDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'wiki'
     model = WikiArticle
     template_name = 'wiki/article_detail.html'
     context_object_name = 'article'
@@ -152,7 +160,8 @@ class WikiArticleDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class WikiArticleCreateView(LoginRequiredMixin, CreateView):
+class WikiArticleCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'wiki'
     model = WikiArticle
     form_class = WikiArticleForm
     template_name = 'wiki/article_form.html'
@@ -174,7 +183,8 @@ class WikiArticleCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class WikiArticleUpdateView(LoginRequiredMixin, UpdateView):
+class WikiArticleUpdateView(ModuleRequiredMixin, UpdateView):
+    required_module = 'wiki'
     model = WikiArticle
     form_class = WikiArticleForm
     template_name = 'wiki/article_form.html'
@@ -204,7 +214,8 @@ class WikiArticleUpdateView(LoginRequiredMixin, UpdateView):
 
 # ---- Article Search ----
 
-class WikiArticleSearchView(LoginRequiredMixin, ListView):
+class WikiArticleSearchView(ModuleRequiredMixin, ListView):
+    required_module = 'wiki'
     model = WikiArticle
     template_name = 'wiki/article_search.html'
     context_object_name = 'articles'
@@ -240,8 +251,9 @@ class WikiArticleSearchView(LoginRequiredMixin, ListView):
 
 # ---- Revision History ----
 
-class ArticleRevisionListView(LoginRequiredMixin, DetailView):
+class ArticleRevisionListView(ModuleRequiredMixin, DetailView):
     """문서 개정 이력 목록"""
+    required_module = 'wiki'
     model = WikiArticle
     template_name = 'wiki/article_history.html'
     context_object_name = 'article'
@@ -254,8 +266,9 @@ class ArticleRevisionListView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class ArticleRevisionDetailView(LoginRequiredMixin, DetailView):
+class ArticleRevisionDetailView(ModuleRequiredMixin, DetailView):
     """특정 개정 버전 보기 (Diff)"""
+    required_module = 'wiki'
     model = ArticleRevision
     template_name = 'wiki/revision_detail.html'
     context_object_name = 'revision'
@@ -274,8 +287,9 @@ class ArticleRevisionDetailView(LoginRequiredMixin, DetailView):
 
 # ---- Recent Changes & Popular ----
 
-class RecentChangesView(LoginRequiredMixin, ListView):
+class RecentChangesView(ModuleRequiredMixin, ListView):
     """최근 변경 문서"""
+    required_module = 'wiki'
     model = WikiArticle
     template_name = 'wiki/recent_changes.html'
     context_object_name = 'articles'
@@ -290,8 +304,9 @@ class RecentChangesView(LoginRequiredMixin, ListView):
         return qs
 
 
-class PopularArticlesView(LoginRequiredMixin, ListView):
+class PopularArticlesView(ModuleRequiredMixin, ListView):
     """인기 문서 (조회수 기준)"""
+    required_module = 'wiki'
     model = WikiArticle
     template_name = 'wiki/popular_articles.html'
     context_object_name = 'articles'
@@ -306,8 +321,9 @@ class PopularArticlesView(LoginRequiredMixin, ListView):
         return qs
 
 
-class MyArticlesView(LoginRequiredMixin, ListView):
+class MyArticlesView(ModuleRequiredMixin, ListView):
     """내가 작성한 문서"""
+    required_module = 'wiki'
     model = WikiArticle
     template_name = 'wiki/my_articles.html'
     context_object_name = 'articles'
@@ -321,7 +337,8 @@ class MyArticlesView(LoginRequiredMixin, ListView):
 
 # ---- Comments ----
 
-class ArticleCommentCreateView(LoginRequiredMixin, CreateView):
+class ArticleCommentCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'wiki'
     model = ArticleComment
     form_class = ArticleCommentForm
 

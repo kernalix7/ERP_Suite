@@ -5,6 +5,7 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, DetailView, UpdateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import BOMRevision, Drawing, ECNItem, EngineeringChangeNotice, ProductVersion
 from .forms import (
     BOMRevisionForm, DrawingForm, EngineeringChangeNoticeForm, ProductVersionForm,
@@ -13,7 +14,8 @@ from .forms import (
 
 # === 제품 버전 ===
 
-class ProductVersionListView(LoginRequiredMixin, ListView):
+class ProductVersionListView(ModuleRequiredMixin, ListView):
+    required_module = 'plm'
     model = ProductVersion
     template_name = 'plm/version_list.html'
     context_object_name = 'versions'
@@ -37,7 +39,8 @@ class ProductVersionListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ProductVersionCreateView(ManagerRequiredMixin, CreateView):
+class ProductVersionCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'plm'
     model = ProductVersion
     form_class = ProductVersionForm
     template_name = 'plm/version_form.html'
@@ -49,7 +52,8 @@ class ProductVersionCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ProductVersionDetailView(LoginRequiredMixin, DetailView):
+class ProductVersionDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'plm'
     model = ProductVersion
     template_name = 'plm/version_detail.html'
     context_object_name = 'version'
@@ -65,7 +69,8 @@ class ProductVersionDetailView(LoginRequiredMixin, DetailView):
 
 # === BOM 리비전 ===
 
-class BOMRevisionListView(LoginRequiredMixin, ListView):
+class BOMRevisionListView(ModuleRequiredMixin, ListView):
+    required_module = 'plm'
     model = BOMRevision
     template_name = 'plm/bomrevision_list.html'
     context_object_name = 'revisions'
@@ -86,7 +91,8 @@ class BOMRevisionListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class BOMRevisionDetailView(LoginRequiredMixin, DetailView):
+class BOMRevisionDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'plm'
     model = BOMRevision
     template_name = 'plm/bomrevision_detail.html'
     context_object_name = 'revision'
@@ -97,7 +103,8 @@ class BOMRevisionDetailView(LoginRequiredMixin, DetailView):
 
 # === ECN ===
 
-class ECNListView(LoginRequiredMixin, ListView):
+class ECNListView(ModuleRequiredMixin, ListView):
+    required_module = 'plm'
     model = EngineeringChangeNotice
     template_name = 'plm/ecn_list.html'
     context_object_name = 'ecns'
@@ -121,7 +128,8 @@ class ECNListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ECNCreateView(ManagerRequiredMixin, CreateView):
+class ECNCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'plm'
     model = EngineeringChangeNotice
     form_class = EngineeringChangeNoticeForm
     template_name = 'plm/ecn_form.html'
@@ -134,7 +142,8 @@ class ECNCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ECNDetailView(LoginRequiredMixin, DetailView):
+class ECNDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'plm'
     model = EngineeringChangeNotice
     template_name = 'plm/ecn_detail.html'
     context_object_name = 'ecn'
@@ -151,7 +160,8 @@ class ECNDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class ECNUpdateView(ManagerRequiredMixin, UpdateView):
+class ECNUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'plm'
     model = EngineeringChangeNotice
     form_class = EngineeringChangeNoticeForm
     template_name = 'plm/ecn_form.html'
@@ -166,7 +176,8 @@ class ECNUpdateView(ManagerRequiredMixin, UpdateView):
 
 # === 도면 ===
 
-class DrawingListView(LoginRequiredMixin, ListView):
+class DrawingListView(ModuleRequiredMixin, ListView):
+    required_module = 'plm'
     model = Drawing
     template_name = 'plm/drawing_list.html'
     context_object_name = 'drawings'
@@ -182,7 +193,8 @@ class DrawingListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class DrawingCreateView(ManagerRequiredMixin, CreateView):
+class DrawingCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'plm'
     model = Drawing
     form_class = DrawingForm
     template_name = 'plm/drawing_form.html'

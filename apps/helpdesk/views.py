@@ -13,6 +13,7 @@ from django.views.generic import (
 )
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 
 from .forms import (
     EscalationRuleForm,
@@ -33,7 +34,8 @@ from .models import (
 
 # ── Ticket views ──
 
-class TicketListView(LoginRequiredMixin, ListView):
+class TicketListView(ModuleRequiredMixin, ListView):
+    required_module = 'helpdesk'
     model = Ticket
     template_name = 'helpdesk/ticket_list.html'
     context_object_name = 'tickets'
@@ -59,7 +61,8 @@ class TicketListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class MyTicketListView(LoginRequiredMixin, ListView):
+class MyTicketListView(ModuleRequiredMixin, ListView):
+    required_module = 'helpdesk'
     model = Ticket
     template_name = 'helpdesk/ticket_list.html'
     context_object_name = 'tickets'
@@ -78,7 +81,8 @@ class MyTicketListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class TicketCreateView(LoginRequiredMixin, CreateView):
+class TicketCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'helpdesk'
     model = Ticket
     form_class = TicketForm
     template_name = 'helpdesk/ticket_form.html'
@@ -90,7 +94,8 @@ class TicketCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class TicketDetailView(LoginRequiredMixin, DetailView):
+class TicketDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'helpdesk'
     model = Ticket
     template_name = 'helpdesk/ticket_detail.html'
     context_object_name = 'ticket'
@@ -112,7 +117,8 @@ class TicketDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class TicketUpdateView(ManagerRequiredMixin, UpdateView):
+class TicketUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'helpdesk'
     model = Ticket
     form_class = TicketForm
     template_name = 'helpdesk/ticket_form.html'
@@ -126,7 +132,9 @@ class TicketUpdateView(ManagerRequiredMixin, UpdateView):
         return reverse_lazy('helpdesk:ticket_detail', kwargs={'ticket_number': self.object.ticket_number})
 
 
-class TicketAssignView(ManagerRequiredMixin, View):
+class TicketAssignView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'helpdesk'
+
     def post(self, request, ticket_number):
         ticket = get_object_or_404(Ticket, ticket_number=ticket_number, is_active=True)
         form = TicketAssignForm(request.POST, instance=ticket)
@@ -138,7 +146,9 @@ class TicketAssignView(ManagerRequiredMixin, View):
         return redirect('helpdesk:ticket_detail', ticket_number=ticket.ticket_number)
 
 
-class TicketResolveView(ManagerRequiredMixin, View):
+class TicketResolveView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'helpdesk'
+
     def post(self, request, ticket_number):
         ticket = get_object_or_404(Ticket, ticket_number=ticket_number, is_active=True)
         ticket.status = Ticket.Status.RESOLVED
@@ -146,7 +156,9 @@ class TicketResolveView(ManagerRequiredMixin, View):
         return redirect('helpdesk:ticket_detail', ticket_number=ticket.ticket_number)
 
 
-class TicketCloseView(ManagerRequiredMixin, View):
+class TicketCloseView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'helpdesk'
+
     def post(self, request, ticket_number):
         ticket = get_object_or_404(Ticket, ticket_number=ticket_number, is_active=True)
         ticket.status = Ticket.Status.CLOSED
@@ -154,7 +166,9 @@ class TicketCloseView(ManagerRequiredMixin, View):
         return redirect('helpdesk:ticket_detail', ticket_number=ticket.ticket_number)
 
 
-class TicketCommentCreateView(LoginRequiredMixin, View):
+class TicketCommentCreateView(ModuleRequiredMixin, View):
+    required_module = 'helpdesk'
+
     def post(self, request, ticket_number):
         ticket = get_object_or_404(Ticket, ticket_number=ticket_number, is_active=True)
         form = TicketCommentForm(request.POST)
@@ -169,7 +183,8 @@ class TicketCommentCreateView(LoginRequiredMixin, View):
 
 # ── Category views ──
 
-class CategoryListView(ManagerRequiredMixin, ListView):
+class CategoryListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'helpdesk'
     model = TicketCategory
     template_name = 'helpdesk/category_list.html'
     context_object_name = 'categories'
@@ -179,7 +194,8 @@ class CategoryListView(ManagerRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True).select_related('parent', 'default_sla')
 
 
-class CategoryCreateView(ManagerRequiredMixin, CreateView):
+class CategoryCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'helpdesk'
     model = TicketCategory
     form_class = TicketCategoryForm
     template_name = 'helpdesk/category_form.html'
@@ -190,7 +206,8 @@ class CategoryCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class CategoryUpdateView(ManagerRequiredMixin, UpdateView):
+class CategoryUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'helpdesk'
     model = TicketCategory
     form_class = TicketCategoryForm
     template_name = 'helpdesk/category_form.html'
@@ -199,7 +216,8 @@ class CategoryUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── SLA views ──
 
-class SLAListView(ManagerRequiredMixin, ListView):
+class SLAListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'helpdesk'
     model = SLA
     template_name = 'helpdesk/sla_list.html'
     context_object_name = 'slas'
@@ -209,7 +227,8 @@ class SLAListView(ManagerRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True)
 
 
-class SLACreateView(ManagerRequiredMixin, CreateView):
+class SLACreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'helpdesk'
     model = SLA
     form_class = SLAForm
     template_name = 'helpdesk/sla_form.html'
@@ -220,7 +239,8 @@ class SLACreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class SLAUpdateView(ManagerRequiredMixin, UpdateView):
+class SLAUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'helpdesk'
     model = SLA
     form_class = SLAForm
     template_name = 'helpdesk/sla_form.html'
@@ -229,7 +249,8 @@ class SLAUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Dashboard ──
 
-class HelpdeskDashboardView(LoginRequiredMixin, TemplateView):
+class HelpdeskDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'helpdesk'
     template_name = 'helpdesk/dashboard.html'
 
     def get_context_data(self, **kwargs):

@@ -7,11 +7,13 @@ from django.utils import timezone
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import Visitor, VisitorPurpose, VisitRequest, VisitLog, VisitorNDA
 from .forms import VisitorForm, VisitorPurposeForm, VisitRequestForm, VisitCheckInForm, VisitCheckOutForm
 
 
-class VisitRequestListView(LoginRequiredMixin, ListView):
+class VisitRequestListView(ModuleRequiredMixin, ListView):
+    required_module = 'visitor'
     model = VisitRequest
     template_name = 'visitor/visit_request_list.html'
     context_object_name = 'visit_requests'
@@ -34,7 +36,8 @@ class VisitRequestListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class VisitRequestDetailView(LoginRequiredMixin, DetailView):
+class VisitRequestDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'visitor'
     model = VisitRequest
     template_name = 'visitor/visit_request_detail.html'
     context_object_name = 'visit_request'
@@ -45,7 +48,8 @@ class VisitRequestDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class VisitRequestCreateView(LoginRequiredMixin, CreateView):
+class VisitRequestCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'visitor'
     model = VisitRequest
     form_class = VisitRequestForm
     template_name = 'visitor/visit_request_form.html'
@@ -57,7 +61,8 @@ class VisitRequestCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class VisitRequestApproveView(ManagerRequiredMixin, DetailView):
+class VisitRequestApproveView(ModuleRequiredMixin, ManagerRequiredMixin, DetailView):
+    required_module = 'visitor'
     model = VisitRequest
 
     def post(self, request, *args, **kwargs):
@@ -77,8 +82,9 @@ class VisitRequestApproveView(ManagerRequiredMixin, DetailView):
         return redirect('visitor:visit_request_detail', pk=visit_req.pk)
 
 
-class VisitCheckInView(ManagerRequiredMixin, CreateView):
+class VisitCheckInView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
     """방문자 체크인"""
+    required_module = 'visitor'
     model = VisitLog
     form_class = VisitCheckInForm
     template_name = 'visitor/check_in.html'
@@ -97,8 +103,9 @@ class VisitCheckInView(ManagerRequiredMixin, CreateView):
         return response
 
 
-class VisitCheckOutView(ManagerRequiredMixin, UpdateView):
+class VisitCheckOutView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
     """방문자 체크아웃"""
+    required_module = 'visitor'
     model = VisitLog
     form_class = VisitCheckOutForm
     template_name = 'visitor/check_out.html'
@@ -110,7 +117,8 @@ class VisitCheckOutView(ManagerRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class VisitLogListView(ManagerRequiredMixin, ListView):
+class VisitLogListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'visitor'
     model = VisitLog
     template_name = 'visitor/visit_log_list.html'
     context_object_name = 'visit_logs'
@@ -129,7 +137,8 @@ class VisitLogListView(ManagerRequiredMixin, ListView):
         return qs
 
 
-class VisitorListView(ManagerRequiredMixin, ListView):
+class VisitorListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'visitor'
     model = Visitor
     template_name = 'visitor/visitor_list.html'
     context_object_name = 'visitors'
@@ -143,7 +152,8 @@ class VisitorListView(ManagerRequiredMixin, ListView):
         return qs
 
 
-class VisitorCreateView(ManagerRequiredMixin, CreateView):
+class VisitorCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'visitor'
     model = Visitor
     form_class = VisitorForm
     template_name = 'visitor/visitor_form.html'
@@ -155,7 +165,8 @@ class VisitorCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class VisitorPurposeListView(ManagerRequiredMixin, ListView):
+class VisitorPurposeListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'visitor'
     model = VisitorPurpose
     template_name = 'visitor/purpose_list.html'
     context_object_name = 'purposes'
@@ -165,7 +176,8 @@ class VisitorPurposeListView(ManagerRequiredMixin, ListView):
         return VisitorPurpose.objects.filter(is_active=True).order_by('code')
 
 
-class VisitorPurposeCreateView(ManagerRequiredMixin, CreateView):
+class VisitorPurposeCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'visitor'
     model = VisitorPurpose
     form_class = VisitorPurposeForm
     template_name = 'visitor/purpose_form.html'

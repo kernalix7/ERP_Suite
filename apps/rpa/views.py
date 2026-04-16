@@ -9,13 +9,15 @@ from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import AutomationRule, RuleAction, RuleCondition, AutomationLog, AutomationSchedule
 from .forms import AutomationRuleForm, RuleActionForm, RuleConditionForm, AutomationScheduleForm
 
 
 # ── Rule views ───────────────────────────────────────────────
 
-class RuleListView(LoginRequiredMixin, ListView):
+class RuleListView(ModuleRequiredMixin, ListView):
+    required_module = 'rpa'
     model = AutomationRule
     template_name = 'rpa/rule_list.html'
     context_object_name = 'rules'
@@ -32,7 +34,8 @@ class RuleListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class RuleCreateView(ManagerRequiredMixin, CreateView):
+class RuleCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'rpa'
     model = AutomationRule
     form_class = AutomationRuleForm
     template_name = 'rpa/rule_form.html'
@@ -47,7 +50,8 @@ class RuleCreateView(ManagerRequiredMixin, CreateView):
         return f'/rpa/rules/{self.object.pk}/'
 
 
-class RuleDetailView(LoginRequiredMixin, DetailView):
+class RuleDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'rpa'
     model = AutomationRule
     template_name = 'rpa/rule_detail.html'
     context_object_name = 'rule'
@@ -65,7 +69,8 @@ class RuleDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class RuleUpdateView(ManagerRequiredMixin, UpdateView):
+class RuleUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'rpa'
     model = AutomationRule
     form_class = AutomationRuleForm
     template_name = 'rpa/rule_form.html'
@@ -81,7 +86,9 @@ class RuleUpdateView(ManagerRequiredMixin, UpdateView):
         return f'/rpa/rules/{self.object.pk}/'
 
 
-class RuleDeleteView(ManagerRequiredMixin, View):
+class RuleDeleteView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'rpa'
+
     def post(self, request, pk):
         rule = get_object_or_404(AutomationRule, pk=pk, is_active=True)
         rule.soft_delete()
@@ -89,8 +96,9 @@ class RuleDeleteView(ManagerRequiredMixin, View):
         return redirect('rpa:rule_list')
 
 
-class RuleToggleView(ManagerRequiredMixin, View):
+class RuleToggleView(ModuleRequiredMixin, ManagerRequiredMixin, View):
     """규칙 활성/비활성 토글"""
+    required_module = 'rpa'
 
     def post(self, request, pk):
         rule = get_object_or_404(AutomationRule.all_objects, pk=pk)
@@ -101,8 +109,9 @@ class RuleToggleView(ManagerRequiredMixin, View):
         return redirect('rpa:rule_detail', pk=pk)
 
 
-class RuleTestView(ManagerRequiredMixin, View):
+class RuleTestView(ModuleRequiredMixin, ManagerRequiredMixin, View):
     """규칙 테스트 실행"""
+    required_module = 'rpa'
 
     def post(self, request, pk):
         rule = get_object_or_404(AutomationRule, pk=pk, is_active=True)
@@ -123,7 +132,9 @@ class RuleTestView(ManagerRequiredMixin, View):
 
 # ── Action CRUD (inline on rule detail) ──────────────────────
 
-class ActionCreateView(ManagerRequiredMixin, View):
+class ActionCreateView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'rpa'
+
     def post(self, request, rule_pk):
         rule = get_object_or_404(AutomationRule, pk=rule_pk, is_active=True)
         form = RuleActionForm(request.POST)
@@ -138,7 +149,9 @@ class ActionCreateView(ManagerRequiredMixin, View):
         return redirect('rpa:rule_detail', pk=rule_pk)
 
 
-class ActionDeleteView(ManagerRequiredMixin, View):
+class ActionDeleteView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'rpa'
+
     def post(self, request, rule_pk, pk):
         action = get_object_or_404(RuleAction, pk=pk, rule_id=rule_pk, is_active=True)
         action.soft_delete()
@@ -148,7 +161,9 @@ class ActionDeleteView(ManagerRequiredMixin, View):
 
 # ── Condition CRUD ───────────────────────────────────────────
 
-class ConditionCreateView(ManagerRequiredMixin, View):
+class ConditionCreateView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'rpa'
+
     def post(self, request, rule_pk):
         rule = get_object_or_404(AutomationRule, pk=rule_pk, is_active=True)
         form = RuleConditionForm(request.POST)
@@ -163,7 +178,9 @@ class ConditionCreateView(ManagerRequiredMixin, View):
         return redirect('rpa:rule_detail', pk=rule_pk)
 
 
-class ConditionDeleteView(ManagerRequiredMixin, View):
+class ConditionDeleteView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'rpa'
+
     def post(self, request, rule_pk, pk):
         cond = get_object_or_404(RuleCondition, pk=pk, rule_id=rule_pk, is_active=True)
         cond.soft_delete()
@@ -173,7 +190,8 @@ class ConditionDeleteView(ManagerRequiredMixin, View):
 
 # ── Log views ────────────────────────────────────────────────
 
-class LogListView(LoginRequiredMixin, ListView):
+class LogListView(ModuleRequiredMixin, ListView):
+    required_module = 'rpa'
     model = AutomationLog
     template_name = 'rpa/log_list.html'
     context_object_name = 'logs'
@@ -190,7 +208,8 @@ class LogListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class LogDetailView(LoginRequiredMixin, DetailView):
+class LogDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'rpa'
     model = AutomationLog
     template_name = 'rpa/log_detail.html'
     context_object_name = 'log'
@@ -201,7 +220,8 @@ class LogDetailView(LoginRequiredMixin, DetailView):
 
 # ── Schedule CRUD ────────────────────────────────────────────
 
-class ScheduleListView(LoginRequiredMixin, ListView):
+class ScheduleListView(ModuleRequiredMixin, ListView):
+    required_module = 'rpa'
     model = AutomationSchedule
     template_name = 'rpa/schedule_list.html'
     context_object_name = 'schedules'
@@ -211,7 +231,8 @@ class ScheduleListView(LoginRequiredMixin, ListView):
         return AutomationSchedule.objects.filter(is_active=True).select_related('rule', 'rule__owner')
 
 
-class ScheduleCreateView(ManagerRequiredMixin, CreateView):
+class ScheduleCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'rpa'
     model = AutomationSchedule
     form_class = AutomationScheduleForm
     template_name = 'rpa/schedule_form.html'
@@ -232,7 +253,8 @@ class ScheduleCreateView(ManagerRequiredMixin, CreateView):
         return '/rpa/schedules/'
 
 
-class ScheduleUpdateView(ManagerRequiredMixin, UpdateView):
+class ScheduleUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'rpa'
     model = AutomationSchedule
     form_class = AutomationScheduleForm
     template_name = 'rpa/schedule_form.html'
@@ -248,7 +270,9 @@ class ScheduleUpdateView(ManagerRequiredMixin, UpdateView):
         return '/rpa/schedules/'
 
 
-class ScheduleDeleteView(ManagerRequiredMixin, View):
+class ScheduleDeleteView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'rpa'
+
     def post(self, request, pk):
         schedule = get_object_or_404(AutomationSchedule, pk=pk, is_active=True)
         schedule.soft_delete()
@@ -258,7 +282,8 @@ class ScheduleDeleteView(ManagerRequiredMixin, View):
 
 # ── Dashboard ────────────────────────────────────────────────
 
-class AutomationDashboardView(LoginRequiredMixin, TemplateView):
+class AutomationDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'rpa'
     template_name = 'rpa/dashboard.html'
 
     def get_context_data(self, **kwargs):

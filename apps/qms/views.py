@@ -5,6 +5,7 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, DetailView, UpdateView, TemplateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import AuditFinding, CAPA, InternalAudit, ISODocument, NonConformance
 from .forms import (
     CAPAForm, CAPAVerifyForm, InternalAuditForm, ISODocumentForm,
@@ -14,7 +15,8 @@ from .forms import (
 
 # === 부적합 ===
 
-class NCListView(LoginRequiredMixin, ListView):
+class NCListView(ModuleRequiredMixin, ListView):
+    required_module = 'qms'
     model = NonConformance
     template_name = 'qms/nc_list.html'
     context_object_name = 'ncs'
@@ -42,7 +44,8 @@ class NCListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class NCCreateView(LoginRequiredMixin, CreateView):
+class NCCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'qms'
     model = NonConformance
     form_class = NonConformanceForm
     template_name = 'qms/nc_form.html'
@@ -55,7 +58,8 @@ class NCCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class NCDetailView(LoginRequiredMixin, DetailView):
+class NCDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'qms'
     model = NonConformance
     template_name = 'qms/nc_detail.html'
     context_object_name = 'nc'
@@ -69,7 +73,8 @@ class NCDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class NCResolveView(ManagerRequiredMixin, UpdateView):
+class NCResolveView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'qms'
     model = NonConformance
     form_class = NonConformanceResolveForm
     template_name = 'qms/nc_resolve.html'
@@ -85,7 +90,8 @@ class NCResolveView(ManagerRequiredMixin, UpdateView):
 
 # === CAPA ===
 
-class CAPAListView(LoginRequiredMixin, ListView):
+class CAPAListView(ModuleRequiredMixin, ListView):
+    required_module = 'qms'
     model = CAPA
     template_name = 'qms/capa_list.html'
     context_object_name = 'capas'
@@ -110,7 +116,8 @@ class CAPAListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class CAPACreateView(LoginRequiredMixin, CreateView):
+class CAPACreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'qms'
     model = CAPA
     form_class = CAPAForm
     template_name = 'qms/capa_form.html'
@@ -122,7 +129,8 @@ class CAPACreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class CAPADetailView(LoginRequiredMixin, DetailView):
+class CAPADetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'qms'
     model = CAPA
     template_name = 'qms/capa_detail.html'
     context_object_name = 'capa'
@@ -131,7 +139,8 @@ class CAPADetailView(LoginRequiredMixin, DetailView):
         return super().get_queryset().select_related('nc', 'assigned_to')
 
 
-class CAPAVerifyView(ManagerRequiredMixin, UpdateView):
+class CAPAVerifyView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'qms'
     model = CAPA
     form_class = CAPAVerifyForm
     template_name = 'qms/capa_verify.html'
@@ -147,7 +156,8 @@ class CAPAVerifyView(ManagerRequiredMixin, UpdateView):
 
 # === 내부감사 ===
 
-class AuditListView(LoginRequiredMixin, ListView):
+class AuditListView(ModuleRequiredMixin, ListView):
+    required_module = 'qms'
     model = InternalAudit
     template_name = 'qms/audit_list.html'
     context_object_name = 'audits'
@@ -168,7 +178,8 @@ class AuditListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class AuditCreateView(ManagerRequiredMixin, CreateView):
+class AuditCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'qms'
     model = InternalAudit
     form_class = InternalAuditForm
     template_name = 'qms/audit_form.html'
@@ -180,7 +191,8 @@ class AuditCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class AuditDetailView(LoginRequiredMixin, DetailView):
+class AuditDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'qms'
     model = InternalAudit
     template_name = 'qms/audit_detail.html'
     context_object_name = 'audit'
@@ -198,7 +210,8 @@ class AuditDetailView(LoginRequiredMixin, DetailView):
 
 # === ISO 문서 ===
 
-class ISODocListView(LoginRequiredMixin, ListView):
+class ISODocListView(ModuleRequiredMixin, ListView):
+    required_module = 'qms'
     model = ISODocument
     template_name = 'qms/isodoc_list.html'
     context_object_name = 'documents'
@@ -220,7 +233,8 @@ class ISODocListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ISODocCreateView(ManagerRequiredMixin, CreateView):
+class ISODocCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'qms'
     model = ISODocument
     form_class = ISODocumentForm
     template_name = 'qms/isodoc_form.html'
@@ -232,7 +246,8 @@ class ISODocCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ISODocDetailView(LoginRequiredMixin, DetailView):
+class ISODocDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'qms'
     model = ISODocument
     template_name = 'qms/isodoc_detail.html'
     context_object_name = 'document'
@@ -243,7 +258,8 @@ class ISODocDetailView(LoginRequiredMixin, DetailView):
 
 # === 대시보드 ===
 
-class QmsDashboardView(LoginRequiredMixin, TemplateView):
+class QmsDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'qms'
     template_name = 'qms/dashboard.html'
 
     def get_context_data(self, **kwargs):

@@ -1,9 +1,11 @@
 from django.contrib.auth import get_user_model
+from django.http import Http404
 from django.test import TestCase, RequestFactory
 
 from apps.module_manager.base import BaseFeatureModule
 from apps.module_manager.models import InstalledModule
-from apps.module_manager.registry import ModuleRegistry
+from apps.module_manager.registry import ModuleRegistry, module_registry
+from apps.module_manager.signal_utils import module_signal_handler
 
 User = get_user_model()
 
@@ -231,3 +233,208 @@ class ModuleRequiredMixinTest(TestCase):
         req.user = self.admin
         with self.assertRaises(Http404):
             dummy_view(req)
+
+
+class ModuleSignalHandlerTest(TestCase):
+    def test_handler_runs_when_enabled(self):
+        InstalledModule.objects.create(
+            module_id='sig.enabled', name='Enabled',
+            category='SYSTEM', is_enabled=True,
+        )
+        call_log = []
+
+        @module_signal_handler('sig.enabled')
+        def handler(sender, **kwargs):
+            call_log.append(True)
+
+        handler(sender=None)
+        self.assertEqual(len(call_log), 1)
+
+    def test_handler_skipped_when_disabled(self):
+        InstalledModule.objects.create(
+            module_id='sig.disabled', name='Disabled',
+            category='SYSTEM', is_enabled=False,
+        )
+        call_log = []
+
+        @module_signal_handler('sig.disabled')
+        def handler(sender, **kwargs):
+            call_log.append(True)
+
+        result = handler(sender=None)
+        self.assertEqual(len(call_log), 0)
+        self.assertIsNone(result)
+
+    def test_handler_has_module_metadata(self):
+        @module_signal_handler('sig.meta')
+        def handler(sender, **kwargs):
+            pass
+
+        self.assertTrue(handler._is_module_gated)
+        self.assertEqual(handler._module_id, 'sig.meta')
+
+
+class RegistryCacheTest(TestCase):
+    def setUp(self):
+        self.registry = ModuleRegistry()
+
+    def test_cache_returns_consistent_results(self):
+        InstalledModule.objects.create(
+            module_id='cache.test', name='Cache',
+            category='SYSTEM', is_enabled=True,
+        )
+        self.assertTrue(self.registry.is_enabled('cache.test'))
+        # Second call should use cache
+        self.assertTrue(self.registry.is_enabled('cache.test'))
+
+    def test_invalidate_single(self):
+        InstalledModule.objects.create(
+            module_id='cache.inv', name='Inv',
+            category='SYSTEM', is_enabled=True,
+        )
+        self.assertTrue(self.registry.is_enabled('cache.inv'))
+        self.registry.invalidate_cache('cache.inv')
+        # After invalidation, next call queries DB again
+        self.assertTrue(self.registry.is_enabled('cache.inv'))
+
+    def test_invalidate_all(self):
+        InstalledModule.objects.create(
+            module_id='cache.all1', name='All1',
+            category='SYSTEM', is_enabled=True,
+        )
+        InstalledModule.objects.create(
+            module_id='cache.all2', name='All2',
+            category='SYSTEM', is_enabled=True,
+        )
+        self.registry.is_enabled('cache.all1')
+        self.registry.is_enabled('cache.all2')
+        self.registry.invalidate_cache()
+        self.assertEqual(len(self.registry._enabled_cache), 0)
+
+
+class ModuleIncludeURLTest(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_url', password='testpass123', role='admin',
+        )
+        self.client.force_login(self.admin)
+
+    def test_enabled_module_url_accessible(self):
+        InstalledModule.objects.update_or_create(
+            module_id='board',
+            defaults={'name': '게시판', 'category': 'GROUPWARE', 'is_enabled': True},
+        )
+        resp = self.client.get('/board/')
+        self.assertNotEqual(resp.status_code, 404)
+
+    def test_disabled_module_url_returns_404(self):
+        InstalledModule.objects.update_or_create(
+            module_id='board',
+            defaults={'name': '게시판', 'category': 'GROUPWARE', 'is_enabled': False},
+        )
+        resp = self.client.get('/board/')
+        self.assertEqual(resp.status_code, 404)
+
+
+class SeedMigrationTest(TestCase):
+    def test_seed_modules_exist(self):
+        """Verify seed migration created all 23 module records."""
+        import importlib
+        mod = importlib.import_module(
+            'apps.module_manager.migrations.0003_seed_independent_modules',
+        )
+        expected_ids = {m['module_id'] for m in mod.MODULES}
+        actual_ids = set(
+            InstalledModule.objects.values_list('module_id', flat=True)
+        )
+        self.assertTrue(
+            expected_ids.issubset(actual_ids),
+            f'Missing modules: {expected_ids - actual_ids}',
+        )
+
+    def test_seed_modules_enabled_by_default(self):
+        import importlib
+        mod = importlib.import_module(
+            'apps.module_manager.migrations.0003_seed_independent_modules',
+        )
+        expected_ids = [m['module_id'] for m in mod.MODULES]
+        disabled = InstalledModule.objects.filter(
+            module_id__in=expected_ids, is_enabled=False,
+        ).values_list('module_id', flat=True)
+        self.assertEqual(
+            list(disabled), [],
+            f'Expected all seed modules enabled, but disabled: {list(disabled)}',
+        )
+
+
+class SidebarVisibilityTest(TestCase):
+    """Test that sidebar items are hidden/shown based on module status."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_sidebar', password='testpass123', role='admin',
+        )
+        self.client.force_login(self.admin)
+        # Clear singleton registry cache to ensure test isolation
+        module_registry.invalidate_cache()
+
+    def test_enabled_module_shows_in_sidebar(self):
+        InstalledModule.objects.update_or_create(
+            module_id='board',
+            defaults={'is_enabled': True, 'is_active': True},
+        )
+        # Use the module list page (always accessible, renders base.html sidebar)
+        resp = self.client.get('/modules/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '/board/')
+
+    def test_disabled_module_hidden_from_sidebar(self):
+        InstalledModule.objects.update_or_create(
+            module_id='board',
+            defaults={'is_enabled': False},
+        )
+        resp = self.client.get('/modules/')
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode()
+        # The sidebar link should not be present for disabled modules
+        self.assertNotIn('href="/board/"', content)
+
+
+class ModuleToggleIntegrationTest(TestCase):
+    """End-to-end: toggle module off then verify URL returns 404."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_toggle_e2e', password='testpass123', role='admin',
+        )
+        self.client.force_login(self.admin)
+        module_registry.invalidate_cache()
+
+    def test_toggle_off_blocks_url(self):
+        m = InstalledModule.objects.get(module_id='board')
+        self.assertTrue(m.is_enabled)
+        # Access should work while enabled
+        resp = self.client.get('/board/')
+        self.assertNotEqual(resp.status_code, 404)
+        # Toggle off via view
+        self.client.post(f'/modules/{m.pk}/toggle/')
+        m.refresh_from_db()
+        self.assertFalse(m.is_enabled)
+        # Now URL should return 404
+        resp = self.client.get('/board/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_toggle_on_restores_url(self):
+        m = InstalledModule.objects.get(module_id='board')
+        m.is_enabled = False
+        m.save()
+        # URL should be blocked
+        resp = self.client.get('/board/')
+        self.assertEqual(resp.status_code, 404)
+        # Toggle on
+        self.client.post(f'/modules/{m.pk}/toggle/')
+        m.refresh_from_db()
+        self.assertTrue(m.is_enabled)
+        # URL should work again
+        resp = self.client.get('/board/')
+        self.assertNotEqual(resp.status_code, 404)

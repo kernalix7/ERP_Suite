@@ -7,6 +7,7 @@ from django.views.generic import (
 )
 
 from apps.core.mixins import AdminRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .forms import (
     ADDomainForm, ADGroupForm, ADGroupPolicyForm,
     ADManualSyncForm, ADUserMappingForm,
@@ -18,7 +19,8 @@ from .models import (
 from .services import ADService
 
 
-class ADDashboardView(AdminRequiredMixin, TemplateView):
+class ADDashboardView(ModuleRequiredMixin, AdminRequiredMixin, TemplateView):
+    required_module = 'ad'
     template_name = 'ad/dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -37,7 +39,8 @@ class ADDashboardView(AdminRequiredMixin, TemplateView):
         return context
 
 
-class ADDomainListView(AdminRequiredMixin, ListView):
+class ADDomainListView(ModuleRequiredMixin, AdminRequiredMixin, ListView):
+    required_module = 'ad'
     model = ADDomain
     template_name = 'ad/domain_list.html'
     context_object_name = 'domains'
@@ -46,7 +49,8 @@ class ADDomainListView(AdminRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True)
 
 
-class ADDomainCreateView(AdminRequiredMixin, CreateView):
+class ADDomainCreateView(ModuleRequiredMixin, AdminRequiredMixin, CreateView):
+    required_module = 'ad'
     model = ADDomain
     form_class = ADDomainForm
     template_name = 'ad/domain_form.html'
@@ -57,14 +61,16 @@ class ADDomainCreateView(AdminRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ADDomainUpdateView(AdminRequiredMixin, UpdateView):
+class ADDomainUpdateView(ModuleRequiredMixin, AdminRequiredMixin, UpdateView):
+    required_module = 'ad'
     model = ADDomain
     form_class = ADDomainForm
     template_name = 'ad/domain_form.html'
     success_url = reverse_lazy('ad:domain_list')
 
 
-class ADDomainDetailView(AdminRequiredMixin, DetailView):
+class ADDomainDetailView(ModuleRequiredMixin, AdminRequiredMixin, DetailView):
+    required_module = 'ad'
     model = ADDomain
     template_name = 'ad/domain_detail.html'
     context_object_name = 'domain'
@@ -81,7 +87,8 @@ class ADDomainDetailView(AdminRequiredMixin, DetailView):
         return context
 
 
-class ADGroupListView(AdminRequiredMixin, ListView):
+class ADGroupListView(ModuleRequiredMixin, AdminRequiredMixin, ListView):
+    required_module = 'ad'
     model = ADGroup
     template_name = 'ad/group_list.html'
     context_object_name = 'groups'
@@ -90,7 +97,8 @@ class ADGroupListView(AdminRequiredMixin, ListView):
         return ADGroup.objects.filter(is_active=True).select_related('domain', 'ou')
 
 
-class ADGroupCreateView(AdminRequiredMixin, CreateView):
+class ADGroupCreateView(ModuleRequiredMixin, AdminRequiredMixin, CreateView):
+    required_module = 'ad'
     model = ADGroup
     form_class = ADGroupForm
     template_name = 'ad/group_form.html'
@@ -101,14 +109,16 @@ class ADGroupCreateView(AdminRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ADGroupUpdateView(AdminRequiredMixin, UpdateView):
+class ADGroupUpdateView(ModuleRequiredMixin, AdminRequiredMixin, UpdateView):
+    required_module = 'ad'
     model = ADGroup
     form_class = ADGroupForm
     template_name = 'ad/group_form.html'
     success_url = reverse_lazy('ad:group_list')
 
 
-class ADUserMappingListView(AdminRequiredMixin, ListView):
+class ADUserMappingListView(ModuleRequiredMixin, AdminRequiredMixin, ListView):
+    required_module = 'ad'
     model = ADUserMapping
     template_name = 'ad/usermapping_list.html'
     context_object_name = 'mappings'
@@ -125,7 +135,8 @@ class ADUserMappingListView(AdminRequiredMixin, ListView):
         return qs
 
 
-class ADUserMappingCreateView(AdminRequiredMixin, CreateView):
+class ADUserMappingCreateView(ModuleRequiredMixin, AdminRequiredMixin, CreateView):
+    required_module = 'ad'
     model = ADUserMapping
     form_class = ADUserMappingForm
     template_name = 'ad/usermapping_form.html'
@@ -136,7 +147,8 @@ class ADUserMappingCreateView(AdminRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ADSyncLogListView(AdminRequiredMixin, ListView):
+class ADSyncLogListView(ModuleRequiredMixin, AdminRequiredMixin, ListView):
+    required_module = 'ad'
     model = ADSyncLog
     template_name = 'ad/synclog_list.html'
     context_object_name = 'logs'
@@ -146,7 +158,8 @@ class ADSyncLogListView(AdminRequiredMixin, ListView):
         return ADSyncLog.objects.select_related('domain', 'triggered_by')
 
 
-class ADPolicyListView(AdminRequiredMixin, ListView):
+class ADPolicyListView(ModuleRequiredMixin, AdminRequiredMixin, ListView):
+    required_module = 'ad'
     model = ADGroupPolicy
     template_name = 'ad/policy_list.html'
     context_object_name = 'policies'
@@ -155,7 +168,8 @@ class ADPolicyListView(AdminRequiredMixin, ListView):
         return ADGroupPolicy.objects.select_related('domain', 'ad_group')
 
 
-class ADPolicyCreateView(AdminRequiredMixin, CreateView):
+class ADPolicyCreateView(ModuleRequiredMixin, AdminRequiredMixin, CreateView):
+    required_module = 'ad'
     model = ADGroupPolicy
     form_class = ADGroupPolicyForm
     template_name = 'ad/policy_form.html'
@@ -166,15 +180,17 @@ class ADPolicyCreateView(AdminRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ADPolicyUpdateView(AdminRequiredMixin, UpdateView):
+class ADPolicyUpdateView(ModuleRequiredMixin, AdminRequiredMixin, UpdateView):
+    required_module = 'ad'
     model = ADGroupPolicy
     form_class = ADGroupPolicyForm
     template_name = 'ad/policy_form.html'
     success_url = reverse_lazy('ad:policy_list')
 
 
-class ADConnectionTestView(AdminRequiredMixin, View):
+class ADConnectionTestView(ModuleRequiredMixin, AdminRequiredMixin, View):
     """AD 연결 테스트"""
+    required_module = 'ad'
 
     def post(self, request, pk):
         domain = get_object_or_404(ADDomain, pk=pk)
@@ -187,8 +203,9 @@ class ADConnectionTestView(AdminRequiredMixin, View):
         return redirect('ad:domain_detail', pk=pk)
 
 
-class ADManualSyncView(AdminRequiredMixin, View):
+class ADManualSyncView(ModuleRequiredMixin, AdminRequiredMixin, View):
     """수동 동기화 실행"""
+    required_module = 'ad'
 
     def post(self, request):
         form = ADManualSyncForm(request.POST)

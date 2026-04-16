@@ -7,13 +7,15 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, DetailView, TemplateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import DemandForecast, ForecastParameter, SOPLineItem, SOPMeeting, SOPScenario
 from .forms import DemandForecastForm, ForecastParameterForm, SOPMeetingForm
 
 
 # === 수요예측 ===
 
-class ForecastListView(LoginRequiredMixin, ListView):
+class ForecastListView(ModuleRequiredMixin, ListView):
+    required_module = 'forecast'
     model = DemandForecast
     template_name = 'forecast/forecast_list.html'
     context_object_name = 'forecasts'
@@ -37,7 +39,8 @@ class ForecastListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ForecastCreateView(ManagerRequiredMixin, CreateView):
+class ForecastCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'forecast'
     model = DemandForecast
     form_class = DemandForecastForm
     template_name = 'forecast/forecast_form.html'
@@ -52,7 +55,8 @@ class ForecastCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ForecastDetailView(LoginRequiredMixin, DetailView):
+class ForecastDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'forecast'
     model = DemandForecast
     template_name = 'forecast/forecast_detail.html'
     context_object_name = 'forecast'
@@ -61,7 +65,8 @@ class ForecastDetailView(LoginRequiredMixin, DetailView):
         return super().get_queryset().select_related('product')
 
 
-class ForecastAccuracyView(LoginRequiredMixin, TemplateView):
+class ForecastAccuracyView(ModuleRequiredMixin, TemplateView):
+    required_module = 'forecast'
     template_name = 'forecast/accuracy_dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -89,7 +94,8 @@ class ForecastAccuracyView(LoginRequiredMixin, TemplateView):
 
 # === 예측 파라미터 ===
 
-class ParameterListView(LoginRequiredMixin, ListView):
+class ParameterListView(ModuleRequiredMixin, ListView):
+    required_module = 'forecast'
     model = ForecastParameter
     template_name = 'forecast/parameter_list.html'
     context_object_name = 'parameters'
@@ -101,7 +107,8 @@ class ParameterListView(LoginRequiredMixin, ListView):
         ).select_related('product')
 
 
-class ParameterCreateView(ManagerRequiredMixin, CreateView):
+class ParameterCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'forecast'
     model = ForecastParameter
     form_class = ForecastParameterForm
     template_name = 'forecast/parameter_form.html'
@@ -115,7 +122,8 @@ class ParameterCreateView(ManagerRequiredMixin, CreateView):
 
 # === S&OP 회의 ===
 
-class SOPMeetingListView(LoginRequiredMixin, ListView):
+class SOPMeetingListView(ModuleRequiredMixin, ListView):
+    required_module = 'forecast'
     model = SOPMeeting
     template_name = 'forecast/sop_list.html'
     context_object_name = 'meetings'
@@ -134,7 +142,8 @@ class SOPMeetingListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class SOPMeetingCreateView(ManagerRequiredMixin, CreateView):
+class SOPMeetingCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'forecast'
     model = SOPMeeting
     form_class = SOPMeetingForm
     template_name = 'forecast/sop_form.html'
@@ -146,7 +155,8 @@ class SOPMeetingCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class SOPMeetingDetailView(LoginRequiredMixin, DetailView):
+class SOPMeetingDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'forecast'
     model = SOPMeeting
     template_name = 'forecast/sop_detail.html'
     context_object_name = 'meeting'

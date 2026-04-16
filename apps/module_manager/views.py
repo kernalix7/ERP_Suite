@@ -33,6 +33,21 @@ class ModuleListView(AdminRequiredMixin, ListView):
             grouped[module.category].append(module)
         context['grouped_modules'] = dict(grouped)
         context['category_labels'] = dict(InstalledModule.CATEGORY_CHOICES)
+        # 카테고리별 활성/전체 카운트
+        category_stats = {}
+        for cat, mods in grouped.items():
+            category_stats[cat] = {
+                'total': len(mods),
+                'enabled': sum(1 for m in mods if m.is_enabled),
+            }
+        context['category_stats'] = category_stats
+        # 의존성 역방향 맵: module_id → 해당 모듈에 의존하는 모듈 이름 목록
+        all_modules = list(InstalledModule.objects.filter(is_active=True))
+        dependents_map = defaultdict(list)
+        for m in all_modules:
+            for dep_id in (m.dependencies or []):
+                dependents_map[dep_id].append(m.name)
+        context['dependents_map'] = dict(dependents_map)
         return context
 
 
@@ -85,6 +100,10 @@ class ModuleToggleView(AdminRequiredMixin, View):
         module.is_enabled = new_state
         module.save(update_fields=['is_enabled', 'updated_at'])
 
+        # Invalidate the module-enabled cache immediately
+        from .registry import module_registry
+        module_registry.invalidate_cache(module.module_id)
+
         status = '활성화' if new_state else '비활성화'
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
@@ -94,6 +113,41 @@ class ModuleToggleView(AdminRequiredMixin, View):
             })
         messages.success(request, f'{module.name} 모듈이 {status}되었습니다.')
         return redirect('module_manager:module_list')
+
+
+class ModuleDependencyCheckView(AdminRequiredMixin, View):
+    """토글 전 의존성 영향 범위 AJAX 조회."""
+
+    def get(self, request, pk):
+        module = get_object_or_404(InstalledModule, pk=pk, is_active=True)
+        if module.is_enabled:
+            # 비활성화 예정: 이 모듈에 의존하는 활성 모듈 목록
+            dependents = [
+                {'module_id': m.module_id, 'name': m.name}
+                for m in InstalledModule.objects.filter(is_active=True, is_enabled=True).exclude(pk=pk)
+                if module.module_id in (m.dependencies or [])
+            ]
+            return JsonResponse({
+                'action': 'disable',
+                'module_name': module.name,
+                'dependents': dependents,
+                'dependencies': [],
+            })
+        else:
+            # 활성화 예정: 이 모듈이 필요로 하는 비활성 의존 모듈 목록
+            missing = []
+            for dep_id in (module.dependencies or []):
+                dep = InstalledModule.objects.filter(module_id=dep_id, is_active=True).first()
+                if dep and not dep.is_enabled:
+                    missing.append({'module_id': dep.module_id, 'name': dep.name})
+                elif not dep:
+                    missing.append({'module_id': dep_id, 'name': dep_id})
+            return JsonResponse({
+                'action': 'enable',
+                'module_name': module.name,
+                'dependents': [],
+                'dependencies': missing,
+            })
 
 
 class ModuleSettingsView(AdminRequiredMixin, UpdateView):

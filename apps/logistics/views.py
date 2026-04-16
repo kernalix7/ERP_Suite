@@ -12,6 +12,7 @@ from django.views.generic import (
 )
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 
 from .forms import (
     DeliveryRouteForm,
@@ -33,7 +34,8 @@ from .models import (
 
 # ── Vehicle views ──
 
-class VehicleListView(LoginRequiredMixin, ListView):
+class VehicleListView(ModuleRequiredMixin, ListView):
+    required_module = 'logistics'
     model = Vehicle
     template_name = 'logistics/vehicle_list.html'
     context_object_name = 'vehicles'
@@ -43,7 +45,8 @@ class VehicleListView(LoginRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True).select_related('driver__user')
 
 
-class VehicleCreateView(ManagerRequiredMixin, CreateView):
+class VehicleCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'logistics'
     model = Vehicle
     form_class = VehicleForm
     template_name = 'logistics/vehicle_form.html'
@@ -54,7 +57,8 @@ class VehicleCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class VehicleUpdateView(ManagerRequiredMixin, UpdateView):
+class VehicleUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'logistics'
     model = Vehicle
     form_class = VehicleForm
     template_name = 'logistics/vehicle_form.html'
@@ -63,7 +67,8 @@ class VehicleUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Driver views ──
 
-class DriverListView(LoginRequiredMixin, ListView):
+class DriverListView(ModuleRequiredMixin, ListView):
+    required_module = 'logistics'
     model = Driver
     template_name = 'logistics/driver_list.html'
     context_object_name = 'drivers'
@@ -73,7 +78,8 @@ class DriverListView(LoginRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True).select_related('user')
 
 
-class DriverCreateView(ManagerRequiredMixin, CreateView):
+class DriverCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'logistics'
     model = Driver
     form_class = DriverForm
     template_name = 'logistics/driver_form.html'
@@ -84,7 +90,8 @@ class DriverCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class DriverUpdateView(ManagerRequiredMixin, UpdateView):
+class DriverUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'logistics'
     model = Driver
     form_class = DriverForm
     template_name = 'logistics/driver_form.html'
@@ -93,7 +100,8 @@ class DriverUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Route views ──
 
-class RouteListView(LoginRequiredMixin, ListView):
+class RouteListView(ModuleRequiredMixin, ListView):
+    required_module = 'logistics'
     model = DeliveryRoute
     template_name = 'logistics/route_list.html'
     context_object_name = 'routes'
@@ -110,7 +118,8 @@ class RouteListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class RouteCreateView(ManagerRequiredMixin, CreateView):
+class RouteCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'logistics'
     model = DeliveryRoute
     form_class = DeliveryRouteForm
     template_name = 'logistics/route_form.html'
@@ -121,7 +130,8 @@ class RouteCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class RouteDetailView(LoginRequiredMixin, DetailView):
+class RouteDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'logistics'
     model = DeliveryRoute
     template_name = 'logistics/route_detail.html'
     context_object_name = 'route'
@@ -145,7 +155,8 @@ class RouteDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class RouteUpdateView(ManagerRequiredMixin, UpdateView):
+class RouteUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'logistics'
     model = DeliveryRoute
     form_class = DeliveryRouteForm
     template_name = 'logistics/route_form.html'
@@ -156,7 +167,9 @@ class RouteUpdateView(ManagerRequiredMixin, UpdateView):
         return reverse_lazy('logistics:route_detail', kwargs={'route_number': self.object.route_number})
 
 
-class RouteStopCreateView(ManagerRequiredMixin, View):
+class RouteStopCreateView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'logistics'
+
     def post(self, request, route_number):
         route = get_object_or_404(DeliveryRoute, route_number=route_number, is_active=True)
         form = RouteStopForm(request.POST)
@@ -168,7 +181,9 @@ class RouteStopCreateView(ManagerRequiredMixin, View):
         return redirect('logistics:route_detail', route_number=route.route_number)
 
 
-class FreightCostCreateView(ManagerRequiredMixin, View):
+class FreightCostCreateView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'logistics'
+
     def post(self, request, route_number):
         route = get_object_or_404(DeliveryRoute, route_number=route_number, is_active=True)
         form = FreightCostForm(request.POST)
@@ -182,7 +197,8 @@ class FreightCostCreateView(ManagerRequiredMixin, View):
 
 # ── DeliveryZone views ──
 
-class DeliveryZoneListView(LoginRequiredMixin, ListView):
+class DeliveryZoneListView(ModuleRequiredMixin, ListView):
+    required_module = 'logistics'
     model = DeliveryZone
     template_name = 'logistics/zone_list.html'
     context_object_name = 'zones'
@@ -192,7 +208,8 @@ class DeliveryZoneListView(LoginRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True)
 
 
-class DeliveryZoneCreateView(ManagerRequiredMixin, CreateView):
+class DeliveryZoneCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'logistics'
     model = DeliveryZone
     form_class = DeliveryZoneForm
     template_name = 'logistics/zone_form.html'
@@ -203,7 +220,8 @@ class DeliveryZoneCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class DeliveryZoneUpdateView(ManagerRequiredMixin, UpdateView):
+class DeliveryZoneUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'logistics'
     model = DeliveryZone
     form_class = DeliveryZoneForm
     template_name = 'logistics/zone_form.html'
@@ -212,7 +230,8 @@ class DeliveryZoneUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Dashboard ──
 
-class LogisticsDashboardView(LoginRequiredMixin, TemplateView):
+class LogisticsDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'logistics'
     template_name = 'logistics/dashboard.html'
 
     def get_context_data(self, **kwargs):

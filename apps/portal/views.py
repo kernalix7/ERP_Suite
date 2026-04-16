@@ -8,6 +8,7 @@ from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 
 from .forms import PortalLoginForm, PortalUserForm
 from .models import PortalDocument, PortalNotification, PortalUser
@@ -69,7 +70,8 @@ class PortalLogoutView(View):
 
 # ── Portal Dashboard ──
 
-class PortalDashboardView(PortalAccessMixin, TemplateView):
+class PortalDashboardView(ModuleRequiredMixin, PortalAccessMixin, TemplateView):
+    required_module = 'portal'
     template_name = 'portal/dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -102,7 +104,8 @@ class PortalDashboardView(PortalAccessMixin, TemplateView):
 
 # ── Customer views ──
 
-class PortalOrderListView(PortalAccessMixin, ListView):
+class PortalOrderListView(ModuleRequiredMixin, PortalAccessMixin, ListView):
+    required_module = 'portal'
     template_name = 'portal/order_list.html'
     context_object_name = 'orders'
     paginate_by = 20
@@ -117,7 +120,8 @@ class PortalOrderListView(PortalAccessMixin, ListView):
         return qs
 
 
-class PortalOrderDetailView(PortalAccessMixin, DetailView):
+class PortalOrderDetailView(ModuleRequiredMixin, PortalAccessMixin, DetailView):
+    required_module = 'portal'
     template_name = 'portal/order_detail.html'
     context_object_name = 'order'
     slug_field = 'order_number'
@@ -134,7 +138,8 @@ class PortalOrderDetailView(PortalAccessMixin, DetailView):
         return ctx
 
 
-class PortalInvoiceListView(PortalAccessMixin, ListView):
+class PortalInvoiceListView(ModuleRequiredMixin, PortalAccessMixin, ListView):
+    required_module = 'portal'
     template_name = 'portal/invoice_list.html'
     context_object_name = 'documents'
     paginate_by = 20
@@ -148,7 +153,9 @@ class PortalInvoiceListView(PortalAccessMixin, ListView):
         ).order_by('-created_at')
 
 
-class PortalDeliveryConfirmView(PortalAccessMixin, View):
+class PortalDeliveryConfirmView(ModuleRequiredMixin, PortalAccessMixin, View):
+    required_module = 'portal'
+
     def post(self, request, order_number):
         from apps.sales.models import Order
         partner = self.get_partner()
@@ -161,7 +168,8 @@ class PortalDeliveryConfirmView(PortalAccessMixin, View):
 
 # ── Supplier views ──
 
-class SupplierPOListView(PortalAccessMixin, ListView):
+class SupplierPOListView(ModuleRequiredMixin, PortalAccessMixin, ListView):
+    required_module = 'portal'
     template_name = 'portal/supplier_po_list.html'
     context_object_name = 'purchase_orders'
     paginate_by = 20
@@ -176,7 +184,8 @@ class SupplierPOListView(PortalAccessMixin, ListView):
         return qs
 
 
-class SupplierDeliveryScheduleView(PortalAccessMixin, ListView):
+class SupplierDeliveryScheduleView(ModuleRequiredMixin, PortalAccessMixin, ListView):
+    required_module = 'portal'
     template_name = 'portal/supplier_delivery_schedule.html'
     context_object_name = 'purchase_orders'
     paginate_by = 20
@@ -195,7 +204,8 @@ class SupplierDeliveryScheduleView(PortalAccessMixin, ListView):
 
 # ── Notification views ──
 
-class PortalNotificationListView(PortalAccessMixin, ListView):
+class PortalNotificationListView(ModuleRequiredMixin, PortalAccessMixin, ListView):
+    required_module = 'portal'
     template_name = 'portal/notification_list.html'
     context_object_name = 'notifications'
     paginate_by = 20
@@ -207,7 +217,8 @@ class PortalNotificationListView(PortalAccessMixin, ListView):
 
 # ── Admin views (internal) ──
 
-class PortalUserListView(ManagerRequiredMixin, ListView):
+class PortalUserListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'portal'
     model = PortalUser
     template_name = 'portal/admin_user_list.html'
     context_object_name = 'portal_users'
@@ -217,7 +228,9 @@ class PortalUserListView(ManagerRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True).select_related('user', 'partner')
 
 
-class PortalUserCreateView(ManagerRequiredMixin, View):
+class PortalUserCreateView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'portal'
+
     def get(self, request):
         form = PortalUserForm()
         return render(request, 'portal/admin_user_form.html', {'form': form})

@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import F, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect
@@ -13,7 +14,8 @@ from .models import Board, Post, Comment
 from .forms import PostForm, CommentForm
 
 
-class BoardListView(LoginRequiredMixin, ListView):
+class BoardListView(ModuleRequiredMixin, ListView):
+    required_module = 'board'
     model = Board
     template_name = 'board/board_list.html'
     context_object_name = 'boards'
@@ -23,7 +25,8 @@ class BoardListView(LoginRequiredMixin, ListView):
         return Board.objects.filter(is_active=True)
 
 
-class PostListView(LoginRequiredMixin, ListView):
+class PostListView(ModuleRequiredMixin, ListView):
+    required_module = 'board'
     model = Post
     template_name = 'board/post_list.html'
     context_object_name = 'posts'
@@ -43,7 +46,8 @@ class PostListView(LoginRequiredMixin, ListView):
         return context
 
 
-class PostDetailView(LoginRequiredMixin, DetailView):
+class PostDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'board'
     model = Post
     template_name = 'board/post_detail.html'
     context_object_name = 'post'
@@ -83,7 +87,8 @@ def _check_board_permission(board, user):
         raise PermissionDenied('매니저 이상만 글을 작성할 수 있습니다.')
 
 
-class PostCreateView(LoginRequiredMixin, CreateView):
+class PostCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'board'
     model = Post
     form_class = PostForm
     template_name = 'board/post_form.html'
@@ -117,7 +122,8 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         return reverse('board:post_detail', kwargs={'pk': self.object.pk})
 
 
-class PostUpdateView(LoginRequiredMixin, UpdateView):
+class PostUpdateView(ModuleRequiredMixin, UpdateView):
+    required_module = 'board'
     model = Post
     form_class = PostForm
     template_name = 'board/post_form.html'
@@ -145,7 +151,8 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
         return reverse('board:post_detail', kwargs={'pk': self.object.pk})
 
 
-class PostDeleteView(LoginRequiredMixin, DeleteView):
+class PostDeleteView(ModuleRequiredMixin, DeleteView):
+    required_module = 'board'
     model = Post
     template_name = 'board/post_confirm_delete.html'
 
@@ -165,7 +172,8 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
         return HttpResponseRedirect(self.get_success_url())
 
 
-class CommentCreateView(LoginRequiredMixin, CreateView):
+class CommentCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'board'
     model = Comment
     form_class = CommentForm
     http_method_names = ['post']
@@ -187,7 +195,9 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         )
 
 
-class CommentDeleteView(LoginRequiredMixin, View):
+class CommentDeleteView(ModuleRequiredMixin, View):
+    required_module = 'board'
+
     def post(self, request, pk, comment_pk):
         comment = get_object_or_404(Comment, pk=comment_pk, post_id=pk, is_active=True)
         if comment.author != request.user and not request.user.role == 'admin':

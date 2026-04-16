@@ -12,6 +12,7 @@ class InstalledModule(BaseModel):
         ('SALES', '영업/CRM'),
         ('ACCOUNTING', '회계/재무'),
         ('HR', '인사/급여'),
+        ('GROUPWARE', '그룹웨어'),
         ('SYSTEM', '시스템'),
     ]
 

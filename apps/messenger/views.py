@@ -1,6 +1,7 @@
 import json
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from django.db.models import Max, Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -14,7 +15,8 @@ from .forms import GroupChatForm
 from .models import ChatRoom, ChatParticipant, Message, MessageAttachment
 
 
-class ChatListView(LoginRequiredMixin, ListView):
+class ChatListView(ModuleRequiredMixin, ListView):
+    required_module = 'messenger'
     template_name = 'messenger/chat_list.html'
     context_object_name = 'rooms'
     paginate_by = 20
@@ -76,7 +78,8 @@ class ChatListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ChatRoomView(LoginRequiredMixin, DetailView):
+class ChatRoomView(ModuleRequiredMixin, DetailView):
+    required_module = 'messenger'
     template_name = 'messenger/chat_room.html'
     context_object_name = 'room'
 
@@ -146,8 +149,9 @@ class ChatRoomView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class CreateDirectChatView(LoginRequiredMixin, View):
+class CreateDirectChatView(ModuleRequiredMixin, View):
     """1:1 대화 생성 (이미 존재하면 해당 대화방으로 이동)"""
+    required_module = 'messenger'
 
     def post(self, request, user_id):
         other_user = get_object_or_404(User, pk=user_id, is_active=True)
@@ -177,7 +181,8 @@ class CreateDirectChatView(LoginRequiredMixin, View):
         return redirect('messenger:chat_room', pk=room.pk)
 
 
-class CreateGroupChatView(LoginRequiredMixin, FormView):
+class CreateGroupChatView(ModuleRequiredMixin, FormView):
+    required_module = 'messenger'
     template_name = 'messenger/create_group.html'
     form_class = GroupChatForm
 
@@ -197,8 +202,9 @@ class CreateGroupChatView(LoginRequiredMixin, FormView):
         return redirect('messenger:chat_room', pk=room.pk)
 
 
-class MessageSearchView(LoginRequiredMixin, ListView):
+class MessageSearchView(ModuleRequiredMixin, ListView):
     """키워드 기반 메시지 검색"""
+    required_module = 'messenger'
     template_name = 'messenger/search.html'
     context_object_name = 'messages'
     paginate_by = 30
@@ -226,8 +232,9 @@ class MessageSearchView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class FileUploadView(LoginRequiredMixin, View):
+class FileUploadView(ModuleRequiredMixin, View):
     """파일 업로드 → MessageAttachment 생성"""
+    required_module = 'messenger'
 
     def post(self, request):
         room_id = request.POST.get('room_id')

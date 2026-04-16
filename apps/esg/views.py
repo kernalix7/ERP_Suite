@@ -11,6 +11,7 @@ from django.views.generic import (
 )
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .forms import (
     CarbonEmissionForm, ComplianceRequirementForm, ESGCategoryForm,
     ESGMetricForm, ESGRecordForm, ESGReportForm, SafetyIncidentForm,
@@ -23,7 +24,8 @@ from .models import (
 
 # ──── ESG Metric ────
 
-class ESGMetricListView(LoginRequiredMixin, ListView):
+class ESGMetricListView(ModuleRequiredMixin, ListView):
+    required_module = 'esg'
     model = ESGMetric
     template_name = 'esg/metric_list.html'
     context_object_name = 'metrics'
@@ -42,7 +44,8 @@ class ESGMetricListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ESGMetricCreateView(ManagerRequiredMixin, CreateView):
+class ESGMetricCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'esg'
     model = ESGMetric
     form_class = ESGMetricForm
     template_name = 'esg/metric_form.html'
@@ -54,7 +57,8 @@ class ESGMetricCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ESGMetricUpdateView(ManagerRequiredMixin, UpdateView):
+class ESGMetricUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'esg'
     model = ESGMetric
     form_class = ESGMetricForm
     template_name = 'esg/metric_form.html'
@@ -67,7 +71,8 @@ class ESGMetricUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ──── ESG Record ────
 
-class ESGRecordListView(LoginRequiredMixin, ListView):
+class ESGRecordListView(ModuleRequiredMixin, ListView):
+    required_module = 'esg'
     model = ESGRecord
     template_name = 'esg/record_list.html'
     context_object_name = 'records'
@@ -83,7 +88,8 @@ class ESGRecordListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class ESGRecordCreateView(ManagerRequiredMixin, CreateView):
+class ESGRecordCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'esg'
     model = ESGRecord
     form_class = ESGRecordForm
     template_name = 'esg/record_form.html'
@@ -98,7 +104,8 @@ class ESGRecordCreateView(ManagerRequiredMixin, CreateView):
 
 # ──── Carbon Emission ────
 
-class CarbonDashboardView(LoginRequiredMixin, TemplateView):
+class CarbonDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'esg'
     template_name = 'esg/carbon_dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -130,7 +137,8 @@ class CarbonDashboardView(LoginRequiredMixin, TemplateView):
         return ctx
 
 
-class CarbonEmissionListView(LoginRequiredMixin, ListView):
+class CarbonEmissionListView(ModuleRequiredMixin, ListView):
+    required_module = 'esg'
     model = CarbonEmission
     template_name = 'esg/carbon_list.html'
     context_object_name = 'emissions'
@@ -149,7 +157,8 @@ class CarbonEmissionListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class CarbonEmissionCreateView(ManagerRequiredMixin, CreateView):
+class CarbonEmissionCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'esg'
     model = CarbonEmission
     form_class = CarbonEmissionForm
     template_name = 'esg/carbon_form.html'
@@ -163,7 +172,8 @@ class CarbonEmissionCreateView(ManagerRequiredMixin, CreateView):
 
 # ──── Safety Incident ────
 
-class SafetyIncidentListView(LoginRequiredMixin, ListView):
+class SafetyIncidentListView(ModuleRequiredMixin, ListView):
+    required_module = 'esg'
     model = SafetyIncident
     template_name = 'esg/incident_list.html'
     context_object_name = 'incidents'
@@ -186,7 +196,8 @@ class SafetyIncidentListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class SafetyIncidentCreateView(LoginRequiredMixin, CreateView):
+class SafetyIncidentCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'esg'
     model = SafetyIncident
     form_class = SafetyIncidentForm
     template_name = 'esg/incident_form.html'
@@ -201,7 +212,8 @@ class SafetyIncidentCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy('esg:incident_detail', kwargs={'slug': self.object.incident_number})
 
 
-class SafetyIncidentDetailView(LoginRequiredMixin, DetailView):
+class SafetyIncidentDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'esg'
     model = SafetyIncident
     template_name = 'esg/incident_detail.html'
     slug_field = 'incident_number'
@@ -210,7 +222,8 @@ class SafetyIncidentDetailView(LoginRequiredMixin, DetailView):
         return SafetyIncident.objects.filter(is_active=True)
 
 
-class SafetyIncidentUpdateView(ManagerRequiredMixin, UpdateView):
+class SafetyIncidentUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'esg'
     model = SafetyIncident
     form_class = SafetyIncidentForm
     template_name = 'esg/incident_form.html'
@@ -229,7 +242,8 @@ class SafetyIncidentUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ──── Compliance ────
 
-class ComplianceListView(LoginRequiredMixin, ListView):
+class ComplianceListView(ModuleRequiredMixin, ListView):
+    required_module = 'esg'
     model = ComplianceRequirement
     template_name = 'esg/compliance_list.html'
     context_object_name = 'requirements'
@@ -248,7 +262,8 @@ class ComplianceListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ComplianceCreateView(ManagerRequiredMixin, CreateView):
+class ComplianceCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'esg'
     model = ComplianceRequirement
     form_class = ComplianceRequirementForm
     template_name = 'esg/compliance_form.html'
@@ -260,7 +275,8 @@ class ComplianceCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ComplianceUpdateView(ManagerRequiredMixin, UpdateView):
+class ComplianceUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'esg'
     model = ComplianceRequirement
     form_class = ComplianceRequirementForm
     template_name = 'esg/compliance_form.html'
@@ -273,7 +289,8 @@ class ComplianceUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ──── ESG Report ────
 
-class ESGReportListView(LoginRequiredMixin, ListView):
+class ESGReportListView(ModuleRequiredMixin, ListView):
+    required_module = 'esg'
     model = ESGReport
     template_name = 'esg/report_list.html'
     context_object_name = 'reports'
@@ -283,7 +300,8 @@ class ESGReportListView(LoginRequiredMixin, ListView):
         return ESGReport.objects.filter(is_active=True)
 
 
-class ESGReportCreateView(ManagerRequiredMixin, CreateView):
+class ESGReportCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'esg'
     model = ESGReport
     form_class = ESGReportForm
     template_name = 'esg/report_form.html'
@@ -296,7 +314,8 @@ class ESGReportCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ESGReportDetailView(LoginRequiredMixin, DetailView):
+class ESGReportDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'esg'
     model = ESGReport
     template_name = 'esg/report_detail.html'
 
@@ -306,7 +325,8 @@ class ESGReportDetailView(LoginRequiredMixin, DetailView):
 
 # ──── ESG Dashboard ────
 
-class ESGDashboardView(LoginRequiredMixin, TemplateView):
+class ESGDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'esg'
     template_name = 'esg/dashboard.html'
 
     def get_context_data(self, **kwargs):

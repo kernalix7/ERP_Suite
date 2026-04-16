@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import (
     Course, CourseCategory, CourseEnrollment, Lesson, LessonProgress,
     Quiz, QuizAttempt, Certificate,
@@ -18,7 +19,8 @@ from .forms import (
 )
 
 
-class CourseListView(LoginRequiredMixin, ListView):
+class CourseListView(ModuleRequiredMixin, ListView):
+    required_module = 'lms'
     model = Course
     template_name = 'lms/course_list.html'
     context_object_name = 'courses'
@@ -38,7 +40,8 @@ class CourseListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class CourseDetailView(LoginRequiredMixin, DetailView):
+class CourseDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'lms'
     model = Course
     template_name = 'lms/course_detail.html'
     context_object_name = 'course'
@@ -53,7 +56,8 @@ class CourseDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class CourseCreateView(ManagerRequiredMixin, CreateView):
+class CourseCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'lms'
     model = Course
     form_class = CourseForm
     template_name = 'lms/course_form.html'
@@ -65,7 +69,8 @@ class CourseCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class CourseUpdateView(ManagerRequiredMixin, UpdateView):
+class CourseUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'lms'
     model = Course
     form_class = CourseForm
     template_name = 'lms/course_form.html'
@@ -78,8 +83,9 @@ class CourseUpdateView(ManagerRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class CourseEnrollView(LoginRequiredMixin, DetailView):
+class CourseEnrollView(ModuleRequiredMixin, DetailView):
     """강좌 수강 등록"""
+    required_module = 'lms'
     model = Course
     template_name = 'lms/course_detail.html'
 
@@ -96,8 +102,9 @@ class CourseEnrollView(LoginRequiredMixin, DetailView):
         return redirect('lms:course_detail', pk=course.pk)
 
 
-class MyLearningView(LoginRequiredMixin, ListView):
+class MyLearningView(ModuleRequiredMixin, ListView):
     """내 학습 현황"""
+    required_module = 'lms'
     template_name = 'lms/my_learning.html'
     context_object_name = 'enrollments'
     paginate_by = 20
@@ -108,8 +115,9 @@ class MyLearningView(LoginRequiredMixin, ListView):
         ).select_related('course', 'course__category').order_by('-enrolled_at')
 
 
-class LessonDetailView(LoginRequiredMixin, DetailView):
+class LessonDetailView(ModuleRequiredMixin, DetailView):
     """강의 학습"""
+    required_module = 'lms'
     model = Lesson
     template_name = 'lms/lesson_detail.html'
     context_object_name = 'lesson'
@@ -160,7 +168,8 @@ class LessonDetailView(LoginRequiredMixin, DetailView):
         return redirect('lms:lesson_detail', pk=lesson.pk)
 
 
-class LessonCreateView(ManagerRequiredMixin, CreateView):
+class LessonCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'lms'
     model = Lesson
     form_class = LessonForm
     template_name = 'lms/lesson_form.html'
@@ -174,7 +183,8 @@ class LessonCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class QuizListView(LoginRequiredMixin, ListView):
+class QuizListView(ModuleRequiredMixin, ListView):
+    required_module = 'lms'
     model = Quiz
     template_name = 'lms/quiz_list.html'
     context_object_name = 'quizzes'
@@ -184,7 +194,8 @@ class QuizListView(LoginRequiredMixin, ListView):
         return Quiz.objects.filter(is_active=True).select_related('course')
 
 
-class QuizCreateView(ManagerRequiredMixin, CreateView):
+class QuizCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'lms'
     model = Quiz
     form_class = QuizForm
     template_name = 'lms/quiz_form.html'
@@ -196,7 +207,8 @@ class QuizCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class EnrollmentListView(ManagerRequiredMixin, ListView):
+class EnrollmentListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'lms'
     model = CourseEnrollment
     template_name = 'lms/enrollment_list.html'
     context_object_name = 'enrollments'
@@ -208,7 +220,8 @@ class EnrollmentListView(ManagerRequiredMixin, ListView):
         ).select_related('course', 'learner').order_by('-enrolled_at')
 
 
-class CertificateListView(LoginRequiredMixin, ListView):
+class CertificateListView(ModuleRequiredMixin, ListView):
+    required_module = 'lms'
     model = Certificate
     template_name = 'lms/certificate_list.html'
     context_object_name = 'certificates'
@@ -221,7 +234,8 @@ class CertificateListView(LoginRequiredMixin, ListView):
         ).select_related('enrollment__course').order_by('-issued_at')
 
 
-class CourseCategoryListView(ManagerRequiredMixin, ListView):
+class CourseCategoryListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'lms'
     model = CourseCategory
     template_name = 'lms/category_list.html'
     context_object_name = 'categories'
@@ -231,7 +245,8 @@ class CourseCategoryListView(ManagerRequiredMixin, ListView):
         return CourseCategory.objects.filter(is_active=True).order_by('code')
 
 
-class CourseCategoryCreateView(ManagerRequiredMixin, CreateView):
+class CourseCategoryCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'lms'
     model = CourseCategory
     form_class = CourseCategoryForm
     template_name = 'lms/category_form.html'

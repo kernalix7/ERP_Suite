@@ -12,6 +12,7 @@ from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import Report, ReportSchedule, Dashboard, DashboardPanel, SavedFilter
 from .forms import (
     ReportForm, ReportScheduleForm, DashboardForm,
@@ -259,7 +260,8 @@ def _execute_report_query(report):
 
 # ── Report views ─────────────────────────────────────────────
 
-class ReportListView(LoginRequiredMixin, ListView):
+class ReportListView(ModuleRequiredMixin, ListView):
+    required_module = 'bi'
     model = Report
     template_name = 'bi/report_list.html'
     context_object_name = 'reports'
@@ -282,7 +284,8 @@ class ReportListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class ReportCreateView(ManagerRequiredMixin, CreateView):
+class ReportCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'bi'
     model = Report
     form_class = ReportForm
     template_name = 'bi/report_form.html'
@@ -297,7 +300,8 @@ class ReportCreateView(ManagerRequiredMixin, CreateView):
         return f'/bi/reports/{self.object.pk}/builder/'
 
 
-class ReportBuilderView(LoginRequiredMixin, DetailView):
+class ReportBuilderView(ModuleRequiredMixin, DetailView):
+    required_module = 'bi'
     model = Report
     template_name = 'bi/report_builder.html'
     context_object_name = 'report'
@@ -316,8 +320,9 @@ class ReportBuilderView(LoginRequiredMixin, DetailView):
         return context
 
 
-class ReportPreviewView(LoginRequiredMixin, View):
+class ReportPreviewView(ModuleRequiredMixin, View):
     """리포트 미리보기 (AJAX)"""
+    required_module = 'bi'
 
     def post(self, request, pk):
         report = get_object_or_404(Report, pk=pk, is_active=True)
@@ -331,8 +336,9 @@ class ReportPreviewView(LoginRequiredMixin, View):
         return JsonResponse({'success': True, 'data': result, 'chart_config': report.chart_config})
 
 
-class ReportExecuteView(LoginRequiredMixin, View):
+class ReportExecuteView(ModuleRequiredMixin, View):
     """리포트 실행 (저장된 설정 기준)"""
+    required_module = 'bi'
 
     def get(self, request, pk):
         report = get_object_or_404(Report, pk=pk, is_active=True)
@@ -340,7 +346,8 @@ class ReportExecuteView(LoginRequiredMixin, View):
         return JsonResponse({'success': True, 'data': result, 'chart_config': report.chart_config})
 
 
-class ReportUpdateView(ManagerRequiredMixin, UpdateView):
+class ReportUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'bi'
     model = Report
     form_class = ReportForm
     template_name = 'bi/report_form.html'
@@ -356,7 +363,9 @@ class ReportUpdateView(ManagerRequiredMixin, UpdateView):
         return f'/bi/reports/{self.object.pk}/builder/'
 
 
-class ReportDeleteView(ManagerRequiredMixin, View):
+class ReportDeleteView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'bi'
+
     def post(self, request, pk):
         report = get_object_or_404(Report, pk=pk, is_active=True, owner=request.user)
         report.soft_delete()
@@ -364,8 +373,9 @@ class ReportDeleteView(ManagerRequiredMixin, View):
         return redirect('bi:report_list')
 
 
-class ReportSaveConfigView(ManagerRequiredMixin, View):
+class ReportSaveConfigView(ModuleRequiredMixin, ManagerRequiredMixin, View):
     """리포트 빌더에서 query/chart config 저장 (AJAX)"""
+    required_module = 'bi'
 
     def post(self, request, pk):
         report = get_object_or_404(Report, pk=pk, is_active=True, owner=request.user)
@@ -382,7 +392,8 @@ class ReportSaveConfigView(ManagerRequiredMixin, View):
 
 # ── Dashboard views ──────────────────────────────────────────
 
-class DashboardListView(LoginRequiredMixin, ListView):
+class DashboardListView(ModuleRequiredMixin, ListView):
+    required_module = 'bi'
     model = Dashboard
     template_name = 'bi/dashboard_list.html'
     context_object_name = 'dashboards'
@@ -394,7 +405,8 @@ class DashboardListView(LoginRequiredMixin, ListView):
         ).select_related('owner')
 
 
-class DashboardCreateView(ManagerRequiredMixin, CreateView):
+class DashboardCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'bi'
     model = Dashboard
     form_class = DashboardForm
     template_name = 'bi/dashboard_form.html'
@@ -409,7 +421,8 @@ class DashboardCreateView(ManagerRequiredMixin, CreateView):
         return f'/bi/dashboards/{self.object.pk}/edit/'
 
 
-class DashboardEditView(LoginRequiredMixin, DetailView):
+class DashboardEditView(ModuleRequiredMixin, DetailView):
+    required_module = 'bi'
     model = Dashboard
     template_name = 'bi/dashboard_edit.html'
     context_object_name = 'dashboard'
@@ -429,7 +442,9 @@ class DashboardEditView(LoginRequiredMixin, DetailView):
         return context
 
 
-class DashboardDeleteView(ManagerRequiredMixin, View):
+class DashboardDeleteView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'bi'
+
     def post(self, request, pk):
         dashboard = get_object_or_404(Dashboard, pk=pk, is_active=True, owner=request.user)
         dashboard.soft_delete()
@@ -437,8 +452,9 @@ class DashboardDeleteView(ManagerRequiredMixin, View):
         return redirect('bi:dashboard_list')
 
 
-class DashboardSaveLayoutView(ManagerRequiredMixin, View):
+class DashboardSaveLayoutView(ModuleRequiredMixin, ManagerRequiredMixin, View):
     """드래그앤드롭 레이아웃 저장 (AJAX)"""
+    required_module = 'bi'
 
     def post(self, request, pk):
         dashboard = get_object_or_404(Dashboard, pk=pk, is_active=True, owner=request.user)
@@ -458,7 +474,9 @@ class DashboardSaveLayoutView(ManagerRequiredMixin, View):
 
 # ── Panel CRUD ───────────────────────────────────────────────
 
-class PanelCreateView(ManagerRequiredMixin, View):
+class PanelCreateView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'bi'
+
     def post(self, request, dashboard_pk):
         dashboard = get_object_or_404(Dashboard, pk=dashboard_pk, is_active=True, owner=request.user)
         body = json.loads(request.body) if request.body else {}
@@ -487,7 +505,9 @@ class PanelCreateView(ManagerRequiredMixin, View):
         })
 
 
-class PanelDeleteView(ManagerRequiredMixin, View):
+class PanelDeleteView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'bi'
+
     def post(self, request, dashboard_pk, pk):
         panel = get_object_or_404(
             DashboardPanel, pk=pk, dashboard_id=dashboard_pk,
@@ -499,8 +519,9 @@ class PanelDeleteView(ManagerRequiredMixin, View):
 
 # ── DataSource schema API ────────────────────────────────────
 
-class DataSourceSchemaView(LoginRequiredMixin, View):
+class DataSourceSchemaView(ModuleRequiredMixin, View):
     """사용 가능한 필드/집계 목록 반환"""
+    required_module = 'bi'
 
     def get(self, request, data_source):
         schema = DATA_SOURCE_SCHEMA.get(data_source)
@@ -516,8 +537,9 @@ class DataSourceSchemaView(LoginRequiredMixin, View):
 
 # ── Export API ───────────────────────────────────────────────
 
-class ReportExportView(LoginRequiredMixin, View):
+class ReportExportView(ModuleRequiredMixin, View):
     """리포트 PDF/Excel 내보내기"""
+    required_module = 'bi'
 
     def get(self, request, pk):
         report = get_object_or_404(Report, pk=pk, is_active=True)
@@ -586,7 +608,8 @@ class ReportExportView(LoginRequiredMixin, View):
 
 # ── Schedule CRUD ────────────────────────────────────────────
 
-class ScheduleListView(LoginRequiredMixin, ListView):
+class ScheduleListView(ModuleRequiredMixin, ListView):
+    required_module = 'bi'
     model = ReportSchedule
     template_name = 'bi/schedule_list.html'
     context_object_name = 'schedules'
@@ -598,7 +621,8 @@ class ScheduleListView(LoginRequiredMixin, ListView):
         ).select_related('report')
 
 
-class ScheduleCreateView(ManagerRequiredMixin, CreateView):
+class ScheduleCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'bi'
     model = ReportSchedule
     form_class = ReportScheduleForm
     template_name = 'bi/schedule_form.html'
@@ -619,7 +643,8 @@ class ScheduleCreateView(ManagerRequiredMixin, CreateView):
         return '/bi/schedules/'
 
 
-class ScheduleUpdateView(ManagerRequiredMixin, UpdateView):
+class ScheduleUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'bi'
     model = ReportSchedule
     form_class = ReportScheduleForm
     template_name = 'bi/schedule_form.html'
@@ -637,7 +662,9 @@ class ScheduleUpdateView(ManagerRequiredMixin, UpdateView):
         return '/bi/schedules/'
 
 
-class ScheduleDeleteView(ManagerRequiredMixin, View):
+class ScheduleDeleteView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'bi'
+
     def post(self, request, pk):
         schedule = get_object_or_404(
             ReportSchedule, pk=pk, is_active=True, report__owner=request.user,
@@ -649,8 +676,9 @@ class ScheduleDeleteView(ManagerRequiredMixin, View):
 
 # ── Drill-down API ───────────────────────────────────────────
 
-class DrillDownView(LoginRequiredMixin, View):
+class DrillDownView(ModuleRequiredMixin, View):
     """차트 클릭 시 상세 데이터 조회"""
+    required_module = 'bi'
 
     def post(self, request, pk):
         report = get_object_or_404(Report, pk=pk, is_active=True)

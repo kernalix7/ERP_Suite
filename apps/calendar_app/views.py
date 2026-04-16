@@ -1,4 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.urls import reverse_lazy, reverse
@@ -12,11 +13,13 @@ from .models import Event
 from .forms import EventForm
 
 
-class CalendarView(LoginRequiredMixin, TemplateView):
+class CalendarView(ModuleRequiredMixin, TemplateView):
+    required_module = 'calendar_app'
     template_name = 'calendar_app/calendar.html'
 
 
-class EventListView(LoginRequiredMixin, ListView):
+class EventListView(ModuleRequiredMixin, ListView):
+    required_module = 'calendar_app'
     model = Event
     template_name = 'calendar_app/event_list.html'
     context_object_name = 'events'
@@ -30,7 +33,8 @@ class EventListView(LoginRequiredMixin, ListView):
         )
 
 
-class EventCreateView(LoginRequiredMixin, CreateView):
+class EventCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'calendar_app'
     model = Event
     form_class = EventForm
     template_name = 'calendar_app/event_form.html'
@@ -44,7 +48,8 @@ class EventCreateView(LoginRequiredMixin, CreateView):
         return reverse('calendar_app:calendar_view')
 
 
-class EventUpdateView(LoginRequiredMixin, UpdateView):
+class EventUpdateView(ModuleRequiredMixin, UpdateView):
+    required_module = 'calendar_app'
     model = Event
     form_class = EventForm
     template_name = 'calendar_app/event_form.html'
@@ -59,7 +64,8 @@ class EventUpdateView(LoginRequiredMixin, UpdateView):
         return reverse('calendar_app:calendar_view')
 
 
-class EventDeleteView(LoginRequiredMixin, DeleteView):
+class EventDeleteView(ModuleRequiredMixin, DeleteView):
+    required_module = 'calendar_app'
     model = Event
     template_name = 'calendar_app/event_confirm_delete.html'
 
@@ -81,8 +87,9 @@ class EventDeleteView(LoginRequiredMixin, DeleteView):
         return HttpResponseRedirect(success_url)
 
 
-class EventAPIView(LoginRequiredMixin, View):
+class EventAPIView(ModuleRequiredMixin, View):
     """JSON endpoint for FullCalendar AJAX requests."""
+    required_module = 'calendar_app'
 
     @staticmethod
     def _parse_aware(value, use_end_of_day=False):

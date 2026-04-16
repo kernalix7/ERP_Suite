@@ -5,14 +5,13 @@ register = template.Library()
 
 @register.simple_tag
 def module_enabled(module_id):
-    """Check if a module is enabled.
+    """Check if a module is enabled (uses TTL-cached registry).
 
-    Usage: {% module_enabled 'core.inventory' as inv_enabled %}
+    Usage: {% module_enabled 'lms' as lms_enabled %}
+           {% if lms_enabled %}...{% endif %}
     """
-    from apps.module_manager.models import InstalledModule
-    return InstalledModule.objects.filter(
-        module_id=module_id, is_enabled=True, is_active=True,
-    ).exists()
+    from apps.module_manager.registry import module_registry
+    return module_registry.is_enabled(module_id)
 
 
 @register.simple_tag

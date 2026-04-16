@@ -5,6 +5,7 @@ from django.views.generic import (
     UpdateView, DetailView,
 )
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 
 from .models import (
     AdPlatform, AdCampaign, AdCreative,
@@ -17,8 +18,9 @@ from .forms import (
 
 
 class AdvertisingDashboardView(
-    ManagerRequiredMixin, TemplateView
+    ModuleRequiredMixin, ManagerRequiredMixin, TemplateView
 ):
+    required_module = 'advertising'
     template_name = 'advertising/dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -75,8 +77,9 @@ class AdvertisingDashboardView(
 
 
 class AdPlatformListView(
-    ManagerRequiredMixin, ListView
+    ModuleRequiredMixin, ManagerRequiredMixin, ListView
 ):
+    required_module = 'advertising'
     model = AdPlatform
     template_name = 'advertising/platform_list.html'
     context_object_name = 'platforms'
@@ -86,8 +89,9 @@ class AdPlatformListView(
 
 
 class AdPlatformCreateView(
-    ManagerRequiredMixin, CreateView
+    ModuleRequiredMixin, ManagerRequiredMixin, CreateView
 ):
+    required_module = 'advertising'
     model = AdPlatform
     form_class = AdPlatformForm
     template_name = 'advertising/platform_form.html'
@@ -99,8 +103,9 @@ class AdPlatformCreateView(
 
 
 class AdPlatformUpdateView(
-    ManagerRequiredMixin, UpdateView
+    ModuleRequiredMixin, ManagerRequiredMixin, UpdateView
 ):
+    required_module = 'advertising'
     model = AdPlatform
     form_class = AdPlatformForm
     template_name = 'advertising/platform_form.html'
@@ -108,8 +113,9 @@ class AdPlatformUpdateView(
 
 
 class AdCampaignListView(
-    ManagerRequiredMixin, ListView
+    ModuleRequiredMixin, ManagerRequiredMixin, ListView
 ):
+    required_module = 'advertising'
     model = AdCampaign
     template_name = 'advertising/campaign_list.html'
     context_object_name = 'campaigns'
@@ -146,8 +152,9 @@ class AdCampaignListView(
 
 
 class AdCampaignCreateView(
-    ManagerRequiredMixin, CreateView
+    ModuleRequiredMixin, ManagerRequiredMixin, CreateView
 ):
+    required_module = 'advertising'
     model = AdCampaign
     form_class = AdCampaignForm
     template_name = 'advertising/campaign_form.html'
@@ -159,8 +166,9 @@ class AdCampaignCreateView(
 
 
 class AdCampaignDetailView(
-    ManagerRequiredMixin, DetailView
+    ModuleRequiredMixin, ManagerRequiredMixin, DetailView
 ):
+    required_module = 'advertising'
     model = AdCampaign
     template_name = 'advertising/campaign_detail.html'
     context_object_name = 'campaign'
@@ -206,8 +214,9 @@ class AdCampaignDetailView(
 
 
 class AdCampaignUpdateView(
-    ManagerRequiredMixin, UpdateView
+    ModuleRequiredMixin, ManagerRequiredMixin, UpdateView
 ):
+    required_module = 'advertising'
     model = AdCampaign
     form_class = AdCampaignForm
     template_name = 'advertising/campaign_form.html'
@@ -215,8 +224,9 @@ class AdCampaignUpdateView(
 
 
 class AdCreativeListView(
-    ManagerRequiredMixin, ListView
+    ModuleRequiredMixin, ManagerRequiredMixin, ListView
 ):
+    required_module = 'advertising'
     model = AdCreative
     template_name = 'advertising/creative_list.html'
     context_object_name = 'creatives'
@@ -229,8 +239,9 @@ class AdCreativeListView(
 
 
 class AdCreativeCreateView(
-    ManagerRequiredMixin, CreateView
+    ModuleRequiredMixin, ManagerRequiredMixin, CreateView
 ):
+    required_module = 'advertising'
     model = AdCreative
     form_class = AdCreativeForm
     template_name = 'advertising/creative_form.html'
@@ -242,8 +253,9 @@ class AdCreativeCreateView(
 
 
 class AdCreativeUpdateView(
-    ManagerRequiredMixin, UpdateView
+    ModuleRequiredMixin, ManagerRequiredMixin, UpdateView
 ):
+    required_module = 'advertising'
     model = AdCreative
     form_class = AdCreativeForm
     template_name = 'advertising/creative_form.html'
@@ -251,8 +263,9 @@ class AdCreativeUpdateView(
 
 
 class AdPerformanceListView(
-    ManagerRequiredMixin, ListView
+    ModuleRequiredMixin, ManagerRequiredMixin, ListView
 ):
+    required_module = 'advertising'
     model = AdPerformance
     template_name = 'advertising/performance_list.html'
     context_object_name = 'performances'
@@ -294,8 +307,9 @@ class AdPerformanceListView(
 
 
 class AdBudgetListView(
-    ManagerRequiredMixin, ListView
+    ModuleRequiredMixin, ManagerRequiredMixin, ListView
 ):
+    required_module = 'advertising'
     model = AdBudget
     template_name = 'advertising/budget_list.html'
     context_object_name = 'budgets'
@@ -313,8 +327,9 @@ class AdBudgetListView(
 
 
 class AdBudgetCreateView(
-    ManagerRequiredMixin, CreateView
+    ModuleRequiredMixin, ManagerRequiredMixin, CreateView
 ):
+    required_module = 'advertising'
     model = AdBudget
     form_class = AdBudgetForm
     template_name = 'advertising/budget_form.html'
@@ -326,8 +341,9 @@ class AdBudgetCreateView(
 
 
 class AdBudgetUpdateView(
-    ManagerRequiredMixin, UpdateView
+    ModuleRequiredMixin, ManagerRequiredMixin, UpdateView
 ):
+    required_module = 'advertising'
     model = AdBudget
     form_class = AdBudgetForm
     template_name = 'advertising/budget_form.html'

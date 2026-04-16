@@ -13,6 +13,7 @@ from django.views.generic import (
 )
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 
 from .forms import (
     EDIDocumentTypeForm,
@@ -31,7 +32,8 @@ from .models import (
 
 # ── EDI Partner views ──
 
-class EDIPartnerListView(ManagerRequiredMixin, ListView):
+class EDIPartnerListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'edi'
     model = EDIPartner
     template_name = 'edi/partner_list.html'
     context_object_name = 'edi_partners'
@@ -41,7 +43,8 @@ class EDIPartnerListView(ManagerRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True).select_related('partner')
 
 
-class EDIPartnerCreateView(ManagerRequiredMixin, CreateView):
+class EDIPartnerCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'edi'
     model = EDIPartner
     form_class = EDIPartnerForm
     template_name = 'edi/partner_form.html'
@@ -52,7 +55,8 @@ class EDIPartnerCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class EDIPartnerUpdateView(ManagerRequiredMixin, UpdateView):
+class EDIPartnerUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'edi'
     model = EDIPartner
     form_class = EDIPartnerForm
     template_name = 'edi/partner_form.html'
@@ -61,7 +65,8 @@ class EDIPartnerUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Document Type views ──
 
-class DocumentTypeListView(ManagerRequiredMixin, ListView):
+class DocumentTypeListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'edi'
     model = EDIDocumentType
     template_name = 'edi/doctype_list.html'
     context_object_name = 'doc_types'
@@ -71,7 +76,8 @@ class DocumentTypeListView(ManagerRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True)
 
 
-class DocumentTypeCreateView(ManagerRequiredMixin, CreateView):
+class DocumentTypeCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'edi'
     model = EDIDocumentType
     form_class = EDIDocumentTypeForm
     template_name = 'edi/doctype_form.html'
@@ -82,7 +88,8 @@ class DocumentTypeCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class DocumentTypeUpdateView(ManagerRequiredMixin, UpdateView):
+class DocumentTypeUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'edi'
     model = EDIDocumentType
     form_class = EDIDocumentTypeForm
     template_name = 'edi/doctype_form.html'
@@ -91,7 +98,8 @@ class DocumentTypeUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Transaction views ──
 
-class TransactionListView(LoginRequiredMixin, ListView):
+class TransactionListView(ModuleRequiredMixin, ListView):
+    required_module = 'edi'
     model = EDITransaction
     template_name = 'edi/transaction_list.html'
     context_object_name = 'transactions'
@@ -110,7 +118,8 @@ class TransactionListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class TransactionDetailView(LoginRequiredMixin, DetailView):
+class TransactionDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'edi'
     model = EDITransaction
     template_name = 'edi/transaction_detail.html'
     context_object_name = 'transaction'
@@ -123,7 +132,9 @@ class TransactionDetailView(LoginRequiredMixin, DetailView):
         )
 
 
-class TransactionRetryView(ManagerRequiredMixin, View):
+class TransactionRetryView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'edi'
+
     def post(self, request, transaction_id):
         tx = get_object_or_404(
             EDITransaction, transaction_id=transaction_id, is_active=True,
@@ -137,7 +148,8 @@ class TransactionRetryView(ManagerRequiredMixin, View):
 
 # ── Mapping views ──
 
-class MappingListView(ManagerRequiredMixin, ListView):
+class MappingListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'edi'
     model = EDIMapping
     template_name = 'edi/mapping_list.html'
     context_object_name = 'mappings'
@@ -147,7 +159,8 @@ class MappingListView(ManagerRequiredMixin, ListView):
         return super().get_queryset().filter(is_active=True).select_related('document_type')
 
 
-class MappingCreateView(ManagerRequiredMixin, CreateView):
+class MappingCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'edi'
     model = EDIMapping
     form_class = EDIMappingForm
     template_name = 'edi/mapping_form.html'
@@ -158,7 +171,8 @@ class MappingCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class MappingUpdateView(ManagerRequiredMixin, UpdateView):
+class MappingUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'edi'
     model = EDIMapping
     form_class = EDIMappingForm
     template_name = 'edi/mapping_form.html'
@@ -167,7 +181,8 @@ class MappingUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Schedule views ──
 
-class ScheduleListView(ManagerRequiredMixin, ListView):
+class ScheduleListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'edi'
     model = EDISchedule
     template_name = 'edi/schedule_list.html'
     context_object_name = 'schedules'
@@ -178,7 +193,8 @@ class ScheduleListView(ManagerRequiredMixin, ListView):
         )
 
 
-class ScheduleCreateView(ManagerRequiredMixin, CreateView):
+class ScheduleCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'edi'
     model = EDISchedule
     form_class = EDIScheduleForm
     template_name = 'edi/schedule_form.html'
@@ -189,7 +205,8 @@ class ScheduleCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ScheduleUpdateView(ManagerRequiredMixin, UpdateView):
+class ScheduleUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'edi'
     model = EDISchedule
     form_class = EDIScheduleForm
     template_name = 'edi/schedule_form.html'
@@ -198,7 +215,8 @@ class ScheduleUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ── Dashboard ──
 
-class EDIDashboardView(LoginRequiredMixin, TemplateView):
+class EDIDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'edi'
     template_name = 'edi/dashboard.html'
 
     def get_context_data(self, **kwargs):

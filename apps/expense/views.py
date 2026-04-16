@@ -11,6 +11,7 @@ from django.views.generic import (
 )
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .forms import (
     CardTransactionMatchForm, CorporateCardForm, ExpenseCategoryForm,
     ExpenseClaimForm, ExpenseItemFormSet, ExpensePolicyForm,
@@ -23,7 +24,8 @@ from .models import (
 
 # ──── Policy ────
 
-class ExpensePolicyListView(ManagerRequiredMixin, ListView):
+class ExpensePolicyListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'expense'
     model = ExpensePolicy
     template_name = 'expense/policy_list.html'
     context_object_name = 'policies'
@@ -33,7 +35,8 @@ class ExpensePolicyListView(ManagerRequiredMixin, ListView):
         return ExpensePolicy.objects.filter(is_active=True)
 
 
-class ExpensePolicyCreateView(ManagerRequiredMixin, CreateView):
+class ExpensePolicyCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'expense'
     model = ExpensePolicy
     form_class = ExpensePolicyForm
     template_name = 'expense/policy_form.html'
@@ -45,7 +48,8 @@ class ExpensePolicyCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ExpensePolicyUpdateView(ManagerRequiredMixin, UpdateView):
+class ExpensePolicyUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'expense'
     model = ExpensePolicy
     form_class = ExpensePolicyForm
     template_name = 'expense/policy_form.html'
@@ -58,7 +62,8 @@ class ExpensePolicyUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ──── Category ────
 
-class ExpenseCategoryListView(ManagerRequiredMixin, ListView):
+class ExpenseCategoryListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'expense'
     model = ExpenseCategory
     template_name = 'expense/category_list.html'
     context_object_name = 'categories'
@@ -70,7 +75,8 @@ class ExpenseCategoryListView(ManagerRequiredMixin, ListView):
         )
 
 
-class ExpenseCategoryCreateView(ManagerRequiredMixin, CreateView):
+class ExpenseCategoryCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'expense'
     model = ExpenseCategory
     form_class = ExpenseCategoryForm
     template_name = 'expense/category_form.html'
@@ -82,7 +88,8 @@ class ExpenseCategoryCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ExpenseCategoryUpdateView(ManagerRequiredMixin, UpdateView):
+class ExpenseCategoryUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'expense'
     model = ExpenseCategory
     form_class = ExpenseCategoryForm
     template_name = 'expense/category_form.html'
@@ -95,7 +102,8 @@ class ExpenseCategoryUpdateView(ManagerRequiredMixin, UpdateView):
 
 # ──── Expense Claim ────
 
-class ExpenseClaimListView(LoginRequiredMixin, ListView):
+class ExpenseClaimListView(ModuleRequiredMixin, ListView):
+    required_module = 'expense'
     model = ExpenseClaim
     template_name = 'expense/claim_list.html'
     context_object_name = 'claims'
@@ -119,7 +127,8 @@ class ExpenseClaimListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ExpenseClaimCreateView(LoginRequiredMixin, CreateView):
+class ExpenseClaimCreateView(ModuleRequiredMixin, CreateView):
+    required_module = 'expense'
     model = ExpenseClaim
     form_class = ExpenseClaimForm
     template_name = 'expense/claim_form.html'
@@ -151,7 +160,8 @@ class ExpenseClaimCreateView(LoginRequiredMixin, CreateView):
         return redirect('expense:claim_detail', slug=self.object.claim_number)
 
 
-class ExpenseClaimDetailView(LoginRequiredMixin, DetailView):
+class ExpenseClaimDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'expense'
     model = ExpenseClaim
     template_name = 'expense/claim_detail.html'
     slug_field = 'claim_number'
@@ -162,7 +172,9 @@ class ExpenseClaimDetailView(LoginRequiredMixin, DetailView):
         ).prefetch_related('items__category')
 
 
-class ExpenseClaimSubmitView(LoginRequiredMixin, View):
+class ExpenseClaimSubmitView(ModuleRequiredMixin, View):
+    required_module = 'expense'
+
     def post(self, request, slug):
         claim = get_object_or_404(ExpenseClaim, claim_number=slug, is_active=True)
         if claim.status != ExpenseClaim.Status.DRAFT:
@@ -175,7 +187,9 @@ class ExpenseClaimSubmitView(LoginRequiredMixin, View):
         return redirect('expense:claim_detail', slug=slug)
 
 
-class ExpenseClaimApproveView(ManagerRequiredMixin, View):
+class ExpenseClaimApproveView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'expense'
+
     def post(self, request, slug):
         claim = get_object_or_404(ExpenseClaim, claim_number=slug, is_active=True)
         if claim.status != ExpenseClaim.Status.SUBMITTED:
@@ -189,7 +203,9 @@ class ExpenseClaimApproveView(ManagerRequiredMixin, View):
         return redirect('expense:claim_detail', slug=slug)
 
 
-class ExpenseClaimRejectView(ManagerRequiredMixin, View):
+class ExpenseClaimRejectView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'expense'
+
     def post(self, request, slug):
         claim = get_object_or_404(ExpenseClaim, claim_number=slug, is_active=True)
         if claim.status != ExpenseClaim.Status.SUBMITTED:
@@ -204,7 +220,8 @@ class ExpenseClaimRejectView(ManagerRequiredMixin, View):
 
 # ──── Corporate Card ────
 
-class CorporateCardListView(ManagerRequiredMixin, ListView):
+class CorporateCardListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'expense'
     model = CorporateCard
     template_name = 'expense/card_list.html'
     context_object_name = 'cards'
@@ -214,7 +231,8 @@ class CorporateCardListView(ManagerRequiredMixin, ListView):
         return CorporateCard.objects.filter(is_active=True).select_related('employee')
 
 
-class CorporateCardCreateView(ManagerRequiredMixin, CreateView):
+class CorporateCardCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'expense'
     model = CorporateCard
     form_class = CorporateCardForm
     template_name = 'expense/card_form.html'
@@ -228,7 +246,8 @@ class CorporateCardCreateView(ManagerRequiredMixin, CreateView):
 
 # ──── Card Transaction ────
 
-class CardTransactionListView(ManagerRequiredMixin, ListView):
+class CardTransactionListView(ModuleRequiredMixin, ManagerRequiredMixin, ListView):
+    required_module = 'expense'
     model = CardTransaction
     template_name = 'expense/transaction_list.html'
     context_object_name = 'transactions'
@@ -246,7 +265,9 @@ class CardTransactionListView(ManagerRequiredMixin, ListView):
         return qs
 
 
-class CardTransactionMatchView(ManagerRequiredMixin, View):
+class CardTransactionMatchView(ModuleRequiredMixin, ManagerRequiredMixin, View):
+    required_module = 'expense'
+
     def post(self, request, pk):
         txn = get_object_or_404(CardTransaction, pk=pk, is_active=True)
         form = CardTransactionMatchForm(request.POST)
@@ -260,7 +281,8 @@ class CardTransactionMatchView(ManagerRequiredMixin, View):
 
 # ──── Dashboard ────
 
-class ExpenseDashboardView(LoginRequiredMixin, TemplateView):
+class ExpenseDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'expense'
     template_name = 'expense/dashboard.html'
 
     def get_context_data(self, **kwargs):

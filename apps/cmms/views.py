@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.views.generic import ListView, CreateView, DetailView, UpdateView, TemplateView
 
 from apps.core.mixins import ManagerRequiredMixin
+from apps.module_manager.decorators import ModuleRequiredMixin
 from .models import Equipment, EquipmentDowntime, MaintenanceSchedule, MaintenanceWorkOrder, SparePart
 from .forms import (
     EquipmentForm, EquipmentDowntimeForm, MaintenanceScheduleForm,
@@ -15,7 +16,8 @@ from .forms import (
 
 # === 설비 ===
 
-class EquipmentListView(LoginRequiredMixin, ListView):
+class EquipmentListView(ModuleRequiredMixin, ListView):
+    required_module = 'cmms'
     model = Equipment
     template_name = 'cmms/equipment_list.html'
     context_object_name = 'equipment_list'
@@ -39,7 +41,8 @@ class EquipmentListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class EquipmentCreateView(ManagerRequiredMixin, CreateView):
+class EquipmentCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'cmms'
     model = Equipment
     form_class = EquipmentForm
     template_name = 'cmms/equipment_form.html'
@@ -51,7 +54,8 @@ class EquipmentCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class EquipmentDetailView(LoginRequiredMixin, DetailView):
+class EquipmentDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'cmms'
     model = Equipment
     template_name = 'cmms/equipment_detail.html'
     context_object_name = 'equipment'
@@ -73,7 +77,8 @@ class EquipmentDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class EquipmentUpdateView(ManagerRequiredMixin, UpdateView):
+class EquipmentUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'cmms'
     model = Equipment
     form_class = EquipmentForm
     template_name = 'cmms/equipment_form.html'
@@ -86,7 +91,8 @@ class EquipmentUpdateView(ManagerRequiredMixin, UpdateView):
 
 # === 보전 스케줄 ===
 
-class ScheduleListView(LoginRequiredMixin, ListView):
+class ScheduleListView(ModuleRequiredMixin, ListView):
+    required_module = 'cmms'
     model = MaintenanceSchedule
     template_name = 'cmms/schedule_list.html'
     context_object_name = 'schedules'
@@ -107,7 +113,8 @@ class ScheduleListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ScheduleCreateView(ManagerRequiredMixin, CreateView):
+class ScheduleCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'cmms'
     model = MaintenanceSchedule
     form_class = MaintenanceScheduleForm
     template_name = 'cmms/schedule_form.html'
@@ -119,7 +126,8 @@ class ScheduleCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ScheduleDetailView(LoginRequiredMixin, DetailView):
+class ScheduleDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'cmms'
     model = MaintenanceSchedule
     template_name = 'cmms/schedule_detail.html'
     context_object_name = 'schedule'
@@ -135,7 +143,8 @@ class ScheduleDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class ScheduleUpdateView(ManagerRequiredMixin, UpdateView):
+class ScheduleUpdateView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'cmms'
     model = MaintenanceSchedule
     form_class = MaintenanceScheduleForm
     template_name = 'cmms/schedule_form.html'
@@ -148,7 +157,8 @@ class ScheduleUpdateView(ManagerRequiredMixin, UpdateView):
 
 # === 작업지시 ===
 
-class WorkOrderListView(LoginRequiredMixin, ListView):
+class WorkOrderListView(ModuleRequiredMixin, ListView):
+    required_module = 'cmms'
     model = MaintenanceWorkOrder
     template_name = 'cmms/workorder_list.html'
     context_object_name = 'work_orders'
@@ -173,7 +183,8 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class WorkOrderCreateView(ManagerRequiredMixin, CreateView):
+class WorkOrderCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'cmms'
     model = MaintenanceWorkOrder
     form_class = MaintenanceWorkOrderForm
     template_name = 'cmms/workorder_form.html'
@@ -185,7 +196,8 @@ class WorkOrderCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class WorkOrderDetailView(LoginRequiredMixin, DetailView):
+class WorkOrderDetailView(ModuleRequiredMixin, DetailView):
+    required_module = 'cmms'
     model = MaintenanceWorkOrder
     template_name = 'cmms/workorder_detail.html'
     context_object_name = 'work_order'
@@ -196,7 +208,8 @@ class WorkOrderDetailView(LoginRequiredMixin, DetailView):
         )
 
 
-class WorkOrderCompleteView(ManagerRequiredMixin, UpdateView):
+class WorkOrderCompleteView(ModuleRequiredMixin, ManagerRequiredMixin, UpdateView):
+    required_module = 'cmms'
     model = MaintenanceWorkOrder
     form_class = WorkOrderCompleteForm
     template_name = 'cmms/workorder_complete.html'
@@ -211,7 +224,8 @@ class WorkOrderCompleteView(ManagerRequiredMixin, UpdateView):
 
 # === 예비부품 ===
 
-class SparePartListView(LoginRequiredMixin, ListView):
+class SparePartListView(ModuleRequiredMixin, ListView):
+    required_module = 'cmms'
     model = SparePart
     template_name = 'cmms/sparepart_list.html'
     context_object_name = 'spare_parts'
@@ -225,7 +239,8 @@ class SparePartListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class SparePartCreateView(ManagerRequiredMixin, CreateView):
+class SparePartCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'cmms'
     model = SparePart
     form_class = SparePartForm
     template_name = 'cmms/sparepart_form.html'
@@ -239,7 +254,8 @@ class SparePartCreateView(ManagerRequiredMixin, CreateView):
 
 # === 비가동 기록 ===
 
-class DowntimeListView(LoginRequiredMixin, ListView):
+class DowntimeListView(ModuleRequiredMixin, ListView):
+    required_module = 'cmms'
     model = EquipmentDowntime
     template_name = 'cmms/downtime_list.html'
     context_object_name = 'downtimes'
@@ -255,7 +271,8 @@ class DowntimeListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class DowntimeCreateView(ManagerRequiredMixin, CreateView):
+class DowntimeCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):
+    required_module = 'cmms'
     model = EquipmentDowntime
     form_class = EquipmentDowntimeForm
     template_name = 'cmms/downtime_form.html'
@@ -269,7 +286,8 @@ class DowntimeCreateView(ManagerRequiredMixin, CreateView):
 
 # === 대시보드 ===
 
-class CmmsDashboardView(LoginRequiredMixin, TemplateView):
+class CmmsDashboardView(ModuleRequiredMixin, TemplateView):
+    required_module = 'cmms'
     template_name = 'cmms/dashboard.html'
 
     def get_context_data(self, **kwargs):
