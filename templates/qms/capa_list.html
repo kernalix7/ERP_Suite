@@ -61,7 +61,7 @@
                     <td class="px-4 py-3">{{ capa.due_date|default:"-" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">CAPA가 없습니다.</td></tr>
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">{% trans "CAPA가 없습니다." %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

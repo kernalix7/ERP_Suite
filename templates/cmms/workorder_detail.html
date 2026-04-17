@@ -25,7 +25,7 @@
             {% endif %}">{{ work_order.get_status_display }}</span></p></div>
         <div><p class="text-sm text-gray-500">{% trans "우선순위" %}</p><p class="mt-1 font-medium">{{ work_order.get_priority_display }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "담당자" %}</p><p class="mt-1 font-medium">{{ work_order.assigned_to|default:"-" }}</p></div>
-        <div><p class="text-sm text-gray-500">{% trans "비용" %}</p><p class="mt-1 font-medium">{{ work_order.cost|intcomma }}원</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "비용" %}</p><p class="mt-1 font-medium">{% blocktrans with amount=work_order.cost|intcomma %}{{ amount }}원{% endblocktrans %}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "시작시각" %}</p><p class="mt-1 font-medium">{{ work_order.started_at|date:"Y-m-d H:i"|default:"-" }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "완료시각" %}</p><p class="mt-1 font-medium">{{ work_order.completed_at|date:"Y-m-d H:i"|default:"-" }}</p></div>
     </div>

@@ -7,7 +7,7 @@
 {% block header_actions %}
 {% if stock_count.status != 'ADJUSTED' %}
 <form method="post" action="{% url 'inventory:stockcount_adjust' stock_count.count_number %}" class="inline"
-      onsubmit="return confirm('차이가 있는 항목에 대해 재고조정을 실행합니다. 계속하시겠습니까?')">
+      onsubmit="return confirm('{% trans "차이가 있는 항목에 대해 재고조정을 실행합니다. 계속하시겠습니까?" %}')">
     {% csrf_token %}
     <button type="submit" class="btn btn-primary">
         <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

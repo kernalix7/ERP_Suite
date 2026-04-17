@@ -28,10 +28,10 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <h3 class="text-lg font-semibold mb-3">{% trans "바로가기" %}</h3>
         <div class="space-y-2">
-            <a href="{% url 'qms:nc_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">부적합 관리</a>
-            <a href="{% url 'qms:capa_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">CAPA 관리</a>
-            <a href="{% url 'qms:audit_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">내부감사</a>
-            <a href="{% url 'qms:isodoc_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">ISO 문서</a>
+            <a href="{% url 'qms:nc_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "부적합 관리" %}</a>
+            <a href="{% url 'qms:capa_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "CAPA 관리" %}</a>
+            <a href="{% url 'qms:audit_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "내부감사" %}</a>
+            <a href="{% url 'qms:isodoc_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "ISO 문서" %}</a>
         </div>
     </div>
 </div>

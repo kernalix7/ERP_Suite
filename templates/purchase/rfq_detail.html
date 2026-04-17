@@ -89,7 +89,7 @@
     <!-- 응답 목록 -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 class="text-base font-semibold text-gray-900">견적 응답 ({{ responses|length }}건)</h3>
+            <h3 class="text-base font-semibold text-gray-900">{% blocktrans with count=responses|length %}견적 응답 ({{ count }}건){% endblocktrans %}</h3>
         </div>
         <div class="table-responsive">
             <table class="w-full text-sm">
@@ -107,8 +107,8 @@
                     <tr class="{% if resp.is_selected %}bg-green-50{% endif %}">
                         <td class="px-4 py-3 text-gray-900 font-medium">{{ resp.partner.name }}</td>
                         <td class="px-4 py-3 text-gray-500">{{ resp.response_date|date:"Y-m-d" }}</td>
-                        <td class="px-4 py-3 text-right text-gray-700">{{ resp.total_amount|intcomma }}원</td>
-                        <td class="px-4 py-3 text-right text-gray-700">{{ resp.delivery_days }}일</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{% blocktrans with amount=resp.total_amount|intcomma %}{{ amount }}원{% endblocktrans %}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{% blocktrans with days=resp.delivery_days %}{{ days }}일{% endblocktrans %}</td>
                         <td class="px-4 py-3 text-center">
                             {% if resp.is_selected %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{% trans "낙찰" %}</span>

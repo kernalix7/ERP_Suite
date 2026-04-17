@@ -53,7 +53,7 @@
                     <td class="px-4 py-3">{{ wp.created_at|date:"Y-m-d H:i" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">웨이브계획이 없습니다.</td></tr>
+                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "웨이브계획이 없습니다." %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

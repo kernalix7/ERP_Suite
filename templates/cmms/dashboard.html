@@ -28,11 +28,11 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <h3 class="text-lg font-semibold mb-3">{% trans "바로가기" %}</h3>
         <div class="space-y-2">
-            <a href="{% url 'cmms:equipment_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">설비 관리</a>
-            <a href="{% url 'cmms:schedule_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">보전스케줄</a>
-            <a href="{% url 'cmms:workorder_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">작업지시</a>
-            <a href="{% url 'cmms:sparepart_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">예비부품</a>
-            <a href="{% url 'cmms:downtime_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">비가동 기록</a>
+            <a href="{% url 'cmms:equipment_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "설비 관리" %}</a>
+            <a href="{% url 'cmms:schedule_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "보전스케줄" %}</a>
+            <a href="{% url 'cmms:workorder_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "작업지시" %}</a>
+            <a href="{% url 'cmms:sparepart_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "예비부품" %}</a>
+            <a href="{% url 'cmms:downtime_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "비가동 기록" %}</a>
         </div>
     </div>
 </div>

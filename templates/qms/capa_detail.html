@@ -15,7 +15,7 @@
 {% block content %}
 <div class="bg-white rounded-lg shadow-sm p-6">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div><p class="text-sm text-gray-500">CAPA번호</p><p class="mt-1 font-medium">{{ capa.capa_number }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "CAPA번호" %}</p><p class="mt-1 font-medium">{{ capa.capa_number }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "유형" %}</p><p class="mt-1 font-medium">{{ capa.get_type_display }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "상태" %}</p><p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
             {% if capa.status == 'VERIFIED' %}bg-blue-100 text-blue-800

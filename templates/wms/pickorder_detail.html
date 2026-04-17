@@ -49,7 +49,7 @@
                     <td class="px-4 py-3 text-right">{{ item.picked_qty }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">피킹 항목이 없습니다.</td></tr>
+                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">{% trans "피킹 항목이 없습니다." %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

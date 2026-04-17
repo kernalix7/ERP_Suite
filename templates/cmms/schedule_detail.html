@@ -17,7 +17,7 @@
         <div><p class="text-sm text-gray-500">{% trans "설비" %}</p><p class="mt-1 font-medium">{{ schedule.equipment }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "제목" %}</p><p class="mt-1 font-medium">{{ schedule.title }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "유형" %}</p><p class="mt-1 font-medium">{{ schedule.get_maintenance_type_display }}</p></div>
-        <div><p class="text-sm text-gray-500">{% trans "주기" %}</p><p class="mt-1 font-medium">{{ schedule.frequency_days }}일</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "주기" %}</p><p class="mt-1 font-medium">{% blocktrans with days=schedule.frequency_days %}{{ days }}일{% endblocktrans %}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "최근수행일" %}</p><p class="mt-1 font-medium">{{ schedule.last_performed|default:"-" }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "다음예정일" %}</p><p class="mt-1 font-medium">{{ schedule.next_due|default:"-" }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "담당자" %}</p><p class="mt-1 font-medium">{{ schedule.assigned_to|default:"-" }}</p></div>
@@ -51,7 +51,7 @@
                     <td class="px-4 py-3">{{ wo.completed_at|date:"Y-m-d"|default:"-" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">작업이력이 없습니다.</td></tr>
+                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">{% trans "작업이력이 없습니다." %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

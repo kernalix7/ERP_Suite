@@ -41,7 +41,7 @@
             <p class="text-sm text-gray-600 mt-1">{{ sc.description }}</p>
             {% endif %}
             {% if sc.assumptions %}
-            <p class="text-sm text-gray-500 mt-2"><span class="font-medium">가정:</span> {{ sc.assumptions }}</p>
+            <p class="text-sm text-gray-500 mt-2"><span class="font-medium">{% trans "가정" %}:</span> {{ sc.assumptions }}</p>
             {% endif %}
         </div>
         {% endfor %}

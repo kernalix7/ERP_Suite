@@ -123,8 +123,8 @@ class ModuleTemplateTagTest(TestCase):
             module_id='tag.test', name='태그 테스트',
             category='SYSTEM', is_enabled=True,
         )
-        self.assertTrue(module_enabled('tag.test'))
-        self.assertFalse(module_enabled('tag.nonexistent'))
+        self.assertTrue(module_enabled({}, 'tag.test'))
+        self.assertFalse(module_enabled({}, 'tag.nonexistent'))
 
     def test_module_enabled_inactive(self):
         from apps.module_manager.templatetags.module_tags import module_enabled
@@ -132,7 +132,7 @@ class ModuleTemplateTagTest(TestCase):
             module_id='tag.inactive', name='비활성',
             category='SYSTEM', is_enabled=True, is_active=False,
         )
-        self.assertFalse(module_enabled('tag.inactive'))
+        self.assertFalse(module_enabled({}, 'tag.inactive'))
 
 
 class ModuleToggleViewTest(TestCase):

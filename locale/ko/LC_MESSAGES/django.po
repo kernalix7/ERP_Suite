@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ERP Suite 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-16 07:58+0900\n"
+"POT-Creation-Date: 2026-04-17 11:27+0900\n"
 "PO-Revision-Date: 2026-03-17 00:00+0900\n"
 "Last-Translator: ERP Suite Team\n"
 "Language-Team: Korean\n"
@@ -31,11 +31,11 @@ msgstr ""
 msgid "최근 5개 비밀번호는 재사용할 수 없습니다."
 msgstr ""
 
-#: apps/module_manager/views.py:113
+#: apps/module_manager/views.py:167
 msgid "유효하지 않은 JSON 형식입니다."
 msgstr ""
 
-#: apps/module_manager/views.py:116
+#: apps/module_manager/views.py:170
 msgid "모듈 설정이 저장되었습니다."
 msgstr ""
 
@@ -470,12 +470,12 @@ msgid "연체"
 msgstr ""
 
 #: templates/accounting/ap_detail.html:35 templates/accounting/ap_list.html:58
-#: templates/accounting/ar_detail.html:36 templates/base.html:360
+#: templates/accounting/ar_detail.html:36 templates/base.html:382
 msgid "세금계산서"
 msgstr ""
 
 #: templates/accounting/ap_detail.html:36 templates/accounting/ap_list.html:57
-#: templates/base.html:291
+#: templates/base.html:301
 msgid "발주서"
 msgstr ""
 
@@ -558,7 +558,7 @@ msgid "출금 이력이 없습니다."
 msgstr "아직 댓글이 없습니다."
 
 #: templates/accounting/ap_form.html:4 templates/accounting/ap_form.html:5
-#: templates/base.html:387
+#: templates/base.html:409
 msgid "미지급금"
 msgstr ""
 
@@ -677,6 +677,7 @@ msgstr "취소"
 #: templates/edi/schedule_form.html:19 templates/helpdesk/category_form.html:19
 #: templates/helpdesk/sla_form.html:19 templates/hr/labor_config.html:26
 #: templates/hr/payroll_config.html:55 templates/inquiry/inquiry_form.html:43
+#: templates/inventory/cost_basis_config.html:73
 #: templates/logistics/driver_form.html:19
 #: templates/logistics/route_form.html:19
 #: templates/logistics/vehicle_form.html:19
@@ -1101,7 +1102,7 @@ msgid "입금 이력이 없습니다."
 msgstr "아직 댓글이 없습니다."
 
 #: templates/accounting/ar_form.html:4 templates/accounting/ar_form.html:5
-#: templates/base.html:385
+#: templates/base.html:407
 msgid "미수금"
 msgstr ""
 
@@ -1128,7 +1129,7 @@ msgstr ""
 msgid "계좌 등록"
 msgstr ""
 
-#: templates/accounting/budget_report.html:4 templates/base.html:367
+#: templates/accounting/budget_report.html:4 templates/base.html:389
 msgid "예산 보고서"
 msgstr ""
 
@@ -1352,7 +1353,7 @@ msgstr ""
 #: templates/accounting/card_billing_detail.html:107
 #: templates/accounting/card_detail.html:120
 #: templates/accounting/card_transaction_list.html:32
-#: templates/accounting/card_transaction_list.html:61 templates/base.html:239
+#: templates/accounting/card_transaction_list.html:61 templates/base.html:248
 #: templates/core/system_settings.html:226
 #: templates/document/document_detail.html:34
 #: templates/document/document_list.html:49
@@ -1377,7 +1378,7 @@ msgstr ""
 msgid "거래 내역이 없습니다."
 msgstr "등록된 게시판이 없습니다."
 
-#: templates/accounting/card_billing_list.html:4 templates/base.html:383
+#: templates/accounting/card_billing_list.html:4 templates/base.html:405
 msgid "카드 청구"
 msgstr ""
 
@@ -1522,7 +1523,7 @@ msgstr ""
 msgid "결제일"
 msgstr ""
 
-#: templates/accounting/card_detail.html:54 templates/base.html:379
+#: templates/accounting/card_detail.html:54 templates/base.html:401
 msgid "결제계좌"
 msgstr ""
 
@@ -1616,7 +1617,7 @@ msgstr ""
 msgid "카드 거래 등록"
 msgstr ""
 
-#: templates/accounting/card_transaction_list.html:4 templates/base.html:382
+#: templates/accounting/card_transaction_list.html:4 templates/base.html:404
 msgid "카드 사용내역"
 msgstr ""
 
@@ -1664,7 +1665,7 @@ msgid "카드 사용내역이 없습니다."
 msgstr "등록된 게시판이 없습니다."
 
 #: templates/accounting/closing_list.html:4
-#: templates/accounting/closing_list.html:5 templates/base.html:368
+#: templates/accounting/closing_list.html:5 templates/base.html:390
 msgid "결산 마감"
 msgstr ""
 
@@ -1778,7 +1779,7 @@ msgstr "등록된 게시글이 없습니다."
 
 #: templates/accounting/exchange_gain_loss.html:4
 #: templates/accounting/exchange_gain_loss.html:42
-#: templates/accounting/exchange_gain_loss.html:83 templates/base.html:370
+#: templates/accounting/exchange_gain_loss.html:83 templates/base.html:392
 msgid "환차손익"
 msgstr ""
 
@@ -2273,7 +2274,7 @@ msgstr "등록된 게시글이 없습니다."
 
 #: templates/accounts/permission_request.html:4
 #: templates/accounts/permission_request.html:5
-#: templates/accounts/permission_request.html:29 templates/base.html:688
+#: templates/accounts/permission_request.html:29 templates/base.html:751
 msgid "권한 신청"
 msgstr ""
 
@@ -2442,7 +2443,7 @@ msgstr ""
 msgid "권한"
 msgstr ""
 
-#: templates/accounts/user_list.html:94 templates/base.html:685
+#: templates/accounts/user_list.html:94 templates/base.html:748
 msgid "비밀번호"
 msgstr ""
 
@@ -2476,6 +2477,8 @@ msgstr "등록된 게시글이 없습니다."
 #: templates/production/work_center_list.html:66
 #: templates/production/workorder_list.html:121
 #: templates/purchase/po_list.html:120 templates/purchase/receipt_list.html:82
+#: templates/purchase/rfq_list.html:116
+#: templates/purchase/vendor_score_list.html:96
 #: templates/service/request_list.html:133
 #: templates/warranty/registration_list.html:103
 #, python-format
@@ -3107,7 +3110,7 @@ msgstr ""
 
 #: templates/advertising/creative_list.html:18
 #: templates/advertising/performance_list.html:26
-#: templates/advertising/performance_list.html:70 templates/base.html:495
+#: templates/advertising/performance_list.html:70 templates/base.html:528
 msgid "캠페인"
 msgstr ""
 
@@ -3413,11 +3416,11 @@ msgstr ""
 #: templates/attendance/admin_list.html:12
 #: templates/attendance/leave_balance.html:12
 #: templates/attendance/record_list.html:12 templates/base.html:121
-#: templates/base.html:710 templates/esg/carbon_list.html:14
+#: templates/base.html:773 templates/esg/carbon_list.html:14
 msgid "대시보드"
 msgstr "대시보드"
 
-#: templates/attendance/admin_list.html:38 templates/base.html:541
+#: templates/attendance/admin_list.html:38 templates/base.html:575
 #: templates/core/system_settings.html:45 templates/hr/action_list.html:29
 #: templates/hr/labor_compliance.html:19 templates/hr/payroll_list.html:66
 #: templates/hr/severance_detail.html:17 templates/hr/severance_list.html:19
@@ -3661,7 +3664,7 @@ msgstr ""
 msgid "감사권한 보유자"
 msgstr ""
 
-#: templates/audit/dashboard.html:56 templates/base.html:638
+#: templates/audit/dashboard.html:56 templates/base.html:693
 msgid "열람 기록"
 msgstr ""
 
@@ -3839,70 +3842,75 @@ msgstr ""
 msgid "답변 템플릿"
 msgstr ""
 
-#: templates/base.html:196
+#: templates/base.html:198
 msgid "헬프데스크"
 msgstr ""
 
-#: templates/base.html:204
+#: templates/base.html:209
 msgid "물류/배송"
 msgstr ""
 
-#: templates/base.html:212
+#: templates/base.html:220
 msgid "구독관리"
 msgstr ""
 
-#: templates/base.html:220
+#: templates/base.html:229
 msgid "공급망관리"
 msgstr ""
 
-#: templates/base.html:232
+#: templates/base.html:241
 msgid "재고관리"
 msgstr ""
 
-#: templates/base.html:238 templates/inventory/product_list.html:4
+#: templates/base.html:247 templates/inventory/product_list.html:4
 #: templates/inventory/product_list.html:5
 msgid "제품 관리"
 msgstr ""
 
-#: templates/base.html:240 templates/inventory/warehouse_list.html:4
+#: templates/base.html:249 templates/inventory/warehouse_list.html:4
 #: templates/inventory/warehouse_list.html:5
 msgid "창고 관리"
 msgstr ""
 
-#: templates/base.html:241
+#: templates/base.html:250
 msgid "입출고"
 msgstr ""
 
-#: templates/base.html:242
+#: templates/base.html:251
 msgid "창고간이동"
 msgstr ""
 
-#: templates/base.html:243 templates/inventory/stock_status.html:4
+#: templates/base.html:252 templates/inventory/stock_status.html:4
 #: templates/inventory/stock_status.html:5
 msgid "재고현황"
 msgstr ""
 
-#: templates/base.html:244
+#: templates/base.html:253
 msgid "바코드 스캔"
 msgstr ""
 
-#: templates/base.html:245 templates/inventory/warehouse_stock.html:4
+#: templates/base.html:254 templates/inventory/warehouse_stock.html:4
 msgid "창고별 재고"
 msgstr ""
 
-#: templates/base.html:246 templates/inventory/stockcount_detail.html:4
+#: templates/base.html:255 templates/inventory/stockcount_detail.html:4
 #: templates/inventory/stockcount_detail.html:5
 #: templates/inventory/stockcount_list.html:4
 #: templates/inventory/stockcount_list.html:5
 msgid "재고실사"
 msgstr ""
 
-#: templates/base.html:247 templates/inventory/valuation.html:4
+#: templates/base.html:256 templates/inventory/valuation.html:4
 #: templates/inventory/valuation.html:5
 msgid "재고평가"
 msgstr ""
 
-#: templates/base.html:248 templates/cmms/equipment_detail.html:23
+#: templates/base.html:257 templates/inventory/cost_basis_config.html:4
+#: templates/inventory/cost_basis_config.html:5
+msgid "원가기준 설정"
+msgstr ""
+
+#: templates/base.html:258 templates/cmms/equipment_detail.html:23
 #: templates/inventory/serial_list.html:49
 #: templates/sales/sold_product_detail.html:157
 #: templates/sales/sold_product_list.html:57
@@ -3913,16 +3921,16 @@ msgstr ""
 msgid "시리얼번호"
 msgstr ""
 
-#: templates/base.html:260
+#: templates/base.html:270
 msgid "생산관리"
 msgstr ""
 
-#: templates/base.html:266 templates/production/bom_list.html:4
+#: templates/base.html:276 templates/production/bom_list.html:4
 #: templates/production/bom_list.html:5
 msgid "BOM 관리"
 msgstr ""
 
-#: templates/base.html:267 templates/production/plan_form.html:4
+#: templates/base.html:277 templates/production/plan_form.html:4
 #: templates/production/plan_form.html:5 templates/production/plan_list.html:4
 #: templates/production/plan_list.html:5
 #: templates/production/workorder_detail.html:24
@@ -3930,7 +3938,8 @@ msgstr ""
 msgid "생산계획"
 msgstr ""
 
-#: templates/base.html:268 templates/cmms/downtime_list.html:26
+#: templates/base.html:278 templates/cmms/dashboard.html:33
+#: templates/cmms/downtime_list.html:26
 #: templates/production/record_list.html:30
 #: templates/production/schedule_list.html:81
 #: templates/production/workorder_form.html:4
@@ -3940,7 +3949,7 @@ msgstr ""
 msgid "작업지시"
 msgstr ""
 
-#: templates/base.html:269 templates/production/plan_detail.html:69
+#: templates/base.html:279 templates/production/plan_detail.html:69
 #: templates/production/qc_detail.html:54
 #: templates/production/record_list.html:4
 #: templates/production/record_list.html:5
@@ -3948,309 +3957,309 @@ msgstr ""
 msgid "생산실적"
 msgstr ""
 
-#: templates/base.html:270 templates/production/qc_form.html:4
+#: templates/base.html:280 templates/production/qc_form.html:4
 #: templates/production/qc_form.html:5 templates/production/qc_list.html:4
 #: templates/production/qc_list.html:5
 msgid "품질검수"
 msgstr ""
 
-#: templates/base.html:271 templates/production/mrp.html:4
+#: templates/base.html:281 templates/production/mrp.html:4
 msgid "MRP (소요량계획)"
 msgstr ""
 
-#: templates/base.html:272
+#: templates/base.html:282 templates/inventory/cost_basis_config.html:25
 msgid "표준원가"
 msgstr ""
 
-#: templates/base.html:273 templates/production/cost_variance.html:4
+#: templates/base.html:283 templates/production/cost_variance.html:4
 #: templates/production/cost_variance.html:5
 msgid "원가차이 분석"
 msgstr ""
 
-#: templates/base.html:285
+#: templates/base.html:295
 msgid "구매관리"
 msgstr ""
 
-#: templates/base.html:292
+#: templates/base.html:302
 msgid "입고확인"
 msgstr ""
 
-#: templates/base.html:300
+#: templates/base.html:310
 msgid "창고관리(WMS)"
 msgstr ""
 
-#: templates/base.html:308
+#: templates/base.html:320
 msgid "설비보전(CMMS)"
 msgstr ""
 
-#: templates/base.html:316
+#: templates/base.html:331
 msgid "제품수명(PLM)"
 msgstr ""
 
-#: templates/base.html:324
+#: templates/base.html:342
 msgid "품질관리(QMS)"
 msgstr ""
 
-#: templates/base.html:332
+#: templates/base.html:353
 msgid "수요예측/S&OP"
 msgstr ""
 
-#: templates/base.html:340
+#: templates/base.html:362
 msgid "회계/재무"
 msgstr ""
 
-#: templates/base.html:351
+#: templates/base.html:373
 msgid "회계관리"
 msgstr ""
 
-#: templates/base.html:357
+#: templates/base.html:379
 #, fuzzy
 #| msgid "대시보드"
 msgid "재무 대시보드"
 msgstr "대시보드"
 
-#: templates/base.html:358
+#: templates/base.html:380
 msgid "전표/세무"
 msgstr ""
 
-#: templates/base.html:359
+#: templates/base.html:381
 msgid "전표"
 msgstr ""
 
-#: templates/base.html:361
+#: templates/base.html:383
 msgid "부가세 집계"
 msgstr ""
 
-#: templates/base.html:362
+#: templates/base.html:384
 msgid "원천징수"
 msgstr ""
 
-#: templates/base.html:363
+#: templates/base.html:385
 msgid "장부/분석"
 msgstr ""
 
-#: templates/base.html:364
+#: templates/base.html:386
 msgid "계정별 원장"
 msgstr ""
 
-#: templates/base.html:365
+#: templates/base.html:387
 msgid "시산표"
 msgstr ""
 
-#: templates/base.html:366
+#: templates/base.html:388
 msgid "예산관리"
 msgstr ""
 
-#: templates/base.html:369
+#: templates/base.html:391
 msgid "은행 대사"
 msgstr ""
 
-#: templates/base.html:371
+#: templates/base.html:393
 msgid "월별 손익"
 msgstr ""
 
-#: templates/base.html:372
+#: templates/base.html:394
 msgid "대차대조표"
 msgstr ""
 
-#: templates/base.html:373
+#: templates/base.html:395
 msgid "현금흐름표"
 msgstr ""
 
-#: templates/base.html:374
+#: templates/base.html:396
 msgid "손익분기점"
 msgstr ""
 
-#: templates/base.html:375
+#: templates/base.html:397
 msgid "원가정산"
 msgstr ""
 
-#: templates/base.html:376
+#: templates/base.html:398
 msgid "매출정산"
 msgstr ""
 
-#: templates/base.html:377
+#: templates/base.html:399
 #, fuzzy
 #| msgid "고정"
 msgid "고정비"
 msgstr "고정"
 
-#: templates/base.html:378
+#: templates/base.html:400
 msgid "계좌 현황"
 msgstr ""
 
-#: templates/base.html:380
+#: templates/base.html:402
 msgid "계좌이체"
 msgstr ""
 
-#: templates/base.html:381
+#: templates/base.html:403
 msgid "카드 목록"
 msgstr ""
 
-#: templates/base.html:384
+#: templates/base.html:406
 msgid "채권/채무"
 msgstr ""
 
-#: templates/base.html:386
+#: templates/base.html:408
 msgid "미수금 경과분석"
 msgstr ""
 
-#: templates/base.html:388
+#: templates/base.html:410
 msgid "미지급금 경과분석"
 msgstr ""
 
-#: templates/base.html:389
+#: templates/base.html:411
 msgid "기본설정"
 msgstr ""
 
-#: templates/base.html:390 templates/expense/category_list.html:25
+#: templates/base.html:412 templates/expense/category_list.html:25
 msgid "계정과목"
 msgstr ""
 
-#: templates/base.html:391
+#: templates/base.html:413
 msgid "세율"
 msgstr ""
 
-#: templates/base.html:392
+#: templates/base.html:414
 msgid "통화관리"
 msgstr ""
 
-#: templates/base.html:393
+#: templates/base.html:415
 msgid "환율관리"
 msgstr ""
 
-#: templates/base.html:406
+#: templates/base.html:428
 msgid "투자관리"
 msgstr ""
 
-#: templates/base.html:412 templates/investment/dashboard.html:5
+#: templates/base.html:434 templates/investment/dashboard.html:5
 #: templates/investment/dashboard.html:6
 #, fuzzy
 #| msgid "대시보드"
 msgid "투자 대시보드"
 msgstr "대시보드"
 
-#: templates/base.html:413 templates/investment/dashboard.html:9
+#: templates/base.html:435 templates/investment/dashboard.html:9
 msgid "투자자 관리"
 msgstr ""
 
-#: templates/base.html:414 templates/investment/round_form.html:4
+#: templates/base.html:436 templates/investment/round_form.html:4
 #: templates/investment/round_form.html:5
 msgid "투자 라운드"
 msgstr ""
 
-#: templates/base.html:415 templates/investment/dashboard.html:58
+#: templates/base.html:437 templates/investment/dashboard.html:58
 #: templates/investment/equity_overview.html:5
 #: templates/investment/equity_overview.html:6
 msgid "지분 현황"
 msgstr ""
 
-#: templates/base.html:416 templates/investment/distribution_form.html:4
+#: templates/base.html:438 templates/investment/distribution_form.html:4
 #: templates/investment/distribution_form.html:5
 msgid "배당/분배"
 msgstr ""
 
-#: templates/base.html:430
+#: templates/base.html:452
 msgid "고정자산"
 msgstr ""
 
-#: templates/base.html:436
+#: templates/base.html:458
 msgid "자산 목록"
 msgstr ""
 
-#: templates/base.html:437
+#: templates/base.html:459
 msgid "자산 등록"
 msgstr ""
 
-#: templates/base.html:438
+#: templates/base.html:460
 msgid "감가상각 실행"
 msgstr ""
 
-#: templates/base.html:439
+#: templates/base.html:461
 msgid "자산 현황"
 msgstr ""
 
-#: templates/base.html:440
+#: templates/base.html:462
 msgid "자산 분류"
 msgstr ""
 
-#: templates/base.html:441
+#: templates/base.html:463
 msgid "인증 관리"
 msgstr ""
 
-#: templates/base.html:442
+#: templates/base.html:464
 msgid "리스 계약"
 msgstr ""
 
-#: templates/base.html:443
+#: templates/base.html:465
 msgid "위치 관리"
 msgstr ""
 
-#: templates/base.html:444
+#: templates/base.html:466
 msgid "자산 이관"
 msgstr ""
 
-#: templates/base.html:445
+#: templates/base.html:467
 msgid "자산 실사"
 msgstr ""
 
-#: templates/base.html:446
+#: templates/base.html:468
 msgid "자산대장"
 msgstr ""
 
-#: templates/base.html:447
+#: templates/base.html:469
 msgid "부서별 현황"
 msgstr ""
 
-#: templates/base.html:454
+#: templates/base.html:478
 msgid "전자문서/계약"
 msgstr ""
 
-#: templates/base.html:462
+#: templates/base.html:489
 msgid "경비관리"
 msgstr ""
 
-#: templates/base.html:470
+#: templates/base.html:500
 msgid "ESG/컴플라이언스"
 msgstr ""
 
-#: templates/base.html:482
+#: templates/base.html:513
 msgid "마케팅/채널"
 msgstr ""
 
-#: templates/base.html:490
+#: templates/base.html:523
 msgid "광고"
 msgstr ""
 
-#: templates/base.html:494
+#: templates/base.html:527
 msgid "광고 현황"
 msgstr ""
 
-#: templates/base.html:496
+#: templates/base.html:529
 msgid "광고소재"
 msgstr ""
 
-#: templates/base.html:497
+#: templates/base.html:530
 msgid "성과분석"
 msgstr ""
 
-#: templates/base.html:498
+#: templates/base.html:531
 msgid "광고예산"
 msgstr ""
 
-#: templates/base.html:507
+#: templates/base.html:541
 msgid "외부스토어"
 msgstr ""
 
-#: templates/base.html:511
+#: templates/base.html:545
 msgid "스토어 현황"
 msgstr ""
 
-#: templates/base.html:512
+#: templates/base.html:546
 msgid "스토어 주문"
 msgstr ""
 
-#: templates/base.html:513 templates/inventory/category_list.html:19
+#: templates/base.html:547 templates/inventory/category_list.html:19
 #: templates/inventory/product_list.html:27
 #: templates/inventory/warehouse_list.html:19
 #: templates/investment/investor_list.html:25
@@ -4260,28 +4269,28 @@ msgstr ""
 msgid "가져오기"
 msgstr ""
 
-#: templates/base.html:514 templates/marketplace/reconciliation_list.html:6
+#: templates/base.html:548 templates/marketplace/reconciliation_list.html:6
 msgid "정산 대사"
 msgstr ""
 
-#: templates/base.html:516 templates/marketplace/config_form.html:5
+#: templates/base.html:550 templates/marketplace/config_form.html:5
 msgid "스토어 설정"
 msgstr ""
 
-#: templates/base.html:526
+#: templates/base.html:560
 msgid "인사/총무"
 msgstr ""
 
-#: templates/base.html:533
+#: templates/base.html:567
 msgid "인사/근태"
 msgstr ""
 
-#: templates/base.html:537 templates/hr/org_chart.html:4
+#: templates/base.html:571 templates/hr/org_chart.html:4
 #: templates/hr/org_chart.html:5
 msgid "조직도"
 msgstr ""
 
-#: templates/base.html:539 templates/document/document_detail.html:38
+#: templates/base.html:573 templates/document/document_detail.html:38
 #: templates/hr/employee_detail.html:37 templates/hr/employee_detail.html:188
 #: templates/hr/employee_list.html:74 templates/hr/labor_compliance.html:20
 #: templates/hr/payroll_detail.html:39 templates/hr/payroll_list.html:67
@@ -4289,74 +4298,74 @@ msgstr ""
 msgid "부서"
 msgstr ""
 
-#: templates/base.html:540 templates/hr/employee_detail.html:41
+#: templates/base.html:574 templates/hr/employee_detail.html:41
 #: templates/hr/employee_detail.html:197 templates/hr/employee_list.html:75
 #: templates/hr/payroll_detail.html:43
 msgid "직급"
 msgstr ""
 
-#: templates/base.html:542
+#: templates/base.html:576
 msgid "인사발령"
 msgstr ""
 
-#: templates/base.html:543
+#: templates/base.html:577
 msgid "입퇴사"
 msgstr ""
 
-#: templates/base.html:544 templates/hr/onboarding_form.html:163
+#: templates/base.html:578 templates/hr/onboarding_form.html:163
 msgid "입사 처리"
 msgstr ""
 
-#: templates/base.html:545 templates/hr/offboarding_form.html:4
+#: templates/base.html:579 templates/hr/offboarding_form.html:4
 #: templates/hr/offboarding_form.html:9 templates/hr/offboarding_form.html:69
 msgid "퇴사 처리"
 msgstr ""
 
-#: templates/base.html:546 templates/hr/external_company_list.html:4
+#: templates/base.html:580 templates/hr/external_company_list.html:4
 #: templates/hr/external_company_list.html:5
 msgid "외부 협력업체"
 msgstr ""
 
-#: templates/base.html:547
+#: templates/base.html:581
 msgid "급여"
 msgstr ""
 
-#: templates/base.html:548 templates/hr/payroll_config.html:12
+#: templates/base.html:582 templates/hr/payroll_config.html:12
 #: templates/hr/payroll_list.html:4 templates/hr/payroll_list.html:5
 msgid "급여 관리"
 msgstr ""
 
-#: templates/base.html:549 templates/hr/payroll_config.html:4
+#: templates/base.html:583 templates/hr/payroll_config.html:4
 #: templates/hr/payroll_config.html:5
 msgid "급여 설정"
 msgstr ""
 
-#: templates/base.html:551
+#: templates/base.html:585
 msgid "근태"
 msgstr ""
 
-#: templates/base.html:552
+#: templates/base.html:586
 msgid "근태현황"
 msgstr ""
 
-#: templates/base.html:553
+#: templates/base.html:587
 msgid "출퇴근기록"
 msgstr ""
 
-#: templates/base.html:554
+#: templates/base.html:588
 msgid "휴가"
 msgstr ""
 
-#: templates/base.html:562
+#: templates/base.html:596
 msgid "결재"
 msgstr ""
 
-#: templates/base.html:570 templates/board/board_list.html:4
+#: templates/base.html:606 templates/board/board_list.html:4
 #: templates/board/board_list.html:5
 msgid "게시판"
 msgstr "게시판"
 
-#: templates/base.html:578 templates/calendar_app/calendar.html:4
+#: templates/base.html:617 templates/calendar_app/calendar.html:4
 #: templates/calendar_app/calendar.html:5
 #: templates/calendar_app/event_form.html:4
 #: templates/calendar_app/event_form.html:5
@@ -4365,139 +4374,139 @@ msgstr "게시판"
 msgid "일정"
 msgstr "이전"
 
-#: templates/base.html:586
+#: templates/base.html:628
 msgid "메신저"
 msgstr ""
 
-#: templates/base.html:594
+#: templates/base.html:639
 msgid "학습관리(LMS)"
 msgstr ""
 
-#: templates/base.html:602
+#: templates/base.html:650
 msgid "지식베이스"
 msgstr ""
 
-#: templates/base.html:610 templates/project/project_detail.html:4
+#: templates/base.html:661 templates/project/project_detail.html:4
 #: templates/project/task_list.html:4 templates/project/task_list.html:35
 msgid "프로젝트"
 msgstr ""
 
-#: templates/base.html:618
+#: templates/base.html:672
 msgid "방문자관리"
 msgstr ""
 
-#: templates/base.html:630
+#: templates/base.html:685
 msgid "감사 증적"
 msgstr ""
 
-#: templates/base.html:634
+#: templates/base.html:689
 #, fuzzy
 #| msgid "대시보드"
 msgid "감사 대시보드"
 msgstr "대시보드"
 
-#: templates/base.html:635
+#: templates/base.html:690
 msgid "접근 로그"
 msgstr ""
 
-#: templates/base.html:636
+#: templates/base.html:691
 msgid "데이터 변경 이력"
 msgstr ""
 
-#: templates/base.html:637
+#: templates/base.html:692
 msgid "로그인/보안"
 msgstr ""
 
-#: templates/base.html:648
+#: templates/base.html:703
 msgid "시스템관리"
 msgstr ""
 
-#: templates/base.html:652
+#: templates/base.html:707
 msgid "사용자관리"
 msgstr ""
 
-#: templates/base.html:653
+#: templates/base.html:708
 msgid "권한관리"
 msgstr ""
 
-#: templates/base.html:654
+#: templates/base.html:709
 msgid "데이터 가이드"
 msgstr ""
 
-#: templates/base.html:655
+#: templates/base.html:710
 msgid "백업/복원"
 msgstr ""
 
-#: templates/base.html:656
+#: templates/base.html:711
 msgid "휴지통"
 msgstr ""
 
-#: templates/base.html:657
+#: templates/base.html:712
 msgid "증빙관리"
 msgstr ""
 
-#: templates/base.html:658
+#: templates/base.html:714
 msgid "AD 연동"
 msgstr ""
 
-#: templates/base.html:659 templates/core/system_settings.html:201
+#: templates/base.html:716 templates/core/system_settings.html:201
 #: templates/sales/carrier_list.html:4 templates/sales/carrier_list.html:5
 msgid "택배사 관리"
 msgstr ""
 
-#: templates/base.html:660 templates/core/system_settings.html:4
+#: templates/base.html:717 templates/core/system_settings.html:4
 #: templates/core/system_settings.html:5
 msgid "시스템 설정"
 msgstr ""
 
-#: templates/base.html:661
+#: templates/base.html:719
 msgid "BI 리포트"
 msgstr ""
 
-#: templates/base.html:662
+#: templates/base.html:722
 msgid "자동화(RPA)"
 msgstr ""
 
-#: templates/base.html:663
+#: templates/base.html:725
 msgid "EDI 연동"
 msgstr ""
 
-#: templates/base.html:664 templates/module_manager/module_list.html:4
+#: templates/base.html:727 templates/module_manager/module_list.html:4
 #: templates/module_manager/module_list.html:9
 msgid "모듈 관리"
 msgstr ""
 
-#: templates/base.html:683
+#: templates/base.html:746
 msgid "프로필"
 msgstr ""
 
-#: templates/base.html:691
+#: templates/base.html:754
 msgid "로그아웃"
 msgstr "로그아웃"
 
-#: templates/base.html:700
+#: templates/base.html:763
 msgid "사이드바 토글"
 msgstr ""
 
-#: templates/base.html:705
+#: templates/base.html:768
 msgid "메뉴 열기"
 msgstr ""
 
-#: templates/base.html:737 templates/base.html:750
+#: templates/base.html:800 templates/base.html:813
 msgid "알림"
 msgstr ""
 
-#: templates/base.html:752
+#: templates/base.html:815
 msgid "모두 읽음"
 msgstr ""
 
-#: templates/base.html:755
+#: templates/base.html:818
 #, fuzzy
 #| msgid "아직 댓글이 없습니다."
 msgid "새 알림이 없습니다"
 msgstr "아직 댓글이 없습니다."
 
-#: templates/base.html:815 templates/includes/messages.html:24
+#: templates/base.html:878 templates/includes/messages.html:24
 #, fuzzy
 #| msgid "답글"
 msgid "닫기"
@@ -4703,12 +4712,25 @@ msgstr ""
 msgid "바로가기"
 msgstr ""
 
-#: templates/cmms/downtime_form.html:4 templates/cmms/downtime_form.html:5
-msgid "비가동 기록 추가"
+#: templates/cmms/dashboard.html:31
+msgid "설비 관리"
 msgstr ""
 
-#: templates/cmms/downtime_list.html:5 templates/cmms/downtime_list.html:6
+#: templates/cmms/dashboard.html:32
+msgid "보전스케줄"
+msgstr ""
+
+#: templates/cmms/dashboard.html:34
+msgid "예비부품"
+msgstr ""
+
+#: templates/cmms/dashboard.html:35 templates/cmms/downtime_list.html:5
+#: templates/cmms/downtime_list.html:6
 msgid "비가동 기록"
+msgstr ""
+
+#: templates/cmms/downtime_form.html:4 templates/cmms/downtime_form.html:5
+msgid "비가동 기록 추가"
 msgstr ""
 
 #: templates/cmms/downtime_list.html:11
@@ -4724,6 +4746,12 @@ msgstr ""
 #: templates/cmms/downtime_list.html:24
 msgid "시간(h)"
 msgstr ""
+
+#: templates/cmms/downtime_list.html:44
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "비가동 기록이 없습니다."
+msgstr "아직 댓글이 없습니다."
 
 #: templates/cmms/equipment_detail.html:5
 #: templates/cmms/equipment_detail.html:6
@@ -4784,6 +4812,13 @@ msgstr ""
 msgid "생성일"
 msgstr "작성일"
 
+#: templates/cmms/equipment_detail.html:56
+#: templates/cmms/workorder_list.html:70
+#, fuzzy
+#| msgid "등록된 게시글이 없습니다."
+msgid "작업지시가 없습니다."
+msgstr "등록된 게시글이 없습니다."
+
 #: templates/cmms/equipment_list.html:5 templates/cmms/equipment_list.html:6
 msgid "설비 목록"
 msgstr ""
@@ -4800,6 +4835,12 @@ msgstr ""
 msgid "관리부서"
 msgstr ""
 
+#: templates/cmms/equipment_list.html:60
+#, fuzzy
+#| msgid "등록된 게시글이 없습니다."
+msgid "등록된 설비가 없습니다."
+msgstr "등록된 게시글이 없습니다."
+
 #: templates/cmms/schedule_detail.html:5 templates/cmms/schedule_detail.html:6
 msgid "보전스케줄 상세"
 msgstr ""
@@ -4811,6 +4852,13 @@ msgstr ""
 
 #: templates/cmms/schedule_detail.html:20
 msgid "주기"
+msgstr ""
+
+#: templates/cmms/schedule_detail.html:20
+#: templates/purchase/rfq_compare.html:60
+#: templates/purchase/rfq_detail.html:111
+#, python-format
+msgid "%(days)s일"
 msgstr ""
 
 #: templates/cmms/schedule_detail.html:21
@@ -4855,6 +4903,12 @@ msgstr ""
 msgid "완료일"
 msgstr ""
 
+#: templates/cmms/schedule_detail.html:54
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "작업이력이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/cmms/schedule_list.html:5 templates/cmms/schedule_list.html:6
 msgid "보전스케줄 목록"
 msgstr ""
@@ -4874,6 +4928,12 @@ msgstr ""
 #: templates/cmms/schedule_list.html:35
 msgid "주기(일)"
 msgstr ""
+
+#: templates/cmms/schedule_list.html:51
+#, fuzzy
+#| msgid "등록된 게시글이 없습니다."
+msgid "보전스케줄이 없습니다."
+msgstr "등록된 게시글이 없습니다."
 
 #: templates/cmms/sparepart_form.html:4 templates/cmms/sparepart_form.html:5
 msgid "예비부품 등록"
@@ -4936,6 +4996,12 @@ msgstr ""
 msgid "정상"
 msgstr ""
 
+#: templates/cmms/sparepart_list.html:54
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "예비부품이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/cmms/workorder_complete.html:4
 #: templates/cmms/workorder_complete.html:5
 msgid "작업 완료 처리"
@@ -4956,6 +5022,13 @@ msgstr ""
 #: templates/cmms/workorder_detail.html:17
 #: templates/production/workorder_form.html:16
 msgid "작업지시 정보"
+msgstr ""
+
+#: templates/cmms/workorder_detail.html:28
+#: templates/purchase/rfq_compare.html:49
+#: templates/purchase/rfq_detail.html:110
+#, python-format
+msgid "%(amount)s원"
 msgstr ""
 
 #: templates/cmms/workorder_detail.html:29
@@ -5022,7 +5095,7 @@ msgid "DB 크기"
 msgstr ""
 
 #: templates/core/system_settings.html:81
-#: templates/module_manager/module_list.html:59
+#: templates/module_manager/module_list.html:79
 msgid "설정"
 msgstr "설정"
 
@@ -6591,6 +6664,12 @@ msgstr ""
 msgid "전체 방법"
 msgstr ""
 
+#: templates/forecast/forecast_list.html:61
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "수요예측이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/forecast/parameter_form.html:4
 #: templates/forecast/parameter_form.html:5
 msgid "예측 파라미터 등록"
@@ -6616,6 +6695,12 @@ msgstr ""
 #: templates/forecast/parameter_list.html:25
 msgid "평활계수"
 msgstr ""
+
+#: templates/forecast/parameter_list.html:38
+#, fuzzy
+#| msgid "등록된 게시글이 없습니다."
+msgid "파라미터가 없습니다."
+msgstr "등록된 게시글이 없습니다."
 
 #: templates/forecast/sop_detail.html:5 templates/forecast/sop_detail.html:6
 msgid "S&OP 회의 상세"
@@ -6645,6 +6730,12 @@ msgstr ""
 msgid "시나리오"
 msgstr ""
 
+#: templates/forecast/sop_detail.html:44
+#, fuzzy
+#| msgid "고정"
+msgid "가정"
+msgstr "고정"
+
 #: templates/forecast/sop_form.html:4 templates/forecast/sop_form.html:5
 msgid "S&OP 회의 등록"
 msgstr ""
@@ -6656,6 +6747,12 @@ msgstr ""
 #: templates/forecast/sop_list.html:11
 msgid "회의 등록"
 msgstr ""
+
+#: templates/forecast/sop_list.html:53
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "S&OP 회의가 없습니다."
+msgstr "아직 댓글이 없습니다."
 
 #: templates/helpdesk/category_list.html:4
 msgid "티켓 분류 - ERP Suite"
@@ -7618,6 +7715,7 @@ msgstr ""
 #: templates/production/bom_list.html:16 templates/production/plan_list.html:16
 #: templates/production/record_list.html:16
 #: templates/production/workorder_list.html:16
+#: templates/purchase/po_list.html:16 templates/purchase/receipt_list.html:8
 #: templates/sales/sold_product_list.html:12
 #: templates/service/request_list.html:16
 #: templates/warranty/registration_list.html:16
@@ -7664,6 +7762,7 @@ msgid "제품코드 또는 시리얼번호 입력"
 msgstr ""
 
 #: templates/inventory/barcode_scan.html:75
+#: templates/inventory/cost_basis_config.html:8
 msgid "제품 목록"
 msgstr ""
 
@@ -7673,12 +7772,101 @@ msgstr ""
 msgid "보증 확인"
 msgstr ""
 
+#: templates/inventory/barcode_scan.html:91
+msgid "카메라를 준비하고 있습니다..."
+msgstr ""
+
+#: templates/inventory/barcode_scan.html:110
+msgid "바코드 또는 QR코드를 카메라에 비춰주세요."
+msgstr ""
+
+#: templates/inventory/barcode_scan.html:113
+msgid "카메라를 사용할 수 없습니다. 수동 입력을 이용해주세요."
+msgstr ""
+
+#: templates/inventory/barcode_scan.html:123
+msgid "스캐너가 중지되었습니다."
+msgstr ""
+
+#: templates/inventory/barcode_scan.html:130
+msgid "코드 감지"
+msgstr ""
+
 #: templates/inventory/category_list.html:15
 #: templates/inventory/product_list.html:23
 #: templates/inventory/warehouse_list.html:15
-#: templates/production/bom_list.html:22 templates/service/request_list.html:23
+#: templates/production/bom_list.html:22 templates/purchase/po_list.html:23
+#: templates/service/request_list.html:23
 #: templates/warranty/registration_list.html:23
 msgid "일괄 가져오기"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:21
+msgid "단계별 원가 산출 기준을 설정합니다"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:23
+msgid "제품 현재원가"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:23
+msgid "자재 입출고 시 이동평균으로 자동 갱신되는 원가"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:24
+msgid "BOM 자재원가"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:24
+msgid "BOM에 등록된 자재의 현재원가 합계 (실시간 계산)"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:25
+msgid "자재+노무+간접비를 포함한 공식 원가 (수동 확정)"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:26
+msgid "최근 생산원가"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:26
+msgid "가장 최근 생산실적의 단위원가"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:63
+msgid "1순위 원가기준"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:67
+msgid "2순위 원가기준"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:67
+msgid "1순위 없을 때"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:82
+msgid "자동 원가 동기화"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:86
+msgid "자재 입고 시 이동평균으로 자재 원가 자동 갱신"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:90
+msgid "자재 원가 변동 시 해당 자재를 사용하는 모든 BOM 완제품 원가 자동 재계산"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:94
+msgid "반제품→완제품 다단계 BOM 원가 자동 전파"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:98
+msgid "생산입고 시 BOM 기반 실제 원가로 이동평균 반영"
+msgstr ""
+
+#: templates/inventory/cost_basis_config.html:102
+msgid "BOM 항목 변경 / 표준원가 변경 시 제품 원가 즉시 갱신"
 msgstr ""
 
 #: templates/inventory/movement_detail.html:4
@@ -7814,8 +8002,18 @@ msgstr ""
 msgid "바코드 (Code128)"
 msgstr ""
 
+#: templates/inventory/product_barcode.html:35
+#, python-format
+msgid "바코드 %(code)s"
+msgstr ""
+
 #: templates/inventory/product_barcode.html:42
 msgid "QR코드"
+msgstr ""
+
+#: templates/inventory/product_barcode.html:45
+#, python-format
+msgid "QR코드 %(code)s"
 msgstr ""
 
 #: templates/inventory/product_barcode.html:48
@@ -8041,6 +8239,10 @@ msgstr ""
 msgid "재고율"
 msgstr ""
 
+#: templates/inventory/stockcount_detail.html:10
+msgid "차이가 있는 항목에 대해 재고조정을 실행합니다. 계속하시겠습니까?"
+msgstr ""
+
 #: templates/inventory/stockcount_detail.html:16
 msgid "재고 조정"
 msgstr ""
@@ -8105,6 +8307,10 @@ msgstr ""
 
 #: templates/inventory/stockcount_form.html:5
 msgid "새 재고실사"
+msgstr ""
+
+#: templates/inventory/stockcount_form.html:16
+msgid "-- 선택 --"
 msgstr ""
 
 #: templates/inventory/stockcount_list.html:13
@@ -9094,15 +9300,15 @@ msgstr ""
 msgid "범용"
 msgstr ""
 
-#: templates/module_manager/module_list.html:64
+#: templates/module_manager/module_list.html:88
 msgid "비활성화"
 msgstr ""
 
-#: templates/module_manager/module_list.html:64
+#: templates/module_manager/module_list.html:88
 msgid "활성화"
 msgstr ""
 
-#: templates/module_manager/module_list.html:75
+#: templates/module_manager/module_list.html:100
 #, fuzzy
 #| msgid "등록된 게시판이 없습니다."
 msgid "등록된 모듈이 없습니다."
@@ -9144,6 +9350,12 @@ msgstr ""
 msgid "BOM 리비전 목록"
 msgstr ""
 
+#: templates/plm/bomrevision_list.html:48
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "BOM 리비전이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/plm/drawing_form.html:4 templates/plm/drawing_form.html:5
 #: templates/plm/drawing_list.html:11
 msgid "도면 업로드"
@@ -9165,8 +9377,22 @@ msgstr ""
 msgid "도면번호"
 msgstr ""
 
+#: templates/plm/drawing_list.html:46
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "도면이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/plm/ecn_detail.html:5 templates/plm/ecn_detail.html:6
 msgid "ECN 상세"
+msgstr ""
+
+#: templates/plm/ecn_detail.html:17
+msgid "ECN 정보"
+msgstr ""
+
+#: templates/plm/ecn_detail.html:19 templates/plm/ecn_list.html:35
+msgid "ECN번호"
 msgstr ""
 
 #: templates/plm/ecn_detail.html:27 templates/plm/ecn_list.html:39
@@ -9198,6 +9424,12 @@ msgstr ""
 msgid "변경후"
 msgstr ""
 
+#: templates/plm/ecn_detail.html:63
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "변경 항목이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/plm/ecn_detail.html:72
 msgid "영향 제품"
 msgstr ""
@@ -9218,9 +9450,11 @@ msgstr ""
 msgid "ECN번호/제목 검��..."
 msgstr ""
 
-#: templates/plm/ecn_list.html:35
-msgid "ECN번호"
-msgstr ""
+#: templates/plm/ecn_list.html:68
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "ECN이 없습니다."
+msgstr "아직 댓글이 없습니다."
 
 #: templates/plm/version_detail.html:5 templates/plm/version_detail.html:6
 msgid "제품버전 상세"
@@ -9239,6 +9473,12 @@ msgstr ""
 msgid "관련 도면"
 msgstr ""
 
+#: templates/plm/version_detail.html:51
+#, fuzzy
+#| msgid "등록된 게시판이 없습니다."
+msgid "관련 도면이 없습니다."
+msgstr "등록된 게시판이 없습니다."
+
 #: templates/plm/version_list.html:5 templates/plm/version_list.html:6
 msgid "제품버전 목록"
 msgstr ""
@@ -9246,6 +9486,12 @@ msgstr ""
 #: templates/plm/version_list.html:20
 msgid "제품명/버전 검색..."
 msgstr ""
+
+#: templates/plm/version_list.html:57
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "제품버전이 없습니다."
+msgstr "아직 댓글이 없습니다."
 
 #: templates/production/bom_detail.html:4
 #: templates/production/bom_detail.html:5
@@ -9666,6 +9912,10 @@ msgstr ""
 
 #: templates/production/mrp.html:232
 msgid "선택한 부족 자재에 대해 공급처별 발주서가 자동 생성됩니다."
+msgstr ""
+
+#: templates/production/mrp.html:235
+msgid "선택한 자재에 대해 발주서를 생성하시겠습니까?"
 msgstr ""
 
 #: templates/production/mrp.html:239
@@ -10253,6 +10503,10 @@ msgstr ""
 msgid "발주 상세"
 msgstr ""
 
+#: templates/purchase/po_detail.html:15
+msgid "발주서를 삭제하시겠습니까?"
+msgstr ""
+
 #: templates/purchase/po_detail.html:28 templates/purchase/po_detail.html:222
 #: templates/purchase/receipt_form.html:4
 #: templates/purchase/receipt_form.html:5
@@ -10488,6 +10742,11 @@ msgstr ""
 msgid "견적 비교"
 msgstr ""
 
+#: templates/purchase/rfq_compare.html:30
+#, python-format
+msgid "응답 비교 (%(count)s건)"
+msgstr ""
+
 #: templates/purchase/rfq_compare.html:38
 #: templates/subscription/usage_list.html:15
 msgid "항목"
@@ -10512,6 +10771,11 @@ msgstr ""
 
 #: templates/purchase/rfq_compare.html:81
 msgid "발주 전환"
+msgstr ""
+
+#: templates/purchase/rfq_compare.html:85
+#, python-format
+msgid "%(name)s을(를) 낙찰 처리하고 발주서를 생성하시겠습니까?"
 msgstr ""
 
 #: templates/purchase/rfq_compare.html:89
@@ -10543,6 +10807,11 @@ msgstr ""
 #: templates/purchase/rfq_detail.html:39 templates/purchase/rfq_list.html:44
 #: templates/purchase/rfq_list.html:93
 msgid "비교완료"
+msgstr ""
+
+#: templates/purchase/rfq_detail.html:92
+#, python-format
+msgid "견적 응답 (%(count)s건)"
 msgstr ""
 
 #: templates/purchase/rfq_detail.html:102
@@ -10578,6 +10847,10 @@ msgstr ""
 
 #: templates/purchase/rfq_list.html:5
 msgid "견적요청 (RFQ)"
+msgstr ""
+
+#: templates/purchase/rfq_list.html:56
+msgid "번호, 제목 검색..."
 msgstr ""
 
 #: templates/purchase/rfq_list.html:72
@@ -10690,6 +10963,11 @@ msgstr ""
 msgid "평가 목록"
 msgstr ""
 
+#: templates/purchase/vendor_scorecard.html:24
+#, python-format
+msgid "%(count)s건 평가"
+msgstr ""
+
 #: templates/purchase/vendor_scorecard.html:82
 msgid "공급처 평가 데이터가 없습니다. 먼저 평가를 등록하세요."
 msgstr ""
@@ -10707,6 +10985,11 @@ msgstr ""
 #| msgid "검색"
 msgid "평가수"
 msgstr "검색"
+
+#: templates/purchase/vendor_scorecard.html:129
+#, python-format
+msgid "%(count)s건"
+msgstr ""
 
 #: templates/qms/audit_detail.html:5 templates/qms/audit_detail.html:6
 msgid "내부감사 상세"
@@ -10748,6 +11031,12 @@ msgstr ""
 msgid "연결 CAPA"
 msgstr ""
 
+#: templates/qms/audit_detail.html:66
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "발견사항이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/qms/audit_form.html:4 templates/qms/audit_form.html:5
 msgid "내부감사 등록"
 msgstr ""
@@ -10760,12 +11049,23 @@ msgstr ""
 msgid "감사 등록"
 msgstr ""
 
+#: templates/qms/audit_list.html:57
+#, fuzzy
+#| msgid "등록된 게시글이 없습니다."
+msgid "내부감사가 없습니다."
+msgstr "등록된 게시글이 없습니다."
+
 #: templates/qms/capa_detail.html:5 templates/qms/capa_detail.html:6
 msgid "CAPA 상세"
 msgstr ""
 
 #: templates/qms/capa_detail.html:10
 msgid "유효성 검증"
+msgstr ""
+
+#: templates/qms/capa_detail.html:18 templates/qms/capa_list.html:38
+#: templates/qms/nc_detail.html:52
+msgid "CAPA번호"
 msgstr ""
 
 #: templates/qms/capa_detail.html:25 templates/qms/capa_list.html:40
@@ -10789,9 +11089,11 @@ msgstr ""
 msgid "CAPA 목록"
 msgstr ""
 
-#: templates/qms/capa_list.html:38 templates/qms/nc_detail.html:52
-msgid "CAPA번호"
-msgstr ""
+#: templates/qms/capa_list.html:64
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "CAPA가 없습니다."
+msgstr "아직 댓글이 없습니다."
 
 #: templates/qms/capa_verify.html:4 templates/qms/capa_verify.html:5
 msgid "CAPA 유효성 검증"
@@ -10827,12 +11129,32 @@ msgstr ""
 msgid "유효 ISO 문서"
 msgstr ""
 
+#: templates/qms/dashboard.html:31
+msgid "부적합 관리"
+msgstr ""
+
+#: templates/qms/dashboard.html:32
+msgid "CAPA 관리"
+msgstr ""
+
+#: templates/qms/dashboard.html:33
+msgid "내부감사"
+msgstr ""
+
+#: templates/qms/dashboard.html:34
+msgid "ISO 문서"
+msgstr ""
+
 #: templates/qms/isodoc_detail.html:5 templates/qms/isodoc_detail.html:6
 msgid "ISO 문서 상세"
 msgstr ""
 
 #: templates/qms/isodoc_detail.html:25
 msgid "검토예정일"
+msgstr ""
+
+#: templates/qms/isodoc_detail.html:30
+msgid "내용"
 msgstr ""
 
 #: templates/qms/isodoc_form.html:4 templates/qms/isodoc_form.html:5
@@ -10846,6 +11168,12 @@ msgstr ""
 #: templates/qms/isodoc_list.html:20
 msgid "문서번호/제목 검색..."
 msgstr ""
+
+#: templates/qms/isodoc_list.html:60
+#, fuzzy
+#| msgid "등록된 게시글이 없습니다."
+msgid "ISO 문서가 없습니다."
+msgstr "등록된 게시글이 없습니다."
 
 #: templates/qms/nc_detail.html:5 templates/qms/nc_detail.html:6
 msgid "부적합 상세"
@@ -10899,6 +11227,12 @@ msgstr ""
 #: templates/qms/nc_list.html:20
 msgid "부적합번호/제목 검색..."
 msgstr ""
+
+#: templates/qms/nc_list.html:73
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "부적합이 없습니다."
+msgstr "아직 댓글이 없습니다."
 
 #: templates/qms/nc_resolve.html:4
 msgid "부적합 해결"
@@ -11516,6 +11850,12 @@ msgstr ""
 msgid "비어있음"
 msgstr ""
 
+#: templates/wms/bin_list.html:52
+#, fuzzy
+#| msgid "등록된 게시글이 없습니다."
+msgid "등록된 보관위치가 없습니다."
+msgstr "등록된 게시글이 없습니다."
+
 #: templates/wms/dashboard.html:5
 #, fuzzy
 #| msgid "대시보드"
@@ -11540,6 +11880,26 @@ msgstr ""
 
 #: templates/wms/dashboard.html:23
 msgid "빈 점유율"
+msgstr ""
+
+#: templates/wms/dashboard.html:34
+msgid "창고구역 관리"
+msgstr ""
+
+#: templates/wms/dashboard.html:35
+msgid "보관위치 관리"
+msgstr ""
+
+#: templates/wms/dashboard.html:36
+msgid "피킹오더"
+msgstr ""
+
+#: templates/wms/dashboard.html:37
+msgid "입고적치"
+msgstr ""
+
+#: templates/wms/dashboard.html:38
+msgid "웨이브계획"
 msgstr ""
 
 #: templates/wms/pickorder_detail.html:5 templates/wms/pickorder_detail.html:6
@@ -11572,6 +11932,12 @@ msgstr ""
 msgid "피킹수량"
 msgstr ""
 
+#: templates/wms/pickorder_detail.html:52
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "피킹 항목이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/wms/pickorder_list.html:5 templates/wms/pickorder_list.html:6
 msgid "피킹오더 목록"
 msgstr ""
@@ -11579,6 +11945,12 @@ msgstr ""
 #: templates/wms/pickorder_list.html:11
 msgid "피킹오더 생성"
 msgstr ""
+
+#: templates/wms/pickorder_list.html:71
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "피킹오더가 없습니다."
+msgstr "아직 댓글이 없습니다."
 
 #: templates/wms/putaway_detail.html:5 templates/wms/putaway_detail.html:6
 msgid "적치작업 상세"
@@ -11608,6 +11980,12 @@ msgstr ""
 msgid "적치작업 생성"
 msgstr ""
 
+#: templates/wms/putaway_list.html:59
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "적치작업이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/wms/waveplan_detail.html:5 templates/wms/waveplan_detail.html:6
 msgid "웨이브계획 상세"
 msgstr ""
@@ -11623,6 +12001,12 @@ msgstr ""
 #: templates/wms/waveplan_detail.html:29
 msgid "포함된 피킹오더"
 msgstr ""
+
+#: templates/wms/waveplan_detail.html:51
+#, fuzzy
+#| msgid "등록된 게시글이 없습니다."
+msgid "포함된 피킹오더가 없습니다."
+msgstr "등록된 게시글이 없습니다."
 
 #: templates/wms/waveplan_form.html:4 templates/wms/waveplan_form.html:5
 msgid "웨이브계획 생성"
@@ -11640,12 +12024,23 @@ msgstr ""
 msgid "피킹오더 수"
 msgstr ""
 
+#: templates/wms/waveplan_list.html:56
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "웨이브계획이 없습니다."
+msgstr "아직 댓글이 없습니다."
+
 #: templates/wms/zone_detail.html:5 templates/wms/zone_detail.html:6
 msgid "구역 상세"
 msgstr ""
 
 #: templates/wms/zone_detail.html:18 templates/wms/zone_list.html:36
 msgid "구역명"
+msgstr ""
+
+#: templates/wms/zone_detail.html:26
+#, python-format
+msgid "보관위치 (%(count)s)"
 msgstr ""
 
 #: templates/wms/zone_detail.html:32
@@ -11661,6 +12056,12 @@ msgstr "총"
 #: templates/wms/zone_detail.html:34
 msgid "단"
 msgstr ""
+
+#: templates/wms/zone_detail.html:54
+#, fuzzy
+#| msgid "아직 댓글이 없습니다."
+msgid "보관위치가 없습니다."
+msgstr "아직 댓글이 없습니다."
 
 #: templates/wms/zone_list.html:5 templates/wms/zone_list.html:6
 msgid "창고구역 목록"
@@ -11678,5 +12079,8 @@ msgstr ""
 msgid "빈 수"
 msgstr ""
 
-#~ msgid "로그인"
-#~ msgstr "로그인"
+#: templates/wms/zone_list.html:52
+#, fuzzy
+#| msgid "등록된 게시판이 없습니다."
+msgid "등록된 구역이 없습니다."
+msgstr "등록된 게시판이 없습니다."

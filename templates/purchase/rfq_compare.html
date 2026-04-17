@@ -27,7 +27,7 @@
                 <svg class="w-5 h-5 inline mr-1 -mt-0.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
-                응답 비교 ({{ responses|length }}건)
+                {% blocktrans with count=responses|length %}응답 비교 ({{ count }}건){% endblocktrans %}
             </h3>
         </div>
 
@@ -46,7 +46,7 @@
                         <td class="px-4 py-3 font-medium text-gray-900">{% trans "총금액" %}</td>
                         {% for resp in responses %}
                         <td class="px-4 py-3 text-center {% if resp.total_amount == lowest_price %}text-green-600 font-bold{% else %}text-gray-700{% endif %}">
-                            {{ resp.total_amount|intcomma }}원
+                            {% blocktrans with amount=resp.total_amount|intcomma %}{{ amount }}원{% endblocktrans %}
                             {% if resp.total_amount == lowest_price %}
                             <span class="block text-xs text-green-500">{% trans "최저가" %}</span>
                             {% endif %}
@@ -57,7 +57,7 @@
                         <td class="px-4 py-3 font-medium text-gray-900">{% trans "납기(일)" %}</td>
                         {% for resp in responses %}
                         <td class="px-4 py-3 text-center {% if resp.delivery_days == shortest_delivery %}text-green-600 font-bold{% else %}text-gray-700{% endif %}">
-                            {{ resp.delivery_days }}일
+                            {% blocktrans with days=resp.delivery_days %}{{ days }}일{% endblocktrans %}
                             {% if resp.delivery_days == shortest_delivery %}
                             <span class="block text-xs text-green-500">{% trans "최단" %}</span>
                             {% endif %}
@@ -82,7 +82,7 @@
                         {% for resp in responses %}
                         <td class="px-4 py-3 text-center">
                             <form method="post" action="{% url 'purchase:rfq_convert' rfq.rfq_number %}"
-                                  onsubmit="return confirm('{{ resp.partner.name }}을(를) 낙찰 처리하고 발주서를 생성하시겠습니까?');">
+                                  onsubmit="return confirm('{% blocktrans with name=resp.partner.name %}{{ name }}을(를) 낙찰 처리하고 발주서를 생성하시겠습니까?{% endblocktrans %}');">
                                 {% csrf_token %}
                                 <input type="hidden" name="response_id" value="{{ resp.pk }}">
                                 <button type="submit" class="btn btn-primary text-xs">

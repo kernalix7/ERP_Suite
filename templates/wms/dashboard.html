@@ -31,11 +31,11 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <h3 class="text-lg font-semibold mb-3">{% trans "바로가기" %}</h3>
         <div class="space-y-2">
-            <a href="{% url 'wms:zone_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">창고구역 관리</a>
-            <a href="{% url 'wms:bin_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">보관위치 관리</a>
-            <a href="{% url 'wms:pickorder_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">피킹오더</a>
-            <a href="{% url 'wms:putaway_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">입고적치</a>
-            <a href="{% url 'wms:waveplan_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">웨이브계획</a>
+            <a href="{% url 'wms:zone_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "창고구역 관리" %}</a>
+            <a href="{% url 'wms:bin_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "보관위치 관리" %}</a>
+            <a href="{% url 'wms:pickorder_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "피킹오더" %}</a>
+            <a href="{% url 'wms:putaway_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "입고적치" %}</a>
+            <a href="{% url 'wms:waveplan_list' %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">{% trans "웨이브계획" %}</a>
         </div>
     </div>
 </div>

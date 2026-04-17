@@ -14,9 +14,9 @@
 
 {% block content %}
 <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4">ECN 정보</h3>
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "ECN 정보" %}</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div><p class="text-sm text-gray-500">ECN번호</p><p class="mt-1 font-medium">{{ ecn.ecn_number }}</p></div>
+        <div><p class="text-sm text-gray-500">{% trans "ECN번호" %}</p><p class="mt-1 font-medium">{{ ecn.ecn_number }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "제목" %}</p><p class="mt-1 font-medium">{{ ecn.title }}</p></div>
         <div><p class="text-sm text-gray-500">{% trans "상태" %}</p><p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
             {% if ecn.status == 'APPROVED' %}bg-green-100 text-green-800
@@ -60,7 +60,7 @@
                     <td class="px-4 py-3">{{ item.after_spec|truncatewords:10|default:"-" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">변경 항목이 없습니다.</td></tr>
+                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "변경 항목이 없습니다." %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

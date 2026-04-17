@@ -45,7 +45,7 @@
                     <td class="px-4 py-3">{{ rev.approved_at|date:"Y-m-d"|default:"-" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">BOM 리비전이 없습니다.</td></tr>
+                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{% trans "BOM 리비전이 없습니다." %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
