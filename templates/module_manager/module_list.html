@@ -4,7 +4,7 @@
 {% block title %}{% trans "모듈 관리" %}{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto">
+<div class="max-w-5xl mx-auto" x-data="moduleManager()">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-800">{% trans "모듈 관리" %}</h1>
         <div class="flex items-center gap-3">
@@ -17,30 +17,31 @@
     </div>
 
     {% for category_code, category_modules in grouped_modules.items %}
+    {% with stats=category_stats|default_if_none:"" %}
     <div class="mb-6" x-data="{ open: true }">
         <button @click="open = !open" class="flex items-center w-full text-left px-4 py-3 bg-gray-100 rounded-t-lg hover:bg-gray-200 transition-colors">
             <svg class="w-5 h-5 text-gray-500 transition-transform mr-2" :class="{ 'rotate-90': open }" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
             </svg>
-            <span class="font-semibold text-gray-700">{{ category_labels|default_if_none:"" }}</span>
             <span class="font-semibold text-gray-700">
-                {% for code, label in category_labels.items %}
-                    {% if code == category_code %}{{ label }}{% endif %}
-                {% endfor %}
+                {% for code, label in category_labels.items %}{% if code == category_code %}{{ label }}{% endif %}{% endfor %}
             </span>
-            <span class="ml-2 text-sm text-gray-500">({{ category_modules|length }})</span>
+            {% with stat=category_stats|default_if_none:"" %}
+            <span class="ml-2 text-sm text-gray-500">
+                ({{ category_modules|length }}개
+                —
+                {% for code, s in category_stats.items %}{% if code == category_code %}활성 {{ s.enabled }}/{{ s.total }}{% endif %}{% endfor %}
+                )
+            </span>
+            {% endwith %}
         </button>
         <div x-show="open" x-cloak class="bg-white border border-t-0 border-gray-200 rounded-b-lg divide-y divide-gray-100">
             {% for module in category_modules %}
             <div class="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
                 <div class="flex items-center gap-3 flex-1 min-w-0">
-                    {% if module.icon %}
-                    <span class="text-xl flex-shrink-0">{{ module.icon }}</span>
-                    {% else %}
-                    <span class="w-6 h-6 bg-gray-200 rounded flex-shrink-0"></span>
-                    {% endif %}
+                    <span class="text-xl flex-shrink-0">{{ module.icon|default:"📦" }}</span>
                     <div class="min-w-0">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-medium text-gray-800">{{ module.name }}</span>
                             {% if module.country_code == 'KR' %}
                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">KR</span>
@@ -48,32 +49,183 @@
                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{{ module.country_code }}</span>
                             {% endif %}
                             <span class="text-xs text-gray-400">v{{ module.version }}</span>
+                            {% if not module.is_enabled %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-600">비활성</span>
+                            {% endif %}
                         </div>
                         {% if module.description %}
-                        <p class="text-sm text-gray-500 truncate">{{ module.description }}</p>
+                        <p class="text-sm text-gray-500 truncate max-w-md">{{ module.description }}</p>
                         {% endif %}
-                        <p class="text-xs text-gray-400 font-mono">{{ module.module_id }}</p>
+                        <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span class="text-xs text-gray-400 font-mono">{{ module.module_id }}</span>
+                            {% if module.dependencies %}
+                            <span class="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200"
+                                  title="필요 의존: {{ module.dependencies|join:', ' }}">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                의존 {{ module.dependencies|length }}개
+                            </span>
+                            {% endif %}
+                            {% for dep_id, dep_names in dependents_map.items %}{% if dep_id == module.module_id %}
+                            <span class="inline-flex items-center gap-1 text-xs text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200"
+                                  title="이 모듈에 의존: {{ dep_names|join:', ' }}">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                                피의존 {{ dep_names|length }}개
+                            </span>
+                            {% endif %}{% endfor %}
+                        </div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0 ml-4">
                     <a href="{% url 'module_manager:module_settings' module.pk %}" class="text-gray-400 hover:text-gray-600" title="{% trans '설정' %}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     </a>
-                    <form method="post" action="{% url 'module_manager:module_toggle' module.pk %}" class="inline">
-                        {% csrf_token %}
-                        <button type="submit" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 {% if module.is_enabled %}bg-indigo-600{% else %}bg-gray-200{% endif %}" role="switch" aria-checked="{{ module.is_enabled|yesno:'true,false' }}" title="{% if module.is_enabled %}{% trans '비활성화' %}{% else %}{% trans '활성화' %}{% endif %}">
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {% if module.is_enabled %}translate-x-5{% else %}translate-x-0{% endif %}"></span>
-                        </button>
-                    </form>
+                    <button
+                        type="button"
+                        @click="checkAndToggle({{ module.pk }}, '{% url 'module_manager:module_dependency_check' module.pk %}', '{% url 'module_manager:module_toggle' module.pk %}', {{ module.is_enabled|yesno:'true,false' }})"
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 {% if module.is_enabled %}bg-indigo-600{% else %}bg-gray-200{% endif %}"
+                        role="switch"
+                        aria-checked="{{ module.is_enabled|yesno:'true,false' }}"
+                        title="{% if module.is_enabled %}{% trans '비활성화' %}{% else %}{% trans '활성화' %}{% endif %}"
+                    >
+                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {% if module.is_enabled %}translate-x-5{% else %}translate-x-0{% endif %}"></span>
+                    </button>
                 </div>
             </div>
             {% endfor %}
         </div>
     </div>
+    {% endwith %}
     {% empty %}
     <div class="text-center py-12 text-gray-500">
         <p>{% trans "등록된 모듈이 없습니다." %}</p>
     </div>
     {% endfor %}
+
+    <!-- 확인 다이얼로그 -->
+    <div x-show="dialog.open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/40" @click="dialog.open = false"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6" @click.stop>
+            <h2 class="text-lg font-bold text-gray-800 mb-3" x-text="dialog.title"></h2>
+            <p class="text-sm text-gray-600 mb-4" x-text="dialog.message"></p>
+
+            <!-- 비활성화 시 피의존 모듈 목록 -->
+            <template x-if="dialog.dependents && dialog.dependents.length > 0">
+                <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p class="text-xs font-semibold text-amber-700 mb-2">이 모듈을 비활성화하면 다음 모듈에 영향을 줍니다:</p>
+                    <ul class="space-y-1">
+                        <template x-for="dep in dialog.dependents" :key="dep.module_id">
+                            <li class="flex items-center gap-2 text-sm text-amber-800">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                                <span x-text="dep.name"></span>
+                                <span class="text-xs text-amber-500 font-mono" x-text="'(' + dep.module_id + ')'"></span>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </template>
+
+            <!-- 활성화 시 미충족 의존 모듈 목록 -->
+            <template x-if="dialog.dependencies && dialog.dependencies.length > 0">
+                <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="text-xs font-semibold text-red-700 mb-2">다음 의존 모듈이 비활성 상태입니다:</p>
+                    <ul class="space-y-1">
+                        <template x-for="dep in dialog.dependencies" :key="dep.module_id">
+                            <li class="flex items-center gap-2 text-sm text-red-800">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0"></span>
+                                <span x-text="dep.name"></span>
+                                <span class="text-xs text-red-400 font-mono" x-text="'(' + dep.module_id + ')'"></span>
+                            </li>
+                        </template>
+                    </ul>
+                    <p class="text-xs text-red-600 mt-2">의존 모듈을 먼저 활성화하거나, 그래도 계속 진행할 수 있습니다.</p>
+                </div>
+            </template>
+
+            <div class="flex justify-end gap-3 mt-2">
+                <button type="button" @click="dialog.open = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    취소
+                </button>
+                <button type="button" @click="confirmToggle()"
+                    :class="dialog.action === 'disable' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'"
+                    class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors">
+                    <span x-text="dialog.action === 'disable' ? '비활성화 확인' : '활성화 확인'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+function moduleManager() {
+    return {
+        dialog: {
+            open: false,
+            title: '',
+            message: '',
+            action: '',
+            dependents: [],
+            dependencies: [],
+            toggleUrl: '',
+        },
+
+        async checkAndToggle(pk, checkUrl, toggleUrl, isEnabled) {
+            try {
+                const resp = await fetch(checkUrl, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await resp.json();
+
+                this.dialog.action = data.action;
+                this.dialog.toggleUrl = toggleUrl;
+                this.dialog.dependents = data.dependents || [];
+                this.dialog.dependencies = data.dependencies || [];
+
+                if (data.action === 'disable') {
+                    this.dialog.title = `"${data.module_name}" 비활성화`;
+                    if (data.dependents.length > 0) {
+                        this.dialog.message = `이 모듈을 비활성화하면 ${data.dependents.length}개 모듈에 영향을 줍니다. 계속하시겠습니까?`;
+                    } else {
+                        this.dialog.message = `"${data.module_name}" 모듈을 비활성화하시겠습니까?`;
+                    }
+                } else {
+                    this.dialog.title = `"${data.module_name}" 활성화`;
+                    if (data.dependencies.length > 0) {
+                        this.dialog.message = `활성화에 필요한 의존 모듈이 비활성 상태입니다. 그래도 활성화하시겠습니까?`;
+                    } else {
+                        this.dialog.message = `"${data.module_name}" 모듈을 활성화하시겠습니까?`;
+                    }
+                }
+
+                this.dialog.open = true;
+            } catch (e) {
+                console.error('의존성 체크 실패:', e);
+                this.submitToggle(toggleUrl);
+            }
+        },
+
+        confirmToggle() {
+            this.dialog.open = false;
+            this.submitToggle(this.dialog.toggleUrl);
+        },
+
+        submitToggle(url) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = url;
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = 'csrfmiddlewaretoken';
+            csrf.value = document.querySelector('[name=csrfmiddlewaretoken]') ?
+                document.querySelector('[name=csrfmiddlewaretoken]').value :
+                '{{ csrf_token }}';
+            form.appendChild(csrf);
+            document.body.appendChild(form);
+            form.submit();
+        },
+    };
+}
+</script>
+
+{% csrf_token %}
 {% endblock %}

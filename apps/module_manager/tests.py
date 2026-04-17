@@ -367,6 +367,77 @@ class SeedMigrationTest(TestCase):
         )
 
 
+class ModuleDependencyCheckViewTest(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_depcheck', password='testpass123', role='admin',
+        )
+        self.client.force_login(self.admin)
+
+    def test_check_disable_no_dependents(self):
+        m = InstalledModule.objects.create(
+            module_id='dep.solo', name='독립 모듈', category='SYSTEM', is_enabled=True,
+        )
+        resp = self.client.get(
+            f'/modules/{m.pk}/dependency-check/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['action'], 'disable')
+        self.assertEqual(data['dependents'], [])
+
+    def test_check_disable_with_dependents(self):
+        parent = InstalledModule.objects.create(
+            module_id='dep.parent2', name='부모', category='SYSTEM', is_enabled=True,
+        )
+        InstalledModule.objects.create(
+            module_id='dep.child2', name='자식', category='SYSTEM',
+            is_enabled=True, dependencies=['dep.parent2'],
+        )
+        resp = self.client.get(
+            f'/modules/{parent.pk}/dependency-check/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['action'], 'disable')
+        self.assertEqual(len(data['dependents']), 1)
+        self.assertEqual(data['dependents'][0]['module_id'], 'dep.child2')
+
+    def test_check_enable_missing_dependency(self):
+        m = InstalledModule.objects.create(
+            module_id='dep.needsparent', name='의존자', category='SYSTEM',
+            is_enabled=False, dependencies=['dep.missing'],
+        )
+        resp = self.client.get(
+            f'/modules/{m.pk}/dependency-check/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['action'], 'enable')
+        self.assertEqual(len(data['dependencies']), 1)
+
+    def test_check_enable_satisfied_dependency(self):
+        InstalledModule.objects.create(
+            module_id='dep.satisfied_parent', name='충족부모', category='SYSTEM',
+            is_enabled=True,
+        )
+        m = InstalledModule.objects.create(
+            module_id='dep.satisfied_child', name='충족자식', category='SYSTEM',
+            is_enabled=False, dependencies=['dep.satisfied_parent'],
+        )
+        resp = self.client.get(
+            f'/modules/{m.pk}/dependency-check/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['action'], 'enable')
+        self.assertEqual(data['dependencies'], [])
+
+
 class SidebarVisibilityTest(TestCase):
     """Test that sidebar items are hidden/shown based on module status."""
 
