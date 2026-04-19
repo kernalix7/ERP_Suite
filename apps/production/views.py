@@ -14,7 +14,7 @@ from apps.core.excel import export_to_excel
 from apps.core.import_views import BaseImportView
 from apps.inventory.models import Product
 from apps.core.mixins import ManagerRequiredMixin
-from .models import BOM, BOMItem, ProductionPlan, WorkOrder, ProductionRecord, QualityInspection, StandardCost, WorkCenter, ProductionSchedule
+from .models import BOM, BOMItem, ProductionPlan, WorkOrder, ProductionRecord, QualityInspection, StandardCost, WorkCenter, ProductionSchedule, ProductionBatch
 from .forms import BOMForm, BOMItemFormSet, ProductionPlanForm, WorkOrderForm, ProductionRecordForm, StandardCostForm, WorkCenterForm, ProductionScheduleForm
 
 
@@ -1144,4 +1144,259 @@ class CostVarianceView(ManagerRequiredMixin, TemplateView):
             v['var_total'] for v in variance_list
         )
 
+        return ctx
+
+
+# ============================================================
+# 추적 관리 — 4탭 통합 뷰 (생산배치 / LOT / 시리얼 / 역추적)
+# ============================================================
+
+
+class _TraceBaseMixin(LoginRequiredMixin):
+    """4탭 공용 컨텍스트 (현재 탭, 검색어)"""
+    tab = ''
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['active_tab'] = self.tab
+        ctx['q'] = self.request.GET.get('q', '')
+        return ctx
+
+
+class ProductionBatchListView(_TraceBaseMixin, ListView):
+    """탭1: 생산배치 목록"""
+    model = ProductionBatch
+    template_name = 'production/trace_batch_list.html'
+    context_object_name = 'batches'
+    paginate_by = 30
+    tab = 'batch'
+
+    def get_queryset(self):
+        qs = ProductionBatch.objects.filter(
+            is_active=True,
+        ).select_related(
+            'product', 'work_center',
+            'production_record__work_order__production_plan',
+        )
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(batch_number__icontains=q)
+                | Q(product__name__icontains=q)
+                | Q(product__code__icontains=q)
+            )
+        return qs.order_by('-production_date', '-pk')
+
+
+class ProductionBatchDetailView(_TraceBaseMixin, DetailView):
+    """탭1 상세 — Forward trace (이 배치 → 출고 고객 리스트)"""
+    model = ProductionBatch
+    template_name = 'production/trace_batch_detail.html'
+    context_object_name = 'batch'
+    tab = 'batch'
+
+    def get_queryset(self):
+        return ProductionBatch.objects.filter(is_active=True).select_related(
+            'product', 'work_center',
+            'production_record__work_order__production_plan__bom',
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        batch = self.object
+
+        # 연결된 LOT
+        ctx['lots'] = batch.stock_lots.filter(is_active=True).select_related(
+            'product', 'warehouse',
+        )
+
+        # 연결된 시리얼
+        ctx['serials'] = batch.serial_numbers.filter(is_active=True).select_related(
+            'product', 'warehouse', 'shipment_item__shipment__order__partner',
+        )[:100]
+
+        # Forward trace: 이 배치의 재고가 어느 출고로 나갔는지
+        # 1) 시리얼 기반 — SerialNumber → ShipmentItem → Shipment → Order → Partner
+        shipped_serials = batch.serial_numbers.filter(
+            is_active=True, status='SHIPPED', shipment_item__isnull=False,
+        ).select_related(
+            'shipment_item__shipment__order__partner',
+        )
+        customer_map = {}
+        for sn in shipped_serials:
+            si = sn.shipment_item
+            order = si.shipment.order if si and si.shipment_id else None
+            partner = order.partner if order else None
+            if partner:
+                key = partner.pk
+                if key not in customer_map:
+                    customer_map[key] = {
+                        'partner': partner,
+                        'orders': set(),
+                        'serial_count': 0,
+                    }
+                customer_map[key]['orders'].add(order.order_number)
+                customer_map[key]['serial_count'] += 1
+        ctx['forward_customers'] = list(customer_map.values())
+
+        return ctx
+
+
+class TraceLotListView(_TraceBaseMixin, ListView):
+    """탭2: LOT 목록 (serial_tracking 무관, 전체 StockLot)"""
+    template_name = 'production/trace_lot_list.html'
+    context_object_name = 'lots'
+    paginate_by = 30
+    tab = 'lot'
+
+    def get_queryset(self):
+        from apps.inventory.models import StockLot
+        qs = StockLot.objects.filter(
+            is_active=True,
+        ).select_related(
+            'product', 'warehouse', 'stock_movement', 'production_batch',
+        )
+        q = self.request.GET.get('q', '').strip()
+        show_empty = self.request.GET.get('show_empty', '')
+        if q:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(lot_number__icontains=q)
+                | Q(product__name__icontains=q)
+                | Q(product__code__icontains=q)
+            )
+        if not show_empty:
+            qs = qs.filter(remaining_quantity__gt=0)
+        return qs.order_by('-received_date', '-pk')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['show_empty'] = self.request.GET.get('show_empty', '')
+        return ctx
+
+
+class TraceSerialListView(_TraceBaseMixin, ListView):
+    """탭3: 시리얼 목록"""
+    template_name = 'production/trace_serial_list.html'
+    context_object_name = 'serials'
+    paginate_by = 50
+    tab = 'serial'
+
+    def get_queryset(self):
+        from apps.inventory.models import SerialNumber
+        qs = SerialNumber.objects.filter(
+            is_active=True,
+        ).select_related(
+            'product', 'warehouse', 'production_batch',
+            'shipment_item__shipment__order__partner',
+        )
+        q = self.request.GET.get('q', '').strip()
+        status = self.request.GET.get('status', '')
+        if q:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(serial__icontains=q)
+                | Q(product__name__icontains=q)
+            )
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.inventory.models import SerialNumber
+        ctx['status_choices'] = SerialNumber.Status.choices
+        ctx['selected_status'] = self.request.GET.get('status', '')
+        return ctx
+
+
+class TraceBackwardView(_TraceBaseMixin, TemplateView):
+    """탭4: 역추적 — 고객/기간/제품 필터 → 해당 배치들 → 동일 배치의 다른 고객 (리콜 범위)"""
+    template_name = 'production/trace_backward.html'
+    tab = 'backward'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        partner_id = self.request.GET.get('partner_id', '').strip()
+        date_from = self.request.GET.get('date_from', '').strip()
+        date_to = self.request.GET.get('date_to', '').strip()
+        product_id = self.request.GET.get('product_id', '').strip()
+
+        ctx['partner_id'] = partner_id
+        ctx['date_from'] = date_from
+        ctx['date_to'] = date_to
+        ctx['product_id'] = product_id
+
+        # 필터용 목록
+        from apps.sales.models import Partner
+        ctx['partners'] = Partner.objects.filter(
+            is_active=True, partner_type__in=('CUSTOMER', 'BOTH'),
+        ).order_by('name')
+        ctx['products'] = Product.objects.filter(
+            is_active=True, product_type='FINISHED',
+        ).order_by('name')
+
+        if not (partner_id or date_from or date_to or product_id):
+            return ctx
+
+        # 1) 고객/기간/제품 조건에 걸린 OUT StockMovement → 배치 ID 집합
+        from apps.inventory.models import StockMovement
+        moves = StockMovement.objects.filter(
+            is_active=True, movement_type='OUT',
+            production_batch__isnull=False,
+        ).select_related(
+            'product', 'production_batch',
+            'shipment_item__shipment__order__partner',
+        )
+        if product_id:
+            moves = moves.filter(product_id=product_id)
+        if date_from:
+            moves = moves.filter(movement_date__gte=date_from)
+        if date_to:
+            moves = moves.filter(movement_date__lte=date_to)
+        if partner_id:
+            moves = moves.filter(
+                shipment_item__shipment__order__partner_id=partner_id,
+            )
+
+        source_moves = list(moves[:500])
+        ctx['source_moves'] = source_moves
+        batches = {m.production_batch_id for m in source_moves}
+        ctx['batch_count'] = len(batches)
+
+        # 2) 동일 배치에 속한 다른 출고 (다른 고객) — 리콜 범위
+        sibling_customer_map = {}
+        if batches:
+            source_move_ids = {m.pk for m in source_moves}
+            siblings = StockMovement.objects.filter(
+                is_active=True, movement_type='OUT',
+                production_batch_id__in=batches,
+                shipment_item__isnull=False,
+            ).select_related(
+                'shipment_item__shipment__order__partner',
+                'production_batch', 'product',
+            )
+            for m in siblings:
+                if m.pk in source_move_ids:
+                    continue
+                si = m.shipment_item
+                order = si.shipment.order if si and si.shipment_id else None
+                partner = order.partner if order else None
+                if not partner:
+                    continue
+                key = (m.production_batch_id, partner.pk)
+                if key not in sibling_customer_map:
+                    sibling_customer_map[key] = {
+                        'batch': m.production_batch,
+                        'partner': partner,
+                        'product': m.product,
+                        'orders': set(),
+                        'out_quantity': Decimal('0'),
+                    }
+                if order:
+                    sibling_customer_map[key]['orders'].add(order.order_number)
+                sibling_customer_map[key]['out_quantity'] += m.quantity
+
+        ctx['sibling_customers'] = list(sibling_customer_map.values())
         return ctx

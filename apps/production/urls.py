@@ -68,6 +68,12 @@ urlpatterns = [
         views.CostVarianceView.as_view(),
         name='cost_variance',
     ),
+    # 추적 관리 (4탭)
+    path('trace/', views.ProductionBatchListView.as_view(), name='trace_index'),
+    path('trace/batch/<int:pk>/', views.ProductionBatchDetailView.as_view(), name='batch_detail'),
+    path('trace/lots/', views.TraceLotListView.as_view(), name='trace_lot_list'),
+    path('trace/serials/', views.TraceSerialListView.as_view(), name='trace_serial_list'),
+    path('trace/backward/', views.TraceBackwardView.as_view(), name='trace_backward'),
     # Excel 내보내기
     path('bom/excel/', excel_views.BOMExcelView.as_view(), name='bom_excel'),
     path('plans/excel/', excel_views.ProductionPlanExcelView.as_view(), name='plan_excel'),

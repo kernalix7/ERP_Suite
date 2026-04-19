@@ -124,7 +124,31 @@ def _delete_old_movements(record):
     movements.update(is_active=False)
 
 
-def _create_serial_numbers(instance, warehouse):
+def _get_or_create_batch(instance):
+    """생산실적에 연결된 ProductionBatch 보장 (없으면 생성)"""
+    from apps.production.models import ProductionBatch
+
+    existing = ProductionBatch.objects.filter(production_record=instance).first()
+    if existing:
+        return existing
+
+    work_order = instance.work_order
+    product = work_order.production_plan.product
+    from decimal import Decimal as _Dec
+    qty = _Dec(str(instance.good_quantity or 0))
+    return ProductionBatch.objects.create(
+        production_record=instance,
+        work_center=work_order.work_center,
+        product=product,
+        shift=ProductionBatch.Shift.A,
+        production_date=instance.record_date,
+        total_quantity=qty,
+        remaining_quantity=qty,
+        created_by=instance.created_by,
+    )
+
+
+def _create_serial_numbers(instance, warehouse, batch=None):
     """시리얼 추적 제품의 생산 시 시리얼번호 자동 생성"""
     from django.utils import timezone
     from django.db.models import Max
@@ -170,6 +194,7 @@ def _create_serial_numbers(instance, warehouse):
             product=product,
             status=SerialNumber.Status.IN_STOCK,
             production_record=instance,
+            production_batch=batch,
             production_date=timezone.now().date(),
             warehouse=warehouse,
             created_by=instance.created_by,
@@ -183,7 +208,7 @@ def _create_serial_numbers(instance, warehouse):
         )
 
 
-def _create_movements(instance, warehouse):
+def _create_movements(instance, warehouse, batch=None):
     """생산실적 기반 재고이동 생성"""
     work_order = instance.work_order
     plan = work_order.production_plan
@@ -202,6 +227,7 @@ def _create_movements(instance, warehouse):
             unit_price=prod_unit_price,
             movement_date=instance.record_date,
             reference=f'작업지시 {work_order.order_number}',
+            production_batch=batch,
             created_by=instance.created_by,
         )
 
@@ -361,11 +387,14 @@ def auto_stock_on_production(sender, instance, created, **kwargs):
         if not created:
             _delete_old_movements(instance)
 
-        _create_movements(instance, warehouse)
+        # ProductionBatch 보장 (없으면 생성) — 신규/수정 모두
+        batch = _get_or_create_batch(instance)
+
+        _create_movements(instance, warehouse, batch=batch)
 
         # 시리얼 추적 제품: 최초 등록 시 시리얼번호 자동 생성
         if created:
-            _create_serial_numbers(instance, warehouse)
+            _create_serial_numbers(instance, warehouse, batch=batch)
 
         _update_work_order_status(work_order)
         _update_plan_status(plan)

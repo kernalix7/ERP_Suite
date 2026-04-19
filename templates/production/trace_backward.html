@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{% trans "추적 관리 — 역추적" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "추적 관리 — 역추적" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    {% include "production/_trace_tabs.html" %}
+
+    <div class="p-6 border-b border-gray-200 bg-blue-50">
+        <h3 class="text-sm font-semibold text-blue-900 mb-2">{% trans "역방향 추적 사용법" %}</h3>
+        <p class="text-sm text-blue-800">
+            {% trans "고객/기간/제품 조건으로 관련 생산배치를 찾고, 같은 배치가 출고된 다른 고객(리콜 범위)을 자동으로 식별합니다." %}
+        </p>
+    </div>
+
+    <div class="p-6 border-b border-gray-200">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">{% trans "고객" %}</label>
+                <select name="partner_id" class="form-select w-full">
+                    <option value="">{% trans "전체" %}</option>
+                    {% for p in partners %}
+                    <option value="{{ p.pk }}" {% if partner_id|stringformat:"s" == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">{% trans "시작일" %}</label>
+                <input type="date" name="date_from" value="{{ date_from }}" class="form-input w-full">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">{% trans "종료일" %}</label>
+                <input type="date" name="date_to" value="{{ date_to }}" class="form-input w-full">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">{% trans "제품" %}</label>
+                <select name="product_id" class="form-select w-full">
+                    <option value="">{% trans "전체" %}</option>
+                    {% for p in products %}
+                    <option value="{{ p.pk }}" {% if product_id|stringformat:"s" == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="btn btn-primary w-full">{% trans "역추적 실행" %}</button>
+            </div>
+        </form>
+    </div>
+
+    {% if source_moves is not None %}
+    <div class="p-6 border-b border-gray-200">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">
+            {% trans "조회 결과 — 조건에 걸린 출고" %} ({{ source_moves|length }}{% trans "건" %})
+        </h3>
+        {% if source_moves %}
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="px-3 py-2 text-left">{% trans "출고일" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "제품" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "생산배치" %}</th>
+                        <th class="px-3 py-2 text-right">{% trans "수량" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "고객" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                {% for m in source_moves %}
+                <tr>
+                    <td class="px-3 py-2 text-gray-600">{{ m.movement_date|date:"Y-m-d" }}</td>
+                    <td class="px-3 py-2">{{ m.product.name }}</td>
+                    <td class="px-3 py-2">
+                        {% if m.production_batch %}
+                        <a href="{% url 'production:batch_detail' m.production_batch.pk %}" class="text-blue-600 hover:underline font-mono text-xs">{{ m.production_batch.batch_number }}</a>
+                        {% else %}<span class="text-gray-400">-</span>{% endif %}
+                    </td>
+                    <td class="px-3 py-2 text-right">{{ m.quantity|floatformat:0|intcomma }}</td>
+                    <td class="px-3 py-2">{% if m.shipment_item %}{{ m.shipment_item.shipment.order.partner.name }}{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">{% trans "조건에 맞는 출고 내역이 없습니다." %}</p>
+        {% endif %}
+    </div>
+
+    <div class="p-6">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">
+            {% trans "리콜 범위 — 동일 배치가 출고된 다른 고객" %}
+            <span class="ml-2 text-xs text-gray-500">({% trans "관련 배치" %} {{ batch_count }}{% trans "개" %})</span>
+        </h3>
+        {% if sibling_customers %}
+        <div class="p-3 mb-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+            {% trans "같은 생산배치에서 나간 출고 중 조회 조건 외 다른 고객 목록입니다 — 품질/리콜 이슈 시 함께 확인하세요." %}
+        </div>
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="px-3 py-2 text-left">{% trans "배치" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "제품" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "고객" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "주문번호" %}</th>
+                        <th class="px-3 py-2 text-right">{% trans "출고수량" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                {% for row in sibling_customers %}
+                <tr>
+                    <td class="px-3 py-2">
+                        <a href="{% url 'production:batch_detail' row.batch.pk %}" class="text-blue-600 hover:underline font-mono text-xs">{{ row.batch.batch_number }}</a>
+                    </td>
+                    <td class="px-3 py-2">{{ row.product.name }}</td>
+                    <td class="px-3 py-2 font-medium">{{ row.partner.name }}</td>
+                    <td class="px-3 py-2 text-xs text-gray-600">{{ row.orders|join:", " }}</td>
+                    <td class="px-3 py-2 text-right">{{ row.out_quantity|floatformat:0|intcomma }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">{% trans "동일 배치에서 출고된 다른 고객이 없습니다." %}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

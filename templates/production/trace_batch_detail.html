@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{% trans "배치" %} {{ batch.batch_number }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "생산배치 상세" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    {% include "production/_trace_tabs.html" %}
+
+    <div class="p-6 border-b border-gray-200">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <p class="text-xs text-gray-500">{% trans "배치번호" %}</p>
+                <p class="text-lg font-mono font-semibold text-blue-600">{{ batch.batch_number }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">{% trans "제품" %}</p>
+                <p class="text-sm font-medium">{{ batch.product.name }} <span class="text-gray-400">({{ batch.product.code }})</span></p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">{% trans "작업장/교대" %}</p>
+                <p class="text-sm">{{ batch.work_center.code|default:"-" }} / {{ batch.get_shift_display }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">{% trans "생산일" %}</p>
+                <p class="text-sm">{{ batch.production_date|date:"Y-m-d" }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">{% trans "총수량" %}</p>
+                <p class="text-sm font-medium">{{ batch.total_quantity|floatformat:0|intcomma }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">{% trans "순번" %}</p>
+                <p class="text-sm font-medium">{{ batch.sequence }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">{% trans "잔여수량" %}</p>
+                <p class="text-sm font-medium {% if batch.remaining_quantity == 0 %}text-gray-400{% else %}text-green-600{% endif %}">{{ batch.remaining_quantity|floatformat:0|intcomma }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">{% trans "작업지시" %}</p>
+                <p class="text-sm">{{ batch.production_record.work_order.order_number }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">{% trans "생산실적 ID" %}</p>
+                <p class="text-sm">#{{ batch.production_record_id }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 연결된 LOT -->
+    <div class="p-6 border-b border-gray-200">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "연결된 재고 LOT" %} ({{ lots|length }})</h3>
+        {% if lots %}
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="px-3 py-2 text-left">{% trans "LOT번호" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "창고" %}</th>
+                        <th class="px-3 py-2 text-right">{% trans "초기수량" %}</th>
+                        <th class="px-3 py-2 text-right">{% trans "잔여수량" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "입고일" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                {% for lot in lots %}
+                <tr>
+                    <td class="px-3 py-2 font-mono text-blue-600">{{ lot.lot_number }}</td>
+                    <td class="px-3 py-2">{{ lot.warehouse.name }}</td>
+                    <td class="px-3 py-2 text-right">{{ lot.initial_quantity|floatformat:0|intcomma }}</td>
+                    <td class="px-3 py-2 text-right">{{ lot.remaining_quantity|floatformat:0|intcomma }}</td>
+                    <td class="px-3 py-2">{{ lot.received_date|date:"Y-m-d" }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">{% trans "연결된 LOT가 없습니다." %}</p>
+        {% endif %}
+    </div>
+
+    <!-- 연결된 시리얼 -->
+    <div class="p-6 border-b border-gray-200">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "연결된 시리얼번호" %} ({{ serials|length }}{% trans "건" %})</h3>
+        {% if serials %}
+        <div class="flex flex-wrap gap-2">
+            {% for sn in serials %}
+            <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-700 font-mono">
+                {{ sn.serial }}
+                <span class="ml-1 text-gray-400">({{ sn.get_status_display }})</span>
+            </span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">{% trans "연결된 시리얼번호가 없습니다." %}</p>
+        {% endif %}
+    </div>
+
+    <!-- Forward Trace -->
+    <div class="p-6">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "정방향 추적 — 출고된 고객" %}</h3>
+        {% if forward_customers %}
+        <div class="table-responsive">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="px-3 py-2 text-left">{% trans "고객" %}</th>
+                        <th class="px-3 py-2 text-left">{% trans "주문번호" %}</th>
+                        <th class="px-3 py-2 text-right">{% trans "시리얼 수" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                {% for row in forward_customers %}
+                <tr>
+                    <td class="px-3 py-2 font-medium">{{ row.partner.name }}</td>
+                    <td class="px-3 py-2 text-xs text-gray-600">{{ row.orders|join:", " }}</td>
+                    <td class="px-3 py-2 text-right">{{ row.serial_count }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">{% trans "출고된 시리얼번호가 없습니다 (이 배치 제품은 아직 고객 출고 전)." %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

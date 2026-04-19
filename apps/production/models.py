@@ -305,6 +305,98 @@ class ProductionRecord(BaseModel):
         return self.good_quantity + self.defect_quantity
 
 
+class ProductionBatch(BaseModel):
+    """생산 배치 — 라인/일자/시프트별 생산 단위 묶음 (추적관리 키)"""
+    BUSINESS_KEY_FIELD = 'batch_number'
+
+    class Shift(models.TextChoices):
+        A = 'A', 'A조'
+        B = 'B', 'B조'
+        C = 'C', 'C조'
+
+    batch_number = models.CharField(
+        '배치번호', max_length=50, unique=True, db_index=True, blank=True,
+        help_text='형식: {WC.code}-{YYYYMMDD}-{SHIFT}-{SEQ:03d}',
+    )
+    work_center = models.ForeignKey(
+        'WorkCenter', verbose_name='작업장',
+        null=True, blank=True,
+        on_delete=models.PROTECT, related_name='batches',
+    )
+    production_date = models.DateField('생산일', db_index=True)
+    shift = models.CharField(
+        '시프트', max_length=10, blank=True,
+        choices=Shift.choices,
+    )
+    sequence = models.PositiveIntegerField('순번', default=1)
+    product = models.ForeignKey(
+        'inventory.Product', verbose_name='제품',
+        on_delete=models.PROTECT, related_name='production_batches',
+    )
+    total_quantity = models.DecimalField(
+        '총수량', max_digits=15, decimal_places=3,
+        validators=[MinValueValidator(Decimal('0'))],
+    )
+    remaining_quantity = models.DecimalField(
+        '잔여수량', max_digits=15, decimal_places=3,
+        validators=[MinValueValidator(Decimal('0'))],
+    )
+    production_record = models.OneToOneField(
+        ProductionRecord, verbose_name='생산실적',
+        on_delete=models.CASCADE, related_name='batch',
+    )
+    notes = models.TextField('비고', blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '생산배치'
+        verbose_name_plural = '생산배치'
+        ordering = ['-production_date', '-sequence']
+        indexes = [
+            models.Index(fields=['work_center', 'production_date'], name='idx_batch_wc_date'),
+            models.Index(fields=['product', 'production_date'], name='idx_batch_product_date'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(remaining_quantity__gte=0),
+                name='batch_remaining_non_negative',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.batch_number} ({self.product.name}: {self.remaining_quantity}/{self.total_quantity})'
+
+    @classmethod
+    def next_sequence(cls, work_center, production_date, shift):
+        """동일 (작업장, 일자, 시프트) 내 순번 자동증가"""
+        agg = cls.all_objects.filter(
+            work_center=work_center,
+            production_date=production_date,
+            shift=shift,
+        ).aggregate(models.Max('sequence'))
+        return (agg['sequence__max'] or 0) + 1
+
+    @classmethod
+    def build_batch_number(cls, work_center, production_date, shift, sequence):
+        """배치번호 생성 — {WC.code}-{YYYYMMDD}-{SHIFT}-{SEQ:03d}"""
+        wc_code = work_center.code if work_center else 'NOWC'
+        date_str = production_date.strftime('%Y%m%d')
+        shift_part = shift or '-'
+        return f'{wc_code}-{date_str}-{shift_part}-{sequence:03d}'
+
+    def save(self, *args, **kwargs):
+        # 최초 저장 시 (작업장, 일자, 시프트) 내 다음 순번 자동 할당
+        if not self.pk and (not self.sequence or self.sequence == 1):
+            self.sequence = self.next_sequence(
+                self.work_center, self.production_date, self.shift,
+            )
+        if not self.batch_number:
+            self.batch_number = self.build_batch_number(
+                self.work_center, self.production_date, self.shift, self.sequence,
+            )
+        super().save(*args, **kwargs)
+
+
 class StandardCost(BaseModel):
     """제품별 표준원가 설정"""
     product = models.ForeignKey(

@@ -1269,3 +1269,190 @@ class ConditionalApprovalTest(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.inspection.refresh_from_db()
         self.assertEqual(self.inspection.result, 'PASS')  # 변경되지 않음
+
+
+# ============================================================
+# ProductionBatch (추적 관리 3계층) 테스트
+# ============================================================
+
+class ProductionBatchTest(TestCase):
+    """ProductionBatch 자동 생성 + LOT/시리얼 연결 + Forward/Backward trace 검증"""
+
+    def setUp(self):
+        from apps.production.models import WorkCenter
+        self.user = User.objects.create_user(
+            username='batch_user', password='testpass123', role='staff',
+        )
+        self.warehouse = Warehouse.objects.create(
+            code='WH-BATCH', name='배치테스트창고', created_by=self.user,
+        )
+        self.work_center = WorkCenter.objects.create(
+            code='WC01', name='배치테스트작업장', created_by=self.user,
+        )
+        self.finished = Product.objects.create(
+            code='FP-BATCH', name='배치완제품', product_type='FINISHED',
+            unit_price=10000, cost_price=5000, current_stock=0,
+            serial_tracking=True, serial_prefix='BT',
+            created_by=self.user,
+        )
+        self.raw = Product.objects.create(
+            code='RM-BATCH', name='배치원자재', product_type='RAW',
+            unit_price=0, cost_price=1000, current_stock=1000,
+            created_by=self.user,
+        )
+        self.bom = BOM.objects.create(
+            product=self.finished, version='1.0', is_default=True,
+            created_by=self.user,
+        )
+        BOMItem.objects.create(
+            bom=self.bom, material=self.raw,
+            quantity=Decimal('2.000'), loss_rate=Decimal('0.00'),
+            created_by=self.user,
+        )
+        self.plan = ProductionPlan.objects.create(
+            plan_number='PP-BATCH', product=self.finished, bom=self.bom,
+            planned_quantity=10, planned_start=date.today(),
+            planned_end=date.today() + timedelta(days=1),
+            status='IN_PROGRESS', created_by=self.user,
+        )
+        self.wo = WorkOrder.objects.create(
+            order_number='WO-BATCH', production_plan=self.plan,
+            work_center=self.work_center, quantity=10,
+            status='IN_PROGRESS', created_by=self.user,
+        )
+
+    def test_batch_auto_created_on_production_record(self):
+        """ProductionRecord 생성 시 ProductionBatch가 자동으로 생성된다"""
+        from apps.production.models import ProductionBatch
+        record = ProductionRecord.objects.create(
+            work_order=self.wo, warehouse=self.warehouse,
+            good_quantity=5, record_date=date.today(),
+            created_by=self.user,
+        )
+        batch = ProductionBatch.objects.filter(production_record=record).first()
+        self.assertIsNotNone(batch)
+        self.assertEqual(batch.product, self.finished)
+        self.assertEqual(batch.work_center, self.work_center)
+        self.assertEqual(batch.total_quantity, Decimal('5'))
+        self.assertEqual(batch.remaining_quantity, Decimal('5'))
+
+    def test_batch_number_format(self):
+        """배치번호 형식: {WC.code}-{YYYYMMDD}-{SHIFT}-{SEQ:03d}"""
+        from apps.production.models import ProductionBatch
+        today = date.today()
+        record = ProductionRecord.objects.create(
+            work_order=self.wo, warehouse=self.warehouse,
+            good_quantity=3, record_date=today,
+            created_by=self.user,
+        )
+        batch = ProductionBatch.objects.get(production_record=record)
+        expected_prefix = f'WC01-{today.strftime("%Y%m%d")}-A-'
+        self.assertTrue(
+            batch.batch_number.startswith(expected_prefix),
+            f'expected prefix {expected_prefix}, got {batch.batch_number}',
+        )
+        self.assertTrue(batch.batch_number.endswith('-001'))
+
+    def test_same_line_date_shift_sequence_increments(self):
+        """동일 (작업장, 일자, 시프트) 내 2건 이상 생산 시 sequence 자동증가"""
+        from apps.production.models import ProductionBatch
+        today = date.today()
+        r1 = ProductionRecord.objects.create(
+            work_order=self.wo, warehouse=self.warehouse,
+            good_quantity=2, record_date=today,
+            created_by=self.user,
+        )
+        wo2 = WorkOrder.objects.create(
+            order_number='WO-BATCH-2', production_plan=self.plan,
+            work_center=self.work_center, quantity=3,
+            status='IN_PROGRESS', created_by=self.user,
+        )
+        r2 = ProductionRecord.objects.create(
+            work_order=wo2, warehouse=self.warehouse,
+            good_quantity=3, record_date=today,
+            created_by=self.user,
+        )
+        b1 = ProductionBatch.objects.get(production_record=r1)
+        b2 = ProductionBatch.objects.get(production_record=r2)
+        self.assertEqual(b1.sequence, 1)
+        self.assertEqual(b2.sequence, 2)
+        self.assertTrue(b1.batch_number.endswith('-001'))
+        self.assertTrue(b2.batch_number.endswith('-002'))
+
+    def test_batch_linked_to_stock_lot(self):
+        """PROD_IN → StockLot 자동생성 시 production_batch FK 연결"""
+        from apps.inventory.models import StockLot
+        record = ProductionRecord.objects.create(
+            work_order=self.wo, warehouse=self.warehouse,
+            good_quantity=5, record_date=date.today(),
+            created_by=self.user,
+        )
+        lots = StockLot.objects.filter(
+            product=self.finished, is_active=True,
+        )
+        self.assertTrue(lots.exists())
+        self.assertTrue(all(lot.production_batch_id for lot in lots))
+        self.assertEqual(lots.first().production_batch.production_record, record)
+
+    def test_batch_linked_to_serial_numbers(self):
+        """시리얼 추적 제품: 생산 시 생성된 SerialNumber에 production_batch FK 연결"""
+        from apps.inventory.models import SerialNumber
+        record = ProductionRecord.objects.create(
+            work_order=self.wo, warehouse=self.warehouse,
+            good_quantity=5, record_date=date.today(),
+            created_by=self.user,
+        )
+        serials = SerialNumber.objects.filter(production_record=record)
+        self.assertEqual(serials.count(), 5)
+        self.assertTrue(all(sn.production_batch_id for sn in serials))
+
+    def test_batch_remaining_depletes_on_out(self):
+        """OUT 발생 시 FIFO로 ProductionBatch.remaining_quantity 감소"""
+        from apps.production.models import ProductionBatch
+        record = ProductionRecord.objects.create(
+            work_order=self.wo, warehouse=self.warehouse,
+            good_quantity=10, record_date=date.today(),
+            created_by=self.user,
+        )
+        batch = ProductionBatch.objects.get(production_record=record)
+        self.assertEqual(batch.remaining_quantity, Decimal('10'))
+
+        # 4개 출고
+        StockMovement.objects.create(
+            movement_type='OUT', product=self.finished,
+            warehouse=self.warehouse, quantity=Decimal('4'),
+            unit_price=10000, movement_date=date.today(),
+            created_by=self.user,
+        )
+        batch.refresh_from_db()
+        self.assertEqual(batch.remaining_quantity, Decimal('6'))
+
+
+class TraceabilityViewTest(TestCase):
+    """추적 관리 4탭 뷰 접근성 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='trace_viewer', password='testpass123', role='staff',
+        )
+        self.client.force_login(self.user)
+
+    def test_batch_list_accessible(self):
+        resp = self.client.get('/production/trace/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_lot_list_accessible(self):
+        resp = self.client.get('/production/trace/lots/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_serial_list_accessible(self):
+        resp = self.client.get('/production/trace/serials/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_backward_accessible(self):
+        resp = self.client.get('/production/trace/backward/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_backward_with_serial_query(self):
+        resp = self.client.get('/production/trace/backward/', {'serial': 'BT'})
+        self.assertEqual(resp.status_code, 200)

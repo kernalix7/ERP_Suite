@@ -4,7 +4,7 @@ from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     BOM, BOMItem, ProductionPlan, WorkOrder,
     ProductionRecord, StandardCost, QualityInspection,
-    WorkCenter, ProductionSchedule,
+    WorkCenter, ProductionSchedule, ProductionBatch,
 )
 
 
@@ -74,3 +74,15 @@ class ProductionScheduleAdmin(SimpleHistoryAdmin):
     list_filter = ('status', 'is_active')
     search_fields = ('work_order__order_number', 'work_center__code')
     raw_id_fields = ('work_order', 'work_center')
+
+
+@admin.register(ProductionBatch)
+class ProductionBatchAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'batch_number', 'product', 'work_center', 'production_date',
+        'shift', 'sequence', 'total_quantity', 'remaining_quantity',
+    )
+    list_filter = ('work_center', 'production_date', 'shift')
+    search_fields = ('batch_number', 'product__name', 'product__code')
+    raw_id_fields = ('product', 'production_record')
+    readonly_fields = ('batch_number', 'sequence')

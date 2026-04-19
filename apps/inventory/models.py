@@ -255,6 +255,11 @@ class StockMovement(BaseModel):
         null=True, blank=True,
         on_delete=models.SET_NULL, related_name='movements',
     )
+    production_batch = models.ForeignKey(
+        'production.ProductionBatch', verbose_name='생산배치',
+        null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='movements',
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -448,6 +453,11 @@ class StockLot(BaseModel):
         null=True, blank=True,
         on_delete=models.SET_NULL, related_name='lots',
     )
+    production_batch = models.ForeignKey(
+        'production.ProductionBatch', verbose_name='생산배치',
+        null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='stock_lots',
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -503,6 +513,11 @@ class SerialNumber(BaseModel):
     )
     stock_lot = models.ForeignKey(
         StockLot, verbose_name='재고LOT',
+        null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='serial_numbers',
+    )
+    production_batch = models.ForeignKey(
+        'production.ProductionBatch', verbose_name='생산배치',
         null=True, blank=True,
         on_delete=models.SET_NULL, related_name='serial_numbers',
     )

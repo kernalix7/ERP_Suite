@@ -119,10 +119,12 @@ def _create_lot_on_inbound(instance):
         unit_cost=unit_cost,
         received_date=instance.movement_date,
         stock_movement=instance,
+        production_batch_id=instance.production_batch_id,
     )
     logger.info(
-        'StockLot created: %s (product=%s, qty=%s, cost=%s)',
+        'StockLot created: %s (product=%s, qty=%s, cost=%s, batch=%s)',
         lot.lot_number, product.code, instance.quantity, unit_cost,
+        instance.production_batch_id,
     )
     return lot
 
@@ -177,6 +179,15 @@ def _consume_lots_on_outbound(instance):
         StockLot.objects.filter(pk=lot.pk).update(
             remaining_quantity=F('remaining_quantity') - consume_qty,
         )
+        # ProductionBatch 동반 소진 (FIFO로 LOT가 소비되는 순서와 동일)
+        if lot.production_batch_id:
+            from apps.production.models import ProductionBatch
+            ProductionBatch.objects.filter(
+                pk=lot.production_batch_id,
+                remaining_quantity__gte=consume_qty,
+            ).update(
+                remaining_quantity=F('remaining_quantity') - consume_qty,
+            )
         logger.info(
             'LOT consumed: %s -%s (remaining after: %s)',
             lot.lot_number, consume_qty,
@@ -340,6 +351,12 @@ def _restore_lots_on_outbound_cancel(movement):
         StockLot.objects.filter(pk=lot.pk).update(
             remaining_quantity=F('remaining_quantity') + restore_qty,
         )
+        # ProductionBatch 잔여 복원
+        if lot.production_batch_id:
+            from apps.production.models import ProductionBatch
+            ProductionBatch.objects.filter(pk=lot.production_batch_id).update(
+                remaining_quantity=F('remaining_quantity') + restore_qty,
+            )
         logger.info(
             'StockLot restored: %s +%s (outbound movement %s cancelled)',
             lot.lot_number, restore_qty, movement.movement_number,
