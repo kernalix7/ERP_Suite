@@ -1,6 +1,8 @@
 from datetime import date
 
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from simple_history.models import HistoricalRecords
@@ -149,6 +151,178 @@ class TaxInvoice(BaseModel):
         if not self.invoice_number:
             self.invoice_number = generate_document_number(TaxInvoice, 'invoice_number', 'TI')
         super().save(*args, **kwargs)
+
+
+class CashReceipt(BaseModel):
+    """현금영수증 — 한국 세법상 세금계산서 대체재 (개인 소득공제용 / 사업자 지출증빙용)"""
+
+    BUSINESS_KEY_FIELD = 'receipt_number'
+
+    class Purpose(models.TextChoices):
+        INDIVIDUAL = 'INDIVIDUAL', '소득공제용'
+        BUSINESS = 'BUSINESS', '지출증빙용'
+
+    class Status(models.TextChoices):
+        ISSUED = 'ISSUED', '발행완료'
+        CANCELLED = 'CANCELLED', '취소'
+
+    receipt_number = models.CharField('현금영수증 승인번호', max_length=30, unique=True, blank=True)
+    issued_at = models.DateTimeField('발행일시')
+    supply_amount = models.DecimalField(
+        '공급가액', max_digits=15, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+    )
+    vat = models.DecimalField(
+        '부가세', max_digits=15, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+    )
+    total_amount = models.DecimalField(
+        '총금액', max_digits=15, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+    )
+    purpose = models.CharField(
+        '발행목적', max_length=20,
+        choices=Purpose.choices, default=Purpose.INDIVIDUAL,
+    )
+    identifier = models.CharField(
+        '식별번호', max_length=20,
+        help_text='개인: 휴대폰번호/주민번호 뒤6자리, 사업자: 사업자등록번호',
+    )
+    status = models.CharField(
+        '상태', max_length=20,
+        choices=Status.choices, default=Status.ISSUED,
+    )
+    cancelled_at = models.DateTimeField('취소일시', null=True, blank=True)
+    cancel_reason = models.CharField('취소사유', max_length=200, blank=True)
+    partner = models.ForeignKey(
+        'sales.Partner', verbose_name='거래처',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='cash_receipts',
+    )
+
+    # GenericForeignKey — Order/Payment/Voucher 중 하나와 연결 (선택)
+    content_type = models.ForeignKey(
+        ContentType, verbose_name='연관문서유형',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    object_id = models.PositiveIntegerField('연관문서ID', null=True, blank=True)
+    related_document = GenericForeignKey('content_type', 'object_id')
+
+    hometax_key = models.CharField(
+        '홈택스 키', max_length=100, blank=True,
+        help_text='홈택스 API 연동용 식별자 (향후)',
+    )
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '현금영수증'
+        verbose_name_plural = '현금영수증'
+        ordering = ['-issued_at']
+        indexes = [
+            models.Index(fields=['status'], name='idx_cashreceipt_status'),
+            models.Index(fields=['issued_at'], name='idx_cashreceipt_issued'),
+            models.Index(fields=['content_type', 'object_id'], name='idx_cashreceipt_gfk'),
+        ]
+
+    def __str__(self):
+        return f'{self.receipt_number} ({self.get_purpose_display()}) {self.total_amount:,}원'
+
+    def clean(self):
+        super().clean()
+        if (self.supply_amount is not None
+                and self.vat is not None
+                and self.total_amount is not None):
+            expected = self.supply_amount + self.vat
+            if self.total_amount != expected:
+                from django.core.exceptions import ValidationError
+                raise ValidationError(
+                    f'총금액({self.total_amount})이 공급가액({self.supply_amount}) + '
+                    f'부가세({self.vat}) = {expected}과 일치하지 않습니다.'
+                )
+
+    def save(self, *args, **kwargs):
+        if self.supply_amount is not None and self.vat is not None:
+            self.total_amount = self.supply_amount + self.vat
+        if not self.receipt_number:
+            self.receipt_number = generate_document_number(
+                CashReceipt, 'receipt_number', 'CR',
+            )
+        super().save(*args, **kwargs)
+
+    def recalculate_totals(self):
+        """items 합계로 supply_amount/vat/total_amount 재계산. items가 없으면 기존 값 유지."""
+        from django.db.models import Sum
+        if not self.pk:
+            return
+        agg = self.items.filter(is_active=True).aggregate(
+            supply=Sum('supply_amount'),
+            vat=Sum('vat'),
+            total=Sum('total_amount'),
+        )
+        if agg['total'] is not None:
+            self.supply_amount = agg['supply'] or 0
+            self.vat = agg['vat'] or 0
+            self.total_amount = agg['total'] or 0
+            type(self).objects.filter(pk=self.pk).update(
+                supply_amount=self.supply_amount,
+                vat=self.vat,
+                total_amount=self.total_amount,
+            )
+
+
+class CashReceiptItem(BaseModel):
+    """현금영수증 라인아이템"""
+
+    receipt = models.ForeignKey(
+        CashReceipt, verbose_name='현금영수증',
+        on_delete=models.CASCADE, related_name='items',
+    )
+    name = models.CharField('품목명', max_length=200)
+    quantity = models.DecimalField(
+        '수량', max_digits=12, decimal_places=2,
+        default=1, validators=[MinValueValidator(0)],
+    )
+    unit_price = models.DecimalField(
+        '단가', max_digits=15, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+    )
+    supply_amount = models.DecimalField(
+        '공급가액', max_digits=15, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+    )
+    vat = models.DecimalField(
+        '부가세', max_digits=15, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+    )
+    total_amount = models.DecimalField(
+        '합계', max_digits=15, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+    )
+    source_order_item = models.ForeignKey(
+        'sales.OrderItem', verbose_name='원본 주문품목',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='cash_receipt_items',
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = '현금영수증 품목'
+        verbose_name_plural = '현금영수증 품목'
+        ordering = ['pk']
+
+    def __str__(self):
+        return f'{self.name} × {self.quantity} = {self.total_amount:,}원'
+
+    def save(self, *args, **kwargs):
+        # supply_amount 미입력(0)이고 quantity·unit_price가 있으면 자동 산출
+        if (not self.supply_amount) and self.quantity and self.unit_price:
+            self.supply_amount = int(self.quantity * self.unit_price)
+        # total_amount = supply + vat
+        self.total_amount = (self.supply_amount or 0) + (self.vat or 0)
+        super().save(*args, **kwargs)
+        if self.receipt_id:
+            self.receipt.recalculate_totals()
 
 
 class FixedCost(BaseModel):

@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Sum, Count, Q, F, ExpressionWrapper, DecimalField, Case, When, Value
+from django.db.models import Sum, Count, Q, F, ExpressionWrapper, DecimalField, Case, When, Value, Exists, OuterRef
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
@@ -294,9 +294,20 @@ class OrderListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
+        from django.contrib.contenttypes.models import ContentType
+        from apps.accounting.models import CashReceipt
+        ct = ContentType.objects.get_for_model(Order)
+        cash_receipt_sq = CashReceipt.objects.filter(
+            content_type=ct,
+            object_id=OuterRef('pk'),
+            is_active=True,
+            status='ISSUED',
+        )
         qs = super().get_queryset().filter(is_active=True).select_related(
             'partner', 'customer',
-        ).prefetch_related('items', 'source_quotation')
+        ).prefetch_related('items', 'source_quotation').annotate(
+            has_cash_receipt_ann=Exists(cash_receipt_sq),
+        )
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
@@ -395,6 +406,21 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
         ctx['total_profit_rate'] = (
             round(total_profit / total_amount * 100, 1)
             if total_amount else 0
+        )
+        # 연결된 현금영수증
+        from django.contrib.contenttypes.models import ContentType
+        from apps.accounting.models import CashReceipt
+        ct = ContentType.objects.get_for_model(Order)
+        cash_receipts = CashReceipt.objects.filter(
+            content_type=ct,
+            object_id=self.object.pk,
+            is_active=True,
+        ).order_by('-issued_at')
+        ctx['cash_receipts'] = cash_receipts
+        ctx['active_cash_receipt'] = cash_receipts.filter(status='ISSUED').first()
+        ctx['can_issue_cash_receipt'] = (
+            self.object.status not in ('CANCELLED',)
+            and self.object.order_type not in ('RETURN',)
         )
         # 연결된 반품/교환 주문
         ctx['return_orders'] = Order.objects.filter(

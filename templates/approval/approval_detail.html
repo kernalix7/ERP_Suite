@@ -40,6 +40,11 @@
                         </span>
                         {% endif %}
                         <span class="text-sm text-gray-500 font-mono">{{ object.request_number }}</span>
+                        {% if object.approval_type and object.approval_type != 'SEQUENTIAL' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                            {{ object.get_approval_type_display }}
+                        </span>
+                        {% endif %}
                     </div>
                     <h2 class="text-2xl font-bold text-gray-900">{{ object.title }}</h2>
                 </div>
@@ -279,15 +284,30 @@
                     {% endif %}
                     {% if steps %}
                     {% for step in steps %}
-                    {% if step.acted_at %}
+                    {% if step.acted_at or step.status == 'PENDING' %}
                     <div class="relative flex items-start gap-4 pl-10">
                         <div class="absolute left-2 w-4 h-4 rounded-full border-2 border-white shadow
-                            {% if step.status == 'APPROVED' %}bg-green-500{% elif step.status == 'REJECTED' %}bg-red-500{% else %}bg-gray-400{% endif %}"></div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-900">
-                                {{ step.step_order }}{% trans "단계" %} {{ step.get_status_display }} — {{ step.approver }}
+                            {% if step.status == 'APPROVED' %}bg-green-500
+                            {% elif step.status == 'REJECTED' %}bg-red-500
+                            {% elif step.status == 'SKIPPED' %}bg-gray-300
+                            {% else %}bg-gray-400{% endif %}"></div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900 flex items-center flex-wrap gap-2">
+                                <span>{{ step.step_order }}{% trans "단계" %} {{ step.get_status_display }} — {{ step.approver }}</span>
+                                {% if step.parallel_mode == 'ALL' %}
+                                <span class="inline-block px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700">병렬 전원합의</span>
+                                {% elif step.parallel_mode == 'ANY' %}
+                                <span class="inline-block px-2 py-0.5 text-[10px] rounded-full bg-teal-100 text-teal-700">병렬 1인결재</span>
+                                {% endif %}
+                                {% if step.delegated_from %}
+                                <span class="inline-block px-2 py-0.5 text-[10px] rounded-full bg-amber-100 text-amber-800" title="원결재자: {{ step.delegated_from }}">
+                                    위임수신 (원: {{ step.delegated_from.name|default:step.delegated_from.username }})
+                                </span>
+                                {% endif %}
                             </p>
+                            {% if step.acted_at %}
                             <p class="text-xs text-gray-500">{{ step.acted_at|date:"Y-m-d H:i" }}</p>
+                            {% endif %}
                             {% if step.comment %}<p class="text-xs text-gray-600 mt-1 italic">"{{ step.comment }}"</p>{% endif %}
                         </div>
                     </div>
@@ -355,9 +375,12 @@
             <div class="bg-white rounded-lg shadow-sm border border-blue-200 p-5">
                 <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                     <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-                    {% trans "결재 처리" %} ({{ current_step_obj.step_order }}{% trans "단계" %})
+                    {% trans "결재 처리" %} ({{ my_step_obj.step_order }}{% trans "단계" %}{% if my_step_obj.parallel_mode != 'SEQUENTIAL' %} · {{ my_step_obj.get_parallel_mode_display }}{% endif %})
                 </h3>
-                <form method="post" action="{% url 'approval:approval_step_action' object.request_number current_step_obj.pk %}">
+                {% if my_step_obj.delegated_from %}
+                <p class="text-xs text-amber-700 mb-2">위임수신 결재 — 원결재자: {{ my_step_obj.delegated_from.name|default:my_step_obj.delegated_from.username }}</p>
+                {% endif %}
+                <form method="post" action="{% url 'approval:approval_step_action' object.request_number my_step_obj.pk %}">
                     {% csrf_token %}
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "의견" %}</label>

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "현금영수증 상세" %} - {{ receipt.receipt_number }}{% endblock %}
+{% block page_title %}{% trans "현금영수증 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:cash_receipt_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% if receipt.status == 'ISSUED' %}
+<a href="{% url 'accounting:cash_receipt_cancel' receipt.pk %}" class="btn btn-danger">{% trans "취소" %}</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="flex items-center justify-between border-b border-gray-200 pb-4 mb-4">
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900">{{ receipt.receipt_number }}</h2>
+            <p class="text-sm text-gray-500 mt-1">{{ receipt.issued_at|date:"Y-m-d H:i" }}</p>
+        </div>
+        <div>
+            {% if receipt.status == 'ISSUED' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">{% trans "발행완료" %}</span>
+            {% else %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">{% trans "취소" %}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+        <div>
+            <dt class="text-gray-500">{% trans "발행목적" %}</dt>
+            <dd class="mt-1 font-medium text-gray-900">{{ receipt.get_purpose_display }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "식별번호" %}</dt>
+            <dd class="mt-1 font-medium text-gray-900">{{ receipt.identifier }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "거래처" %}</dt>
+            <dd class="mt-1 text-gray-900">{{ receipt.partner.name|default:"-" }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "연관문서" %}</dt>
+            <dd class="mt-1 text-gray-900">
+                {% if receipt.content_type and receipt.object_id %}
+                    {{ receipt.content_type.model|upper }} #{{ receipt.object_id }}
+                {% else %}
+                    -
+                {% endif %}
+            </dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "공급가액" %}</dt>
+            <dd class="mt-1 text-gray-900">{{ receipt.supply_amount|intcomma }}{% trans "원" %}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "부가세" %}</dt>
+            <dd class="mt-1 text-gray-900">{{ receipt.vat|intcomma }}{% trans "원" %}</dd>
+        </div>
+        <div class="col-span-2">
+            <dt class="text-gray-500">{% trans "총금액" %}</dt>
+            <dd class="mt-1 text-xl font-semibold text-blue-600">{{ receipt.total_amount|intcomma }}{% trans "원" %}</dd>
+        </div>
+        {% if receipt.status == 'CANCELLED' %}
+        <div class="col-span-2 bg-red-50 border border-red-200 rounded-lg p-3">
+            <dt class="text-red-600 font-medium">{% trans "취소" %}</dt>
+            <dd class="mt-1 text-sm text-red-700">
+                {{ receipt.cancelled_at|date:"Y-m-d H:i" }} — {{ receipt.cancel_reason }}
+            </dd>
+        </div>
+        {% endif %}
+        {% if receipt.notes %}
+        <div class="col-span-2">
+            <dt class="text-gray-500">{% trans "비고" %}</dt>
+            <dd class="mt-1 text-gray-700 whitespace-pre-line">{{ receipt.notes }}</dd>
+        </div>
+        {% endif %}
+    </dl>
+</div>
+{% endblock %}

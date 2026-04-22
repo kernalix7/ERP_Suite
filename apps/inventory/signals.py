@@ -3,7 +3,8 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Value
+from django.db.models.functions import Greatest
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 
@@ -36,7 +37,10 @@ def _update_warehouse_stock(warehouse_id, product_id, quantity, add=True):
                 product_id=product_id,
             )
             WarehouseStock.objects.filter(pk=ws.pk).update(
-                quantity=F('quantity') - quantity,
+                quantity=Greatest(
+                    F('quantity') - quantity,
+                    Value(Decimal('0')),
+                ),
             )
         except WarehouseStock.DoesNotExist:
             # 창고별 재고 없으면 로깅만 (글로벌 재고만 차감)
@@ -177,7 +181,10 @@ def _consume_lots_on_outbound(instance):
         remaining_to_consume -= consume_qty
 
         StockLot.objects.filter(pk=lot.pk).update(
-            remaining_quantity=F('remaining_quantity') - consume_qty,
+            remaining_quantity=Greatest(
+                F('remaining_quantity') - consume_qty,
+                Value(Decimal('0')),
+            ),
         )
         # ProductionBatch 동반 소진 (FIFO로 LOT가 소비되는 순서와 동일)
         if lot.production_batch_id:

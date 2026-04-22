@@ -516,7 +516,7 @@ A document listing all URL endpoints organized by app.
 | `/api/token/refresh/` | `token_refresh` | JWT token refresh (POST) |
 | `/api/token/verify/` | `token_verify` | JWT token verify (POST) |
 
-### ViewSets (28 total, all support CRUD via DRF Router)
+### ViewSets (79 total, all support CRUD via DRF Router)
 
 | Prefix | ViewSet | Description |
 |--------|---------|-------------|

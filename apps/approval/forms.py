@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 from apps.core.forms import BaseForm
 from apps.approval.models import ApprovalRequest, ApprovalStep, ApprovalLineTemplate, ApprovalDelegation
@@ -25,7 +27,7 @@ class ApprovalRequestForm(BaseForm):
         fields = [
             'request_number', 'category', 'urgency', 'department',
             'title', 'purpose', 'content', 'amount', 'expected_date',
-            'approver', 'cooperator', 'notes',
+            'approver', 'cooperator', 'approval_type', 'notes',
         ]
         widgets = {
             'purpose': forms.Textarea(attrs={
@@ -54,13 +56,16 @@ class ApprovalRequestForm(BaseForm):
 
 ApprovalStepFormSet = forms.inlineformset_factory(
     ApprovalRequest, ApprovalStep,
-    fields=['step_order', 'approver'],
+    fields=['step_order', 'approver', 'parallel_mode'],
     extra=1,
     can_delete=True,
     widgets={
         'step_order': forms.NumberInput(attrs={
             'class': 'form-input w-20 text-center',
             'min': '1',
+        }),
+        'parallel_mode': forms.Select(attrs={
+            'class': 'form-input',
         }),
     },
 )
@@ -82,14 +87,63 @@ class ApprovalActionForm(forms.Form):
 class ApprovalLineTemplateForm(BaseForm):
     class Meta:
         model = ApprovalLineTemplate
-        fields = ['name', 'description', 'steps', 'is_default']
+        fields = [
+            'name', 'description', 'steps', 'is_default',
+            'condition', 'auto_apply', 'priority',
+        ]
         widgets = {
             'description': forms.Textarea(attrs={'class': 'form-input', 'rows': 2}),
             'steps': forms.Textarea(attrs={
                 'class': 'form-input font-mono', 'rows': 6,
-                'placeholder': '[{"approver_id": 1, "role": "팀장", "order": 1}]',
+                'placeholder': (
+                    '[{"approver_id": 1, "role": "팀장", "order": 1, "mode": "SEQUENTIAL"},\n'
+                    ' {"approver_id": 5, "order": 2, "mode": "ALL"}]'
+                ),
+            }),
+            'condition': forms.Textarea(attrs={
+                'class': 'form-input font-mono', 'rows': 4,
+                'placeholder': (
+                    '{"category": ["PURCHASE","EXPENSE"], '
+                    '"amount_min": 0, "amount_max": 10000000, '
+                    '"department_ids": [1,2]}'
+                ),
+            }),
+            'priority': forms.NumberInput(attrs={
+                'class': 'form-input w-24', 'min': '0',
             }),
         }
+
+    def clean_steps(self):
+        val = self.cleaned_data.get('steps')
+        if val is None or val == '':
+            return []
+        if isinstance(val, list):
+            return val
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+            except (TypeError, ValueError) as exc:
+                raise forms.ValidationError(f'JSON 파싱 실패: {exc}')
+            if not isinstance(parsed, list):
+                raise forms.ValidationError('steps는 JSON 배열이어야 합니다.')
+            return parsed
+        raise forms.ValidationError('steps 형식 오류')
+
+    def clean_condition(self):
+        val = self.cleaned_data.get('condition')
+        if val is None or val == '':
+            return {}
+        if isinstance(val, dict):
+            return val
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+            except (TypeError, ValueError) as exc:
+                raise forms.ValidationError(f'JSON 파싱 실패: {exc}')
+            if not isinstance(parsed, dict):
+                raise forms.ValidationError('condition은 JSON 객체여야 합니다.')
+            return parsed
+        raise forms.ValidationError('condition 형식 오류')
 
 
 class ApprovalDelegationForm(BaseForm):

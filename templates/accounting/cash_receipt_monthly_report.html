@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load humanize i18n %}
+
+{% block title %}{% trans "현금영수증 월별 리포트" %}{% endblock %}
+{% block page_title %}{% trans "현금영수증 월별 리포트" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:cash_receipt_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <form method="get" class="p-4 border-b border-gray-200 flex items-center gap-2">
+        <label class="text-sm text-gray-600">{% trans "연도" %}</label>
+        <select name="year" class="form-input text-sm" onchange="this.form.submit()">
+            {% for y in years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "월" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "소득공제 건수" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "소득공제 금액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "지출증빙 건수" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "지출증빙 금액" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "합계" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for m in months %}
+                <tr>
+                    <td class="px-4 py-3 font-medium">{{ m.month }}{% trans "월" %}</td>
+                    <td class="px-4 py-3 text-right">{{ m.individual_count|intcomma }}</td>
+                    <td class="px-4 py-3 text-right">{{ m.individual_total|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right">{{ m.business_count|intcomma }}</td>
+                    <td class="px-4 py-3 text-right">{{ m.business_total|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right font-medium">{{ m.individual_total|add:m.business_total|intcomma }}{% trans "원" %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="bg-blue-50 font-semibold">
+                    <td class="px-4 py-3">{% trans "연간합계" %}</td>
+                    <td class="px-4 py-3 text-right">-</td>
+                    <td class="px-4 py-3 text-right">{{ annual_individual|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right">-</td>
+                    <td class="px-4 py-3 text-right">{{ annual_business|intcomma }}{% trans "원" %}</td>
+                    <td class="px-4 py-3 text-right text-blue-700">{{ annual_total|intcomma }}{% trans "원" %}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

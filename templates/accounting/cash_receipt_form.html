@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "현금영수증 발급" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "현금영수증 발급" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto" x-data="cashReceiptForm()">
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+            {% for error in form.non_field_errors %}
+            <p class="text-sm text-red-700">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- 주문 검색 섹션 -->
+        <div class="bg-white shadow-sm rounded-lg p-6 mb-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">
+                {% trans "주문 연동 (선택)" %}
+            </h3>
+            <div class="flex gap-2">
+                <input type="text" x-model="searchQ"
+                    @input.debounce.300ms="searchOrders()"
+                    placeholder="{% trans '주문번호 또는 거래처명으로 검색' %}"
+                    class="form-input flex-1">
+                <button type="button" @click="clearOrder()"
+                    class="btn btn-secondary" x-show="selectedOrder">
+                    {% trans "연동 해제" %}
+                </button>
+            </div>
+            <div class="mt-2 border rounded divide-y max-h-48 overflow-y-auto"
+                x-show="searchResults.length > 0 && !selectedOrder">
+                <template x-for="o in searchResults" :key="o.id">
+                    <button type="button" @click="selectOrder(o.id)"
+                        class="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm">
+                        <span class="font-medium" x-text="o.order_number"></span>
+                        <span class="text-gray-500 ml-2" x-text="o.partner_name"></span>
+                        <span class="text-gray-400 ml-2" x-text="o.order_date"></span>
+                        <span class="float-right text-gray-600" x-text="formatMoney(o.total_amount)"></span>
+                    </button>
+                </template>
+            </div>
+            <div class="mt-3 p-3 bg-blue-50 rounded text-sm" x-show="selectedOrder">
+                <span class="font-medium">{% trans "연동된 주문:" %}</span>
+                <span x-text="selectedOrder?.order_number"></span>
+                &nbsp;·&nbsp;
+                <span x-text="selectedOrder?.partner_name"></span>
+                &nbsp;·&nbsp;
+                <span x-text="formatMoney(selectedOrder?.total_amount)"></span>
+            </div>
+        </div>
+
+        <!-- 헤더 필드 -->
+        <div class="bg-white shadow-sm rounded-lg p-6 mb-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "발행 정보" %}</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for field in form %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label_tag }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ field.errors|join:", " }}</p>
+                    {% endif %}
+                    {% if field.help_text %}
+                    <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="mt-3 bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-800">
+                {% trans "※ 라인 품목이 있으면 공급가액/부가세는 라인 합계로 자동 갱신됩니다." %}
+            </div>
+        </div>
+
+        <!-- 라인 아이템 -->
+        <div class="bg-white shadow-sm rounded-lg p-6">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-semibold text-gray-700">{% trans "품목 내역" %}</h3>
+                <button type="button" @click="addRow()" class="btn btn-primary btn-sm">
+                    + {% trans "품목 추가" %}
+                </button>
+            </div>
+
+            {{ items_formset.management_form }}
+
+            {% if items_formset.non_form_errors %}
+            <div class="mb-3 bg-red-50 border border-red-200 rounded p-3">
+                {% for error in items_formset.non_form_errors %}
+                <p class="text-sm text-red-700">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-2 py-2 text-left">{% trans "품목명" %}</th>
+                            <th class="px-2 py-2 text-right w-24">{% trans "수량" %}</th>
+                            <th class="px-2 py-2 text-right w-32">{% trans "단가" %}</th>
+                            <th class="px-2 py-2 text-right w-32">{% trans "공급가액" %}</th>
+                            <th class="px-2 py-2 text-right w-28">{% trans "부가세" %}</th>
+                            <th class="px-2 py-2 text-right w-32">{% trans "합계" %}</th>
+                            <th class="px-2 py-2 w-12"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="items-tbody">
+                        {% for item_form in items_formset %}
+                        <tr class="border-b item-row" data-row>
+                            <td class="px-2 py-1">
+                                {{ item_form.id }}
+                                {{ item_form.source_order_item }}
+                                {{ item_form.name }}
+                                {% if item_form.name.errors %}<p class="text-xs text-red-600">{{ item_form.name.errors|join:", " }}</p>{% endif %}
+                            </td>
+                            <td class="px-2 py-1">{{ item_form.quantity }}</td>
+                            <td class="px-2 py-1">{{ item_form.unit_price }}</td>
+                            <td class="px-2 py-1">{{ item_form.supply_amount }}</td>
+                            <td class="px-2 py-1">{{ item_form.vat }}</td>
+                            <td class="px-2 py-1 text-right total-cell font-medium text-gray-600">-</td>
+                            <td class="px-2 py-1 text-center">
+                                {% if item_form.DELETE %}
+                                <label class="inline-flex items-center">
+                                    {{ item_form.DELETE }}
+                                    <span class="ml-1 text-xs text-red-600">✕</span>
+                                </label>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-gray-50 font-medium">
+                        <tr>
+                            <td colspan="3" class="px-2 py-2 text-right">{% trans "합계" %}</td>
+                            <td class="px-2 py-2 text-right" id="sum-supply">-</td>
+                            <td class="px-2 py-2 text-right" id="sum-vat">-</td>
+                            <td class="px-2 py-2 text-right" id="sum-total">-</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- 빈 행 템플릿 (Alpine.js용) -->
+            <template id="empty-row-template">
+                <tr class="border-b item-row" data-row>
+                    <td class="px-2 py-1">
+                        <input type="hidden" name="items-__PREFIX__-id" id="id_items-__PREFIX__-id">
+                        <input type="hidden" name="items-__PREFIX__-source_order_item" id="id_items-__PREFIX__-source_order_item">
+                        <input type="text" name="items-__PREFIX__-name" id="id_items-__PREFIX__-name" class="form-input w-full" data-fld="name">
+                    </td>
+                    <td class="px-2 py-1"><input type="number" step="0.01" name="items-__PREFIX__-quantity" id="id_items-__PREFIX__-quantity" class="form-input w-full text-right" data-fld="quantity"></td>
+                    <td class="px-2 py-1"><input type="number" step="1" name="items-__PREFIX__-unit_price" id="id_items-__PREFIX__-unit_price" class="form-input w-full text-right" data-fld="unit_price"></td>
+                    <td class="px-2 py-1"><input type="number" step="1" name="items-__PREFIX__-supply_amount" id="id_items-__PREFIX__-supply_amount" class="form-input w-full text-right" data-fld="supply_amount"></td>
+                    <td class="px-2 py-1"><input type="number" step="1" name="items-__PREFIX__-vat" id="id_items-__PREFIX__-vat" class="form-input w-full text-right" data-fld="vat"></td>
+                    <td class="px-2 py-1 text-right total-cell font-medium text-gray-600">-</td>
+                    <td class="px-2 py-1 text-center">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" name="items-__PREFIX__-DELETE" id="id_items-__PREFIX__-DELETE">
+                            <span class="ml-1 text-xs text-red-600">✕</span>
+                        </label>
+                    </td>
+                </tr>
+            </template>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+            <a href="{% url 'accounting:cash_receipt_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+            <button type="submit" class="btn btn-primary">{% trans "발급" %}</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function cashReceiptForm() {
+    return {
+        searchQ: '',
+        searchResults: [],
+        selectedOrder: {% if source_order %}{
+            id: {{ source_order.pk }},
+            order_number: "{{ source_order.order_number|escapejs }}",
+            partner_name: "{{ source_order.partner.name|default:''|escapejs }}",
+            total_amount: {{ source_order.total_amount|default:0 }},
+        }{% else %}null{% endif %},
+        init() {
+            this.$nextTick(() => {
+                this.bindRowEvents();
+                this.recompute();
+            });
+        },
+        searchOrders() {
+            if (!this.searchQ || this.searchQ.length < 2) {
+                this.searchResults = [];
+                return;
+            }
+            fetch("{% url 'accounting:cash_receipt_order_lookup' %}?q=" + encodeURIComponent(this.searchQ))
+                .then(r => r.json())
+                .then(d => { this.searchResults = d.results || []; });
+        },
+        selectOrder(id) {
+            fetch("{% url 'accounting:cash_receipt_order_lookup' %}?order_id=" + id)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.error) { alert(d.error); return; }
+                    this.selectedOrder = d;
+                    this.searchResults = [];
+                    this.searchQ = '';
+                    // reload page with source_order param so server-side prefill applies
+                    const u = new URL(window.location.href);
+                    u.searchParams.set('source_order', id);
+                    window.location.href = u.toString();
+                });
+        },
+        clearOrder() {
+            const u = new URL(window.location.href);
+            u.searchParams.delete('source_order');
+            u.searchParams.delete('order_id');
+            window.location.href = u.toString();
+        },
+        addRow() {
+            const tbody = document.getElementById('items-tbody');
+            const tmpl = document.getElementById('empty-row-template');
+            const totalForms = document.querySelector('[name="items-TOTAL_FORMS"]');
+            const idx = parseInt(totalForms.value);
+            const html = tmpl.innerHTML.replaceAll('__PREFIX__', idx);
+            const tr = document.createElement('tr');
+            tr.innerHTML = html;
+            // move children from wrapper tr to actual row
+            const frag = document.createDocumentFragment();
+            const wrapper = document.createElement('tbody');
+            wrapper.innerHTML = html;
+            const newRow = wrapper.querySelector('tr');
+            tbody.appendChild(newRow);
+            totalForms.value = idx + 1;
+            this.bindRowEvents();
+            this.recompute();
+        },
+        bindRowEvents() {
+            document.querySelectorAll('[data-row]').forEach(row => {
+                if (row.dataset.bound) return;
+                row.dataset.bound = '1';
+                row.querySelectorAll('input[data-fld]').forEach(inp => {
+                    inp.addEventListener('input', () => this.recompute());
+                });
+            });
+        },
+        recompute() {
+            let sumSupply = 0, sumVat = 0, sumTotal = 0;
+            document.querySelectorAll('[data-row]').forEach(row => {
+                const del = row.querySelector('input[type=checkbox][name$="-DELETE"]');
+                if (del && del.checked) {
+                    row.querySelector('.total-cell').textContent = '-';
+                    return;
+                }
+                const qty = parseFloat(row.querySelector('input[data-fld="quantity"]')?.value || 0) || 0;
+                const price = parseFloat(row.querySelector('input[data-fld="unit_price"]')?.value || 0) || 0;
+                const supplyInp = row.querySelector('input[data-fld="supply_amount"]');
+                let supply = parseFloat(supplyInp?.value || 0) || 0;
+                if (!supply && qty && price) {
+                    supply = Math.floor(qty * price);
+                    if (supplyInp) supplyInp.value = supply;
+                }
+                const vat = parseFloat(row.querySelector('input[data-fld="vat"]')?.value || 0) || 0;
+                const total = supply + vat;
+                row.querySelector('.total-cell').textContent = this.formatMoney(total);
+                sumSupply += supply;
+                sumVat += vat;
+                sumTotal += total;
+            });
+            document.getElementById('sum-supply').textContent = this.formatMoney(sumSupply);
+            document.getElementById('sum-vat').textContent = this.formatMoney(sumVat);
+            document.getElementById('sum-total').textContent = this.formatMoney(sumTotal);
+        },
+        formatMoney(n) {
+            return new Intl.NumberFormat('ko-KR').format(Math.round(n || 0)) + '원';
+        },
+    }
+}
+</script>
+{% endblock %}

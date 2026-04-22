@@ -558,17 +558,19 @@ class FUNC005_ApprovalWorkflowTest(TestCase):
         self.request.refresh_from_db()
         self.assertEqual(self.request.status, 'REJECTED')
 
-    def test_결재단계_unique_together(self):
-        """같은 결재요청에 같은 step_order가 중복 생성 불가"""
+    def test_결재단계_병렬_step_order_허용(self):
+        """병렬 결재 지원: 같은 결재요청/step_order에 결재자 다수 허용 (Phase 19 #1)"""
         from apps.approval.models import ApprovalStep
-        from django.db import IntegrityError
 
-        with self.assertRaises(IntegrityError):
-            ApprovalStep.all_objects.create(
-                request=self.request,
-                step_order=1,  # 이미 존재하는 순서
-                approver=self.approver1,
-            )
+        ApprovalStep.all_objects.create(
+            request=self.request,
+            step_order=1,
+            approver=self.approver1,
+            parallel_mode=ApprovalStep.ParallelMode.ALL,
+        )
+        self.assertGreaterEqual(
+            self.request.steps.filter(step_order=1).count(), 2,
+        )
 
 
 class FUNC006_QuotationToOrderTest(TestCase):

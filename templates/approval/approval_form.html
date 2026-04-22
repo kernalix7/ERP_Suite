@@ -105,6 +105,34 @@
             결재선
         </h2>
 
+        <!-- 결재방식 / 결재선 선택 패널 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.approval_type.label }}</label>
+                {{ form.approval_type }}
+                <p class="mt-1 text-xs text-gray-500">직렬 / 병렬(전원합의·1인결재)</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">결재선 템플릿</label>
+                <select name="line_template_id" class="form-input">
+                    <option value="">-- 선택 안 함 (수동 입력) --</option>
+                    {% for tpl in line_templates %}
+                    <option value="{{ tpl.pk }}">
+                        {{ tpl.name }}{% if tpl.is_default %} (기본){% endif %}{% if tpl.auto_apply %} [자동]{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">선택 시 아래 수동 입력 무시하고 덮어씀</p>
+            </div>
+            <div>
+                <label class="inline-flex items-center gap-2 mt-6">
+                    <input type="checkbox" name="use_auto_template" class="form-checkbox" />
+                    <span class="text-sm text-gray-700">조건부 자동 매칭 사용</span>
+                </label>
+                <p class="mt-1 text-xs text-gray-500">템플릿 미선택 시, 카테고리/금액/부서 조건 매칭</p>
+            </div>
+        </div>
+
         <!-- 단일 결재자 (레거시 호환) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
@@ -147,6 +175,7 @@
                         <tr class="bg-gray-50 text-left text-gray-600 font-medium">
                             <th class="px-4 py-2 w-24">단계</th>
                             <th class="px-4 py-2">결재자</th>
+                            <th class="px-4 py-2 w-40">병렬모드</th>
                             <th class="px-4 py-2 w-16 text-center">삭제</th>
                         </tr>
                     </thead>
@@ -161,6 +190,10 @@
                             <td class="px-4 py-2">
                                 {{ sf.approver }}
                                 {% if sf.approver.errors %}<div class="mt-1 text-xs text-red-600">{{ sf.approver.errors }}</div>{% endif %}
+                            </td>
+                            <td class="px-4 py-2">
+                                {{ sf.parallel_mode }}
+                                {% if sf.parallel_mode.errors %}<div class="mt-1 text-xs text-red-600">{{ sf.parallel_mode.errors }}</div>{% endif %}
                             </td>
                             <td class="px-4 py-2 text-center">
                                 {% if sf.DELETE %}

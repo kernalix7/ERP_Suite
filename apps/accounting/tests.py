@@ -485,26 +485,29 @@ class ApprovalStepTests(TestCase):
         self.assertIn('AP-STEP-STR', result)
         self.assertIn('1', result)
 
-    def test_unique_together_request_step_order(self):
-        """같은 결재요청에 같은 단계순서 중복 불가"""
+    def test_parallel_step_order_allows_multiple_approvers(self):
+        """병렬 결재 지원: 같은 step_order에 복수 결재자 허용(PARALLEL_ALL/ANY)"""
         from apps.approval.models import ApprovalStep
 
         req = ApprovalRequest.objects.create(
-            request_number='AP-STEP-UNIQ',
+            request_number='AP-STEP-PAR',
             category=ApprovalRequest.DocCategory.GENERAL,
-            title='중복 테스트',
+            title='병렬 결재 테스트',
             content='내용',
             requester=self.requester,
+            approval_type=ApprovalRequest.ApprovalType.PARALLEL_ALL,
         )
         ApprovalStep.objects.create(
             request=req, step_order=1,
             approver=self.approver1,
+            parallel_mode=ApprovalStep.ParallelMode.ALL,
         )
-        with self.assertRaises(IntegrityError):
-            ApprovalStep.objects.create(
-                request=req, step_order=1,
-                approver=self.approver2,
-            )
+        ApprovalStep.objects.create(
+            request=req, step_order=1,
+            approver=self.approver2,
+            parallel_mode=ApprovalStep.ParallelMode.ALL,
+        )
+        self.assertEqual(req.steps.filter(step_order=1).count(), 2)
 
 
 class AccountPayablePurchaseOrderTests(TestCase):
@@ -2495,3 +2498,379 @@ class BankTransactionModelTest(TestCase):
         )
         self.assertEqual(txn.match_status, BankTransaction.MatchStatus.UNMATCHED)
         self.assertIn('입금', str(txn))
+
+
+class CashReceiptModelTest(TestCase):
+    """현금영수증 모델 단위 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='finance_tester', password='pass12345',
+            role=User.Role.MANAGER,
+        )
+        self.partner = Partner.objects.create(
+            code='CR-P001', name='현금영수증 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+
+    def test_receipt_number_auto_generated(self):
+        """receipt_number 빈 값이면 자동생성, total_amount 자동 계산"""
+        from apps.accounting.models import CashReceipt
+        cr = CashReceipt.objects.create(
+            issued_at=timezone.now(),
+            supply_amount=Decimal('100000'),
+            vat=Decimal('10000'),
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01012345678',
+        )
+        self.assertTrue(cr.receipt_number.startswith('CR-'))
+        self.assertEqual(cr.total_amount, Decimal('110000'))
+        self.assertEqual(cr.status, CashReceipt.Status.ISSUED)
+
+    def test_clean_rejects_total_mismatch(self):
+        """clean() — total_amount ≠ supply + vat 시 ValidationError"""
+        from django.core.exceptions import ValidationError
+        from apps.accounting.models import CashReceipt
+        cr = CashReceipt(
+            issued_at=timezone.now(),
+            supply_amount=Decimal('100000'),
+            vat=Decimal('10000'),
+            total_amount=Decimal('999999'),
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01012345678',
+        )
+        with self.assertRaises(ValidationError):
+            cr.clean()
+
+    def test_issue_then_cancel_flow(self):
+        """발급 → 취소: status=CANCELLED + is_active=False + cancelled_at 기록"""
+        from apps.accounting.models import CashReceipt
+        cr = CashReceipt.objects.create(
+            issued_at=timezone.now(),
+            supply_amount=Decimal('50000'),
+            vat=Decimal('5000'),
+            purpose=CashReceipt.Purpose.BUSINESS,
+            identifier='1234567890',
+        )
+        self.assertTrue(cr.is_active)
+        self.assertIsNone(cr.cancelled_at)
+
+        cr.status = CashReceipt.Status.CANCELLED
+        cr.cancelled_at = timezone.now()
+        cr.cancel_reason = '고객 요청'
+        cr.is_active = False
+        cr.save()
+
+        cr.refresh_from_db()
+        self.assertEqual(cr.status, CashReceipt.Status.CANCELLED)
+        self.assertFalse(cr.is_active)
+        self.assertIsNotNone(cr.cancelled_at)
+        self.assertEqual(cr.cancel_reason, '고객 요청')
+
+    def test_cancelled_receipt_filtered_from_active_queryset(self):
+        """취소된 영수증은 기본 is_active 필터에서 제외됨"""
+        from apps.accounting.models import CashReceipt
+        active_cr = CashReceipt.objects.create(
+            issued_at=timezone.now(),
+            supply_amount=Decimal('10000'), vat=Decimal('1000'),
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01000000001',
+        )
+        cancelled_cr = CashReceipt.objects.create(
+            issued_at=timezone.now(),
+            supply_amount=Decimal('20000'), vat=Decimal('2000'),
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01000000002',
+        )
+        cancelled_cr.status = CashReceipt.Status.CANCELLED
+        cancelled_cr.is_active = False
+        cancelled_cr.save()
+
+        active_only = CashReceipt.objects.filter(is_active=True)
+        self.assertIn(active_cr, active_only)
+        self.assertNotIn(cancelled_cr, active_only)
+
+        # all_objects(있다면) 또는 is_active 무시한 쿼리에는 모두 포함
+        all_qs = CashReceipt.all_objects.all() if hasattr(CashReceipt, 'all_objects') else CashReceipt.objects.all()
+        self.assertEqual(all_qs.count(), 2)
+
+    def test_gfk_order_related_document(self):
+        """GFK로 Order 연결 시 related_document가 Order 인스턴스를 반환"""
+        from django.contrib.contenttypes.models import ContentType
+        from apps.accounting.models import CashReceipt
+        from apps.sales.models import Order
+
+        order = Order.objects.create(
+            order_number='ORD-CR-001',
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+            partner=self.partner,
+        )
+        ct = ContentType.objects.get_for_model(Order)
+        cr = CashReceipt.objects.create(
+            issued_at=timezone.now(),
+            supply_amount=Decimal('100000'), vat=Decimal('10000'),
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01099998888',
+            partner=self.partner,
+            content_type=ct,
+            object_id=order.pk,
+        )
+        self.assertEqual(cr.related_document, order)
+        self.assertEqual(cr.related_document.pk, order.pk)
+
+    def test_monthly_report_aggregation(self):
+        """월별 리포트 뷰 — 용도별 건수/금액 집계 정확성"""
+        from django.contrib.auth.mixins import LoginRequiredMixin  # noqa: F401
+        from apps.accounting.models import CashReceipt
+
+        year = 2026
+        # 2026-04: INDIVIDUAL x2, BUSINESS x1
+        for amount in (100000, 200000):
+            CashReceipt.objects.create(
+                issued_at=timezone.datetime(year, 4, 15, 10, 0, tzinfo=timezone.get_current_timezone()),
+                supply_amount=Decimal(str(amount)),
+                vat=Decimal(str(amount // 10)),
+                purpose=CashReceipt.Purpose.INDIVIDUAL,
+                identifier='01011112222',
+            )
+        CashReceipt.objects.create(
+            issued_at=timezone.datetime(year, 4, 20, 10, 0, tzinfo=timezone.get_current_timezone()),
+            supply_amount=Decimal('500000'), vat=Decimal('50000'),
+            purpose=CashReceipt.Purpose.BUSINESS,
+            identifier='1234567890',
+        )
+
+        # 다른 달, 취소된 영수증은 집계에서 제외
+        CashReceipt.objects.create(
+            issued_at=timezone.datetime(year, 3, 1, 10, 0, tzinfo=timezone.get_current_timezone()),
+            supply_amount=Decimal('999999'), vat=Decimal('99999'),
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01033334444',
+        )
+        cancelled = CashReceipt.objects.create(
+            issued_at=timezone.datetime(year, 4, 25, 10, 0, tzinfo=timezone.get_current_timezone()),
+            supply_amount=Decimal('777777'), vat=Decimal('77777'),
+            purpose=CashReceipt.Purpose.BUSINESS,
+            identifier='9876543210',
+        )
+        cancelled.status = CashReceipt.Status.CANCELLED
+        cancelled.save()
+
+        # 월별 리포트 뷰 호출
+        self.client.force_login(self.user)
+        resp = self.client.get(f'/accounting/cash-receipts/monthly-report/?year={year}')
+        self.assertEqual(resp.status_code, 200)
+        months = resp.context['months']
+        apr = next(m for m in months if m['month'] == 4)
+        self.assertEqual(apr['individual_count'], 2)
+        self.assertEqual(apr['individual_total'], Decimal('330000'))  # (100000+10000) + (200000+20000)
+        self.assertEqual(apr['business_count'], 1)
+        self.assertEqual(apr['business_total'], Decimal('550000'))
+
+
+class OrderHasCashReceiptPropertyTest(TestCase):
+    """Order.has_cash_receipt 프로퍼티 동작 검증 (crossing accounting↔sales)"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='order_cr_tester', password='pass12345',
+            role=User.Role.MANAGER,
+        )
+        self.partner = Partner.objects.create(
+            code='OCR-P001', name='프로퍼티 테스트 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        from apps.sales.models import Order
+        self.order = Order.objects.create(
+            order_number='ORD-OCR-001',
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+            partner=self.partner,
+        )
+
+    def _issue_for_order(self, status='ISSUED', is_active=True):
+        from django.contrib.contenttypes.models import ContentType
+        from apps.accounting.models import CashReceipt
+        from apps.sales.models import Order
+        ct = ContentType.objects.get_for_model(Order)
+        cr = CashReceipt.objects.create(
+            issued_at=timezone.now(),
+            supply_amount=Decimal('100000'), vat=Decimal('10000'),
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01012345678',
+            content_type=ct, object_id=self.order.pk,
+        )
+        if status != 'ISSUED' or not is_active:
+            cr.status = status
+            cr.is_active = is_active
+            cr.save()
+        return cr
+
+    def test_has_cash_receipt_false_when_none(self):
+        """연결 영수증이 없으면 False"""
+        self.assertFalse(self.order.has_cash_receipt)
+
+    def test_has_cash_receipt_true_when_issued(self):
+        """ISSUED 상태의 활성 영수증이 있으면 True"""
+        self._issue_for_order()
+        self.assertTrue(self.order.has_cash_receipt)
+
+    def test_has_cash_receipt_false_when_cancelled(self):
+        """취소(is_active=False/status=CANCELLED) 영수증만 있으면 False"""
+        self._issue_for_order(status='CANCELLED', is_active=False)
+        self.assertFalse(self.order.has_cash_receipt)
+
+    def test_order_detail_view_renders_with_receipt(self):
+        """주문 상세 뷰가 정상 렌더링되고 has_cash_receipt 결과 반영"""
+        from django.urls import reverse
+        try:
+            url = reverse('sales:order_detail', kwargs={'pk': self.order.pk})
+        except Exception:
+            url = f'/sales/orders/{self.order.pk}/'
+        self.client.force_login(self.user)
+
+        resp_before = self.client.get(url)
+        # 주문 상세 URL 존재 여부에 관계없이 프로퍼티 자체는 False
+        self.assertFalse(self.order.has_cash_receipt)
+
+        self._issue_for_order()
+        self.order.refresh_from_db()
+        self.assertTrue(self.order.has_cash_receipt)
+
+        # 상세 뷰가 200이면 추가 확인
+        if resp_before.status_code == 200:
+            resp_after = self.client.get(url)
+            self.assertEqual(resp_after.status_code, 200)
+
+
+class CashReceiptItemTest(TestCase):
+    """CashReceiptItem 라인아이템 + 주문 연동 시나리오"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='cr_item_tester', password='pass12345',
+            role=User.Role.MANAGER,
+        )
+        self.partner = Partner.objects.create(
+            code='CRI-P001', name='라인 테스트 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.product_a = Product.objects.create(
+            code='CRI-PA', name='상품A', unit_price=30000, current_stock=100,
+        )
+        self.product_b = Product.objects.create(
+            code='CRI-PB', name='상품B', unit_price=20000, current_stock=100,
+        )
+
+    def test_cashreceipt_items_recalculate_totals(self):
+        """items 저장/삭제 시 부모 CashReceipt supply/vat/total 자동 재계산"""
+        from apps.accounting.models import CashReceipt, CashReceiptItem
+
+        cr = CashReceipt.objects.create(
+            issued_at=timezone.now(),
+            supply_amount=0, vat=0,
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01012345678',
+        )
+        i1 = CashReceiptItem.objects.create(
+            receipt=cr, name='상품A', quantity=2, unit_price=30000,
+            vat=Decimal('6000'),
+        )
+        self.assertEqual(i1.supply_amount, Decimal('60000'))
+        self.assertEqual(i1.total_amount, Decimal('66000'))
+
+        CashReceiptItem.objects.create(
+            receipt=cr, name='상품B', quantity=1, unit_price=20000,
+            vat=Decimal('2000'),
+        )
+        cr.refresh_from_db()
+        self.assertEqual(cr.supply_amount, Decimal('80000'))
+        self.assertEqual(cr.vat, Decimal('8000'))
+        self.assertEqual(cr.total_amount, Decimal('88000'))
+
+        # 라인 삭제 시에도 부모 재계산 (post_delete signal)
+        i1.delete()
+        cr.refresh_from_db()
+        self.assertEqual(cr.supply_amount, Decimal('20000'))
+        self.assertEqual(cr.vat, Decimal('2000'))
+        self.assertEqual(cr.total_amount, Decimal('22000'))
+
+    def test_create_from_order_copies_order_items(self):
+        """CashReceiptCreateView ?source_order=N 진입 시 OrderItem → formset initial 복사"""
+        from apps.sales.models import Order, OrderItem
+
+        order = Order.objects.create(
+            order_number='ORD-CRI-001', order_date=date.today(),
+            status='CONFIRMED', created_by=self.user, partner=self.partner,
+            total_amount=80000, tax_total=8000, grand_total=88000,
+        )
+        oi_a = OrderItem.objects.create(
+            order=order, product=self.product_a, quantity=2, unit_price=30000,
+            amount=60000, tax_amount=6000, total_with_tax=66000,
+        )
+        oi_b = OrderItem.objects.create(
+            order=order, product=self.product_b, quantity=1, unit_price=20000,
+            amount=20000, tax_amount=2000, total_with_tax=22000,
+        )
+
+        self.client.force_login(self.user)
+        resp = self.client.get(f'/accounting/cash-receipts/create/?source_order={order.pk}')
+        self.assertEqual(resp.status_code, 200)
+
+        ctx = resp.context
+        self.assertIsNotNone(ctx)
+        self.assertEqual(ctx['source_order'].pk, order.pk)
+        formset = ctx['items_formset']
+        # inlineformset의 초기값은 extra forms의 initial에 바인딩됨
+        initial_rows = getattr(formset, 'initial_extra', None) or formset.initial or []
+        # 폼셋의 폼 수로도 교차검증
+        self.assertGreaterEqual(formset.total_form_count(), 2)
+        self.assertEqual(len(initial_rows), 2)
+        source_ids = {row['source_order_item'] for row in initial_rows}
+        self.assertEqual(source_ids, {oi_a.pk, oi_b.pk})
+        by_src = {row['source_order_item']: row for row in initial_rows}
+        self.assertEqual(by_src[oi_a.pk]['quantity'], 2)
+        self.assertEqual(by_src[oi_a.pk]['unit_price'], 30000)
+        self.assertEqual(by_src[oi_a.pk]['supply_amount'], 60000)
+        self.assertEqual(by_src[oi_a.pk]['vat'], 6000)
+
+    def test_manual_items_creation_via_post(self):
+        """주문 없이 수동 라인 다건 입력 → POST → CashReceipt + items 저장 + 부모 합계 일치"""
+        from apps.accounting.models import CashReceipt, CashReceiptItem
+
+        self.client.force_login(self.user)
+        post = {
+            'issued_at': '2026-04-21T10:00',
+            'purpose': CashReceipt.Purpose.INDIVIDUAL,
+            'identifier': '01099998888',
+            'partner': '',
+            'supply_amount': '0', 'vat': '0', 'notes': '',
+            'items-TOTAL_FORMS': '3', 'items-INITIAL_FORMS': '0',
+            'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '1000',
+            'items-0-name': '수기품목1', 'items-0-quantity': '2',
+            'items-0-unit_price': '15000', 'items-0-supply_amount': '30000',
+            'items-0-vat': '3000', 'items-0-source_order_item': '',
+            'items-1-name': '수기품목2', 'items-1-quantity': '1',
+            'items-1-unit_price': '70000', 'items-1-supply_amount': '70000',
+            'items-1-vat': '7000', 'items-1-source_order_item': '',
+            'items-2-name': '수기품목3', 'items-2-quantity': '3',
+            'items-2-unit_price': '5000', 'items-2-supply_amount': '15000',
+            'items-2-vat': '1500', 'items-2-source_order_item': '',
+        }
+        resp = self.client.post('/accounting/cash-receipts/create/', post)
+        self.assertEqual(resp.status_code, 302)
+
+        cr = CashReceipt.objects.latest('pk')
+        items = list(cr.items.filter(is_active=True).order_by('pk'))
+        self.assertEqual(len(items), 3)
+        self.assertEqual([i.name for i in items], ['수기품목1', '수기품목2', '수기품목3'])
+
+        total_supply = sum(i.supply_amount for i in items)
+        total_vat = sum(i.vat for i in items)
+        self.assertEqual(cr.supply_amount, total_supply)
+        self.assertEqual(cr.vat, total_vat)
+        self.assertEqual(cr.total_amount, total_supply + total_vat)
+        self.assertEqual(cr.total_amount, Decimal('126500'))  # 30000+70000+15000 + 3000+7000+1500

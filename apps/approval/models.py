@@ -37,6 +37,11 @@ class ApprovalRequest(BaseModel):
         URGENT = 'URGENT', '긴급'
         CRITICAL = 'CRITICAL', '특급'
 
+    class ApprovalType(models.TextChoices):
+        SEQUENTIAL = 'SEQUENTIAL', '직렬'
+        PARALLEL_ALL = 'PARALLEL_ALL', '병렬(전원합의)'
+        PARALLEL_ANY = 'PARALLEL_ANY', '병렬(1인결재)'
+
     request_number = models.CharField('결재번호', max_length=30, unique=True, blank=True)
     category = models.CharField('문서종류', max_length=20, choices=DocCategory.choices)
     urgency = models.CharField(
@@ -77,6 +82,11 @@ class ApprovalRequest(BaseModel):
     approved_at = models.DateTimeField('결재일', null=True, blank=True)
     reject_reason = models.TextField('반려사유', blank=True)
     current_step = models.PositiveIntegerField('현재 결재단계', default=1)
+    approval_type = models.CharField(
+        '결재방식', max_length=20,
+        choices=ApprovalType.choices, default=ApprovalType.SEQUENTIAL,
+        help_text='직렬 / 병렬(전원합의) / 병렬(1인결재)',
+    )
 
     # GenericForeignKey — 결재 대상 문서 연결 (선택)
     content_type = models.ForeignKey(
@@ -116,6 +126,12 @@ class ApprovalStep(BaseModel):
         PENDING = 'PENDING', '대기'
         APPROVED = 'APPROVED', '승인'
         REJECTED = 'REJECTED', '반려'
+        SKIPPED = 'SKIPPED', '건너뜀'
+
+    class ParallelMode(models.TextChoices):
+        SEQUENTIAL = 'SEQUENTIAL', '직렬'
+        ALL = 'ALL', '전원합의'
+        ANY = 'ANY', '1인결재'
 
     request = models.ForeignKey(
         ApprovalRequest, verbose_name='결재요청',
@@ -125,6 +141,22 @@ class ApprovalStep(BaseModel):
     approver = models.ForeignKey(
         'accounts.User', verbose_name='결재자',
         on_delete=models.PROTECT, related_name='approval_steps',
+    )
+    parallel_mode = models.CharField(
+        '병렬모드', max_length=20,
+        choices=ParallelMode.choices, default=ParallelMode.SEQUENTIAL,
+        help_text='같은 단계에 다중 결재자일 때의 합의 방식',
+    )
+    delegated_from = models.ForeignKey(
+        'accounts.User', verbose_name='원결재자',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='steps_delegated_to_me',
+        help_text='위임으로 치환된 경우 원래 결재자',
+    )
+    delegation = models.ForeignKey(
+        'approval.ApprovalDelegation', verbose_name='위임정보',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='steps_created',
     )
     status = models.CharField(
         '상태', max_length=20,
@@ -137,8 +169,7 @@ class ApprovalStep(BaseModel):
     class Meta:
         verbose_name = '결재단계'
         verbose_name_plural = '결재단계'
-        ordering = ['step_order']
-        unique_together = [['request', 'step_order']]
+        ordering = ['step_order', 'pk']
 
     def __str__(self):
         return f'{self.request.request_number} - {self.step_order}단계 ({self.approver})'
@@ -148,16 +179,31 @@ class ApprovalLineTemplate(BaseModel):
     """결재선 템플릿 — 자주 사용하는 결재 흐름을 미리 저장"""
     name = models.CharField('템플릿명', max_length=100)
     description = models.TextField('설명', blank=True)
-    # steps: [{"approver_id": 1, "role": "팀장", "order": 1}, ...]
+    # steps 예시:
+    # [{"approver_id": 1, "role": "팀장", "order": 1, "mode": "SEQUENTIAL"},
+    #  {"approver_id": 5, "order": 2, "mode": "ALL"},
+    #  {"approver_id": 7, "order": 2, "mode": "ALL"}]
     steps = models.JSONField('결재 단계', default=list)
     is_default = models.BooleanField('기본 템플릿', default=False)
+    # 조건부 자동 적용 규칙:
+    # {"category": ["PURCHASE","EXPENSE"], "amount_min": 0, "amount_max": 999999,
+    #  "department_ids": [3,4]}
+    condition = models.JSONField('자동적용 조건', default=dict, blank=True)
+    auto_apply = models.BooleanField(
+        '자동적용', default=False,
+        help_text='기안 생성 시 condition 매칭 템플릿을 자동 적용',
+    )
+    priority = models.PositiveIntegerField(
+        '우선순위', default=0,
+        help_text='높을수록 우선. 여러 템플릿이 매칭되면 우선순위 높은 것부터 1건 사용',
+    )
 
     history = HistoricalRecords()
 
     class Meta:
         verbose_name = '결재선 템플릿'
         verbose_name_plural = '결재선 템플릿'
-        ordering = ['-is_default', 'name']
+        ordering = ['-priority', '-is_default', 'name']
 
     def __str__(self):
         return self.name

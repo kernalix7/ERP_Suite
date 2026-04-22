@@ -9,6 +9,7 @@ from .models import (
     CostCenter, DashboardWidget,
     Company, InterCompanyTransaction, ConsolidationPeriod,
     BankConnection, BankStatement,
+    CashReceipt, CashReceiptItem,
 )
 
 
@@ -47,6 +48,55 @@ class TaxInvoiceForm(BaseForm):
         widgets = {
             'issue_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
+
+
+class CashReceiptForm(BaseForm):
+    class Meta:
+        model = CashReceipt
+        fields = [
+            'issued_at', 'purpose', 'identifier', 'partner',
+            'supply_amount', 'vat', 'notes',
+        ]
+        widgets = {
+            'issued_at': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-input'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        supply = cleaned.get('supply_amount') or 0
+        vat = cleaned.get('vat') or 0
+        if supply < 0 or vat < 0:
+            raise forms.ValidationError('공급가액/부가세는 0 이상이어야 합니다.')
+        return cleaned
+
+
+class CashReceiptCancelForm(forms.Form):
+    cancel_reason = forms.CharField(
+        label='취소사유', max_length=200, required=True,
+        widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-input'}),
+    )
+
+
+class CashReceiptItemForm(BaseForm):
+    class Meta:
+        model = CashReceiptItem
+        fields = ['name', 'quantity', 'unit_price', 'supply_amount', 'vat', 'source_order_item']
+        widgets = {
+            'source_order_item': forms.HiddenInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ('name', 'quantity', 'unit_price', 'supply_amount', 'vat'):
+            self.fields[name].required = False
+
+
+CashReceiptItemFormSet = forms.inlineformset_factory(
+    CashReceipt, CashReceiptItem,
+    form=CashReceiptItemForm,
+    extra=0,
+    can_delete=True,
+)
 
 
 class FixedCostForm(BaseForm):

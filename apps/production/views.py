@@ -339,11 +339,20 @@ class ProductionRecordCreateView(ManagerRequiredMixin, CreateView):
             return response
         except IntegrityError as e:
             err = str(e)
-            if 'non_negative' in err or 'stock' in err.lower():
+            if 'warehouse_stock_non_negative' in err:
+                wh = form.cleaned_data.get('warehouse')
+                wh_label = f'{wh.code} {wh.name}' if wh else '선택한 창고'
                 messages.error(
                     self.request,
-                    '원자재 재고가 부족하여 생산 실적을 등록할 수 없습니다. '
-                    '해당 창고의 원자재 재고를 확인해주세요.',
+                    f'선택한 창고({wh_label})의 원자재 재고가 부족합니다. '
+                    '해당 창고로 자재를 이동하거나 자재가 있는 다른 창고를 선택해주세요.',
+                )
+                return self.form_invalid(form)
+            if 'stock_non_negative' in err:
+                messages.error(
+                    self.request,
+                    '원자재의 전체 재고가 부족하여 생산 실적을 등록할 수 없습니다. '
+                    '자재 입고 또는 생산 수량 조정이 필요합니다.',
                 )
                 return self.form_invalid(form)
             raise

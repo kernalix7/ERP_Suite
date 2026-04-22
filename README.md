@@ -15,13 +15,13 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 | **Sales** | Partners, customers, orders (with CONFIRMED order modification), quotes (with one-click order conversion, PriceRule auto-application), return/exchange order workflows, ShipmentItem (partial shipments with serial range tracking, auto PARTIAL_SHIPPED status), ShippingCarrier (carriers), ShipmentTracking (delivery tracking), PriceRule (min quantity enforcement), commission management, partner analytics, CustomerTier (customer grading), SalesTarget (quota tracking), SalesLead (CRM pipeline), CustomerSatisfaction (NPS tracking), credit limit management |
 | **Purchase** | Purchase orders, receiving confirmation, auto inventory-in on receipt, PO status tracking, reverse cascade on PO cancellation, RFQ (Request for Quotation with response comparison and PO conversion), VendorScore (supplier evaluation scoring) |
 | **Service** | Service requests, repair history tracking, warranty period verification (serial-based auto-verification), paid repair auto-AR generation, cancellation with AR reversal |
-| **Accounting** | Tax invoices, VAT summaries (VAT return report), fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement (with account classification), vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management with overspend warnings), Currency/ExchangeRate (multi-currency), exchange gain/loss reporting, AR/AP Aging (auto-overdue transition, aged trial balance), bank reconciliation, settlements (auto-voucher for shipping/platform fees), CostCenter/ProfitCenter (departmental P&L), DashboardWidget (customizable), advanced reports (YoY/MoM comparison, product profitability) |
+| **Accounting** | Tax invoices, VAT summaries (VAT return report), CashReceipt (cash receipts issuance & tracking), fixed costs, break-even analysis, monthly P&L, balance sheet, cash flow statement (with account classification), vouchers, account codes, withholding tax, ClosingPeriod (period closing), Budget (budget management with overspend warnings), Currency/ExchangeRate (multi-currency), exchange gain/loss reporting, AR/AP Aging (auto-overdue transition, aged trial balance), bank reconciliation, settlements (auto-voucher for shipping/platform fees), CostCenter/ProfitCenter (departmental P&L), DashboardWidget (customizable), advanced reports (YoY/MoM comparison, product profitability) |
 | **Investment** | Investors, funding rounds, equity tracking (donut charts), dividend/distribution records |
 | **Asset** | Fixed asset management (with acquisition validation), depreciation (straight-line / declining balance), asset transfers, certifications (KC/CE/FCC/ISO/RoHS), lease contracts (operating/finance), asset audits, barcode/QR tag generation |
 | **Marketplace** | Naver/Coupang store integration, order sync (bidirectional — ERP→marketplace shipping status push), 6-stage Import Wizard, settlement reconciliation (auto-matching), sync history |
 | **Inquiry** | Multi-channel inquiry management, Claude AI auto-reply drafts, reply templates |
 | **Warranty** | Serial number authentication, warranty period management, QR verification |
-| **Approval** | Multi-step approval workflows, document categories (purchase/expense/budget/contract/leave/travel/IT), per-step approvers, file attachments |
+| **Approval** | Multi-step approval workflows (sequential / parallel / conditional branches), delegation, per-step approvers, document categories (purchase/expense/budget/contract/leave/travel/IT), file attachments |
 | **Advertising** | Ad platforms (Google/Naver/Kakao/Meta), campaigns, creatives, performance tracking (ROAS/CTR/CPC), budget management |
 | **WMS** | Zone/bin management, putaway rules, pick lists, wave picking, cycle counts, packing stations, shipping labels |
 | **CMMS** | Equipment registry, preventive/corrective maintenance, work orders, spare parts, downtime tracking, MTBF/MTTR analysis |
@@ -59,8 +59,8 @@ Manufacturing & Sales Integrated ERP + Groupware System for SMEs
 |--------|-------------|
 | **Core** | Dashboard (KPI widgets, asset/certification/lease summaries), real-time notifications (WebSocket push), Excel/PDF export, barcode generation, backup/restore, audit trail, access logs |
 | **Accounts** | Authentication, RBAC (admin/manager/staff), login protection (django-axes) |
-| **API** | REST API (34 DRF ViewSets), JWT authentication (SimpleJWT), OpenAPI/Swagger docs |
-| **Module Manager** | Pluggable module architecture (enable/disable features per installation), category-based organization (Compliance/Production/Purchase/Sales/Accounting/HR/System), country-code filtering (KR/US/universal), dependency checking, admin toggle UI, 30 registered modules |
+| **API** | REST API (79 DRF ViewSets), JWT authentication (SimpleJWT), OpenAPI/Swagger docs |
+| **Module Manager** | Pluggable module architecture (enable/disable features per installation), category-based organization (Compliance/Production/Purchase/Sales/Accounting/HR/System), country-code filtering (KR/US/universal), dependency checking, request-scoped tag cache, admin toggle UI, 23 registered modules |
 | **Store Modules** | Modular store architecture (pluggable per-channel modules: Naver SmartStore, Coupang, direct sales) |
 | **Active Directory** | LDAP/AD integration, user/group sync, group policy-based role mapping |
 
@@ -114,6 +114,7 @@ cp .env.example local/.env
 python manage.py migrate
 
 # Option A: Production — admin account only (ID: admin / PW: Admin12#)
+# ⚠ SECURITY: Change this default password immediately after first login.
 python manage.py init_prod
 
 # Option B: Sandbox — demo data with sample users/products/orders
@@ -181,7 +182,7 @@ ERP_Suite/
 │   ├── store_modules/   # Modular store architecture (pluggable per-channel)
 │   ├── modules/         # Channel modules (Naver SmartStore, Coupang, direct sales)
 │   ├── module_manager/  # Feature module registry, enable/disable, country-based filtering
-│   ├── api/             # REST API (34 DRF ViewSets, JWT auth)
+│   ├── api/             # REST API (79 DRF ViewSets, JWT auth)
 │   ├── wms/             # Warehouse management (zones, bins, putaway, picking, packing)
 │   ├── cmms/            # Equipment maintenance (preventive/corrective, work orders, spare parts)
 │   ├── plm/             # Product lifecycle (versioning, ECN, drawings)
@@ -202,7 +203,7 @@ ERP_Suite/
 │   ├── bi/              # BI dashboards (report builder, chart panels, scheduled exports)
 │   └── rpa/             # Automation engine (rules, conditions, actions, schedules)
 ├── config/              # Django settings (base/dev/prod), celery, asgi, wsgi
-├── templates/           # 250+ HTML templates (Tailwind CSS, responsive)
+├── templates/           # 600+ HTML templates (Tailwind CSS, responsive)
 ├── static/              # CSS, JS, PWA (manifest.json, sw.js)
 │   └── vendor/          # Local vendor libraries (Tailwind, HTMX, Alpine.js, Chart.js, FullCalendar.js)
 ├── scripts/             # Utility scripts (download_vendor.sh, etc.)
@@ -222,7 +223,7 @@ ERP_Suite/
 ## Testing
 
 ```bash
-# Unit tests (1000+ tests across all apps, --parallel for speed)
+# Unit tests (1800+ tests across all apps, --parallel for speed)
 python manage.py test apps/ -v 2 --parallel
 
 # Verification tests (security/integrity/performance/workflow/disaster recovery)
@@ -238,7 +239,7 @@ cd e2e && pytest -v
 cd loadtest && locust -f locustfile.py --host http://localhost:8000
 ```
 
-**Test coverage: 1500+ tests (unit)**
+**Test coverage: 1844 tests (unit)**
 
 Verification criteria cover 152 items across 10 categories:
 - SEC-001~035: Security (OWASP Top 10)
@@ -289,6 +290,10 @@ Verification criteria cover 152 items across 10 categories:
 - **Price Rules**: OrderItem/QuotationItem save → PriceRule auto-application with min quantity enforcement
 - **Conditional QC**: QualityInspection CONDITIONAL → manager notification → approve (→PASS) or reject (→FAIL)
 - **Reorder Point**: Daily batch → products below reorder_point → notification alerts + MRP suggested order qty
+- **Production Traceability**: ProductionBatch auto-created per ProductionRecord → forward (batch→shipments) / backward (batch→BOM materials→StockLots) / FIFO-based material lot linkage (3-tier traceability)
+- **Parallel Approval**: ApprovalStep mode=parallel → all approvers act concurrently; mode=conditional → amount-based routing; mode=delegate → absence auto-delegation to backup approver
+- **Cash Receipt**: CashReceipt auto-issuance on payment (soldier/business type, supply/VAT split, National Tax Service format export)
+- **Lot Safety Floor**: StockLot/WarehouseStock updates use `Greatest(F('qty') - consume, 0)` to defend against SQLite NUMERIC/REAL float drift on CHECK constraints
 
 ## Security
 
@@ -308,13 +313,13 @@ Verification criteria cover 152 items across 10 categories:
 
 ## Scale
 
-- **44 apps**, **250+ models** (all with history tracking)
-- **650+ views**, **370+ templates**, **580+ URL endpoints**
-- **~55,000 lines** of Python (excluding migrations)
-- **1500+ tests** (unit), **17 E2E test files**, **load test suite**
-- **200+ migrations**, **25+ packages**
-- **34 REST API ViewSets** with JWT authentication
-- **49 registered modules** (InstalledModule)
+- **44 apps**, **300+ models** (all with history tracking)
+- **700+ views**, **600+ templates**, **600+ URL endpoints**
+- **~65,000 lines** of Python (excluding migrations)
+- **1844 tests** (unit), **17 E2E test files**, **load test suite**
+- **250+ migrations**, **25+ packages**
+- **79 REST API ViewSets** with JWT authentication
+- **23 registered modules** (InstalledModule, Phase 1 modular architecture)
 
 ## Contributing
 

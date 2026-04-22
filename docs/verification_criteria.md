@@ -2070,8 +2070,8 @@ Written in accordance with ISMS/ISO 27001, OWASP Top 10, and KISA Web Security G
 |------|---------|
 | **ID** | UX-004 |
 | **Name** | Navigation Menu Completeness & Structure Verification |
-| **Criteria** | Sidebar navigation includes links to all 22 app modules. Menu items grouped logically. Active page highlighted in navigation. Sub-menus expandable/collapsible. Navigation accessible on all pages. |
-| **Pass Conditions** | (1) All 22 apps represented in sidebar navigation. (2) Menu items grouped: ERP (inventory, production, sales, purchase, accounting, asset), Marketing/Channel (advertising, marketplace, inquiry), Groupware (HR, attendance, approval, board, calendar, messenger), System (AD, audit), etc. (3) Current page's menu item highlighted. (4) Sub-menu expands on click/hover. (5) Navigation consistent across all pages. |
+| **Criteria** | Sidebar navigation includes links to all 44 app modules (subject to Module Manager enable/disable). Menu items grouped logically. Active page highlighted in navigation. Sub-menus expandable/collapsible. Navigation accessible on all pages. |
+| **Pass Conditions** | (1) All enabled apps represented in sidebar navigation (Module Manager gates visibility per InstalledModule.is_enabled). (2) Menu items grouped: ERP (inventory, production, sales, purchase, accounting, asset, wms, cmms, plm, qms, forecast, logistics, edi, subscription, document, expense, esg, bi, rpa), Marketing/Channel (advertising, marketplace, inquiry, portal, helpdesk), Groupware (hr, attendance, approval, board, calendar, messenger, lms, wiki, project, visitor), System (accounts, ad, api, module_manager, audit). (3) Current page's menu item highlighted. (4) Sub-menu expands on click/hover. (5) Navigation consistent across all pages. |
 | **Fail Conditions** | (1) App module missing from navigation. (2) Dead link in navigation. (3) Active page not highlighted. |
 | **Method** | Manual - Navigation walkthrough of all menu items |
 | **Test Code** | Manual test procedure |

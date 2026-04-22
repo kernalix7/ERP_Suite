@@ -195,7 +195,7 @@ def _create_serial_numbers(instance, warehouse, batch=None):
             status=SerialNumber.Status.IN_STOCK,
             production_record=instance,
             production_batch=batch,
-            production_date=timezone.now().date(),
+            production_date=timezone.localdate(),
             warehouse=warehouse,
             created_by=instance.created_by,
         ))

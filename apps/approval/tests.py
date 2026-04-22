@@ -154,19 +154,19 @@ class ApprovalStepModelTest(ApprovalModelTestBase):
         )
         self.assertIn('1단계', str(step))
 
-    def test_unique_together_step_order(self):
-        """같은 요청 내 중복 단계 불가"""
+    def test_same_step_order_allowed_for_parallel(self):
+        """병렬 결재를 위해 같은 step_order에 복수 Step 허용"""
         ar = self._create_request()
-        ApprovalStep.all_objects.create(
+        s1 = ApprovalStep.all_objects.create(
             request=ar, step_order=1, approver=self.admin,
-            created_by=self.manager,
+            parallel_mode='ALL', created_by=self.manager,
         )
-        from django.db import IntegrityError
-        with self.assertRaises(IntegrityError):
-            ApprovalStep.all_objects.create(
-                request=ar, step_order=1, approver=self.manager2,
-                created_by=self.manager,
-            )
+        s2 = ApprovalStep.all_objects.create(
+            request=ar, step_order=1, approver=self.manager2,
+            parallel_mode='ALL', created_by=self.manager,
+        )
+        self.assertNotEqual(s1.pk, s2.pk)
+        self.assertEqual(ar.steps.filter(step_order=1).count(), 2)
 
 
 class ApprovalAttachmentModelTest(ApprovalModelTestBase):
@@ -447,6 +447,7 @@ class ApprovalCreateViewTest(ApprovalViewTestBase):
             'content': '내용입니다',
             'amount': '1000000',
             'urgency': 'NORMAL',
+            'approval_type': 'SEQUENTIAL',
             'notes': '',
             # inline formset management
             'steps-TOTAL_FORMS': '0',
@@ -470,6 +471,7 @@ class ApprovalCreateViewTest(ApprovalViewTestBase):
             'content': '내용',
             'amount': '0',
             'urgency': 'NORMAL',
+            'approval_type': 'SEQUENTIAL',
             'notes': '',
             'steps-TOTAL_FORMS': '0',
             'steps-INITIAL_FORMS': '0',
@@ -503,7 +505,7 @@ class ApprovalDetailViewTest(ApprovalViewTestBase):
             reverse('approval:approval_detail', args=[ar.request_number])
         )
         self.assertIn('steps', response.context)
-        self.assertEqual(response.context['steps'].count(), 1)
+        self.assertEqual(len(response.context['steps']), 1)
 
     def test_can_submit_context(self):
         """기안자만 제출 가능 표시"""
@@ -967,6 +969,8 @@ class ApprovalLineTemplateTest(ApprovalModelTestBase):
             'description': '설명',
             'steps': '[{"approver_id": 1, "role": "팀장", "order": 1}]',
             'is_default': False,
+            'condition': '{}',
+            'priority': '0',
         })
         self.assertEqual(response.status_code, 302)
         self.assertTrue(ApprovalLineTemplate.objects.filter(name='POST 테스트 템플릿').exists())
@@ -1071,3 +1075,531 @@ class ApprovalDelegationTest(ApprovalModelTestBase):
         d.reason = '수정된 사유'
         d.save()
         self.assertTrue(d.history.count() >= 2)
+
+
+# ====================================================================
+# 10. 병렬 결재 테스트
+# ====================================================================
+class ParallelApprovalTest(ApprovalModelTestBase):
+    """PARALLEL_ALL / PARALLEL_ANY 상태 머신 테스트"""
+
+    def _make_submitted(self, approval_type='PARALLEL_ALL'):
+        ar = self._create_request(
+            approval_type=approval_type,
+            status='SUBMITTED',
+            submitted_at=timezone.now(),
+        )
+        return ar
+
+    def test_parallel_all_both_approved_advances(self):
+        """PARALLEL_ALL: 같은 단계 2인 모두 승인 → 다음 단계 활성"""
+        ar = self._make_submitted('PARALLEL_ALL')
+        s1 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.admin,
+            parallel_mode='ALL', created_by=self.manager,
+        )
+        s2 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.manager2,
+            parallel_mode='ALL', created_by=self.manager,
+        )
+        s3 = ApprovalStep.objects.create(
+            request=ar, step_order=2, approver=self.manager3,
+            parallel_mode='SEQUENTIAL', created_by=self.manager,
+        )
+        ar.current_step = 1
+        ar.save(update_fields=['current_step', 'updated_at'])
+
+        s1.status = 'APPROVED'
+        s1.acted_at = timezone.now()
+        s1.save()
+        ar.refresh_from_db()
+        # 아직 s2 대기중이라 current_step 그대로, 전체 미승인
+        self.assertEqual(ar.status, 'SUBMITTED')
+        self.assertEqual(ar.current_step, 1)
+
+        s2.status = 'APPROVED'
+        s2.acted_at = timezone.now()
+        s2.save()
+        ar.refresh_from_db()
+        # 두 번째 승인으로 다음 단계 활성
+        self.assertEqual(ar.current_step, 2)
+        self.assertEqual(ar.status, 'SUBMITTED')
+
+        s3.status = 'APPROVED'
+        s3.acted_at = timezone.now()
+        s3.save()
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'APPROVED')
+
+    def test_parallel_all_one_rejected_request_rejected(self):
+        """PARALLEL_ALL: 한 명 반려 → 전체 REJECTED"""
+        ar = self._make_submitted('PARALLEL_ALL')
+        s1 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.admin,
+            parallel_mode='ALL', created_by=self.manager,
+        )
+        ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.manager2,
+            parallel_mode='ALL', created_by=self.manager,
+        )
+        ar.current_step = 1
+        ar.save(update_fields=['current_step', 'updated_at'])
+
+        s1.status = 'REJECTED'
+        s1.comment = '거절 사유'
+        s1.acted_at = timezone.now()
+        s1.save()
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'REJECTED')
+        self.assertIn('거절', ar.reject_reason)
+
+    def test_parallel_any_first_approved_skips_rest(self):
+        """PARALLEL_ANY: 한 명 승인 → 나머지 SKIPPED + 다음 단계"""
+        ar = self._make_submitted('PARALLEL_ANY')
+        s1 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.admin,
+            parallel_mode='ANY', created_by=self.manager,
+        )
+        s2 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.manager2,
+            parallel_mode='ANY', created_by=self.manager,
+        )
+        s3 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.manager3,
+            parallel_mode='ANY', created_by=self.manager,
+        )
+        ar.current_step = 1
+        ar.save(update_fields=['current_step', 'updated_at'])
+
+        s1.status = 'APPROVED'
+        s1.acted_at = timezone.now()
+        s1.save()
+
+        s2.refresh_from_db()
+        s3.refresh_from_db()
+        self.assertEqual(s2.status, 'SKIPPED')
+        self.assertEqual(s3.status, 'SKIPPED')
+
+        ar.refresh_from_db()
+        # 단계 1개만 있었으므로 최종 승인
+        self.assertEqual(ar.status, 'APPROVED')
+
+    def test_parallel_any_rejected_immediate_reject(self):
+        """PARALLEL_ANY: 한 명 반려 → 전체 REJECTED"""
+        ar = self._make_submitted('PARALLEL_ANY')
+        s1 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.admin,
+            parallel_mode='ANY', created_by=self.manager,
+        )
+        ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.manager2,
+            parallel_mode='ANY', created_by=self.manager,
+        )
+        ar.current_step = 1
+        ar.save(update_fields=['current_step', 'updated_at'])
+
+        s1.status = 'REJECTED'
+        s1.acted_at = timezone.now()
+        s1.save()
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'REJECTED')
+
+    def test_sequential_backward_compat(self):
+        """SEQUENTIAL(기존): 1인 단일 단계 승인 → 최종 승인 유지"""
+        ar = self._make_submitted('SEQUENTIAL')
+        s1 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.admin,
+            parallel_mode='SEQUENTIAL', created_by=self.manager,
+        )
+        ar.current_step = 1
+        ar.save(update_fields=['current_step', 'updated_at'])
+        s1.status = 'APPROVED'
+        s1.acted_at = timezone.now()
+        s1.save()
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'APPROVED')
+
+
+# ====================================================================
+# 11. 조건부 결재 매칭 테스트
+# ====================================================================
+class ConditionalTemplateTest(ApprovalModelTestBase):
+    """조건부 자동 결재선 매칭 테스트"""
+
+    def _make_template(
+        self, name, steps_spec, *, condition=None,
+        auto_apply=True, priority=0, is_default=False,
+    ):
+        return ApprovalLineTemplate.objects.create(
+            name=name, steps=steps_spec,
+            condition=condition or {},
+            auto_apply=auto_apply,
+            priority=priority,
+            is_default=is_default,
+            created_by=self.admin,
+        )
+
+    def test_amount_range_matching(self):
+        """금액 구간 매칭: 100만 이하 / 100만~500만 / 500만 이상"""
+        from apps.approval.services import find_matching_template
+        self._make_template(
+            '소액', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={'amount_max': 1000000},
+            priority=10,
+        )
+        self._make_template(
+            '중액', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={'amount_min': 1000001, 'amount_max': 5000000},
+            priority=10,
+        )
+        self._make_template(
+            '고액', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={'amount_min': 5000001},
+            priority=10,
+        )
+        t1 = find_matching_template(
+            category='PURCHASE', amount=500000, department_id=None,
+        )
+        t2 = find_matching_template(
+            category='PURCHASE', amount=3000000, department_id=None,
+        )
+        t3 = find_matching_template(
+            category='PURCHASE', amount=10000000, department_id=None,
+        )
+        self.assertEqual(t1.name, '소액')
+        self.assertEqual(t2.name, '중액')
+        self.assertEqual(t3.name, '고액')
+
+    def test_category_plus_amount(self):
+        """카테고리 + 금액 복합 매칭"""
+        from apps.approval.services import find_matching_template
+        self._make_template(
+            '구매고액', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={'category': ['PURCHASE'], 'amount_min': 1000000},
+            priority=20,
+        )
+        self._make_template(
+            '지출모두', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={'category': ['EXPENSE']},
+            priority=10,
+        )
+        hit = find_matching_template(
+            category='PURCHASE', amount=2000000, department_id=None,
+        )
+        self.assertEqual(hit.name, '구매고액')
+        hit2 = find_matching_template(
+            category='EXPENSE', amount=100000, department_id=None,
+        )
+        self.assertEqual(hit2.name, '지출모두')
+
+    def test_fallback_to_default(self):
+        """매칭 실패 시 is_default 폴백"""
+        from apps.approval.services import find_matching_template
+        self._make_template(
+            '소액전용', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={'amount_max': 100},
+            priority=10,
+        )
+        default_tpl = self._make_template(
+            '기본', [{'approver_id': self.admin.pk, 'order': 1}],
+            auto_apply=False, is_default=True,
+        )
+        hit = find_matching_template(
+            category='GENERAL', amount=999999, department_id=None,
+        )
+        self.assertEqual(hit.pk, default_tpl.pk)
+
+    def test_no_match_no_default_returns_none(self):
+        """매칭도 없고 기본도 없으면 None"""
+        from apps.approval.services import find_matching_template
+        self._make_template(
+            '소액전용', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={'amount_max': 100},
+            priority=10,
+        )
+        hit = find_matching_template(
+            category='GENERAL', amount=999999, department_id=None,
+        )
+        self.assertIsNone(hit)
+
+    def test_priority_ordering(self):
+        """우선순위 높은 것 먼저 매칭"""
+        from apps.approval.services import find_matching_template
+        lo = self._make_template(
+            'lowprio', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={}, priority=1,
+        )
+        hi = self._make_template(
+            'hiprio', [{'approver_id': self.admin.pk, 'order': 1}],
+            condition={}, priority=100,
+        )
+        hit = find_matching_template(
+            category='GENERAL', amount=0, department_id=None,
+        )
+        self.assertEqual(hit.pk, hi.pk)
+
+    def test_build_steps_from_template_creates_steps(self):
+        """build_steps_from_template가 ApprovalStep을 생성한다"""
+        from apps.approval.services import build_steps_from_template
+        tpl = self._make_template(
+            'biz',
+            [
+                {'approver_id': self.admin.pk, 'order': 1,
+                 'mode': 'SEQUENTIAL'},
+                {'approver_id': self.manager2.pk, 'order': 2,
+                 'mode': 'ALL'},
+                {'approver_id': self.manager3.pk, 'order': 2,
+                 'mode': 'ALL'},
+            ],
+        )
+        ar = self._create_request()
+        build_steps_from_template(ar, tpl, actor=self.manager)
+        self.assertEqual(ar.steps.count(), 3)
+        ar.refresh_from_db()
+        self.assertEqual(ar.current_step, 1)
+        all_modes = list(
+            ar.steps.order_by('step_order', 'pk')
+            .values_list('parallel_mode', flat=True)
+        )
+        self.assertEqual(
+            all_modes, ['SEQUENTIAL', 'ALL', 'ALL'],
+        )
+
+
+# ====================================================================
+# 12. 위임 자동 치환 테스트
+# ====================================================================
+class DelegationResolutionTest(ApprovalModelTestBase):
+    """위임 자동 치환 + 이력 테스트"""
+
+    def test_resolve_delegate_replaces_when_active(self):
+        """위임 활성 기간 내면 대리자로 치환"""
+        from apps.approval.services import resolve_delegate
+        ApprovalDelegation.objects.create(
+            delegator=self.admin,
+            delegate=self.manager2,
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate() + datetime.timedelta(days=3),
+            created_by=self.admin,
+        )
+        actual, origin, delegation = resolve_delegate(self.admin)
+        self.assertEqual(actual.pk, self.manager2.pk)
+        self.assertEqual(origin.pk, self.admin.pk)
+        self.assertIsNotNone(delegation)
+
+    def test_resolve_delegate_no_active(self):
+        """활성 위임 없으면 원 결재자 유지"""
+        from apps.approval.services import resolve_delegate
+        actual, origin, delegation = resolve_delegate(self.admin)
+        self.assertEqual(actual.pk, self.admin.pk)
+        self.assertIsNone(origin)
+        self.assertIsNone(delegation)
+
+    def test_resolve_delegate_outside_date_range(self):
+        """위임 기간 벗어나면 치환 없음"""
+        from apps.approval.services import resolve_delegate
+        past = timezone.localdate() - datetime.timedelta(days=10)
+        ApprovalDelegation.objects.create(
+            delegator=self.admin,
+            delegate=self.manager2,
+            start_date=past,
+            end_date=past + datetime.timedelta(days=1),
+            created_by=self.admin,
+        )
+        actual, origin, _ = resolve_delegate(self.admin)
+        self.assertEqual(actual.pk, self.admin.pk)
+        self.assertIsNone(origin)
+
+    def test_build_steps_default_no_delegation_snapshot(self):
+        """DRAFT 기안 생성 시 기본적으로 위임 치환되지 않음 (스냅샷은 제출 시점)."""
+        from apps.approval.services import build_steps_from_template
+        ApprovalDelegation.objects.create(
+            delegator=self.admin,
+            delegate=self.manager2,
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate() + datetime.timedelta(days=3),
+            created_by=self.admin,
+        )
+        tpl = ApprovalLineTemplate.objects.create(
+            name='tpl-deleg',
+            steps=[{'approver_id': self.admin.pk, 'order': 1,
+                    'mode': 'SEQUENTIAL'}],
+            created_by=self.admin,
+        )
+        ar = self._create_request()
+        build_steps_from_template(ar, tpl, actor=self.manager)
+        step = ar.steps.first()
+        # 기본값(apply_delegation=False)이면 원 결재자 그대로 저장
+        self.assertEqual(step.approver.pk, self.admin.pk)
+        self.assertIsNone(step.delegated_from)
+        self.assertIsNone(step.delegation)
+
+    def test_build_steps_opt_in_delegation_applies(self):
+        """apply_delegation=True 명시 시 즉시 치환."""
+        from apps.approval.services import build_steps_from_template
+        ApprovalDelegation.objects.create(
+            delegator=self.admin,
+            delegate=self.manager2,
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate() + datetime.timedelta(days=3),
+            created_by=self.admin,
+        )
+        tpl = ApprovalLineTemplate.objects.create(
+            name='tpl-deleg-optin',
+            steps=[{'approver_id': self.admin.pk, 'order': 1,
+                    'mode': 'SEQUENTIAL'}],
+            created_by=self.admin,
+        )
+        ar = self._create_request()
+        build_steps_from_template(ar, tpl, actor=self.manager,
+                                  apply_delegation=True)
+        step = ar.steps.first()
+        self.assertEqual(step.approver.pk, self.manager2.pk)
+        self.assertEqual(step.delegated_from.pk, self.admin.pk)
+        self.assertIsNotNone(step.delegation)
+
+    def test_delegation_snapshot_on_submit(self):
+        """제출 시점 스냅샷: DRAFT에선 원결재자, SUBMITTED 전환 시 대리자 치환."""
+        from apps.approval.services import (
+            apply_delegation_on_submit,
+            build_steps_from_template,
+        )
+        ApprovalDelegation.objects.create(
+            delegator=self.admin,
+            delegate=self.manager2,
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate() + datetime.timedelta(days=3),
+            created_by=self.admin,
+        )
+        tpl = ApprovalLineTemplate.objects.create(
+            name='tpl-deleg-submit',
+            steps=[{'approver_id': self.admin.pk, 'order': 1,
+                    'mode': 'SEQUENTIAL'}],
+            created_by=self.admin,
+        )
+        ar = self._create_request()
+        build_steps_from_template(ar, tpl, actor=self.manager)
+        # DRAFT: 치환 없음
+        step = ar.steps.first()
+        self.assertEqual(step.approver.pk, self.admin.pk)
+        # 제출 시점 스냅샷 호출
+        updated = apply_delegation_on_submit(ar, actor=self.manager)
+        self.assertEqual(updated, 1)
+        step.refresh_from_db()
+        self.assertEqual(step.approver.pk, self.manager2.pk)
+        self.assertEqual(step.delegated_from.pk, self.admin.pk)
+
+    def test_apply_delegation_to_existing_steps(self):
+        """이미 입력된 Step에 위임 적용"""
+        from apps.approval.services import apply_delegation_to_existing_steps
+        ApprovalDelegation.objects.create(
+            delegator=self.admin,
+            delegate=self.manager2,
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate() + datetime.timedelta(days=3),
+            created_by=self.admin,
+        )
+        ar = self._create_request()
+        step = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.admin,
+            created_by=self.manager,
+        )
+        updated = apply_delegation_to_existing_steps(ar, actor=self.manager)
+        self.assertEqual(updated, 1)
+        step.refresh_from_db()
+        self.assertEqual(step.approver.pk, self.manager2.pk)
+        self.assertEqual(step.delegated_from.pk, self.admin.pk)
+
+
+# ====================================================================
+# 13. 통합 시나리오 (직렬 + 병렬 + 위임)
+# ====================================================================
+class IntegratedApprovalFlowTest(ApprovalModelTestBase):
+    """직렬→병렬→직렬 혼합 결재 End-to-End"""
+
+    def test_mixed_sequential_parallel_flow(self):
+        """1단계(직렬) → 2단계(병렬ALL 2인) → 3단계(직렬) 전체 승인"""
+        ar = self._create_request(
+            approval_type='PARALLEL_ALL',
+            status='SUBMITTED',
+            submitted_at=timezone.now(),
+        )
+        s1 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.manager,
+            parallel_mode='SEQUENTIAL', created_by=self.manager,
+        )
+        s2a = ApprovalStep.objects.create(
+            request=ar, step_order=2, approver=self.manager2,
+            parallel_mode='ALL', created_by=self.manager,
+        )
+        s2b = ApprovalStep.objects.create(
+            request=ar, step_order=2, approver=self.manager3,
+            parallel_mode='ALL', created_by=self.manager,
+        )
+        s3 = ApprovalStep.objects.create(
+            request=ar, step_order=3, approver=self.admin,
+            parallel_mode='SEQUENTIAL', created_by=self.manager,
+        )
+        ar.current_step = 1
+        ar.save(update_fields=['current_step', 'updated_at'])
+
+        s1.status = 'APPROVED'
+        s1.acted_at = timezone.now()
+        s1.save()
+        ar.refresh_from_db()
+        self.assertEqual(ar.current_step, 2)
+
+        s2a.status = 'APPROVED'
+        s2a.acted_at = timezone.now()
+        s2a.save()
+        ar.refresh_from_db()
+        self.assertEqual(ar.current_step, 2)  # 아직 대기
+
+        s2b.status = 'APPROVED'
+        s2b.acted_at = timezone.now()
+        s2b.save()
+        ar.refresh_from_db()
+        self.assertEqual(ar.current_step, 3)
+
+        s3.status = 'APPROVED'
+        s3.acted_at = timezone.now()
+        s3.save()
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'APPROVED')
+
+    def test_parallel_any_in_middle_skips_siblings(self):
+        """중간 단계가 PARALLEL_ANY인 혼합 시나리오"""
+        ar = self._create_request(
+            approval_type='PARALLEL_ANY',
+            status='SUBMITTED',
+            submitted_at=timezone.now(),
+        )
+        s1 = ApprovalStep.objects.create(
+            request=ar, step_order=1, approver=self.manager,
+            parallel_mode='SEQUENTIAL', created_by=self.manager,
+        )
+        s2a = ApprovalStep.objects.create(
+            request=ar, step_order=2, approver=self.manager2,
+            parallel_mode='ANY', created_by=self.manager,
+        )
+        s2b = ApprovalStep.objects.create(
+            request=ar, step_order=2, approver=self.manager3,
+            parallel_mode='ANY', created_by=self.manager,
+        )
+        ar.current_step = 1
+        ar.save(update_fields=['current_step', 'updated_at'])
+
+        s1.status = 'APPROVED'
+        s1.acted_at = timezone.now()
+        s1.save()
+
+        s2a.refresh_from_db()
+        s2a.status = 'APPROVED'
+        s2a.acted_at = timezone.now()
+        s2a.save()
+
+        s2b.refresh_from_db()
+        self.assertEqual(s2b.status, 'SKIPPED')
+
+        ar.refresh_from_db()
+        self.assertEqual(ar.status, 'APPROVED')

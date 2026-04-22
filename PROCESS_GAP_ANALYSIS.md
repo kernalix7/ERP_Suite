@@ -95,7 +95,7 @@ if db_status == 'DELIVERED' and is_paid:
 - **실제 구현 확인 필요**: `apps/production/signals.py` 존재 여부?
 
 ```bash
-ls -la /home/kernalix7/Desktop/00_Personal_Project/00G_ERP_Suite/apps/production/signals.py
+ls -la apps/production/signals.py
 # → 파일 존재 여부 확인 필요
 ```
 

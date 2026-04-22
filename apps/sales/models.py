@@ -330,6 +330,23 @@ class Order(BaseModel):
     def __str__(self):
         return self.order_number
 
+    @property
+    def active_cash_receipts(self):
+        """이 주문에 연결된 유효 현금영수증(ISSUED) QuerySet"""
+        from django.contrib.contenttypes.models import ContentType
+        from apps.accounting.models import CashReceipt
+        ct = ContentType.objects.get_for_model(Order)
+        return CashReceipt.objects.filter(
+            content_type=ct,
+            object_id=self.pk,
+            is_active=True,
+            status='ISSUED',
+        )
+
+    @property
+    def has_cash_receipt(self):
+        return self.active_cash_receipts.exists()
+
     def save(self, *args, **kwargs):
         if not self.order_number:
             self.order_number = generate_document_number(Order, 'order_number', 'ORD')

@@ -81,20 +81,67 @@ class ApprovalCreateView(ManagerRequiredMixin, CreateView):
             )
         else:
             ctx['step_formset'] = ApprovalStepFormSet()
+        ctx['line_templates'] = ApprovalLineTemplate.objects.filter(
+            is_active=True,
+        ).order_by('-priority', '-is_default', 'name')
         return ctx
 
     def form_valid(self, form):
+        from django.db import transaction as _tx
+        from apps.approval.services import (
+            apply_delegation_to_existing_steps,
+            build_steps_from_template,
+            find_matching_template,
+        )
+
         ctx = self.get_context_data()
         step_formset = ctx['step_formset']
         form.instance.requester = self.request.user
         form.instance.created_by = self.request.user
-        if step_formset.is_valid():
+        if not step_formset.is_valid():
+            return self.form_invalid(form)
+
+        with _tx.atomic():
             self.object = form.save()
             step_formset.instance = self.object
-            step_formset.save()
+            saved_steps = step_formset.save()
             _save_attachments(self.request, self.object)
-            return redirect(self.get_success_url())
-        return self.form_invalid(form)
+
+            line_template_id = self.request.POST.get('line_template_id')
+            use_auto = self.request.POST.get('use_auto_template') == 'on'
+            applied_template = None
+
+            if line_template_id:
+                try:
+                    tpl = ApprovalLineTemplate.objects.get(
+                        pk=line_template_id, is_active=True,
+                    )
+                    applied_template = tpl
+                except ApprovalLineTemplate.DoesNotExist:
+                    applied_template = None
+
+            if applied_template is None and use_auto:
+                applied_template = find_matching_template(
+                    category=self.object.category,
+                    amount=self.object.amount,
+                    department_id=(
+                        self.object.department_id
+                        if self.object.department_id else None
+                    ),
+                    urgency=self.object.urgency,
+                )
+
+            if applied_template is not None:
+                build_steps_from_template(
+                    self.object, applied_template, actor=self.request.user,
+                )
+            else:
+                # 수동 입력된 Step에 위임 치환 적용
+                apply_delegation_to_existing_steps(
+                    self.object, actor=self.request.user,
+                )
+
+        return redirect(self.get_success_url())
 
 
 class ApprovalUpdateView(ManagerRequiredMixin, UpdateView):
@@ -126,23 +173,52 @@ class ApprovalUpdateView(ManagerRequiredMixin, UpdateView):
         return ctx
 
     def form_valid(self, form):
+        from django.db import transaction as _tx
+        from apps.approval.services import (
+            apply_delegation_to_existing_steps,
+            build_steps_from_template,
+            find_matching_template,
+        )
         ctx = self.get_context_data()
         step_formset = ctx['step_formset']
-        if step_formset.is_valid():
+        if not step_formset.is_valid():
+            return self.form_invalid(form)
+
+        with _tx.atomic():
             self.object = form.save()
             step_formset.instance = self.object
             step_formset.save()
-            # 삭제 요청된 첨부파일 처리
-            del_ids = self.request.POST.getlist(
-                'delete_attachments'
-            )
+            del_ids = self.request.POST.getlist('delete_attachments')
             if del_ids:
-                self.object.attachments.filter(
-                    pk__in=del_ids,
-                ).delete()
+                self.object.attachments.filter(pk__in=del_ids).delete()
             _save_attachments(self.request, self.object)
-            return redirect(self.get_success_url())
-        return self.form_invalid(form)
+
+            line_template_id = self.request.POST.get('line_template_id')
+            use_auto = self.request.POST.get('use_auto_template') == 'on'
+            applied_template = None
+            if line_template_id:
+                try:
+                    applied_template = ApprovalLineTemplate.objects.get(
+                        pk=line_template_id, is_active=True,
+                    )
+                except ApprovalLineTemplate.DoesNotExist:
+                    applied_template = None
+            if applied_template is None and use_auto:
+                applied_template = find_matching_template(
+                    category=self.object.category,
+                    amount=self.object.amount,
+                    department_id=self.object.department_id,
+                    urgency=self.object.urgency,
+                )
+            if applied_template is not None:
+                build_steps_from_template(
+                    self.object, applied_template, actor=self.request.user,
+                )
+            else:
+                apply_delegation_to_existing_steps(
+                    self.object, actor=self.request.user,
+                )
+        return redirect(self.get_success_url())
 
 
 class ApprovalDetailView(ManagerRequiredMixin, DetailView):
@@ -160,20 +236,36 @@ class ApprovalDetailView(ManagerRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['action_form'] = ApprovalActionForm()
-        ctx['steps'] = (
+        all_steps = list(
             self.object.steps
-            .select_related('approver')
-            .order_by('step_order')
+            .select_related('approver', 'delegated_from')
+            .order_by('step_order', 'pk')
         )
+        ctx['steps'] = all_steps
+        # 같은 step_order끼리 그룹핑 (템플릿 렌더링용)
+        grouped = []
+        for step in all_steps:
+            if grouped and grouped[-1]['order'] == step.step_order:
+                grouped[-1]['items'].append(step)
+            else:
+                grouped.append({'order': step.step_order, 'items': [step]})
+        ctx['steps_grouped'] = grouped
         ctx['attachments'] = self.object.attachments.all()
+        # 현재 유저가 승인 가능한 Step (현재 order 내 본인 PENDING Step)
+        my_step_obj = self.object.steps.filter(
+            step_order=self.object.current_step,
+            status='PENDING',
+            approver=self.request.user,
+        ).first()
+        # 대표 표시용 current step (첫 번째 PENDING)
         current_step_obj = self.object.steps.filter(
             step_order=self.object.current_step,
             status='PENDING',
-        ).first()
+        ).order_by('pk').first()
         ctx['current_step_obj'] = current_step_obj
+        ctx['my_step_obj'] = my_step_obj
         ctx['can_approve_step'] = (
-            current_step_obj is not None
-            and current_step_obj.approver == self.request.user
+            my_step_obj is not None
             and self.object.status == 'SUBMITTED'
         )
         ctx['can_approve'] = (
@@ -190,24 +282,49 @@ class ApprovalDetailView(ManagerRequiredMixin, DetailView):
 
 class ApprovalSubmitView(ManagerRequiredMixin, View):
     def post(self, request, slug):
+        from django.db import transaction as _tx
         from django.utils import timezone
         obj = get_object_or_404(
             ApprovalRequest, request_number=slug, requester=request.user,
         )
-        if obj.status == 'DRAFT':
+        if obj.status != 'DRAFT':
+            return HttpResponseRedirect(
+                reverse_lazy('approval:approval_detail', args=[slug])
+            )
+        from apps.approval.services import apply_delegation_on_submit
+        with _tx.atomic():
+            # 위임 스냅샷: 제출 시점에 각 Step의 approver를 활성 위임자로 치환
+            apply_delegation_on_submit(obj, actor=request.user)
             obj.status = 'SUBMITTED'
             obj.submitted_at = timezone.now()
-            obj.save(update_fields=[
-                'status', 'submitted_at', 'updated_at',
-            ])
-            # Notification: 첫 결재자에게 알림
-            first_step = obj.steps.order_by('step_order').first()
+            # 최초 Step이 있으면 current_step을 맞춘다
+            first_step = obj.steps.order_by('step_order', 'pk').first()
             if first_step:
-                from apps.core.notification import create_notification
+                obj.current_step = first_step.step_order
+                obj.save(update_fields=[
+                    'status', 'submitted_at', 'current_step', 'updated_at',
+                ])
+            else:
+                obj.save(update_fields=[
+                    'status', 'submitted_at', 'updated_at',
+                ])
+        # Notification: 첫 단계의 모든 결재자(병렬 포함)에게 알림
+        if first_step:
+            from apps.core.notification import create_notification
+            first_order_approvers = list(
+                obj.steps.filter(
+                    step_order=first_step.step_order,
+                    status=ApprovalStep.Status.PENDING,
+                ).select_related('approver').values_list('approver', flat=True)
+            )
+            if first_order_approvers:
+                from apps.accounts.models import User
+                users = User.objects.filter(pk__in=first_order_approvers)
                 create_notification(
-                    [first_step.approver],
+                    list(users),
                     '결재 요청',
-                    f'{request.user.name or request.user.username}님이 [{obj.title}] 결재를 요청했습니다.',
+                    f'{request.user.name or request.user.username}님이 '
+                    f'[{obj.title}] 결재를 요청했습니다.',
                     noti_type='SYSTEM',
                     link=f'/approval/{obj.request_number}/',
                 )
@@ -261,13 +378,14 @@ class ApprovalStepActionView(ManagerRequiredMixin, View):
             )
 
             if (approval.status != 'SUBMITTED'
-                    or step.status != 'PENDING'):
+                    or step.status != ApprovalStep.Status.PENDING):
                 return HttpResponseRedirect(
                     reverse_lazy(
                         'approval:approval_detail', args=[slug],
                     )
                 )
 
+            # 현재 활성 단계에서만 처리 허용 (병렬 포함)
             if step.step_order != approval.current_step:
                 return HttpResponseRedirect(
                     reverse_lazy(

@@ -47,7 +47,7 @@ def mwo_completed_update_equipment(sender, instance, created, **kwargs):
         # 연결된 보전스케줄이 있으면 다음 예정일 갱신
         schedule = instance.schedule
         if schedule:
-            today = timezone.now().date()
+            today = timezone.localdate()
             next_due = today + timedelta(days=schedule.frequency_days)
             MaintenanceSchedule.objects.filter(pk=schedule.pk).update(
                 last_performed=today,

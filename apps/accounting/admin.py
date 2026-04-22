@@ -11,6 +11,7 @@ from .models import (
     CreditCard, CardTransaction, CardBilling,
     Company, InterCompanyTransaction, ConsolidationPeriod, ConsolidatedReport,
     BankConnection, BankStatement, BankTransaction,
+    CashReceipt,
 )
 
 
@@ -34,6 +35,18 @@ class TaxRateAdmin(SimpleHistoryAdmin):
 class TaxInvoiceAdmin(SimpleHistoryAdmin):
     list_display = ('invoice_number', 'invoice_type', 'partner', 'supply_amount', 'tax_amount', 'issue_date')
     list_filter = ('invoice_type',)
+
+
+@admin.register(CashReceipt)
+class CashReceiptAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'receipt_number', 'issued_at', 'purpose', 'identifier',
+        'partner', 'total_amount', 'status',
+    )
+    list_filter = ('purpose', 'status')
+    search_fields = ('receipt_number', 'identifier', 'partner__name')
+    date_hierarchy = 'issued_at'
+    readonly_fields = ('receipt_number', 'cancelled_at')
 
 
 @admin.register(FixedCost)

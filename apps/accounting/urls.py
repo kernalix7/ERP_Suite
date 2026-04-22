@@ -168,4 +168,11 @@ urlpatterns = [
     path('bank-transactions/<int:pk>/match/', views.BankTransactionMatchView.as_view(), name='bank_transaction_match'),
     path('bank-auto-reconcile/', views.BankAutoReconcileView.as_view(), name='bank_auto_reconcile'),
     path('bank-reconciliation-dashboard/', views.BankReconciliationDashboardView.as_view(), name='bank_reconciliation_dashboard'),
+    # 현금영수증
+    path('cash-receipts/', views.CashReceiptListView.as_view(), name='cash_receipt_list'),
+    path('cash-receipts/create/', views.CashReceiptCreateView.as_view(), name='cash_receipt_create'),
+    path('cash-receipts/monthly-report/', views.CashReceiptMonthlyReportView.as_view(), name='cash_receipt_monthly_report'),
+    path('cash-receipts/order-lookup/', views.CashReceiptOrderLookupView.as_view(), name='cash_receipt_order_lookup'),
+    path('cash-receipts/<int:pk>/', views.CashReceiptDetailView.as_view(), name='cash_receipt_detail'),
+    path('cash-receipts/<int:pk>/cancel/', views.CashReceiptCancelView.as_view(), name='cash_receipt_cancel'),
 ]

@@ -11,7 +11,7 @@ from django.views import View
 
 from apps.core.import_views import BaseImportView
 from apps.core.mixins import AdminRequiredMixin, ManagerRequiredMixin
-from django.db.models import F, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
 
@@ -34,6 +34,7 @@ from .models import (
     Budget, ClosingPeriod,
     CreditCard, CardTransaction, CardBilling,
     CostCenter,
+    CashReceipt, CashReceiptItem,
 )
 from .forms import (
     CurrencyForm, ExchangeRateForm,
@@ -43,6 +44,7 @@ from .forms import (
     AccountTransferForm, PaymentDistributionFormSet,
     CreditCardForm, CardTransactionForm,
     CostCenterForm,
+    CashReceiptForm, CashReceiptCancelForm, CashReceiptItemFormSet,
 )
 
 
@@ -4351,4 +4353,291 @@ class BankReconciliationDashboardView(ManagerRequiredMixin, TemplateView):
         ctx['manual_matched_count'] = BankTransaction.objects.filter(
             is_active=True, match_status=BankTransaction.MatchStatus.MANUAL_MATCHED,
         ).count()
+        return ctx
+
+
+# ==========================================================================
+# 현금영수증 (CashReceipt)
+# ==========================================================================
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
+from django.urls import reverse
+
+
+class CashReceiptListView(LoginRequiredMixin, ListView):
+    model = CashReceipt
+    template_name = 'accounting/cash_receipt_list.html'
+    context_object_name = 'receipts'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = CashReceipt.objects.filter(is_active=True).select_related('partner')
+        purpose = self.request.GET.get('purpose')
+        status = self.request.GET.get('status')
+        partner_id = self.request.GET.get('partner')
+        start = self.request.GET.get('start')
+        end = self.request.GET.get('end')
+        if purpose in (CashReceipt.Purpose.INDIVIDUAL, CashReceipt.Purpose.BUSINESS):
+            qs = qs.filter(purpose=purpose)
+        if status in (CashReceipt.Status.ISSUED, CashReceipt.Status.CANCELLED):
+            qs = qs.filter(status=status)
+        if partner_id:
+            qs = qs.filter(partner_id=partner_id)
+        if start:
+            qs = qs.filter(issued_at__date__gte=start)
+        if end:
+            qs = qs.filter(issued_at__date__lte=end)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['current_purpose'] = self.request.GET.get('purpose', '')
+        ctx['current_status'] = self.request.GET.get('status', '')
+        ctx['start'] = self.request.GET.get('start', '')
+        ctx['end'] = self.request.GET.get('end', '')
+        ctx['purpose_choices'] = CashReceipt.Purpose.choices
+        ctx['status_choices'] = CashReceipt.Status.choices
+        return ctx
+
+
+class CashReceiptDetailView(LoginRequiredMixin, DetailView):
+    model = CashReceipt
+    template_name = 'accounting/cash_receipt_detail.html'
+    context_object_name = 'receipt'
+
+    def get_queryset(self):
+        return CashReceipt.objects.select_related('partner', 'content_type')
+
+
+class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
+    model = CashReceipt
+    form_class = CashReceiptForm
+    template_name = 'accounting/cash_receipt_form.html'
+
+    def _resolve_source_order(self):
+        """GET source_order 파라미터 or 레거시 order_id 파라미터로 Order 로드"""
+        oid = self.request.GET.get('source_order') or self.request.GET.get('order_id')
+        if not oid:
+            return None
+        try:
+            return Order.objects.filter(is_active=True).select_related('partner').prefetch_related('items__product').get(pk=int(oid))
+        except (ValueError, Order.DoesNotExist):
+            return None
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['issued_at'] = timezone.localtime().strftime('%Y-%m-%dT%H:%M')
+        order = self._resolve_source_order()
+        if order:
+            if order.partner_id:
+                initial['partner'] = order.partner_id
+            initial['supply_amount'] = order.total_amount
+            initial['vat'] = order.tax_total
+        return initial
+
+    def get_context_data(self, **kwargs):
+        from django.forms.models import inlineformset_factory
+        from .forms import CashReceiptItemForm
+        ctx = super().get_context_data(**kwargs)
+        order = self._resolve_source_order()
+        if self.request.POST:
+            ctx['items_formset'] = CashReceiptItemFormSet(self.request.POST, prefix='items')
+        else:
+            initial_items = []
+            if order:
+                for it in order.items.filter(is_active=True):
+                    initial_items.append({
+                        'name': it.product.name if it.product_id else '',
+                        'quantity': it.quantity,
+                        'unit_price': it.unit_price,
+                        'supply_amount': it.amount,
+                        'vat': it.tax_amount,
+                        'source_order_item': it.pk,
+                    })
+            DynamicFS = inlineformset_factory(
+                CashReceipt, CashReceiptItem,
+                form=CashReceiptItemForm,
+                extra=max(len(initial_items), 1),
+                can_delete=True,
+            )
+            ctx['items_formset'] = DynamicFS(
+                prefix='items',
+                initial=initial_items,
+                queryset=CashReceiptItem.objects.none(),
+            )
+        ctx['source_order'] = order
+        return ctx
+
+    def form_valid(self, form):
+        items_formset = CashReceiptItemFormSet(self.request.POST, prefix='items')
+        if not items_formset.is_valid():
+            return self.render_to_response(self.get_context_data(form=form, items_formset=items_formset))
+
+        order = self._resolve_source_order()
+        legacy_payment_id = self.request.GET.get('payment_id')
+        legacy_voucher_id = self.request.GET.get('voucher_id')
+
+        with transaction.atomic():
+            form.instance.created_by = self.request.user
+            if order:
+                form.instance.content_type = ContentType.objects.get(app_label='sales', model='order')
+                form.instance.object_id = order.pk
+            elif legacy_payment_id:
+                form.instance.content_type = ContentType.objects.get(app_label='accounting', model='payment')
+                form.instance.object_id = int(legacy_payment_id)
+            elif legacy_voucher_id:
+                form.instance.content_type = ContentType.objects.get(app_label='accounting', model='voucher')
+                form.instance.object_id = int(legacy_voucher_id)
+
+            self.object = form.save()
+
+            items_formset.instance = self.object
+            saved_items = items_formset.save(commit=False)
+            for item in saved_items:
+                if item.created_by_id is None:
+                    item.created_by = self.request.user
+                item.save()
+            for obj in items_formset.deleted_objects:
+                obj.delete()
+
+            if self.object.items.filter(is_active=True).exists():
+                self.object.recalculate_totals()
+
+            if form.instance.content_type and form.instance.object_id:
+                existing_invoice = False
+                if form.instance.content_type.model == 'order':
+                    existing_invoice = TaxInvoice.objects.filter(
+                        is_active=True, order_id=form.instance.object_id,
+                    ).exists()
+                if existing_invoice:
+                    messages.warning(
+                        self.request,
+                        '이 거래에 이미 세금계산서가 발행되어 있습니다. '
+                        '세법상 세금계산서 발행 시 현금영수증은 중복 발행되지 않는 것이 원칙입니다.',
+                    )
+
+            messages.success(
+                self.request,
+                f'현금영수증({self.object.receipt_number})이 발행되었습니다.',
+            )
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_success_url(self):
+        return reverse('accounting:cash_receipt_detail', kwargs={'pk': self.object.pk})
+
+
+class CashReceiptOrderLookupView(ManagerRequiredMixin, View):
+    """AJAX: Order 검색 → 거래처/공급가/부가세/라인 반환"""
+    def get(self, request):
+        from django.http import JsonResponse
+        oid = request.GET.get('order_id')
+        q = (request.GET.get('q') or '').strip()
+        if oid:
+            try:
+                order = Order.objects.filter(is_active=True).select_related('partner').prefetch_related('items__product').get(pk=int(oid))
+            except (ValueError, Order.DoesNotExist):
+                return JsonResponse({'error': '주문을 찾을 수 없습니다.'}, status=404)
+            return JsonResponse({
+                'id': order.pk,
+                'order_number': order.order_number,
+                'partner_id': order.partner_id,
+                'partner_name': order.partner.name if order.partner_id else '',
+                'total_amount': int(order.total_amount or 0),
+                'tax_total': int(order.tax_total or 0),
+                'items': [
+                    {
+                        'source_order_item': it.pk,
+                        'name': it.product.name if it.product_id else '',
+                        'quantity': int(it.quantity or 0),
+                        'unit_price': int(it.unit_price or 0),
+                        'supply_amount': int(it.amount or 0),
+                        'vat': int(it.tax_amount or 0),
+                    }
+                    for it in order.items.filter(is_active=True)
+                ],
+            })
+        qs = Order.objects.filter(is_active=True).select_related('partner')
+        if q:
+            qs = qs.filter(Q(order_number__icontains=q) | Q(partner__name__icontains=q))
+        qs = qs.order_by('-order_date', '-pk')[:20]
+        return JsonResponse({
+            'results': [
+                {
+                    'id': o.pk,
+                    'order_number': o.order_number,
+                    'partner_name': o.partner.name if o.partner_id else '',
+                    'order_date': o.order_date.isoformat() if o.order_date else '',
+                    'total_amount': int(o.total_amount or 0),
+                }
+                for o in qs
+            ],
+        })
+
+
+class CashReceiptCancelView(ManagerRequiredMixin, View):
+    def get(self, request, pk):
+        receipt = get_object_or_404(CashReceipt, pk=pk, is_active=True)
+        if receipt.status == CashReceipt.Status.CANCELLED:
+            messages.error(request, '이미 취소된 현금영수증입니다.')
+            return redirect('accounting:cash_receipt_detail', pk=pk)
+        form = CashReceiptCancelForm()
+        return self._render(request, receipt, form)
+
+    def post(self, request, pk):
+        receipt = get_object_or_404(CashReceipt, pk=pk, is_active=True)
+        if receipt.status == CashReceipt.Status.CANCELLED:
+            messages.error(request, '이미 취소된 현금영수증입니다.')
+            return redirect('accounting:cash_receipt_detail', pk=pk)
+        form = CashReceiptCancelForm(request.POST)
+        if not form.is_valid():
+            return self._render(request, receipt, form)
+        with transaction.atomic():
+            receipt.status = CashReceipt.Status.CANCELLED
+            receipt.cancelled_at = timezone.now()
+            receipt.cancel_reason = form.cleaned_data['cancel_reason']
+            receipt.is_active = False
+            receipt.save(update_fields=['status', 'cancelled_at', 'cancel_reason', 'is_active', 'updated_at'])
+        messages.success(request, f'현금영수증({receipt.receipt_number})이 취소되었습니다.')
+        return redirect('accounting:cash_receipt_list')
+
+    def _render(self, request, receipt, form):
+        from django.shortcuts import render
+        return render(request, 'accounting/cash_receipt_cancel.html', {
+            'receipt': receipt, 'form': form,
+        })
+
+
+class CashReceiptMonthlyReportView(ManagerRequiredMixin, TemplateView):
+    template_name = 'accounting/cash_receipt_monthly_report.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        year = safe_int(self.request.GET.get('year'), date.today().year)
+        ctx['year'] = year
+        ctx['years'] = list(range(date.today().year, date.today().year - 5, -1))
+
+        months = []
+        for m in range(1, 13):
+            qs = CashReceipt.objects.filter(
+                issued_at__year=year, issued_at__month=m,
+                status=CashReceipt.Status.ISSUED,
+            )
+            individual = qs.filter(purpose=CashReceipt.Purpose.INDIVIDUAL).aggregate(
+                cnt=Count('id'), total=Sum('total_amount'),
+            )
+            business = qs.filter(purpose=CashReceipt.Purpose.BUSINESS).aggregate(
+                cnt=Count('id'), total=Sum('total_amount'),
+            )
+            months.append({
+                'month': m,
+                'individual_count': individual['cnt'] or 0,
+                'individual_total': individual['total'] or 0,
+                'business_count': business['cnt'] or 0,
+                'business_total': business['total'] or 0,
+            })
+        ctx['months'] = months
+        ctx['annual_individual'] = sum(m['individual_total'] for m in months)
+        ctx['annual_business'] = sum(m['business_total'] for m in months)
+        ctx['annual_total'] = ctx['annual_individual'] + ctx['annual_business']
         return ctx

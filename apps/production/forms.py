@@ -88,6 +88,46 @@ class ProductionRecordForm(BaseForm):
             'record_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
 
+    def clean(self):
+        cleaned = super().clean()
+        if self.instance and self.instance.pk:
+            return cleaned
+        wo = cleaned.get('work_order')
+        warehouse = cleaned.get('warehouse')
+        good = cleaned.get('good_quantity') or 0
+        defect = cleaned.get('defect_quantity') or 0
+        total = good + defect
+        if not wo or not warehouse or total <= 0:
+            return cleaned
+        plan = wo.production_plan
+        bom = plan.bom if plan else None
+        if not bom:
+            return cleaned
+        from apps.inventory.models import WarehouseStock
+        lines = []
+        for bi in bom.items.select_related('material').all():
+            mat = bi.material
+            if not mat.is_stockable:
+                continue
+            needed = bi.effective_quantity * total
+            ws = WarehouseStock.objects.filter(
+                warehouse=warehouse, product=mat,
+            ).first()
+            avail = ws.quantity if ws else 0
+            if avail < needed:
+                lines.append(
+                    f'{mat.code} {mat.name}: 필요 {needed}, '
+                    f'재고 {avail}, 부족 {needed - avail}'
+                )
+        if lines:
+            raise forms.ValidationError(
+                f'선택한 창고({warehouse.code} {warehouse.name})에 '
+                f'원자재 재고가 부족합니다. 해당 창고로 자재를 이동하거나 '
+                f'자재가 있는 다른 창고를 선택해주세요. — '
+                + ' | '.join(lines)
+            )
+        return cleaned
+
 
 class StandardCostForm(BaseForm):
     material_cost = forms.CharField(

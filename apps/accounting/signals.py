@@ -3,13 +3,13 @@ import uuid
 
 from django.db import transaction
 from django.db.models import F
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from .models import (
     AccountCode, AccountPayable, AccountReceivable, AccountTransfer,
-    BankAccount, CardTransaction, CreditCard, Payment, PaymentDistribution,
-    SalesSettlement, Voucher, VoucherLine,
+    BankAccount, CardTransaction, CashReceiptItem, CreditCard, Payment,
+    PaymentDistribution, SalesSettlement, Voucher, VoucherLine,
 )
 
 logger = logging.getLogger(__name__)
@@ -689,3 +689,14 @@ def auto_voucher_on_settlement(sender, instance, **kwargs):
         SalesSettlement.objects.filter(pk=instance.pk).update(
             commission_voucher=voucher,
         )
+
+
+@receiver(post_delete, sender=CashReceiptItem)
+def recalc_cash_receipt_on_item_delete(sender, instance, **kwargs):
+    """CashReceiptItem 삭제 시 부모 CashReceipt 합계 재계산"""
+    if instance.receipt_id:
+        try:
+            receipt = instance.receipt
+        except sender._meta.get_field('receipt').related_model.DoesNotExist:
+            return
+        receipt.recalculate_totals()

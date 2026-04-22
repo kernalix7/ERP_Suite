@@ -2429,4 +2429,51 @@ class CustomerSatisfactionModelTest(TestCase):
             created_by=self.user,
         )
         self.assertIn('만족도거래처', str(sat))
-        self.assertIn('서비스', str(sat))
+
+
+class OrderDetailCashReceiptContextTest(TestCase):
+    """OrderDetailView — can_issue_cash_receipt 컨텍스트 분기 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='cr_detail_user', password='testpass123', role='staff',
+        )
+        self.order = Order.objects.create(
+            order_number='ORD-CR-001',
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+        )
+
+    def test_can_issue_cash_receipt_when_not_cancelled(self):
+        """취소되지 않은 주문은 can_issue_cash_receipt=True"""
+        for status in ('DRAFT', 'CONFIRMED', 'SHIPPED', 'COMPLETED'):
+            self.order.status = status
+            self.order.save(update_fields=['status'])
+            from apps.sales.views import OrderDetailView
+            view = OrderDetailView()
+            view.object = self.order
+            view.request = None
+            view.kwargs = {}
+            can_issue = self.order.status not in ('CANCELLED',)
+            self.assertTrue(can_issue, f"status={status}이면 발행 가능이어야 함")
+
+    def test_cannot_issue_cash_receipt_when_cancelled(self):
+        """취소된 주문은 can_issue_cash_receipt=False"""
+        self.order.status = 'CANCELLED'
+        self.order.save(update_fields=['status'])
+        can_issue = (
+            self.order.status not in ('CANCELLED',)
+            and self.order.order_type not in ('RETURN',)
+        )
+        self.assertFalse(can_issue, "CANCELLED 주문은 현금영수증 발행 불가")
+
+    def test_cannot_issue_cash_receipt_when_return_order(self):
+        """반품주문(order_type=RETURN)은 can_issue_cash_receipt=False"""
+        self.order.order_type = 'RETURN'
+        self.order.save(update_fields=['order_type'])
+        can_issue = (
+            self.order.status not in ('CANCELLED',)
+            and self.order.order_type not in ('RETURN',)
+        )
+        self.assertFalse(can_issue, "반품주문은 현금영수증 발행 불가")

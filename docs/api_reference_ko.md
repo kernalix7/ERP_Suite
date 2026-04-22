@@ -515,7 +515,7 @@
 
 ## REST API (api)
 
-28개 ViewSet이 DRF Router에 등록되어 있습니다.
+79개 ViewSet이 DRF Router에 등록되어 있습니다.
 
 ### 인증
 

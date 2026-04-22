@@ -13,6 +13,8 @@
           <th class="px-4 py-3">템플릿명</th>
           <th class="px-4 py-3">설명</th>
           <th class="px-4 py-3">단계 수</th>
+          <th class="px-4 py-3">자동적용</th>
+          <th class="px-4 py-3">우선순위</th>
           <th class="px-4 py-3">기본</th>
           <th class="px-4 py-3">등록일</th>
         </tr>
@@ -24,12 +26,16 @@
           <td class="px-4 py-3 text-gray-500">{{ tmpl.description|truncatechars:60 }}</td>
           <td class="px-4 py-3">{{ tmpl.steps|length }}단계</td>
           <td class="px-4 py-3">
+            {% if tmpl.auto_apply %}<span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">자동</span>{% else %}<span class="text-gray-400 text-xs">수동</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-600">{{ tmpl.priority }}</td>
+          <td class="px-4 py-3">
             {% if tmpl.is_default %}<span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">기본</span>{% endif %}
           </td>
           <td class="px-4 py-3 text-gray-500">{{ tmpl.created_at|date:"Y-m-d" }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">등록된 결재선 템플릿이 없습니다.</td></tr>
+        <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">등록된 결재선 템플릿이 없습니다.</td></tr>
         {% endfor %}
       </tbody>
     </table>
