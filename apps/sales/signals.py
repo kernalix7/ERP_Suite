@@ -570,11 +570,13 @@ def _auto_create_tax_invoice(order):
         return
 
     with transaction.atomic():
+        # 회계인식일 우선 — 플랫폼 정산일/카드 승인일 시점차 반영
+        issue_date = order.effective_accounting_date or date.today()
         inv = TaxInvoice.objects.create(
             invoice_type='SALES',
             partner=order.partner,
             order=order,
-            issue_date=date.today(),
+            issue_date=issue_date,
             supply_amount=supply_amount,
             tax_amount=tax_amount,
             total_amount=supply_amount + tax_amount,

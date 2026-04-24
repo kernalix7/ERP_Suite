@@ -65,6 +65,12 @@ class Product(BaseModel):
     unit = models.CharField('단위', max_length=20, default='EA')
     unit_price = models.DecimalField('판매단가', max_digits=12, decimal_places=0, default=0, validators=[MinValueValidator(0)])
     cost_price = models.DecimalField('원가', max_digits=12, decimal_places=0, default=0, validators=[MinValueValidator(0)])
+    net_realizable_value = models.DecimalField(
+        '순실현가능가액(NRV)', max_digits=12, decimal_places=0,
+        null=True, blank=True,
+        help_text='기말 재고평가 기준 — 예상 판매가 − 예상 판매비용. '
+                  '공란 시 평가손실 계산 제외.',
+    )
     valuation_method = models.CharField(
         '재고평가법', max_length=5,
         choices=ValuationMethod.choices, default=ValuationMethod.WEIGHTED_AVG,

@@ -65,4 +65,8 @@ app.conf.beat_schedule = {
         'task': 'apps.helpdesk.tasks.check_sla_breaches',
         'schedule': crontab(minute='*/30'),  # 매 30분
     },
+    'auto-settle-marketplace-weekly': {
+        'task': 'apps.sales.tasks.auto_settle_marketplace_orders',
+        'schedule': crontab(day_of_week=1, hour=4, minute=0),  # 매주 월요일 04:00
+    },
 }

@@ -560,33 +560,7 @@ class IncomeStatementView(ManagerRequiredMixin, TemplateView):
             return 'sga'
         return 'skip'
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        today = date.today()
-        year = safe_int(self.request.GET.get('year'), today.year)
-        month = self.request.GET.get('month')
-        month_int = safe_int(month, 0) if month else 0
-
-        ctx['year'] = year
-        ctx['month'] = month_int
-        ctx['years'] = list(range(today.year, today.year - 5, -1))
-        ctx['months'] = list(range(1, 13))
-
-        if month_int:
-            period_start = date(year, month_int, 1)
-            if month_int == 12:
-                period_end = date(year, 12, 31)
-            else:
-                period_end = date(year, month_int + 1, 1) - timedelta(days=1)
-            ctx['period_label'] = f'{year}년 {month_int}월'
-        else:
-            period_start = date(year, 1, 1)
-            period_end = date(year, 12, 31)
-            ctx['period_label'] = f'{year}년 연간'
-
-        ctx['period_start'] = period_start
-        ctx['period_end'] = period_end
-
+    def _aggregate_period(self, period_start, period_end):
         qs = VoucherLine.objects.filter(
             is_active=True, voucher__is_active=True,
             voucher__approval_status='APPROVED',
@@ -601,12 +575,8 @@ class IncomeStatementView(ManagerRequiredMixin, TemplateView):
         ).order_by('account__code')
 
         buckets = {
-            'sales': [],
-            'cogs': [],
-            'sga': [],
-            'nonop_revenue': [],
-            'nonop_expense': [],
-            'income_tax': [],
+            'sales': [], 'cogs': [], 'sga': [],
+            'nonop_revenue': [], 'nonop_expense': [], 'income_tax': [],
         }
         totals = {k: 0 for k in buckets}
 
@@ -616,8 +586,6 @@ class IncomeStatementView(ManagerRequiredMixin, TemplateView):
             atype = row['account__account_type']
             debit = int(row['total_debit'] or 0)
             credit = int(row['total_credit'] or 0)
-            # REVENUE: 대변 - 차변 (정상 대변잔액)
-            # EXPENSE: 차변 - 대변 (정상 차변잔액)
             if atype == 'REVENUE':
                 amount = credit - debit
             else:
@@ -630,7 +598,6 @@ class IncomeStatementView(ManagerRequiredMixin, TemplateView):
             })
             totals[bucket] += amount
 
-        # K-GAAP 9단계
         step1_revenue = totals['sales']
         step2_cogs = totals['cogs']
         step3_gross = step1_revenue - step2_cogs
@@ -642,23 +609,86 @@ class IncomeStatementView(ManagerRequiredMixin, TemplateView):
         step8_tax = totals['income_tax']
         step9_net = step7_pretax - step8_tax
 
-        ctx['buckets'] = buckets
-        ctx['step1_revenue'] = step1_revenue
-        ctx['step2_cogs'] = step2_cogs
-        ctx['step3_gross'] = step3_gross
-        ctx['step4_sga'] = step4_sga
-        ctx['step5_operating'] = step5_operating
-        ctx['step6_nonop_rev'] = step6_nonop_rev
-        ctx['step6_nonop_exp'] = step6_nonop_exp
-        ctx['step7_pretax'] = step7_pretax
-        ctx['step8_tax'] = step8_tax
-        ctx['step9_net'] = step9_net
+        return {
+            'buckets': buckets,
+            'step1_revenue': step1_revenue,
+            'step2_cogs': step2_cogs,
+            'step3_gross': step3_gross,
+            'step4_sga': step4_sga,
+            'step5_operating': step5_operating,
+            'step6_nonop_rev': step6_nonop_rev,
+            'step6_nonop_exp': step6_nonop_exp,
+            'step7_pretax': step7_pretax,
+            'step8_tax': step8_tax,
+            'step9_net': step9_net,
+        }
 
-        # 비율
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = date.today()
+        year = safe_int(self.request.GET.get('year'), today.year)
+        month = self.request.GET.get('month')
+        month_int = safe_int(month, 0) if month else 0
+        compare = self.request.GET.get('compare', '1') == '1'
+
+        ctx['year'] = year
+        ctx['month'] = month_int
+        ctx['compare'] = compare
+        ctx['years'] = list(range(today.year, today.year - 5, -1))
+        ctx['months'] = list(range(1, 13))
+
+        if month_int:
+            period_start = date(year, month_int, 1)
+            if month_int == 12:
+                period_end = date(year, 12, 31)
+            else:
+                period_end = date(year, month_int + 1, 1) - timedelta(days=1)
+            ctx['period_label'] = f'{year}년 {month_int}월'
+            prior_start = date(year - 1, month_int, 1)
+            if month_int == 12:
+                prior_end = date(year - 1, 12, 31)
+            else:
+                prior_end = date(year - 1, month_int + 1, 1) - timedelta(days=1)
+            prior_label = f'{year - 1}년 {month_int}월'
+        else:
+            period_start = date(year, 1, 1)
+            period_end = date(year, 12, 31)
+            ctx['period_label'] = f'{year}년 연간'
+            prior_start = date(year - 1, 1, 1)
+            prior_end = date(year - 1, 12, 31)
+            prior_label = f'{year - 1}년 연간'
+
+        ctx['period_start'] = period_start
+        ctx['period_end'] = period_end
+        ctx['prior_period_label'] = prior_label
+
+        current = self._aggregate_period(period_start, period_end)
+        ctx['buckets'] = current['buckets']
+        for key in ('step1_revenue', 'step2_cogs', 'step3_gross', 'step4_sga',
+                    'step5_operating', 'step6_nonop_rev', 'step6_nonop_exp',
+                    'step7_pretax', 'step8_tax', 'step9_net'):
+            ctx[key] = current[key]
+
+        if compare:
+            prior = self._aggregate_period(prior_start, prior_end)
+            ctx['prior'] = prior
+            # YoY 증감률 (전년 대비)
+            def _pct(cur, prev):
+                if not prev:
+                    return None
+                return round((cur - prev) / abs(prev) * 100, 1)
+            ctx['yoy'] = {
+                'revenue': _pct(current['step1_revenue'], prior['step1_revenue']),
+                'gross': _pct(current['step3_gross'], prior['step3_gross']),
+                'operating': _pct(current['step5_operating'], prior['step5_operating']),
+                'net': _pct(current['step9_net'], prior['step9_net']),
+            }
+
+        step1_revenue = current['step1_revenue']
         if step1_revenue:
-            ctx['gross_margin_pct'] = round(step3_gross / step1_revenue * 100, 2)
-            ctx['operating_margin_pct'] = round(step5_operating / step1_revenue * 100, 2)
-            ctx['net_margin_pct'] = round(step9_net / step1_revenue * 100, 2)
+            ctx['gross_margin_pct'] = round(current['step3_gross'] / step1_revenue * 100, 2)
+            ctx['operating_margin_pct'] = round(current['step5_operating'] / step1_revenue * 100, 2)
+            ctx['net_margin_pct'] = round(current['step9_net'] / step1_revenue * 100, 2)
         else:
             ctx['gross_margin_pct'] = 0
             ctx['operating_margin_pct'] = 0
@@ -693,6 +723,72 @@ class WithholdingTaxUpdateView(ManagerRequiredMixin, UpdateView):
     form_class = WithholdingTaxForm
     template_name = 'accounting/withholding_form.html'
     success_url = reverse_lazy('accounting:withholding_list')
+
+
+class WithholdingTaxReportView(ManagerRequiredMixin, TemplateView):
+    """원천세 월별 납부/신고서 — 세목별 집계 + 익월 10일 납부 기한 표시."""
+    template_name = 'accounting/withholding_report.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        year = safe_int(self.request.GET.get('year'), date.today().year)
+        month = safe_int(self.request.GET.get('month'), date.today().month)
+        month = max(1, min(12, month))
+
+        import calendar as _cal
+        period_start = date(year, month, 1)
+        period_end = date(year, month, _cal.monthrange(year, month)[1])
+        # 납부기한 — 지급월 익월 10일
+        if month == 12:
+            due_date = date(year + 1, 1, 10)
+        else:
+            due_date = date(year, month + 1, 10)
+
+        base_qs = WithholdingTax.objects.filter(
+            is_active=True,
+            payment_date__gte=period_start,
+            payment_date__lte=period_end,
+        )
+
+        by_type = []
+        for key, label in WithholdingTax.TaxType.choices:
+            agg = base_qs.filter(tax_type=key).aggregate(
+                gross=Sum('gross_amount'),
+                tax=Sum('tax_amount'),
+                net=Sum('net_amount'),
+                cnt=Count('pk'),
+            )
+            by_type.append({
+                'code': key, 'label': label,
+                'gross': agg['gross'] or 0,
+                'tax': agg['tax'] or 0,
+                'net': agg['net'] or 0,
+                'count': agg['cnt'] or 0,
+            })
+
+        totals = base_qs.aggregate(
+            gross=Sum('gross_amount'),
+            tax=Sum('tax_amount'),
+            net=Sum('net_amount'),
+            cnt=Count('pk'),
+        )
+
+        ctx.update({
+            'year': year,
+            'month': month,
+            'period_start': period_start,
+            'period_end': period_end,
+            'due_date': due_date,
+            'by_type': by_type,
+            'total_gross': totals['gross'] or 0,
+            'total_tax': totals['tax'] or 0,
+            'total_net': totals['net'] or 0,
+            'total_count': totals['cnt'] or 0,
+            'years': list(range(date.today().year, date.today().year - 5, -1)),
+            'months': list(range(1, 13)),
+            'items': base_qs.order_by('payment_date', 'pk'),
+        })
+        return ctx
 
 
 # === 계정과목 ===
@@ -3355,7 +3451,14 @@ class BalanceSheetExcelView(ManagerRequiredMixin, TemplateView):
 
 
 class CashFlowView(ManagerRequiredMixin, TemplateView):
-    """현금흐름표 — 영업/투자/재무 활동별 현금 흐름"""
+    """현금흐름표 — 영업/투자/재무 활동별 현금 흐름.
+
+    **method 파라미터:**
+    - `indirect` (기본) — 간접법: 순이익 + 비현금비용 ± AR/AP 변동
+    - `direct` — 직접법: 실제 Payment(RECEIPT/DISBURSEMENT) 집계
+
+    AR/AP 변동은 기간 경계잔액 차이로 계산 (정확도 개선).
+    """
     template_name = 'accounting/cash_flow.html'
 
     def get_context_data(self, **kwargs):
@@ -3363,8 +3466,12 @@ class CashFlowView(ManagerRequiredMixin, TemplateView):
         today = date.today()
         from_date = self.request.GET.get('from_date', date(today.year, 1, 1).isoformat())
         to_date = self.request.GET.get('to_date', today.isoformat())
+        method = self.request.GET.get('method', 'indirect').lower()
+        if method not in ('indirect', 'direct'):
+            method = 'indirect'
         ctx['from_date'] = from_date
         ctx['to_date'] = to_date
+        ctx['method'] = method
 
         base_qs = VoucherLine.objects.filter(
             is_active=True, voucher__is_active=True,
@@ -3386,23 +3493,57 @@ class CashFlowView(ManagerRequiredMixin, TemplateView):
             - (expense_lines.aggregate(s=Sum('credit'))['s'] or 0)
         )
 
-        # AR/AP 변동
-        ar_change = int(
+        # AR/AP 변동 — 기간 경계잔액 차이 (정밀화)
+        # 기초: created_at < from_date 인 AR 미회수분 합계
+        # 기말: created_at <= to_date 인 AR 미회수분 합계
+        # 변동 = 기말 - 기초 (양수면 현금 유출, 음수면 현금 유입)
+        ar_start = int(
             AccountReceivable.objects.filter(
                 is_active=True,
-                created_at__date__gte=from_date,
+                created_at__date__lt=from_date,
+            ).aggregate(s=Sum(F('amount') - F('paid_amount')))['s'] or 0
+        )
+        ar_end = int(
+            AccountReceivable.objects.filter(
+                is_active=True,
                 created_at__date__lte=to_date,
             ).aggregate(s=Sum(F('amount') - F('paid_amount')))['s'] or 0
         )
-        ap_change = int(
+        ar_change = ar_end - ar_start
+
+        ap_start = int(
             AccountPayable.objects.filter(
                 is_active=True,
-                created_at__date__gte=from_date,
+                created_at__date__lt=from_date,
+            ).aggregate(s=Sum(F('amount') - F('paid_amount')))['s'] or 0
+        )
+        ap_end = int(
+            AccountPayable.objects.filter(
+                is_active=True,
                 created_at__date__lte=to_date,
             ).aggregate(s=Sum(F('amount') - F('paid_amount')))['s'] or 0
         )
+        ap_change = ap_end - ap_start
 
-        operating = revenue_total - expense_total - ar_change + ap_change
+        if method == 'direct':
+            # 직접법: 실제 Payment 집계
+            pay_in = int(Payment.objects.filter(
+                is_active=True,
+                payment_type='RECEIPT',
+                payment_date__gte=from_date,
+                payment_date__lte=to_date,
+            ).aggregate(s=Sum('amount'))['s'] or 0)
+            pay_out = int(Payment.objects.filter(
+                is_active=True,
+                payment_type='DISBURSEMENT',
+                payment_date__gte=from_date,
+                payment_date__lte=to_date,
+            ).aggregate(s=Sum('amount'))['s'] or 0)
+            operating = pay_in - pay_out
+            ctx['direct_inflow'] = pay_in
+            ctx['direct_outflow'] = pay_out
+        else:
+            operating = revenue_total - expense_total - ar_change + ap_change
 
         # 투자활동: 자산 취득(-), 처분(+)
         from apps.asset.models import FixedAsset
@@ -3442,7 +3583,11 @@ class CashFlowView(ManagerRequiredMixin, TemplateView):
         ctx.update({
             'revenue_total': revenue_total,
             'expense_total': expense_total,
+            'ar_start': ar_start,
+            'ar_end': ar_end,
             'ar_change': ar_change,
+            'ap_start': ap_start,
+            'ap_end': ap_end,
             'ap_change': ap_change,
             'operating': operating,
             'acquisitions': acquisitions,
@@ -3889,14 +4034,30 @@ class VATReturnView(ManagerRequiredMixin, TemplateView):
             'count': cash_receipt_agg['cnt'] or 0,
         }
 
-        # ── 매입 2구분 ──
+        # ── 매입 4구분 ──
         base_purchase_qs = TaxInvoice.objects.filter(
             is_active=True,
             invoice_type=TaxInvoice.InvoiceType.PURCHASE,
             issue_date__gte=period_start,
             issue_date__lte=period_end,
         )
-        purchase_taxable = _sum(base_purchase_qs, tax_type=TaxInvoice.TaxType.TAXABLE)
+        # 일반매입(공제) — 과세 + DEDUCTIBLE
+        purchase_taxable = _sum(
+            base_purchase_qs,
+            tax_type=TaxInvoice.TaxType.TAXABLE,
+            vat_deduction_type=TaxInvoice.VatDeductionType.DEDUCTIBLE,
+        )
+        # 의제매입세액 — 면세 농축수산물 등 공급가액 일부를 세액공제
+        purchase_deemed = _sum(
+            base_purchase_qs,
+            vat_deduction_type=TaxInvoice.VatDeductionType.DEEMED,
+        )
+        # 공제받지못할매입(접대비·사업무관) — 집계만, 세액공제 제외
+        purchase_non_deductible = _sum(
+            base_purchase_qs,
+            vat_deduction_type=TaxInvoice.VatDeductionType.NON_DEDUCTIBLE,
+        )
+        # 면세 매입 (세액 없음)
         purchase_exempt_agg = base_purchase_qs.exclude(
             tax_type=TaxInvoice.TaxType.TAXABLE,
         ).aggregate(
@@ -3912,7 +4073,8 @@ class VATReturnView(ManagerRequiredMixin, TemplateView):
 
         # ── 매출세액(자사발행분만, 플랫폼대행은 플랫폼이 납부) ──
         sales_output_tax = sales_taxable_self['tax']
-        purchase_input_tax = purchase_taxable['tax']
+        # 매입세액공제 = 일반매입 + 의제매입세액 (공제받지못할매입은 제외)
+        purchase_input_tax = purchase_taxable['tax'] + purchase_deemed['tax']
         payable_tax = sales_output_tax - purchase_input_tax
 
         # 총 매출(공급가액 기준) — 부가세신고서 상단 공급가액 합계
@@ -3938,6 +4100,8 @@ class VATReturnView(ManagerRequiredMixin, TemplateView):
             'sales_exempt': sales_exempt,
             'cash_receipts_total': cash_receipts_total,
             'purchase_taxable': purchase_taxable,
+            'purchase_deemed': purchase_deemed,
+            'purchase_non_deductible': purchase_non_deductible,
             'purchase_exempt': purchase_exempt,
             'sales_output_tax': sales_output_tax,
             'purchase_input_tax': purchase_input_tax,
@@ -3952,6 +4116,177 @@ class VATReturnView(ManagerRequiredMixin, TemplateView):
             'purchase_tax': purchase_input_tax,
         })
         return ctx
+
+
+class VATReturnExcelView(VATReturnView):
+    """부가세 신고서 Excel 내보내기 — VATReturnView 의 집계 결과를 재사용."""
+
+    def get(self, request, *args, **kwargs):
+        import openpyxl
+        from openpyxl.styles import Font, Alignment
+
+        ctx = self.get_context_data(**kwargs)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = '부가세신고서'
+        bold = Font(bold=True)
+        center = Alignment(horizontal='center')
+
+        ws.cell(row=1, column=1, value=(
+            f'{ctx["year"]}년 {ctx["quarter"]}분기 부가가치세 신고서'
+        )).font = bold
+        ws.cell(row=2, column=1, value=(
+            f'기간: {ctx["period_start"]} ~ {ctx["period_end"]}'
+        ))
+
+        # 매출 섹션
+        ws.cell(row=4, column=1, value='【매출 4구분】').font = bold
+        row = 5
+        for label, data in [
+            ('① 과세 자사발행', ctx['sales_taxable_self']),
+            ('② 과세 플랫폼/세무사대행', ctx['sales_taxable_outsourced']),
+            ('③ 영세율(수출)', ctx['sales_zero_rate']),
+            ('④ 면세', ctx['sales_exempt']),
+        ]:
+            ws.cell(row=row, column=1, value=label)
+            ws.cell(row=row, column=2, value=int(data['supply']))
+            ws.cell(row=row, column=3, value=int(data['tax']))
+            ws.cell(row=row, column=4, value=int(data['count']))
+            row += 1
+        ws.cell(row=row, column=1, value='(보조) 현금영수증 매출')
+        cr = ctx['cash_receipts_total']
+        ws.cell(row=row, column=2, value=int(cr['supply']))
+        ws.cell(row=row, column=3, value=int(cr['tax']))
+        ws.cell(row=row, column=4, value=int(cr['count']))
+        row += 2
+
+        # 매입 섹션
+        ws.cell(row=row, column=1, value='【매입 4구분】').font = bold
+        row += 1
+        for label, data in [
+            ('① 일반매입(공제)', ctx['purchase_taxable']),
+            ('② 의제매입세액', ctx['purchase_deemed']),
+            ('③ 공제받지못할매입', ctx['purchase_non_deductible']),
+            ('④ 면세 매입', ctx['purchase_exempt']),
+        ]:
+            ws.cell(row=row, column=1, value=label)
+            ws.cell(row=row, column=2, value=int(data['supply']))
+            ws.cell(row=row, column=3, value=int(data['tax']))
+            ws.cell(row=row, column=4, value=int(data['count']))
+            row += 1
+        row += 1
+
+        # 납부세액
+        ws.cell(row=row, column=1, value='【납부세액】').font = bold
+        row += 1
+        ws.cell(row=row, column=1, value='매출세액(자사발행 과세분)')
+        ws.cell(row=row, column=3, value=int(ctx['sales_output_tax']))
+        row += 1
+        ws.cell(row=row, column=1, value='매입세액공제(일반 + 의제)')
+        ws.cell(row=row, column=3, value=int(ctx['purchase_input_tax']))
+        row += 1
+        ws.cell(row=row, column=1, value='납부할 세액').font = bold
+        c = ws.cell(row=row, column=3, value=int(ctx['payable_tax']))
+        c.font = bold
+        c.alignment = center
+
+        ws.cell(row=4, column=1).alignment = center
+        for col in [1, 2, 3, 4]:
+            ws.column_dimensions[chr(ord('A') + col - 1)].width = 28
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename=vat_return_{ctx["year"]}Q{ctx["quarter"]}.xlsx'
+        )
+        wb.save(response)
+        return response
+
+
+class VATReturnPDFView(VATReturnView):
+    """부가세 신고서 PDF 내보내기 — ReportLab A4 단면."""
+
+    def get(self, request, *args, **kwargs):
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import (
+            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+        )
+        from apps.core.pdf import _get_font
+
+        ctx = self.get_context_data(**kwargs)
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'attachment; filename=vat_return_{ctx["year"]}Q{ctx["quarter"]}.pdf'
+        )
+
+        doc = SimpleDocTemplate(response, pagesize=A4)
+        font = _get_font()
+        styles = getSampleStyleSheet()
+        title_style = styles['Title']
+        title_style.fontName = font
+        body_style = styles['BodyText']
+        body_style.fontName = font
+
+        flowables = []
+        flowables.append(Paragraph(
+            f'{ctx["year"]}년 {ctx["quarter"]}분기 부가가치세 신고서',
+            title_style,
+        ))
+        flowables.append(Paragraph(
+            f'기간: {ctx["period_start"]} ~ {ctx["period_end"]}',
+            body_style,
+        ))
+        flowables.append(Spacer(1, 12))
+
+        def _tbl(title, rows):
+            flowables.append(Paragraph(f'<b>{title}</b>', body_style))
+            data = [['구분', '공급가액', '세액', '건수']]
+            for r in rows:
+                data.append([r[0], f'{int(r[1]["supply"]):,}', f'{int(r[1]["tax"]):,}', r[1]['count']])
+            t = Table(data, colWidths=[160, 110, 110, 60])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('FONTNAME', (0, 0), (-1, -1), font),
+                ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ]))
+            flowables.append(t)
+            flowables.append(Spacer(1, 12))
+
+        _tbl('매출 4구분', [
+            ('① 과세 자사발행', ctx['sales_taxable_self']),
+            ('② 과세 플랫폼/세무사대행', ctx['sales_taxable_outsourced']),
+            ('③ 영세율(수출)', ctx['sales_zero_rate']),
+            ('④ 면세', ctx['sales_exempt']),
+        ])
+        _tbl('매입 4구분', [
+            ('① 일반매입(공제)', ctx['purchase_taxable']),
+            ('② 의제매입세액', ctx['purchase_deemed']),
+            ('③ 공제받지못할매입', ctx['purchase_non_deductible']),
+            ('④ 면세 매입', ctx['purchase_exempt']),
+        ])
+
+        summary = [
+            ['매출세액(자사발행 과세분)', f'{int(ctx["sales_output_tax"]):,}'],
+            ['매입세액공제(일반+의제)', f'{int(ctx["purchase_input_tax"]):,}'],
+            ['납부할 세액', f'{int(ctx["payable_tax"]):,}'],
+        ]
+        t = Table(summary, colWidths=[260, 180])
+        t.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, 0), (-1, -1), font),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.whitesmoke),
+            ('FONTSIZE', (0, -1), (-1, -1), 12),
+        ]))
+        flowables.append(t)
+
+        doc.build(flowables)
+        return response
 
 
 # ── 원가센터 ────────────────────────────────────────

@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-bold">{% trans "원천세 월별 신고서" %}</h1>
+    <a href="{% url 'accounting:withholding_list' %}"
+       class="text-sm text-blue-600 hover:underline">{% trans "목록" %}</a>
+  </div>
+
+  <form method="get" class="mb-4 flex flex-wrap gap-2 items-center">
+    <select name="year" class="form-input">
+      {% for y in years %}
+        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}년</option>
+      {% endfor %}
+    </select>
+    <select name="month" class="form-input">
+      {% for m in months %}
+        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}월</option>
+      {% endfor %}
+    </select>
+    <button type="submit"
+            class="btn btn-primary">{% trans "조회" %}</button>
+  </form>
+
+  <div class="bg-white border rounded p-4 mb-4">
+    <dl class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <div>
+        <dt class="text-gray-500">{% trans "신고기간" %}</dt>
+        <dd class="font-medium">{{ period_start|date:"Y-m-d" }} ~ {{ period_end|date:"Y-m-d" }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-500">{% trans "납부기한" %}</dt>
+        <dd class="font-medium text-red-600">{{ due_date|date:"Y-m-d" }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-500">{% trans "총 지급액" %}</dt>
+        <dd class="font-medium">{{ total_gross|intcomma }}원</dd>
+      </div>
+      <div>
+        <dt class="text-gray-500">{% trans "총 원천징수액" %}</dt>
+        <dd class="font-bold text-red-700">{{ total_tax|intcomma }}원</dd>
+      </div>
+    </dl>
+  </div>
+
+  <h2 class="text-lg font-semibold mt-6 mb-2">{% trans "세목별 집계" %}</h2>
+  <div class="overflow-x-auto">
+    <table class="table-auto w-full border">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-2 py-1 text-left">{% trans "세목" %}</th>
+          <th class="px-2 py-1 text-right">{% trans "건수" %}</th>
+          <th class="px-2 py-1 text-right">{% trans "지급액" %}</th>
+          <th class="px-2 py-1 text-right">{% trans "원천징수액" %}</th>
+          <th class="px-2 py-1 text-right">{% trans "실지급액" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in by_type %}
+        <tr class="border-t">
+          <td class="px-2 py-1">{{ row.label }}</td>
+          <td class="px-2 py-1 text-right">{{ row.count|intcomma }}</td>
+          <td class="px-2 py-1 text-right">{{ row.gross|intcomma }}</td>
+          <td class="px-2 py-1 text-right">{{ row.tax|intcomma }}</td>
+          <td class="px-2 py-1 text-right">{{ row.net|intcomma }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="bg-gray-100 font-semibold">
+        <tr>
+          <td class="px-2 py-1">{% trans "합계" %}</td>
+          <td class="px-2 py-1 text-right">{{ total_count|intcomma }}</td>
+          <td class="px-2 py-1 text-right">{{ total_gross|intcomma }}</td>
+          <td class="px-2 py-1 text-right">{{ total_tax|intcomma }}</td>
+          <td class="px-2 py-1 text-right">{{ total_net|intcomma }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <h2 class="text-lg font-semibold mt-6 mb-2">{% trans "상세 내역" %}</h2>
+  <div class="overflow-x-auto">
+    <table class="table-auto w-full border text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-2 py-1 text-left">{% trans "지급일" %}</th>
+          <th class="px-2 py-1 text-left">{% trans "소득자" %}</th>
+          <th class="px-2 py-1 text-left">{% trans "세목" %}</th>
+          <th class="px-2 py-1 text-right">{% trans "지급액" %}</th>
+          <th class="px-2 py-1 text-right">{% trans "세율" %}</th>
+          <th class="px-2 py-1 text-right">{% trans "원천징수액" %}</th>
+          <th class="px-2 py-1 text-right">{% trans "실지급액" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in items %}
+        <tr class="border-t">
+          <td class="px-2 py-1">{{ w.payment_date|date:"Y-m-d" }}</td>
+          <td class="px-2 py-1">{{ w.payee_name }}</td>
+          <td class="px-2 py-1">{{ w.get_tax_type_display }}</td>
+          <td class="px-2 py-1 text-right">{{ w.gross_amount|intcomma }}</td>
+          <td class="px-2 py-1 text-right">{{ w.tax_rate }}%</td>
+          <td class="px-2 py-1 text-right">{{ w.tax_amount|intcomma }}</td>
+          <td class="px-2 py-1 text-right">{{ w.net_amount|intcomma }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-2 py-4 text-center text-gray-400">{% trans "데이터 없음" %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

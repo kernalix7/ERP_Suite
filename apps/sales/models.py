@@ -284,6 +284,11 @@ class Order(BaseModel):
         related_name='assigned_orders',
     )
     order_date = models.DateField('주문일')
+    accounting_date = models.DateField(
+        '회계인식일', null=True, blank=True,
+        help_text='매출/세금계산서 귀속월 — 공란 시 order_date 사용. '
+                  '플랫폼 정산일과 카드 승인일 차이가 있을 때 회계 기간 분리용.',
+    )
     delivery_date = models.DateField('납기일', null=True, blank=True)
     status = models.CharField(
         '상태', max_length=20,
@@ -388,6 +393,11 @@ class Order(BaseModel):
     @property
     def has_cash_receipt(self):
         return self.active_cash_receipts.exists()
+
+    @property
+    def effective_accounting_date(self):
+        """회계인식일 반환 — accounting_date 우선, 공란이면 order_date"""
+        return self.accounting_date or self.order_date
 
     def save(self, *args, **kwargs):
         if not self.order_number:

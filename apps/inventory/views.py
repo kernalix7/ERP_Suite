@@ -914,6 +914,7 @@ class InventoryValuationView(LoginRequiredMixin, TemplateView):
         rows = []
         total_valuation = Decimal('0')
         total_stock_value_avg = Decimal('0')
+        total_nrv_loss = Decimal('0')
 
         for product in products:
             stats = lot_stats_map.get(product.pk, {'lot_count': 0, 'lot_valuation': Decimal('0')})
@@ -932,16 +933,30 @@ class InventoryValuationView(LoginRequiredMixin, TemplateView):
                 product.current_stock * product.cost_price
             ).quantize(Decimal('1'))
 
+            # NRV(순실현가능가액) 기반 저가법 평가손실 — K-GAAP 재고자산 손상차손
+            nrv_value = None
+            nrv_loss = Decimal('0')
+            if product.net_realizable_value is not None:
+                nrv_value = (
+                    product.current_stock * product.net_realizable_value
+                ).quantize(Decimal('1'))
+                # 평가손실 = max(0, 장부가액 − NRV 환산액)
+                nrv_loss = max(Decimal('0'), valuation_amount - nrv_value)
+                total_nrv_loss += nrv_loss
+
             rows.append({
                 'product': product,
                 'valuation_method_display': product.get_valuation_method_display(),
                 'valuation_amount': valuation_amount,
+                'nrv_value': nrv_value,
+                'nrv_loss': nrv_loss,
                 'lot_count': stats['lot_count'],
             })
 
         context['rows'] = rows
         context['total_valuation'] = total_valuation
         context['total_stock_value_avg'] = total_stock_value_avg
+        context['total_nrv_loss'] = total_nrv_loss
         context['product_count'] = len(rows)
         context['q'] = q
         context['valuation_filter'] = valuation_filter

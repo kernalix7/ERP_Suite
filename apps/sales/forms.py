@@ -87,7 +87,7 @@ class OrderForm(BaseForm):
         model = Order
         fields = [
             'order_number', 'order_type', 'partner', 'customer',
-            'assigned_to', 'order_date', 'delivery_date',
+            'assigned_to', 'order_date', 'accounting_date', 'delivery_date',
             'sales_channel', 'payment_method', 'tax_type',
             'vat_included', 'bank_account', 'shipping_charged', 'shipping_cost',
             'shipping_address', 'shipping_address_road', 'shipping_address_detail',
@@ -95,6 +95,7 @@ class OrderForm(BaseForm):
         ]
         widgets = {
             'order_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'accounting_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
             'delivery_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
 

@@ -55,6 +55,7 @@ urlpatterns = [
     path('withholding/', views.WithholdingTaxListView.as_view(), name='withholding_list'),
     path('withholding/create/', views.WithholdingTaxCreateView.as_view(), name='withholding_create'),
     path('withholding/<int:pk>/edit/', views.WithholdingTaxUpdateView.as_view(), name='withholding_update'),
+    path('withholding/report/', views.WithholdingTaxReportView.as_view(), name='withholding_report'),
     # 계정별 원장 / 시산표 / 은행대사
     path('ledger/', views.AccountLedgerView.as_view(), name='account_ledger'),
     path('trial-balance/', views.TrialBalanceView.as_view(), name='trial_balance'),
@@ -147,6 +148,8 @@ urlpatterns = [
     path('withholding/excel/', excel_views.WithholdingTaxExcelView.as_view(), name='withholding_excel'),
     # 부가세 신고서
     path('vat-return/', views.VATReturnView.as_view(), name='vat_return'),
+    path('vat-return/excel/', views.VATReturnExcelView.as_view(), name='vat_return_excel'),
+    path('vat-return/pdf/', views.VATReturnPDFView.as_view(), name='vat_return_pdf'),
     # ──── Phase 15: 다중법인/연결회계 ────
     path('companies/', views.CompanyListView.as_view(), name='company_list'),
     path('companies/create/', views.CompanyCreateView.as_view(), name='company_create'),

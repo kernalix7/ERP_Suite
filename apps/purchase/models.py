@@ -59,6 +59,18 @@ class PurchaseOrder(BaseModel):
         '과세 거래', default=True,
         help_text='면세(중고거래, 개인 간 현금거래 등)인 경우 해제',
     )
+
+    class VatDeductionType(models.TextChoices):
+        DEDUCTIBLE = 'DEDUCTIBLE', '일반매입(공제)'
+        DEEMED = 'DEEMED', '의제매입세액(면세 농축수산물)'
+        NON_DEDUCTIBLE = 'NON_DEDUCTIBLE', '공제받지못할매입(접대비·사업무관)'
+
+    vat_deduction_type = models.CharField(
+        '매입세액 구분', max_length=20,
+        choices=VatDeductionType.choices,
+        default=VatDeductionType.DEDUCTIBLE,
+        help_text='부가세 신고 시 매입세액 구분 — 의제/불공제는 별도 집계',
+    )
     approval_request = models.ForeignKey(
         'approval.ApprovalRequest',
         verbose_name='품의서',

@@ -258,6 +258,7 @@ def _auto_create_purchase_tax_invoice(po):
         supply_amount=supply_amount,
         tax_amount=tax_amount,
         total_amount=supply_amount + tax_amount,
+        vat_deduction_type=getattr(po, 'vat_deduction_type', 'DEDUCTIBLE'),
         description=f'발주 {po.po_number} 매입 세금계산서',
         created_by=po.created_by,
     )

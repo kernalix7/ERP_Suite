@@ -123,6 +123,18 @@ class TaxInvoice(BaseModel):
         choices=IssuerType.choices, default=IssuerType.SELF,
     )
     platform_name = models.CharField('대행플랫폼', max_length=64, blank=True)
+
+    class VatDeductionType(models.TextChoices):
+        DEDUCTIBLE = 'DEDUCTIBLE', '일반매입(공제)'
+        DEEMED = 'DEEMED', '의제매입세액(면세 농축수산물)'
+        NON_DEDUCTIBLE = 'NON_DEDUCTIBLE', '공제받지못할매입'
+
+    vat_deduction_type = models.CharField(
+        '매입세액 구분', max_length=20,
+        choices=VatDeductionType.choices,
+        default=VatDeductionType.DEDUCTIBLE,
+        help_text='invoice_type=PURCHASE 에만 유효. 부가세 신고 매입측 집계 구분.',
+    )
     description = models.TextField('적요', blank=True)
 
     # 전자세금계산서 필드
@@ -170,6 +182,38 @@ class TaxInvoice(BaseModel):
         if not self.invoice_number:
             self.invoice_number = generate_document_number(TaxInvoice, 'invoice_number', 'TI')
         super().save(*args, **kwargs)
+
+    def submit_to_hometax(self):
+        """국세청(홈택스) 전자세금계산서 제출 — 어댑터 위임.
+
+        성공 시 electronic_status=SENT + nts_confirmation_number/issue_id 저장.
+        실패 시 REJECTED + nts_response 에 에러 저장.
+        """
+        from apps.accounting.integrations import get_hometax_adapter
+        from django.utils import timezone
+
+        if self.issuer_type != TaxInvoice.IssuerType.SELF:
+            return {'success': False, 'message': '자사발행 아닌 세금계산서는 제출 불가'}
+
+        adapter = get_hometax_adapter()
+        result = adapter.submit_tax_invoice(self)
+        if result.success:
+            self.electronic_status = TaxInvoice.ElectronicStatus.SENT
+            self.nts_confirmation_number = result.approval_number
+            self.issue_id = result.approval_number
+            self.sent_at = timezone.now()
+            self.nts_response = result.raw_response or {}
+            self.save(update_fields=[
+                'electronic_status', 'nts_confirmation_number', 'issue_id',
+                'sent_at', 'nts_response', 'updated_at',
+            ])
+        else:
+            self.electronic_status = TaxInvoice.ElectronicStatus.REJECTED
+            self.nts_response = result.raw_response or {'error': result.message}
+            self.save(update_fields=[
+                'electronic_status', 'nts_response', 'updated_at',
+            ])
+        return {'success': result.success, 'message': result.message}
 
 
 class CashReceipt(BaseModel):
@@ -304,6 +348,23 @@ class CashReceipt(BaseModel):
                 vat=self.vat,
                 total_amount=self.total_amount,
             )
+
+    def submit_to_hometax(self):
+        """국세청 현금영수증 제출 — 어댑터 위임.
+
+        성공 시 receipt_number(승인번호)/hometax_key 저장.
+        """
+        from apps.accounting.integrations import get_hometax_adapter
+
+        if self.issuer_type != CashReceipt.IssuerType.SELF:
+            return {'success': False, 'message': '자사발행 아닌 현금영수증은 제출 불가'}
+
+        adapter = get_hometax_adapter()
+        result = adapter.submit_cash_receipt(self)
+        if result.success:
+            self.hometax_key = result.approval_number
+            self.save(update_fields=['hometax_key', 'updated_at'])
+        return {'success': result.success, 'message': result.message}
 
 
 class CashReceiptItem(BaseModel):
@@ -1723,3 +1784,4 @@ class BankTransaction(BaseModel):
 from .models_platform import PlatformFinancialConfig  # noqa: E402, F401
 from .models_advance import AdvanceReceived, AdvancePaid, AdvanceStatus  # noqa: E402, F401
 from .models_baddebt import BadDebtAllowance, AgingBucket  # noqa: E402, F401
+from .models_cardslip import CardSalesSlip  # noqa: E402, F401
