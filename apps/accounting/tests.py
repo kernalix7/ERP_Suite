@@ -1,5 +1,6 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.db import IntegrityError
 from django.test import TestCase
@@ -24,6 +25,7 @@ from .models import (
     ExchangeRate,
     FixedCost,
     Payment,
+    PlatformFinancialConfig,
     SalesSettlement,
     TaxInvoice,
     TaxRate,
@@ -2833,7 +2835,8 @@ class CashReceiptItemTest(TestCase):
         self.assertEqual(source_ids, {oi_a.pk, oi_b.pk})
         by_src = {row['source_order_item']: row for row in initial_rows}
         self.assertEqual(by_src[oi_a.pk]['quantity'], 2)
-        self.assertEqual(by_src[oi_a.pk]['unit_price'], 30000)
+        # unit_price는 VAT 포함 기준으로 통일 (view 로직): 30000 * 1.10 = 33000
+        self.assertEqual(by_src[oi_a.pk]['unit_price'], 33000)
         self.assertEqual(by_src[oi_a.pk]['supply_amount'], 60000)
         self.assertEqual(by_src[oi_a.pk]['vat'], 6000)
 
@@ -2874,3 +2877,1172 @@ class CashReceiptItemTest(TestCase):
         self.assertEqual(cr.vat, total_vat)
         self.assertEqual(cr.total_amount, total_supply + total_vat)
         self.assertEqual(cr.total_amount, Decimal('126500'))  # 30000+70000+15000 + 3000+7000+1500
+
+
+class CashReceiptMultiOrderFlowTest(TestCase):
+    """현금영수증 다중 주문 플로우 통합 테스트 — Task #4."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='cr_multi_tester', password='pass12345',
+            role=User.Role.MANAGER,
+        )
+        self.partner_a = Partner.objects.create(
+            code='CRM-PA', name='다중주문 거래처 A',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.partner_b = Partner.objects.create(
+            code='CRM-PB', name='다중주문 거래처 B',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.product_a = Product.objects.create(
+            code='CRM-A', name='상품A', unit_price=30000, current_stock=100,
+        )
+        self.product_b = Product.objects.create(
+            code='CRM-B', name='상품B', unit_price=20000, current_stock=100,
+        )
+        self.product_c = Product.objects.create(
+            code='CRM-C', name='상품C', unit_price=10000, current_stock=100,
+        )
+        self.product_d = Product.objects.create(
+            code='CRM-D', name='상품D', unit_price=50000, current_stock=100,
+        )
+        self.client.force_login(self.user)
+
+    def _make_order(self, number, partner, items):
+        """(product, quantity, unit_price, amount, tax_amount) 튜플 리스트로 Order+OrderItems 생성."""
+        from apps.sales.models import Order, OrderItem
+        total = sum(amount for _, _, _, amount, _ in items)
+        tax = sum(tax_amount for _, _, _, _, tax_amount in items)
+        order = Order.objects.create(
+            order_number=number,
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+            partner=partner,
+            total_amount=total,
+            tax_total=tax,
+            grand_total=total + tax,
+        )
+        for product, qty, unit_price, amount, tax_amount in items:
+            OrderItem.objects.create(
+                order=order, product=product,
+                quantity=qty, unit_price=unit_price,
+                amount=amount, tax_amount=tax_amount,
+                total_with_tax=amount + tax_amount,
+            )
+        order.refresh_from_db()
+        return order
+
+    def test_cash_receipt_create_from_multiple_orders_same_partner(self):
+        """같은 거래처 주문 2건 → GET initial 4건(주문번호 접두사 없음/단가 달라 병합 안 됨), POST 저장 → CR 1 + CRI 4, content_type=None."""
+        from apps.accounting.models import CashReceipt, CashReceiptItem
+
+        order1 = self._make_order('ORD-CRM-001', self.partner_a, [
+            (self.product_a, 2, 30000, 60000, 6000),
+            (self.product_b, 1, 20000, 20000, 2000),
+        ])
+        order2 = self._make_order('ORD-CRM-002', self.partner_a, [
+            (self.product_c, 3, 10000, 30000, 3000),
+            (self.product_d, 1, 50000, 50000, 5000),
+        ])
+
+        # --- GET: 컨텍스트/초기값 검증 ---
+        resp = self.client.get(
+            f'/accounting/cash-receipts/create/?source_order={order1.pk},{order2.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        ctx = resp.context
+        self.assertIsNotNone(ctx)
+        selected = list(ctx['selected_orders'])
+        self.assertEqual({o.pk for o in selected}, {order1.pk, order2.pk})
+        self.assertTrue(ctx['is_multi_order'])
+        # 다중 주문이므로 source_order 컨텍스트 키는 None
+        self.assertIsNone(ctx['source_order'])
+        self.assertNotIn('partner_mismatch_warning', ctx)
+
+        formset = ctx['items_formset']
+        initial_rows = getattr(formset, 'initial_extra', None) or formset.initial or []
+        self.assertEqual(len(initial_rows), 4)
+        names = [row['name'] for row in initial_rows]
+        # 품목명에 주문번호 접두사가 포함되지 않음
+        for name in names:
+            self.assertFalse(name.startswith('[ORD-'), f'품목명에 주문번호가 포함됨: {name}')
+        # 4개 상품은 모두 단가가 달라 병합되지 않음
+        self.assertEqual(
+            set(names),
+            {self.product_a.name, self.product_b.name, self.product_c.name, self.product_d.name},
+        )
+
+        # 초기 합산금액: 공급 160,000 / 부가세 16,000
+        form = ctx['form']
+        self.assertEqual(form.initial['supply_amount'], Decimal('160000'))
+        self.assertEqual(form.initial['vat'], Decimal('16000'))
+        self.assertEqual(form.initial['partner'], self.partner_a.pk)
+
+        # --- POST: 4개 라인 저장 ---
+        # 공급가액/부가세는 0 으로 POST → items 저장 후 recalculate_totals() 가 채운다
+        source_item_pks = [row['source_order_item'] for row in initial_rows]
+        post = {
+            'issued_at': '2026-04-23T10:00',
+            'purpose': CashReceipt.Purpose.INDIVIDUAL,
+            'identifier': '01011112222',
+            'partner': self.partner_a.pk,
+            'supply_amount': '0', 'vat': '0', 'notes': '',
+            'items-TOTAL_FORMS': '4', 'items-INITIAL_FORMS': '0',
+            'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '1000',
+        }
+        for idx, row in enumerate(initial_rows):
+            post.update({
+                f'items-{idx}-name': row['name'],
+                f'items-{idx}-quantity': str(row['quantity']),
+                f'items-{idx}-unit_price': str(row['unit_price']),
+                f'items-{idx}-supply_amount': str(row['supply_amount']),
+                f'items-{idx}-vat': str(row['vat']),
+                f'items-{idx}-source_order_item': str(row['source_order_item']),
+            })
+
+        resp = self.client.post(
+            f'/accounting/cash-receipts/create/?source_order={order1.pk},{order2.pk}',
+            post,
+        )
+        self.assertEqual(resp.status_code, 302, resp.content[:500] if resp.status_code != 302 else '')
+
+        cr = CashReceipt.objects.latest('pk')
+        # 다중 주문이므로 content_type/object_id = None
+        self.assertIsNone(cr.content_type_id)
+        self.assertIsNone(cr.object_id)
+        self.assertEqual(cr.partner_id, self.partner_a.pk)
+        self.assertEqual(cr.supply_amount, Decimal('160000'))
+        self.assertEqual(cr.vat, Decimal('16000'))
+        self.assertEqual(cr.total_amount, Decimal('176000'))
+
+        items = list(cr.items.filter(is_active=True).order_by('pk'))
+        self.assertEqual(len(items), 4)
+        saved_sources = {i.source_order_item_id for i in items}
+        self.assertEqual(saved_sources, set(source_item_pks))
+
+        # 각 item 의 source_order_item 이 두 Order 에 걸쳐 있는지
+        from apps.sales.models import OrderItem
+        linked_order_ids = set(
+            OrderItem.objects.filter(pk__in=saved_sources).values_list('order_id', flat=True)
+        )
+        self.assertEqual(linked_order_ids, {order1.pk, order2.pk})
+
+    def test_cash_receipt_create_from_multiple_orders_partner_mismatch(self):
+        """서로 다른 거래처 주문 2건 → POST 시 form error + CR 미생성."""
+        from apps.accounting.models import CashReceipt
+
+        order1 = self._make_order('ORD-CRM-010', self.partner_a, [
+            (self.product_a, 1, 30000, 30000, 3000),
+        ])
+        order2 = self._make_order('ORD-CRM-011', self.partner_b, [
+            (self.product_b, 1, 20000, 20000, 2000),
+        ])
+        cr_count_before = CashReceipt.objects.count()
+
+        # GET: partner_mismatch_warning 컨텍스트 노출
+        resp = self.client.get(
+            f'/accounting/cash-receipts/create/?source_order={order1.pk}&source_order={order2.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        ctx = resp.context
+        self.assertIn('partner_mismatch_warning', ctx)
+        self.assertTrue(ctx['partner_mismatch_warning'])
+        self.assertTrue(ctx['is_multi_order'])
+
+        formset = ctx['items_formset']
+        initial_rows = getattr(formset, 'initial_extra', None) or formset.initial or []
+        self.assertEqual(len(initial_rows), 2)
+
+        # POST: form error, CR 생성되지 않음
+        post = {
+            'issued_at': '2026-04-23T10:00',
+            'purpose': CashReceipt.Purpose.INDIVIDUAL,
+            'identifier': '01022223333',
+            'partner': self.partner_a.pk,
+            'supply_amount': '0', 'vat': '0', 'notes': '',
+            'items-TOTAL_FORMS': '2', 'items-INITIAL_FORMS': '0',
+            'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '1000',
+        }
+        for idx, row in enumerate(initial_rows):
+            post.update({
+                f'items-{idx}-name': row['name'],
+                f'items-{idx}-quantity': str(row['quantity']),
+                f'items-{idx}-unit_price': str(row['unit_price']),
+                f'items-{idx}-supply_amount': str(row['supply_amount']),
+                f'items-{idx}-vat': str(row['vat']),
+                f'items-{idx}-source_order_item': str(row['source_order_item']),
+            })
+        resp = self.client.post(
+            f'/accounting/cash-receipts/create/?source_order={order1.pk}&source_order={order2.pk}',
+            post,
+        )
+        # form_invalid → 200 재렌더
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(CashReceipt.objects.count(), cr_count_before)
+
+        form = resp.context['form']
+        non_field = form.non_field_errors()
+        self.assertTrue(
+            any('거래처' in str(e) for e in non_field),
+            f'거래처 불일치 에러 메시지 없음: {non_field}',
+        )
+
+    def test_cash_receipt_single_order_backward_compat(self):
+        """단일 주문 `?source_order=N` 플로우 → content_type/object_id 는 Order 를 가리킨다."""
+        from django.contrib.contenttypes.models import ContentType
+        from apps.accounting.models import CashReceipt
+        from apps.sales.models import Order
+
+        order = self._make_order('ORD-CRM-020', self.partner_a, [
+            (self.product_a, 2, 30000, 60000, 6000),
+        ])
+
+        resp = self.client.get(f'/accounting/cash-receipts/create/?source_order={order.pk}')
+        self.assertEqual(resp.status_code, 200)
+        ctx = resp.context
+        self.assertEqual(ctx['source_order'].pk, order.pk)
+        self.assertFalse(ctx['is_multi_order'])
+        self.assertEqual(len(list(ctx['selected_orders'])), 1)
+
+        formset = ctx['items_formset']
+        initial_rows = getattr(formset, 'initial_extra', None) or formset.initial or []
+        self.assertEqual(len(initial_rows), 1)
+        # 단일 주문일 때는 [ORD-XXX] 접두사가 붙지 않음
+        self.assertFalse(initial_rows[0]['name'].startswith('['))
+
+        row = initial_rows[0]
+        post = {
+            'issued_at': '2026-04-23T10:00',
+            'purpose': CashReceipt.Purpose.INDIVIDUAL,
+            'identifier': '01033334444',
+            'partner': self.partner_a.pk,
+            'supply_amount': '0', 'vat': '0', 'notes': '',
+            'items-TOTAL_FORMS': '1', 'items-INITIAL_FORMS': '0',
+            'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '1000',
+            'items-0-name': row['name'],
+            'items-0-quantity': str(row['quantity']),
+            'items-0-unit_price': str(row['unit_price']),
+            'items-0-supply_amount': str(row['supply_amount']),
+            'items-0-vat': str(row['vat']),
+            'items-0-source_order_item': str(row['source_order_item']),
+        }
+        resp = self.client.post(
+            f'/accounting/cash-receipts/create/?source_order={order.pk}', post,
+        )
+        self.assertEqual(resp.status_code, 302)
+
+        cr = CashReceipt.objects.latest('pk')
+        order_ct = ContentType.objects.get_for_model(Order)
+        self.assertEqual(cr.content_type_id, order_ct.pk)
+        self.assertEqual(cr.object_id, order.pk)
+        self.assertEqual(cr.items.filter(is_active=True).count(), 1)
+
+    def test_cash_receipt_detail_shows_linked_orders(self):
+        """다중 주문 기반 CR 상세 컨텍스트 linked_orders 에 2건 포함."""
+        from apps.accounting.models import CashReceipt, CashReceiptItem
+
+        order1 = self._make_order('ORD-CRM-030', self.partner_a, [
+            (self.product_a, 1, 30000, 30000, 3000),
+        ])
+        order2 = self._make_order('ORD-CRM-031', self.partner_a, [
+            (self.product_b, 1, 20000, 20000, 2000),
+        ])
+
+        cr = CashReceipt.objects.create(
+            issued_at=timezone.now(),
+            supply_amount=0, vat=0,
+            purpose=CashReceipt.Purpose.INDIVIDUAL,
+            identifier='01044445555',
+            partner=self.partner_a,
+        )
+        for order in (order1, order2):
+            for oi in order.items.filter(is_active=True):
+                CashReceiptItem.objects.create(
+                    receipt=cr, name=f'[{order.order_number}] {oi.product.name}',
+                    quantity=oi.quantity, unit_price=oi.unit_price,
+                    supply_amount=oi.amount, vat=oi.tax_amount,
+                    source_order_item=oi,
+                )
+        cr.refresh_from_db()
+
+        resp = self.client.get(f'/accounting/cash-receipts/{cr.pk}/')
+        self.assertEqual(resp.status_code, 200)
+        linked = list(resp.context['linked_orders'])
+        self.assertEqual({o.pk for o in linked}, {order1.pk, order2.pk})
+
+    def test_cash_receipt_lookup_bulk(self):
+        """AJAX `?order_ids=1,2,3` → orders 3건 + 합산금액 + partner_mismatch 플래그."""
+        import json
+
+        order1 = self._make_order('ORD-CRM-040', self.partner_a, [
+            (self.product_a, 1, 30000, 30000, 3000),
+        ])
+        order2 = self._make_order('ORD-CRM-041', self.partner_a, [
+            (self.product_b, 2, 20000, 40000, 4000),
+        ])
+        order3 = self._make_order('ORD-CRM-042', self.partner_a, [
+            (self.product_c, 5, 10000, 50000, 5000),
+        ])
+
+        resp = self.client.get(
+            '/accounting/cash-receipts/order-lookup/'
+            f'?order_ids={order1.pk},{order2.pk},{order3.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        self.assertEqual(len(data['orders']), 3)
+        returned_ids = [o['id'] for o in data['orders']]
+        self.assertEqual(returned_ids, [order1.pk, order2.pk, order3.pk])
+        self.assertEqual(data['supply_total'], 120000)
+        self.assertEqual(data['vat_total'], 12000)
+        self.assertEqual(data['grand_total'], 132000)
+        self.assertFalse(data['partner_mismatch'])
+
+        # 불일치 시나리오: partner_b 주문 추가
+        order4 = self._make_order('ORD-CRM-043', self.partner_b, [
+            (self.product_d, 1, 50000, 50000, 5000),
+        ])
+        resp = self.client.get(
+            '/accounting/cash-receipts/order-lookup/'
+            f'?order_ids={order1.pk},{order4.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        self.assertEqual(len(data['orders']), 2)
+        self.assertTrue(data['partner_mismatch'])
+
+    # --- 다중 주문번호 search 파라미터 통합 테스트 (Task #3) ---
+    def _seed_lookup_orders(self):
+        """search 통합 테스트용 표준 3건 주문 생성."""
+        o1 = self._make_order('SO-001', self.partner_a, [
+            (self.product_a, 1, 30000, 30000, 3000),
+        ])
+        o2 = self._make_order('SO-002', self.partner_a, [
+            (self.product_b, 2, 20000, 40000, 4000),
+        ])
+        o3 = self._make_order('SO-003', self.partner_a, [
+            (self.product_c, 5, 10000, 50000, 5000),
+        ])
+        return o1, o2, o3
+
+    def test_lookup_multi_order_numbers_comma(self):
+        """`?search=SO-001,SO-002,SO-003` → 다중 모드, orders 3건, 합산 및 partner_mismatch 검증."""
+        import json
+        self._seed_lookup_orders()
+        resp = self.client.get(
+            '/accounting/cash-receipts/order-lookup/?search=SO-001,SO-002,SO-003'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        # 다중 모드 응답 포맷
+        self.assertIn('orders', data)
+        self.assertIn('supply_total', data)
+        self.assertIn('vat_total', data)
+        self.assertIn('grand_total', data)
+        self.assertIn('partner_mismatch', data)
+        self.assertIn('not_found', data)
+        self.assertEqual(len(data['orders']), 3)
+        returned = [o['order_number'] for o in data['orders']]
+        self.assertEqual(returned, ['SO-001', 'SO-002', 'SO-003'])
+        self.assertEqual(Decimal(str(data['supply_total'])), Decimal('120000'))
+        self.assertEqual(Decimal(str(data['vat_total'])), Decimal('12000'))
+        self.assertEqual(Decimal(str(data['grand_total'])), Decimal('132000'))
+        self.assertFalse(data['partner_mismatch'])
+        self.assertEqual(data['not_found'], [])
+
+    def test_lookup_multi_order_numbers_space(self):
+        """`?search=SO-001 SO-002 SO-003` (공백 구분) → 쉼표 버전과 동일 결과."""
+        import json
+        self._seed_lookup_orders()
+        resp = self.client.get(
+            '/accounting/cash-receipts/order-lookup/?search=SO-001 SO-002 SO-003'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        self.assertEqual(len(data['orders']), 3)
+        returned = [o['order_number'] for o in data['orders']]
+        self.assertEqual(returned, ['SO-001', 'SO-002', 'SO-003'])
+        self.assertEqual(Decimal(str(data['supply_total'])), Decimal('120000'))
+        self.assertEqual(Decimal(str(data['vat_total'])), Decimal('12000'))
+        self.assertEqual(Decimal(str(data['grand_total'])), Decimal('132000'))
+        self.assertFalse(data['partner_mismatch'])
+        self.assertEqual(data['not_found'], [])
+
+    def test_lookup_multi_order_numbers_mixed_separator(self):
+        """`?search=SO-001, SO-002; SO-003` (쉼표+세미콜론+공백 혼합) → 동일 결과."""
+        import json
+        self._seed_lookup_orders()
+        resp = self.client.get(
+            '/accounting/cash-receipts/order-lookup/?search=SO-001, SO-002; SO-003'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        self.assertEqual(len(data['orders']), 3)
+        returned = [o['order_number'] for o in data['orders']]
+        self.assertEqual(returned, ['SO-001', 'SO-002', 'SO-003'])
+        self.assertEqual(Decimal(str(data['supply_total'])), Decimal('120000'))
+        self.assertFalse(data['partner_mismatch'])
+        self.assertEqual(data['not_found'], [])
+
+    def test_lookup_multi_order_numbers_with_not_found(self):
+        """`?search=SO-001,SO-999` → orders 1건 + not_found=['SO-999']."""
+        import json
+        self._seed_lookup_orders()
+        resp = self.client.get(
+            '/accounting/cash-receipts/order-lookup/?search=SO-001,SO-999'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        self.assertEqual(len(data['orders']), 1)
+        self.assertEqual(data['orders'][0]['order_number'], 'SO-001')
+        self.assertEqual(data['not_found'], ['SO-999'])
+        self.assertEqual(Decimal(str(data['supply_total'])), Decimal('30000'))
+        self.assertEqual(Decimal(str(data['vat_total'])), Decimal('3000'))
+        self.assertFalse(data['partner_mismatch'])
+
+    def test_lookup_single_search_backward_compat(self):
+        """`?search=SO-001` 단일 토큰 → 기존 단일 검색 모드 응답 (results 키) 유지."""
+        import json
+        self._seed_lookup_orders()
+        resp = self.client.get('/accounting/cash-receipts/order-lookup/?search=SO-001')
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        # 단일 토큰은 기존 response 포맷 (results 키, 다중 전용 합산 필드 없음)
+        self.assertIn('results', data)
+        self.assertNotIn('not_found', data)
+        self.assertNotIn('supply_total', data)
+        # icontains 로 SO-001/SO-002/SO-003 모두 포함되나 SO-001 도 반드시 포함
+        numbers = [r['order_number'] for r in data['results']]
+        self.assertIn('SO-001', numbers)
+
+    def test_lookup_partner_mismatch_detected(self):
+        """다중 토큰이 서로 다른 partner Order 와 매칭되면 partner_mismatch=True."""
+        import json
+        self._make_order('SO-100', self.partner_a, [
+            (self.product_a, 1, 30000, 30000, 3000),
+        ])
+        self._make_order('SO-200', self.partner_b, [
+            (self.product_b, 1, 20000, 20000, 2000),
+        ])
+        resp = self.client.get(
+            '/accounting/cash-receipts/order-lookup/?search=SO-100,SO-200'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        self.assertEqual(len(data['orders']), 2)
+        self.assertTrue(data['partner_mismatch'])
+        self.assertEqual(data['not_found'], [])
+
+    # --- 배송비 분리 통합 테스트 (Task #5) ---
+    def _make_order_with_shipping(self, number, partner, items, shipping_charged=0, shipping_cost=0):
+        """_make_order 의 배송비 포함 변형."""
+        from apps.sales.models import Order, OrderItem
+        total = sum(amount for _, _, _, amount, _ in items)
+        tax = sum(tax_amount for _, _, _, _, tax_amount in items)
+        order = Order.objects.create(
+            order_number=number,
+            order_date=date.today(),
+            status='CONFIRMED',
+            created_by=self.user,
+            partner=partner,
+            total_amount=total,
+            tax_total=tax,
+            grand_total=total + tax,
+            shipping_charged=shipping_charged,
+            shipping_cost=shipping_cost,
+        )
+        for product, qty, unit_price, amount, tax_amount in items:
+            OrderItem.objects.create(
+                order=order, product=product,
+                quantity=qty, unit_price=unit_price,
+                amount=amount, tax_amount=tax_amount,
+                total_with_tax=amount + tax_amount,
+            )
+        order.refresh_from_db()
+        return order
+
+    def test_prefill_shipping_charged_single_order(self):
+        """shipping_charged=4000 단일 주문 → 단가는 VAT 포함, 공급가액/부가세 자동 역산, 합계 = Order.grand_total."""
+        order = self._make_order_with_shipping(
+            'ORD-SHIP-001', self.partner_a,
+            [(self.product_a, 2, 5000, 10000, 1000)],
+            shipping_charged=4000, shipping_cost=3500,
+        )
+
+        resp = self.client.get(f'/accounting/cash-receipts/create/?source_order={order.pk}')
+        self.assertEqual(resp.status_code, 200)
+        ctx = resp.context
+        formset = ctx['items_formset']
+        rows = getattr(formset, 'initial_extra', None) or formset.initial or []
+        # 제품 라인 1개 + 배송비 라인 1개
+        self.assertEqual(len(rows), 2)
+
+        product_row = rows[0]
+        shipping_row = rows[1]
+        # vat_included=False 주문 → to_inc: unit=5500, ship=4400, ship_per_unit=2200
+        # net_unit = 5500 - 2200 = 3300 (VAT 포함), total_inc = 6600, supply=6000, vat=600
+        self.assertEqual(product_row['name'], self.product_a.name)
+        self.assertEqual(product_row['quantity'], 2)
+        self.assertEqual(product_row['unit_price'], 3300)
+        self.assertEqual(product_row['supply_amount'], 6000)
+        self.assertEqual(product_row['vat'], 600)
+        self.assertEqual(product_row['source_order_item'], order.items.first().pk)
+        # 배송비 라인: unit=4400(VAT 포함), qty=1, supply=4000, vat=400
+        self.assertEqual(shipping_row['name'], '배송비')
+        self.assertEqual(shipping_row['quantity'], 1)
+        self.assertEqual(shipping_row['unit_price'], 4400)
+        self.assertEqual(shipping_row['supply_amount'], 4000)
+        self.assertEqual(shipping_row['vat'], 400)
+        self.assertNotIn('source_order_item', shipping_row)
+
+        # 합계 확인: 6000 + 4000 = 10000 = total_amount, 600 + 400 = 1000 = tax_total
+        total_supply = sum(r['supply_amount'] for r in rows)
+        total_vat = sum(r['vat'] for r in rows)
+        self.assertEqual(total_supply, int(order.total_amount))
+        self.assertEqual(total_vat, int(order.tax_total))
+        self.assertEqual(total_supply + total_vat, int(order.grand_total))
+
+    def test_prefill_shipping_charged_multi_order(self):
+        """두 주문(각기 다른 제품/배송비) → 주문번호 접두사 없이 4 라인, 합계 = 합산 grand_total."""
+        order_a = self._make_order_with_shipping(
+            'ORD-SHIP-A', self.partner_a,
+            [(self.product_a, 2, 5000, 10000, 1000)],
+            shipping_charged=4000,
+        )
+        order_b = self._make_order_with_shipping(
+            'ORD-SHIP-B', self.partner_a,
+            [(self.product_b, 1, 3000, 3000, 300)],
+            shipping_charged=2000,
+        )
+
+        resp = self.client.get(
+            f'/accounting/cash-receipts/create/?source_order={order_a.pk},{order_b.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        ctx = resp.context
+        self.assertTrue(ctx['is_multi_order'])
+
+        formset = ctx['items_formset']
+        rows = getattr(formset, 'initial_extra', None) or formset.initial or []
+        # 제품 2 + 배송비 2 = 4 라인 (단가가 달라 병합 안 됨)
+        self.assertEqual(len(rows), 4)
+
+        names = [r['name'] for r in rows]
+        # 주문번호 접두사는 품목명에 포함되지 않음
+        for n in names:
+            self.assertFalse(n.startswith('[ORD-'), f'품목명에 주문번호가 포함됨: {n}')
+        self.assertIn(self.product_a.name, names)
+        self.assertIn(self.product_b.name, names)
+        self.assertEqual(names.count('배송비'), 2)
+
+        shipping_rows = [r for r in rows if r['name'] == '배송비']
+        for sr in shipping_rows:
+            self.assertNotIn('source_order_item', sr)
+
+        total_supply = sum(r['supply_amount'] for r in rows)
+        total_vat = sum(r['vat'] for r in rows)
+        expected_grand = int(order_a.grand_total) + int(order_b.grand_total)
+        self.assertEqual(total_supply + total_vat, expected_grand)
+
+    def test_prefill_merges_same_name_and_unit_price(self):
+        """동일 품목명 + 동일 단가(VAT 포함) 라인은 수량 합산으로 병합된다."""
+        # 두 주문 모두 product_a 2개 × 5000, 배송비 4000
+        # vat_included=False → to_inc: unit=5500, ship=4400, ship_per_unit=2200, net_unit=3300 (동일)
+        order_a = self._make_order_with_shipping(
+            'ORD-MERGE-A', self.partner_a,
+            [(self.product_a, 2, 5000, 10000, 1000)],
+            shipping_charged=4000,
+        )
+        order_b = self._make_order_with_shipping(
+            'ORD-MERGE-B', self.partner_a,
+            [(self.product_a, 2, 5000, 10000, 1000)],
+            shipping_charged=4000,
+        )
+
+        resp = self.client.get(
+            f'/accounting/cash-receipts/create/?source_order={order_a.pk},{order_b.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        rows = (
+            getattr(resp.context['items_formset'], 'initial_extra', None)
+            or resp.context['items_formset'].initial
+            or []
+        )
+        # 제품(병합) 1 + 배송비(병합) 1 = 2 라인
+        self.assertEqual(len(rows), 2)
+
+        product_row = next(r for r in rows if r['name'] == self.product_a.name)
+        shipping_row = next(r for r in rows if r['name'] == '배송비')
+
+        # 제품: qty = 2 + 2 = 4, unit=3300 (VAT 포함), total_inc=13200, supply=12000, vat=1200
+        self.assertEqual(int(product_row['quantity']), 4)
+        self.assertEqual(product_row['unit_price'], 3300)
+        self.assertEqual(product_row['supply_amount'], 12000)
+        self.assertEqual(product_row['vat'], 1200)
+        # 병합된 제품 라인은 source_order_item 소실 (다중 출처)
+        self.assertNotIn('source_order_item', product_row)
+
+        # 배송비: qty = 1 + 1 = 2, unit=4400 (VAT 포함), total_inc=8800, supply=8000, vat=800
+        self.assertEqual(int(shipping_row['quantity']), 2)
+        self.assertEqual(shipping_row['unit_price'], 4400)
+        self.assertEqual(shipping_row['supply_amount'], 8000)
+        self.assertEqual(shipping_row['vat'], 800)
+
+        total = sum(r['supply_amount'] for r in rows) + sum(r['vat'] for r in rows)
+        self.assertEqual(total, int(order_a.grand_total) + int(order_b.grand_total))
+
+    def test_prefill_zero_shipping_charged_no_split(self):
+        """shipping_charged=0 → 배송비 라인 없이 단가는 VAT 포함으로 정규화."""
+        order = self._make_order_with_shipping(
+            'ORD-SHIP-ZERO', self.partner_a,
+            [(self.product_a, 2, 5000, 10000, 1000)],
+            shipping_charged=0, shipping_cost=0,
+        )
+
+        resp = self.client.get(f'/accounting/cash-receipts/create/?source_order={order.pk}')
+        self.assertEqual(resp.status_code, 200)
+        formset = resp.context['items_formset']
+        rows = getattr(formset, 'initial_extra', None) or formset.initial or []
+
+        # 제품 라인 1개만
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertNotIn('배송비', row['name'])
+        # vat_included=False → to_inc: 5000×1.1=5500 (VAT 포함), supply=10000, vat=1000
+        self.assertEqual(row['unit_price'], 5500)
+        self.assertEqual(row['supply_amount'], 10000)
+        self.assertEqual(row['vat'], 1000)
+        self.assertEqual(row['source_order_item'], order.items.first().pk)
+
+    def test_save_multi_order_with_shipping_charged_full_roundtrip(self):
+        """POST → DB 저장. items 합산 = grand_total, 배송비 라인 source_order_item=None."""
+        from apps.accounting.models import CashReceipt, CashReceiptItem
+
+        order_a = self._make_order_with_shipping(
+            'ORD-SHIP-R1', self.partner_a,
+            [(self.product_a, 2, 5000, 10000, 1000)],
+            shipping_charged=4000,
+        )
+        order_b = self._make_order_with_shipping(
+            'ORD-SHIP-R2', self.partner_a,
+            [(self.product_b, 1, 3000, 3000, 300)],
+            shipping_charged=2000,
+        )
+
+        resp = self.client.get(
+            f'/accounting/cash-receipts/create/?source_order={order_a.pk},{order_b.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        rows = (
+            getattr(resp.context['items_formset'], 'initial_extra', None)
+            or resp.context['items_formset'].initial
+            or []
+        )
+        self.assertEqual(len(rows), 4)
+
+        post = {
+            'issued_at': '2026-04-23T10:00',
+            'purpose': CashReceipt.Purpose.INDIVIDUAL,
+            'identifier': '01055556666',
+            'partner': self.partner_a.pk,
+            'supply_amount': '0', 'vat': '0', 'notes': '',
+            'items-TOTAL_FORMS': '4', 'items-INITIAL_FORMS': '0',
+            'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '1000',
+        }
+        for idx, row in enumerate(rows):
+            post.update({
+                f'items-{idx}-name': row['name'],
+                f'items-{idx}-quantity': str(row['quantity']),
+                f'items-{idx}-unit_price': str(row['unit_price']),
+                f'items-{idx}-supply_amount': str(row['supply_amount']),
+                f'items-{idx}-vat': str(row['vat']),
+            })
+            if 'source_order_item' in row:
+                post[f'items-{idx}-source_order_item'] = str(row['source_order_item'])
+
+        resp = self.client.post(
+            f'/accounting/cash-receipts/create/?source_order={order_a.pk},{order_b.pk}',
+            post,
+        )
+        self.assertEqual(resp.status_code, 302, resp.content[:500] if resp.status_code != 302 else '')
+
+        cr = CashReceipt.objects.latest('pk')
+        items = list(cr.items.filter(is_active=True).order_by('pk'))
+        self.assertEqual(len(items), 4)
+
+        # 배송비 라인은 source_order_item=None
+        shipping_items = [i for i in items if '배송비' in i.name]
+        product_items = [i for i in items if '배송비' not in i.name]
+        self.assertEqual(len(shipping_items), 2)
+        self.assertEqual(len(product_items), 2)
+        for si in shipping_items:
+            self.assertIsNone(si.source_order_item_id)
+        for pi in product_items:
+            self.assertIsNotNone(pi.source_order_item_id)
+
+        # 합계 검증: 전체 supply+vat = order_a.grand_total + order_b.grand_total
+        total_supply = sum(i.supply_amount for i in items)
+        total_vat = sum(i.vat for i in items)
+        expected_grand = order_a.grand_total + order_b.grand_total
+        self.assertEqual(total_supply + total_vat, expected_grand)
+        self.assertEqual(cr.total_amount, expected_grand)
+
+    def test_shipping_charged_default_backfilled_for_existing_orders(self):
+        """shipping_cost > 0 & shipping_charged = 0 인 주문이 마이그레이션 backfill 로직으로 복제되는지 검증."""
+        from apps.sales.models import Order
+
+        order = self._make_order_with_shipping(
+            'ORD-BACKFILL-001', self.partner_a,
+            [(self.product_a, 1, 5000, 5000, 500)],
+            shipping_charged=0, shipping_cost=3000,
+        )
+        # 마이그레이션 backfill 과 동일한 로직 직접 실행
+        from django.db.models import F
+        Order.objects.filter(pk=order.pk).update(shipping_charged=F('shipping_cost'))
+
+        order.refresh_from_db()
+        self.assertEqual(order.shipping_charged, Decimal('3000'))
+        self.assertEqual(order.shipping_cost, Decimal('3000'))
+
+    def test_order_form_accepts_separate_shipping_fields(self):
+        """OrderForm 에 shipping_charged + shipping_cost 동시 입력 가능하고, 음수는 거부된다."""
+        from apps.sales.forms import OrderForm
+
+        base_data = {
+            'order_number': 'ORD-FORM-001',
+            'order_type': 'SALES',
+            'partner': self.partner_a.pk,
+            'order_date': date.today().strftime('%Y-%m-%d'),
+            'vat_included': False,
+            'shipping_charged': '4000',
+            'shipping_cost': '3500',
+        }
+        # 정상 입력 — 두 필드 모두 valid 해야 함
+        form = OrderForm(data=base_data)
+        form.is_valid()  # trigger clean
+        # shipping 필드 자체는 에러 없어야 함
+        self.assertNotIn('shipping_charged', form.errors)
+        self.assertNotIn('shipping_cost', form.errors)
+
+        # 음수는 거부
+        bad_data = dict(base_data)
+        bad_data['shipping_charged'] = '-100'
+        form_bad = OrderForm(data=bad_data)
+        self.assertFalse(form_bad.is_valid())
+        self.assertIn('shipping_charged', form_bad.errors)
+
+        bad_data2 = dict(base_data)
+        bad_data2['shipping_cost'] = '-50'
+        form_bad2 = OrderForm(data=bad_data2)
+        self.assertFalse(form_bad2.is_valid())
+        self.assertIn('shipping_cost', form_bad2.errors)
+
+
+class BadDebtAllowanceTests(TestCase):
+    """대손충당금 모델 및 Celery 배치 테스트"""
+
+    def setUp(self):
+        from apps.sales.models import Partner
+        self.partner = Partner.objects.create(
+            code='P-BDA-001',
+            name='대손테스트 거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.expense_account = AccountCode.objects.create(
+            code='524',
+            name='대손상각비',
+            account_type=AccountCode.AccountType.EXPENSE,
+        )
+        self.allowance_account = AccountCode.objects.create(
+            code='109',
+            name='대손충당금',
+            account_type=AccountCode.AccountType.ASSET,
+        )
+
+    def _make_overdue_ar(self, days_overdue, amount=1000000):
+        due = date.today() - timedelta(days=days_overdue)
+        return AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=Decimal(amount),
+            paid_amount=Decimal(0),
+            due_date=due,
+            status='OVERDUE',
+        )
+
+    def test_model_creation(self):
+        from .models_baddebt import AgingBucket, BadDebtAllowance
+        ar = self._make_overdue_ar(35)
+        bda = BadDebtAllowance.objects.create(
+            receivable=ar,
+            estimated_date=date.today(),
+            allowance_amount=10000,
+            allowance_rate=Decimal('1.00'),
+            aging_bucket=AgingBucket.DAYS_30,
+        )
+        self.assertEqual(bda.aging_bucket, '30')
+        self.assertEqual(bda.allowance_amount, 10000)
+        self.assertIsNone(bda.voucher)
+
+    def test_celery_task_30days(self):
+        """30일 연체 AR → 1% 충당금 계상"""
+        from .tasks import auto_bad_debt_allowance
+        ar = self._make_overdue_ar(35, amount=1000000)
+        result = auto_bad_debt_allowance()
+        self.assertGreaterEqual(result['created'], 1)
+        from .models_baddebt import BadDebtAllowance
+        bda = BadDebtAllowance.objects.filter(receivable=ar, is_active=True).first()
+        self.assertIsNotNone(bda)
+        self.assertEqual(bda.allowance_amount, 10000)
+        self.assertEqual(bda.allowance_rate, Decimal('1'))
+
+    def test_celery_task_90days(self):
+        """90일 연체 AR → 5% 충당금 계상"""
+        from .tasks import auto_bad_debt_allowance
+        ar = self._make_overdue_ar(100, amount=2000000)
+        auto_bad_debt_allowance()
+        from .models_baddebt import BadDebtAllowance
+        bda = BadDebtAllowance.objects.filter(receivable=ar, is_active=True).first()
+        self.assertIsNotNone(bda)
+        self.assertEqual(bda.allowance_amount, 100000)
+        self.assertEqual(bda.allowance_rate, Decimal('5'))
+
+    def test_celery_task_180days(self):
+        """180일 연체 AR → 10% 충당금 계상"""
+        from .tasks import auto_bad_debt_allowance
+        ar = self._make_overdue_ar(200, amount=500000)
+        auto_bad_debt_allowance()
+        from .models_baddebt import BadDebtAllowance
+        bda = BadDebtAllowance.objects.filter(receivable=ar, is_active=True).first()
+        self.assertIsNotNone(bda)
+        self.assertEqual(bda.allowance_amount, 50000)
+        self.assertEqual(bda.allowance_rate, Decimal('10'))
+
+    def test_celery_task_365days(self):
+        """365일+ 연체 AR → 100% 충당금 계상"""
+        from .tasks import auto_bad_debt_allowance
+        ar = self._make_overdue_ar(400, amount=300000)
+        auto_bad_debt_allowance()
+        from .models_baddebt import BadDebtAllowance
+        bda = BadDebtAllowance.objects.filter(receivable=ar, is_active=True).first()
+        self.assertIsNotNone(bda)
+        self.assertEqual(bda.allowance_amount, 300000)
+        self.assertEqual(bda.allowance_rate, Decimal('100'))
+
+    def test_celery_task_creates_balanced_voucher(self):
+        """자동 전표 복식부기 검증"""
+        from .tasks import auto_bad_debt_allowance
+        self._make_overdue_ar(100, amount=1000000)
+        auto_bad_debt_allowance()
+        from .models_baddebt import BadDebtAllowance
+        bda = BadDebtAllowance.objects.filter(is_active=True).first()
+        self.assertIsNotNone(bda.voucher)
+        self.assertTrue(bda.voucher.is_balanced)
+        self.assertEqual(bda.voucher.lines.count(), 2)
+
+    def test_celery_task_no_duplicate_same_month(self):
+        """같은 월에 동일 AR 중복 계상 방지"""
+        from .tasks import auto_bad_debt_allowance
+        ar = self._make_overdue_ar(100)
+        auto_bad_debt_allowance()
+        result2 = auto_bad_debt_allowance()
+        from .models_baddebt import BadDebtAllowance
+        count = BadDebtAllowance.objects.filter(receivable=ar, is_active=True).count()
+        self.assertEqual(count, 1)
+        self.assertGreaterEqual(result2['skipped'], 1)
+
+    def test_celery_task_skips_not_overdue(self):
+        """연체 기간 미달(29일 이하) AR은 건너뜀"""
+        from .tasks import auto_bad_debt_allowance
+        ar = self._make_overdue_ar(20)
+        result = auto_bad_debt_allowance()
+        from .models_baddebt import BadDebtAllowance
+        count = BadDebtAllowance.objects.filter(receivable=ar, is_active=True).count()
+        self.assertEqual(count, 0)
+
+    def test_celery_task_skips_paid_ar(self):
+        """완납된 AR(잔액=0)은 건너뜀"""
+        from .tasks import auto_bad_debt_allowance
+        ar = self._make_overdue_ar(100, amount=500000)
+        ar.paid_amount = Decimal('500000')
+        ar.save()
+        auto_bad_debt_allowance()
+        from .models_baddebt import BadDebtAllowance
+        count = BadDebtAllowance.objects.filter(receivable=ar, is_active=True).count()
+        self.assertEqual(count, 0)
+
+
+class WithholdingTaxAutoVoucherTests(TestCase):
+    """원천징수 자동전표 시그널 검증 (T6)."""
+
+    def setUp(self):
+        # K-GAAP 기본 계정과목
+        AccountCode.objects.get_or_create(
+            code='531', defaults=dict(name='지급수수료', account_type='EXPENSE'),
+        )
+        AccountCode.objects.get_or_create(
+            code='213', defaults=dict(name='예수금', account_type='LIABILITY'),
+        )
+        AccountCode.objects.get_or_create(
+            code='102', defaults=dict(name='보통예금', account_type='ASSET'),
+        )
+
+    def test_signal_creates_balanced_voucher(self):
+        wt = WithholdingTax.objects.create(
+            tax_type=WithholdingTax.TaxType.INCOME,
+            payee_name='홍길동',
+            payment_date=date(2026, 3, 15),
+            gross_amount=Decimal('1000000'),
+            tax_rate=Decimal('3.3'),
+            tax_amount=Decimal('33000'),
+            net_amount=Decimal('967000'),
+        )
+        wt.refresh_from_db()
+        self.assertIsNotNone(wt.voucher, '자동전표가 생성되어야 함')
+        v = wt.voucher
+        lines = list(v.lines.all())
+        self.assertEqual(len(lines), 3)
+        total_debit = sum(l.debit for l in lines)
+        total_credit = sum(l.credit for l in lines)
+        self.assertEqual(total_debit, total_credit, '차변=대변 복식부기')
+        self.assertEqual(total_debit, Decimal('1000000'))
+
+    def test_signal_blocked_by_closing_period(self):
+        """마감된 월은 자동전표 생성 스킵."""
+        user = User.objects.create_user(username='wh_u', password='x', role='admin')
+        ClosingPeriod.objects.create(
+            year=2026, month=2, is_closed=True, closed_by=user,
+        )
+        wt = WithholdingTax.objects.create(
+            tax_type=WithholdingTax.TaxType.INCOME,
+            payee_name='마감테스트',
+            payment_date=date(2026, 2, 20),
+            gross_amount=Decimal('100000'),
+            tax_rate=Decimal('3.3'),
+            tax_amount=Decimal('3300'),
+            net_amount=Decimal('96700'),
+            created_by=user,
+        )
+        wt.refresh_from_db()
+        self.assertIsNone(wt.voucher, '마감월은 전표 생성 안 함')
+
+    def test_signal_no_duplicate_on_update(self):
+        """재저장 시 중복 전표 생성되지 않음."""
+        wt = WithholdingTax.objects.create(
+            tax_type=WithholdingTax.TaxType.INCOME,
+            payee_name='중복방지',
+            payment_date=date(2026, 3, 10),
+            gross_amount=Decimal('500000'),
+            tax_rate=Decimal('3.3'),
+            tax_amount=Decimal('16500'),
+            net_amount=Decimal('483500'),
+        )
+        wt.refresh_from_db()
+        first_voucher_id = wt.voucher_id
+        self.assertIsNotNone(first_voucher_id)
+        wt.notes = '메모 수정'
+        wt.save()
+        wt.refresh_from_db()
+        self.assertEqual(wt.voucher_id, first_voucher_id, '업데이트 시 전표 재생성 금지')
+        self.assertEqual(Voucher.objects.filter(withholdings=wt).count(), 1)
+
+
+class PlatformFinancialConfigTests(TestCase):
+    """PlatformFinancialConfig 모델 + get_by_code 헬퍼."""
+
+    def test_get_by_code_returns_active_enabled(self):
+        cfg = PlatformFinancialConfig.objects.create(
+            code='TEST',
+            name='테스트 플랫폼',
+            commission_rate=Decimal('5'),
+        )
+        self.assertEqual(PlatformFinancialConfig.get_by_code('TEST'), cfg)
+
+    def test_get_by_code_skips_disabled(self):
+        PlatformFinancialConfig.objects.create(
+            code='OFF', name='비활성', is_enabled=False,
+        )
+        self.assertIsNone(PlatformFinancialConfig.get_by_code('OFF'))
+
+    def test_get_by_code_empty(self):
+        self.assertIsNone(PlatformFinancialConfig.get_by_code(''))
+        self.assertIsNone(PlatformFinancialConfig.get_by_code(None))
+
+
+class VATReturn4CategoryTests(TestCase):
+    """VATReturnView 4구분 매출 집계 검증 (T4)."""
+
+    def setUp(self):
+        self.partner = Partner.objects.create(
+            code='P-VAT', name='VAT 테스트',
+            partner_type=Partner.PartnerType.CUSTOMER,
+        )
+        self.user = User.objects.create_user(
+            username='vat_admin', password='x', role='admin',
+        )
+
+    def _make_invoice(self, invoice_type, tax_type, issuer_type, supply, tax, month=3):
+        return TaxInvoice.objects.create(
+            invoice_type=invoice_type,
+            partner=self.partner,
+            issue_date=date(2026, month, 15),
+            supply_amount=Decimal(str(supply)),
+            tax_amount=Decimal(str(tax)),
+            total_amount=Decimal(str(supply + tax)),
+            tax_type=tax_type,
+            issuer_type=issuer_type,
+        )
+
+    def test_4category_sales_breakdown(self):
+        # 과세 자사발행
+        self._make_invoice('SALES', 'TAXABLE', 'SELF', 1000000, 100000)
+        # 과세 플랫폼대행
+        self._make_invoice('SALES', 'TAXABLE', 'PLATFORM', 500000, 50000)
+        # 영세율
+        self._make_invoice('SALES', 'ZERO_RATE', 'SELF', 2000000, 0)
+        # 면세
+        self._make_invoice('SALES', 'EXEMPT', 'SELF', 300000, 0)
+        # 매입 과세
+        self._make_invoice('PURCHASE', 'TAXABLE', 'SELF', 400000, 40000)
+
+        self.client.force_login(self.user)
+        resp = self.client.get('/accounting/vat-return/?year=2026&quarter=1')
+        self.assertEqual(resp.status_code, 200)
+        ctx = resp.context
+        self.assertEqual(ctx['sales_taxable_self']['supply'], 1000000)
+        self.assertEqual(ctx['sales_taxable_self']['tax'], 100000)
+        self.assertEqual(ctx['sales_taxable_outsourced']['supply'], 500000)
+        self.assertEqual(ctx['sales_taxable_outsourced']['tax'], 50000)
+        self.assertEqual(ctx['sales_zero_rate']['supply'], 2000000)
+        self.assertEqual(ctx['sales_exempt']['supply'], 300000)
+        # 납부세액 = 자사발행 매출세액 - 매입세액 (플랫폼대행분 제외)
+        self.assertEqual(ctx['sales_output_tax'], 100000)
+        self.assertEqual(ctx['purchase_input_tax'], 40000)
+        self.assertEqual(ctx['payable_tax'], 60000)
+        # 전체 공급가액 합계
+        self.assertEqual(ctx['total_sales_supply'], 1000000 + 500000 + 2000000 + 300000)
+
+    def test_period_filter_excludes_other_quarter(self):
+        # Q1 건과 Q2 건
+        self._make_invoice('SALES', 'TAXABLE', 'SELF', 100000, 10000, month=3)
+        self._make_invoice('SALES', 'TAXABLE', 'SELF', 999999, 99999, month=5)
+
+        self.client.force_login(self.user)
+        resp = self.client.get('/accounting/vat-return/?year=2026&quarter=1')
+        self.assertEqual(resp.context['sales_taxable_self']['supply'], 100000)
+        resp2 = self.client.get('/accounting/vat-return/?year=2026&quarter=2')
+        self.assertEqual(resp2.context['sales_taxable_self']['supply'], 999999)
+
+
+class IncomeStatementTests(TestCase):
+    """IncomeStatementView K-GAAP 9단계 검증 (T9)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='is_admin', password='x', role='admin')
+        # K-GAAP 계정과목 세팅
+        self.acc_sales = AccountCode.objects.create(
+            code='401', name='상품매출', account_type='REVENUE',
+        )
+        self.acc_cogs = AccountCode.objects.create(
+            code='501', name='매출원가', account_type='EXPENSE',
+        )
+        self.acc_sga_salary = AccountCode.objects.create(
+            code='521', name='급여', account_type='EXPENSE',
+        )
+        self.acc_sga_rent = AccountCode.objects.create(
+            code='522', name='임차료', account_type='EXPENSE',
+        )
+        self.acc_nonop_rev = AccountCode.objects.create(
+            code='471', name='이자수익', account_type='REVENUE',
+        )
+        self.acc_nonop_exp = AccountCode.objects.create(
+            code='913', name='이자비용', account_type='EXPENSE',
+        )
+        self.acc_tax = AccountCode.objects.create(
+            code='998', name='법인세비용', account_type='EXPENSE',
+        )
+        self.acc_dummy = AccountCode.objects.create(
+            code='102', name='보통예금', account_type='ASSET',
+        )
+
+    def _voucher(self, vdate, lines):
+        v = Voucher.objects.create(
+            voucher_type='TRANSFER',
+            voucher_date=vdate,
+            description='IS 테스트',
+            approval_status='APPROVED',
+        )
+        for acct, debit, credit in lines:
+            VoucherLine.objects.create(
+                voucher=v, account=acct,
+                debit=Decimal(debit), credit=Decimal(credit),
+            )
+        return v
+
+    def test_nine_step_breakdown(self):
+        d = date(2026, 3, 15)
+        # 매출 1,000,000 (대변)
+        self._voucher(d, [(self.acc_dummy, 1000000, 0), (self.acc_sales, 0, 1000000)])
+        # 매출원가 400,000 (차변)
+        self._voucher(d, [(self.acc_cogs, 400000, 0), (self.acc_dummy, 0, 400000)])
+        # 판관비 급여 200,000 + 임차료 50,000
+        self._voucher(d, [(self.acc_sga_salary, 200000, 0), (self.acc_dummy, 0, 200000)])
+        self._voucher(d, [(self.acc_sga_rent, 50000, 0), (self.acc_dummy, 0, 50000)])
+        # 영업외수익 이자수익 10,000
+        self._voucher(d, [(self.acc_dummy, 10000, 0), (self.acc_nonop_rev, 0, 10000)])
+        # 영업외비용 이자비용 20,000
+        self._voucher(d, [(self.acc_nonop_exp, 20000, 0), (self.acc_dummy, 0, 20000)])
+        # 법인세 30,000
+        self._voucher(d, [(self.acc_tax, 30000, 0), (self.acc_dummy, 0, 30000)])
+
+        self.client.force_login(self.user)
+        resp = self.client.get('/accounting/income-statement/?year=2026')
+        self.assertEqual(resp.status_code, 200)
+        ctx = resp.context
+        self.assertEqual(ctx['step1_revenue'], 1000000)
+        self.assertEqual(ctx['step2_cogs'], 400000)
+        self.assertEqual(ctx['step3_gross'], 600000)
+        self.assertEqual(ctx['step4_sga'], 250000)
+        self.assertEqual(ctx['step5_operating'], 350000)
+        self.assertEqual(ctx['step6_nonop_rev'], 10000)
+        self.assertEqual(ctx['step6_nonop_exp'], 20000)
+        self.assertEqual(ctx['step7_pretax'], 340000)
+        self.assertEqual(ctx['step8_tax'], 30000)
+        self.assertEqual(ctx['step9_net'], 310000)
+        # 매출총이익률 60%
+        self.assertEqual(ctx['gross_margin_pct'], 60.0)
+
+    def test_approved_only_and_soft_delete_excluded(self):
+        d = date(2026, 6, 10)
+        v_draft = Voucher.objects.create(
+            voucher_type='TRANSFER', voucher_date=d,
+            description='미승인', approval_status='DRAFT',
+        )
+        VoucherLine.objects.create(voucher=v_draft, account=self.acc_sales, debit=0, credit=500000)
+        VoucherLine.objects.create(voucher=v_draft, account=self.acc_dummy, debit=500000, credit=0)
+        # soft-delete 전표는 제외
+        v_soft = Voucher.objects.create(
+            voucher_type='TRANSFER', voucher_date=d,
+            description='삭제', approval_status='APPROVED', is_active=False,
+        )
+        VoucherLine.objects.create(voucher=v_soft, account=self.acc_sales, debit=0, credit=700000)
+        VoucherLine.objects.create(voucher=v_soft, account=self.acc_dummy, debit=700000, credit=0)
+
+        self.client.force_login(self.user)
+        resp = self.client.get('/accounting/income-statement/?year=2026')
+        self.assertEqual(resp.context['step1_revenue'], 0)
+        self.assertEqual(resp.context['step9_net'], 0)
+
+    def test_month_filter(self):
+        # 3월 매출, 5월 매출
+        self._voucher(date(2026, 3, 1), [(self.acc_dummy, 100, 0), (self.acc_sales, 0, 100)])
+        self._voucher(date(2026, 5, 1), [(self.acc_dummy, 200, 0), (self.acc_sales, 0, 200)])
+
+        self.client.force_login(self.user)
+        resp_march = self.client.get('/accounting/income-statement/?year=2026&month=3')
+        self.assertEqual(resp_march.context['step1_revenue'], 100)
+        resp_may = self.client.get('/accounting/income-statement/?year=2026&month=5')
+        self.assertEqual(resp_may.context['step1_revenue'], 200)
+        resp_year = self.client.get('/accounting/income-statement/?year=2026')
+        self.assertEqual(resp_year.context['step1_revenue'], 300)

@@ -40,11 +40,25 @@ def generate_lease_monthly_vouchers():
     from django.db import transaction
 
     from apps.accounting.models import AccountCode, Voucher, VoucherLine
+    from apps.accounting.utils import validate_closing_period
     from apps.asset.models import LeaseContract
 
     today = date.today()
     current_year = today.year
     current_month = today.month
+
+    # 마감기간 전체 배치 차단 — 해당 월이 마감되었으면 silent skip + admin 알림
+    if not validate_closing_period(
+        today,
+        raise_exception=False,
+        notify_user=None,
+        context=f'리스 월 전표 배치 ({current_year}-{current_month:02d})',
+    ):
+        logger.warning(
+            '리스 월 전표 배치 스킵 — %d-%02d 마감',
+            current_year, current_month,
+        )
+        return 0
 
     contracts = LeaseContract.objects.filter(
         auto_voucher=True,

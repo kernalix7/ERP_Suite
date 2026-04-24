@@ -88,7 +88,8 @@ class OrderForm(BaseForm):
         fields = [
             'order_number', 'order_type', 'partner', 'customer',
             'assigned_to', 'order_date', 'delivery_date',
-            'vat_included', 'bank_account', 'shipping_cost',
+            'sales_channel', 'payment_method', 'tax_type',
+            'vat_included', 'bank_account', 'shipping_charged', 'shipping_cost',
             'shipping_address', 'shipping_address_road', 'shipping_address_detail',
             'notes',
         ]

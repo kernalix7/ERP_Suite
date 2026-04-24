@@ -46,6 +46,40 @@
                 <dd class="mt-1 text-sm text-gray-900">{{ order.get_order_type_display }}</dd>
             </div>
             <div>
+                <dt class="text-sm text-gray-500">판매채널</dt>
+                <dd class="mt-1">
+                    {% if order.sales_channel == 'NAVER' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">{{ order.get_sales_channel_display }}</span>
+                    {% elif order.sales_channel == 'COUPANG' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">{{ order.get_sales_channel_display }}</span>
+                    {% elif order.sales_channel == 'OFFLINE' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">{{ order.get_sales_channel_display }}</span>
+                    {% elif order.sales_channel == 'PHONE' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-sky-100 text-sky-700">{{ order.get_sales_channel_display }}</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{{ order.get_sales_channel_display }}</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">결제수단</dt>
+                <dd class="mt-1">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ order.get_payment_method_display }}</span>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">과세구분</dt>
+                <dd class="mt-1">
+                    {% if order.tax_type == 'ZERO_RATE' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">영세율(수출)</span>
+                    {% elif order.tax_type == 'EXEMPT' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">면세</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">과세</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
                 <dt class="text-sm text-gray-500">거래처</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ order.partner.name|default:"-" }}</dd>
             </div>

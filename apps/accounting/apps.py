@@ -8,3 +8,4 @@ class AccountingConfig(AppConfig):
 
     def ready(self):
         import apps.accounting.signals  # noqa: F401
+        import apps.accounting.signals_withholding  # noqa: F401

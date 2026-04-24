@@ -657,6 +657,60 @@ class StockLotTest(TestCase):
         self.assertEqual(lots_after[0].remaining_quantity, 10)
         self.assertEqual(lots_after[1].remaining_quantity, 30)
 
+    def test_outbound_cogs_amount_single_lot(self):
+        """T10 — 단일 LOT 소진 시 StockMovement.cogs_amount = lot.unit_cost * qty"""
+        self._create_movement(
+            'IN', 50, unit_price=3000,
+            movement_date=date.today() - timedelta(days=5),
+        )
+        out_mv = self._create_movement('OUT', 20)
+        out_mv.refresh_from_db()
+        # 20 * 3000 = 60000
+        self.assertEqual(out_mv.cogs_amount, 60000)
+
+    def test_outbound_cogs_amount_fifo_multi_lot(self):
+        """T10 — FIFO 출고가 2개 LOT 걸쳐 소진 시 각 LOT unit_cost×qty 합계"""
+        # 오래된 LOT (1000원 × 30개)
+        self._create_movement(
+            'IN', 30, unit_price=1000,
+            movement_date=date.today() - timedelta(days=10),
+        )
+        # 최근 LOT (2000원 × 30개)
+        self._create_movement(
+            'IN', 30, unit_price=2000,
+            movement_date=date.today(),
+        )
+        # 출고 40개 — FIFO: 1000원×30 + 2000원×10 = 30000 + 20000 = 50000
+        out_mv = self._create_movement('OUT', 40)
+        out_mv.refresh_from_db()
+        self.assertEqual(out_mv.cogs_amount, 50000)
+
+    def test_outbound_cogs_amount_lifo_multi_lot(self):
+        """T10 — LIFO 출고 시 최근 LOT 우선 소진한 실제 원가 합계"""
+        self.product.valuation_method = 'LIFO'
+        self.product.save(update_fields=['valuation_method'])
+
+        # 오래된 LOT (1000원 × 30개)
+        self._create_movement(
+            'IN', 30, unit_price=1000,
+            movement_date=date.today() - timedelta(days=10),
+        )
+        # 최근 LOT (2000원 × 30개)
+        self._create_movement(
+            'IN', 30, unit_price=2000,
+            movement_date=date.today(),
+        )
+        # 출고 40개 — LIFO: 2000원×30 + 1000원×10 = 60000 + 10000 = 70000
+        out_mv = self._create_movement('OUT', 40)
+        out_mv.refresh_from_db()
+        self.assertEqual(out_mv.cogs_amount, 70000)
+
+    def test_inbound_cogs_amount_remains_zero(self):
+        """T10 — 입고 StockMovement.cogs_amount 는 항상 0 (출고만 기록)"""
+        in_mv = self._create_movement('IN', 50, unit_price=3000)
+        in_mv.refresh_from_db()
+        self.assertEqual(in_mv.cogs_amount, 0)
+
 
 class StockLotSoftDeleteTest(TestCase):
     """StockMovement soft delete 시 StockLot 복원 테스트"""

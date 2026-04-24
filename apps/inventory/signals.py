@@ -140,6 +140,9 @@ def _consume_lots_on_outbound(instance):
     LIFO: received_date DESC 순 (최근 것부터)
     AVG: received_date ASC 순으로 비례 분배 (LOT 생성만, 소진은 비례)
 
+    소진된 LOT들의 unit_cost × consume_qty 합을 StockMovement.cogs_amount에
+    F()로 갱신하여 재고↔매출원가 대사(T10)에 사용한다.
+
     Returns:
         출고 원가 (각 LOT unit_cost 기반 가중평균)
     """
@@ -205,6 +208,13 @@ def _consume_lots_on_outbound(instance):
         logger.warning(
             'LOT shortage: product=%s, requested=%s, consumed=%s, deficit=%s',
             product.code, instance.quantity, total_consumed, remaining_to_consume,
+        )
+
+    # 실제 매출원가 합계를 StockMovement에 기록 (T10 — 재고↔매출원가 대사)
+    cogs_amount = total_cost.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+    if instance.pk:
+        StockMovement.objects.filter(pk=instance.pk).update(
+            cogs_amount=cogs_amount,
         )
 
     # 가중평균 출고원가 반환

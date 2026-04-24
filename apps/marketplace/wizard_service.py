@@ -343,6 +343,17 @@ class WizardService:
                         success += 1
                         continue
 
+                    # 플랫폼(NAVER/COUPANG) → 판매채널/결제수단 자동매핑
+                    platform = (session.platform or '').upper()
+                    channel_map = {
+                        'NAVER': (Order.SalesChannel.NAVER, Order.PaymentMethod.NAVER_PAY),
+                        'COUPANG': (Order.SalesChannel.COUPANG, Order.PaymentMethod.PLATFORM),
+                    }
+                    sales_channel, payment_method = channel_map.get(
+                        platform,
+                        (Order.SalesChannel.DIRECT, Order.PaymentMethod.CARD),
+                    )
+
                     # 견적→주문 전환
                     erp_order = Order.objects.create(
                         order_date=quotation.quote_date,
@@ -352,6 +363,8 @@ class WizardService:
                         vat_included=quotation.vat_included,
                         bank_account=quotation.bank_account,
                         status=Order.Status.DRAFT,
+                        sales_channel=sales_channel,
+                        payment_method=payment_method,
                         created_by=user,
                     )
 

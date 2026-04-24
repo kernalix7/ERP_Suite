@@ -17,40 +17,82 @@
         </div>
         {% endif %}
 
+        {% if partner_mismatch_warning %}
+        <div class="mb-4 bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+            <p class="text-sm text-yellow-800">
+                <span class="font-medium">{% trans "거래처 불일치" %}:</span>
+                {{ partner_mismatch_warning }}
+            </p>
+        </div>
+        {% endif %}
+
         <!-- 주문 검색 섹션 -->
         <div class="bg-white shadow-sm rounded-lg p-6 mb-4">
             <h3 class="text-sm font-semibold text-gray-700 mb-3">
-                {% trans "주문 연동 (선택)" %}
+                {% trans "주문 연동 (여러 건 선택 가능)" %}
             </h3>
+            <p class="text-xs text-gray-500 mb-2">
+                {% trans "쉼표나 공백으로 구분하면 여러 주문번호를 한 번에 검색할 수 있습니다." %}
+                <span class="text-gray-400">{% trans "예: SO-2026-001, SO-2026-002" %}</span>
+            </p>
             <div class="flex gap-2">
                 <input type="text" x-model="searchQ"
                     @input.debounce.300ms="searchOrders()"
-                    placeholder="{% trans '주문번호 또는 거래처명으로 검색' %}"
+                    placeholder="{% trans '주문번호 또는 거래처명 (여러 개: SO-001, SO-002)' %}"
                     class="form-input flex-1">
-                <button type="button" @click="clearOrder()"
-                    class="btn btn-secondary" x-show="selectedOrder">
-                    {% trans "연동 해제" %}
+                <button type="button" @click="applySelectedOrders()"
+                    class="btn btn-primary"
+                    x-show="pendingOrderIds.length > 0"
+                    x-text="applyBtnLabel()"></button>
+                <button type="button" @click="clearAllOrders()"
+                    class="btn btn-secondary"
+                    x-show="selectedOrderIds.length > 0">
+                    {% trans "전체 해제" %}
                 </button>
             </div>
-            <div class="mt-2 border rounded divide-y max-h-48 overflow-y-auto"
-                x-show="searchResults.length > 0 && !selectedOrder">
-                <template x-for="o in searchResults" :key="o.id">
-                    <button type="button" @click="selectOrder(o.id)"
-                        class="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm">
-                        <span class="font-medium" x-text="o.order_number"></span>
-                        <span class="text-gray-500 ml-2" x-text="o.partner_name"></span>
-                        <span class="text-gray-400 ml-2" x-text="o.order_date"></span>
-                        <span class="float-right text-gray-600" x-text="formatMoney(o.total_amount)"></span>
-                    </button>
-                </template>
+
+            <!-- 선택된 주문 칩 -->
+            {% if selected_orders %}
+            <div class="mt-3 flex flex-wrap gap-2">
+                {% for o in selected_orders %}
+                <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                    <span class="font-semibold">[{{ o.order_number }}]</span>
+                    <span>{{ o.partner.name|default:"-" }}</span>
+                    <button type="button" @click="removeOrder({{ o.pk }})"
+                        class="ml-1 text-blue-600 hover:text-blue-900 font-bold" title="{% trans '제거' %}">×</button>
+                </span>
+                {% endfor %}
+                {% if is_multi_order %}
+                <span class="inline-flex items-center bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full">
+                    {% blocktrans count counter=selected_orders|length %}{{ counter }}건 연동{% plural %}{{ counter }}건 연동{% endblocktrans %}
+                </span>
+                {% endif %}
             </div>
-            <div class="mt-3 p-3 bg-blue-50 rounded text-sm" x-show="selectedOrder">
-                <span class="font-medium">{% trans "연동된 주문:" %}</span>
-                <span x-text="selectedOrder?.order_number"></span>
-                &nbsp;·&nbsp;
-                <span x-text="selectedOrder?.partner_name"></span>
-                &nbsp;·&nbsp;
-                <span x-text="formatMoney(selectedOrder?.total_amount)"></span>
+            {% endif %}
+
+            <!-- 미발견 토큰 경고 (다중 모드) -->
+            <div class="mt-2 bg-yellow-50 border border-yellow-300 rounded p-2 text-xs text-yellow-800"
+                x-show="notFoundTokens.length > 0">
+                {% trans "찾을 수 없는 주문번호:" %}
+                <span class="font-semibold" x-text="notFoundTokens.join(', ')"></span>
+            </div>
+
+            <!-- 검색 결과 (체크박스) -->
+            <div class="mt-2 border rounded divide-y max-h-48 overflow-y-auto"
+                x-show="searchResults.length > 0">
+                <template x-for="o in searchResults" :key="o.id">
+                    <label class="flex items-center gap-3 px-3 py-2 hover:bg-blue-50 text-sm cursor-pointer">
+                        <input type="checkbox"
+                            :checked="isPending(o.id) || isAlreadySelected(o.id)"
+                            :disabled="isAlreadySelected(o.id)"
+                            @change="togglePending(o.id)"
+                            class="rounded">
+                        <span class="font-medium" x-text="o.order_number"></span>
+                        <span class="text-gray-500" x-text="o.partner_name"></span>
+                        <span class="text-gray-400 ml-auto" x-text="o.order_date"></span>
+                        <span class="text-gray-600" x-text="formatMoney(o.total_amount)"></span>
+                    </label>
+                </template>
             </div>
         </div>
 
@@ -180,45 +222,83 @@ function cashReceiptForm() {
     return {
         searchQ: '',
         searchResults: [],
-        selectedOrder: {% if source_order %}{
-            id: {{ source_order.pk }},
-            order_number: "{{ source_order.order_number|escapejs }}",
-            partner_name: "{{ source_order.partner.name|default:''|escapejs }}",
-            total_amount: {{ source_order.total_amount|default:0 }},
-        }{% else %}null{% endif %},
+        notFoundTokens: [],
+        selectedOrderIds: [{% for o in selected_orders %}{{ o.pk }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+        pendingOrderIds: [],
         init() {
             this.$nextTick(() => {
                 this.bindRowEvents();
                 this.recompute();
             });
         },
+        _parseTokens(raw) {
+            const tokens = raw.trim().split(/[,;\s]+/).map(t => t.trim()).filter(Boolean);
+            return [...new Map(tokens.map(t => [t, t])).values()];
+        },
         searchOrders() {
             if (!this.searchQ || this.searchQ.length < 2) {
                 this.searchResults = [];
+                this.notFoundTokens = [];
                 return;
             }
-            fetch("{% url 'accounting:cash_receipt_order_lookup' %}?q=" + encodeURIComponent(this.searchQ))
-                .then(r => r.json())
-                .then(d => { this.searchResults = d.results || []; });
+            const tokens = this._parseTokens(this.searchQ);
+            if (tokens.length >= 2) {
+                // 다중 주문번호 모드: search 파라미터로 전송, 결과 즉시 pending에 추가
+                fetch("{% url 'accounting:cash_receipt_order_lookup' %}?search=" + encodeURIComponent(this.searchQ))
+                    .then(r => r.json())
+                    .then(d => {
+                        this.notFoundTokens = d.not_found || [];
+                        const found = (d.orders || []).filter(o => !this.isAlreadySelected(o.id));
+                        // total_amount 필드로 정규화 (formatMoney 재사용)
+                        this.searchResults = found.map(o => ({
+                            id: o.id,
+                            order_number: o.order_number,
+                            partner_name: o.partner_name,
+                            order_date: o.order_date,
+                            total_amount: o.total_amount,
+                        }));
+                    });
+            } else {
+                this.notFoundTokens = [];
+                fetch("{% url 'accounting:cash_receipt_order_lookup' %}?q=" + encodeURIComponent(this.searchQ))
+                    .then(r => r.json())
+                    .then(d => { this.searchResults = d.results || []; });
+            }
         },
-        selectOrder(id) {
-            fetch("{% url 'accounting:cash_receipt_order_lookup' %}?order_id=" + id)
-                .then(r => r.json())
-                .then(d => {
-                    if (d.error) { alert(d.error); return; }
-                    this.selectedOrder = d;
-                    this.searchResults = [];
-                    this.searchQ = '';
-                    // reload page with source_order param so server-side prefill applies
-                    const u = new URL(window.location.href);
-                    u.searchParams.set('source_order', id);
-                    window.location.href = u.toString();
-                });
+        isAlreadySelected(id) {
+            return this.selectedOrderIds.includes(id);
         },
-        clearOrder() {
+        isPending(id) {
+            return this.pendingOrderIds.includes(id);
+        },
+        togglePending(id) {
+            if (this.isAlreadySelected(id)) return;
+            const idx = this.pendingOrderIds.indexOf(id);
+            if (idx >= 0) this.pendingOrderIds.splice(idx, 1);
+            else this.pendingOrderIds.push(id);
+        },
+        applyBtnLabel() {
+            const n = this.pendingOrderIds.length;
+            return n > 0 ? `{% trans '선택한 주문으로 가져오기' %} (${n}건)` : '';
+        },
+        applySelectedOrders() {
+            if (this.pendingOrderIds.length === 0) return;
+            const merged = [...this.selectedOrderIds, ...this.pendingOrderIds];
+            const unique = [...new Set(merged)];
+            this._reloadWithOrders(unique);
+        },
+        removeOrder(id) {
+            const remaining = this.selectedOrderIds.filter(x => x !== id);
+            this._reloadWithOrders(remaining);
+        },
+        clearAllOrders() {
+            this._reloadWithOrders([]);
+        },
+        _reloadWithOrders(ids) {
             const u = new URL(window.location.href);
             u.searchParams.delete('source_order');
             u.searchParams.delete('order_id');
+            ids.forEach(id => u.searchParams.append('source_order', id));
             window.location.href = u.toString();
         },
         addRow() {
@@ -240,11 +320,13 @@ function cashReceiptForm() {
             this.recompute();
         },
         bindRowEvents() {
+            const sel = 'input[name$="-quantity"], input[name$="-unit_price"], input[name$="-supply_amount"], input[name$="-vat"], input[name$="-DELETE"]';
             document.querySelectorAll('[data-row]').forEach(row => {
                 if (row.dataset.bound) return;
                 row.dataset.bound = '1';
-                row.querySelectorAll('input[data-fld]').forEach(inp => {
-                    inp.addEventListener('input', () => this.recompute());
+                row.querySelectorAll(sel).forEach(inp => {
+                    const evt = inp.type === 'checkbox' ? 'change' : 'input';
+                    inp.addEventListener(evt, () => this.recompute());
                 });
             });
         },
@@ -252,21 +334,31 @@ function cashReceiptForm() {
             let sumSupply = 0, sumVat = 0, sumTotal = 0;
             document.querySelectorAll('[data-row]').forEach(row => {
                 const del = row.querySelector('input[type=checkbox][name$="-DELETE"]');
+                const totalCell = row.querySelector('.total-cell');
                 if (del && del.checked) {
-                    row.querySelector('.total-cell').textContent = '-';
+                    if (totalCell) totalCell.textContent = '-';
                     return;
                 }
-                const qty = parseFloat(row.querySelector('input[data-fld="quantity"]')?.value || 0) || 0;
-                const price = parseFloat(row.querySelector('input[data-fld="unit_price"]')?.value || 0) || 0;
-                const supplyInp = row.querySelector('input[data-fld="supply_amount"]');
-                let supply = parseFloat(supplyInp?.value || 0) || 0;
-                if (!supply && qty && price) {
-                    supply = Math.floor(qty * price);
+                const qtyInp = row.querySelector('input[name$="-quantity"]');
+                const priceInp = row.querySelector('input[name$="-unit_price"]');
+                const supplyInp = row.querySelector('input[name$="-supply_amount"]');
+                const vatInp = row.querySelector('input[name$="-vat"]');
+                const qty = parseFloat(qtyInp?.value || 0) || 0;
+                const price = parseFloat(priceInp?.value || 0) || 0;
+                // 단가는 VAT 포함 기준 — 수량 × 단가 = 합계(VAT 포함), 공급가액·부가세는 역산
+                let supply, vat;
+                if (qty && price) {
+                    const totalInc = Math.round(qty * price);
+                    supply = Math.round(totalInc / 1.1);
+                    vat = totalInc - supply;
                     if (supplyInp) supplyInp.value = supply;
+                    if (vatInp) vatInp.value = vat;
+                } else {
+                    supply = parseFloat(supplyInp?.value || 0) || 0;
+                    vat = parseFloat(vatInp?.value || 0) || 0;
                 }
-                const vat = parseFloat(row.querySelector('input[data-fld="vat"]')?.value || 0) || 0;
                 const total = supply + vat;
-                row.querySelector('.total-cell').textContent = this.formatMoney(total);
+                if (totalCell) totalCell.textContent = this.formatMoney(total);
                 sumSupply += supply;
                 sumVat += vat;
                 sumTotal += total;
@@ -274,6 +366,11 @@ function cashReceiptForm() {
             document.getElementById('sum-supply').textContent = this.formatMoney(sumSupply);
             document.getElementById('sum-vat').textContent = this.formatMoney(sumVat);
             document.getElementById('sum-total').textContent = this.formatMoney(sumTotal);
+            // 헤더의 공급가액/부가세를 라인 합계로 동기화
+            const hdrSupply = document.querySelector('input[name="supply_amount"]');
+            const hdrVat = document.querySelector('input[name="vat"]');
+            if (hdrSupply) hdrSupply.value = sumSupply;
+            if (hdrVat) hdrVat.value = sumVat;
         },
         formatMoney(n) {
             return new Intl.NumberFormat('ko-KR').format(Math.round(n || 0)) + '원';

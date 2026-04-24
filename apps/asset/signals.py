@@ -61,6 +61,18 @@ def depreciation_update_asset_and_voucher(sender, instance, created, **kwargs):
             return
 
         from apps.accounting.models import Voucher, VoucherLine
+        from apps.accounting.utils import validate_closing_period
+        from datetime import date as _date
+
+        # 마감기간 검증 — 감가상각 대상 월
+        depr_date = _date(instance.year, instance.month, 1)
+        if not validate_closing_period(
+            depr_date,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'DepreciationRecord {instance.asset.name} 감가상각 전표',
+        ):
+            return
 
         voucher = Voucher.objects.create(
             voucher_number=_generate_voucher_number(),
@@ -132,9 +144,20 @@ def asset_disposal_gain_loss(sender, instance, **kwargs):
             return
 
         from apps.accounting.models import Voucher, VoucherLine
+        from apps.accounting.utils import validate_closing_period
 
         gain_loss = disposal_amount - book_value
         disposal_date = instance.disposal_date or instance.updated_at
+
+        # 마감기간 검증 — 처분일 기준 (date 추출)
+        _target = disposal_date.date() if hasattr(disposal_date, 'date') else disposal_date
+        if not validate_closing_period(
+            _target,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'FixedAsset {instance.asset_number} 처분 전표',
+        ):
+            return
 
         with transaction.atomic():
             voucher = Voucher.objects.create(
@@ -288,6 +311,16 @@ def capitalize_certification_cost(sender, instance, created, **kwargs):
             return
 
         from apps.accounting.models import Voucher, VoucherLine
+        from apps.accounting.utils import validate_closing_period
+
+        # 마감기간 검증 — 인증 발급일 기준
+        if not validate_closing_period(
+            instance.issue_date,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'Certification {instance.cert_name} 자본화 전표',
+        ):
+            return
 
         voucher = Voucher.objects.create(
             voucher_number=_generate_voucher_number(),

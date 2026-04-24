@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "플랫폼 재무설정 삭제" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "플랫폼 재무설정 삭제" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:platform_config_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 max-w-xl mx-auto">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-800">{% trans "정말 삭제하시겠습니까?" %}</h2>
+    </div>
+    <div class="p-6 text-sm text-gray-700">
+        <p class="mb-4">
+            {% blocktrans with name=config.name code=config.code %}
+            "{{ name }}"({{ code }}) 플랫폼 설정을 비활성화합니다.
+            {% endblocktrans %}
+        </p>
+        <p class="text-xs text-gray-500">{% trans "소프트 삭제이므로 데이터는 유지되며, 관리 화면에는 더 이상 노출되지 않습니다." %}</p>
+    </div>
+    <form method="post" class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+        {% csrf_token %}
+        <a href="{% url 'accounting:platform_config_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+        <button type="submit" class="btn btn-danger">{% trans "삭제" %}</button>
+    </form>
+</div>
+{% endblock %}

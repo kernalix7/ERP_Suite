@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib import messages
@@ -35,7 +35,10 @@ from .models import (
     CreditCard, CardTransaction, CardBilling,
     CostCenter,
     CashReceipt, CashReceiptItem,
+    PlatformFinancialConfig,
+    AdvanceReceived, AdvancePaid,
 )
+from .models_baddebt import BadDebtAllowance, AgingBucket
 from .forms import (
     CurrencyForm, ExchangeRateForm,
     TaxRateForm, TaxInvoiceForm, FixedCostForm, WithholdingTaxForm,
@@ -45,6 +48,7 @@ from .forms import (
     CreditCardForm, CardTransactionForm,
     CostCenterForm,
     CashReceiptForm, CashReceiptCancelForm, CashReceiptItemFormSet,
+    PlatformFinancialConfigForm,
 )
 
 
@@ -207,9 +211,43 @@ class TaxInvoiceCreateView(ManagerRequiredMixin, CreateView):
         initial = super().get_initial()
         from apps.core.utils import generate_document_number
         initial['invoice_number'] = generate_document_number(TaxInvoice, 'invoice_number', 'TI')
+        # Order 연동 시 sales_channel → PlatformFinancialConfig 조회해 issuer/tax 기본값 추론
+        order_id = self.request.GET.get('order_id') or self.request.GET.get('order')
+        if order_id:
+            try:
+                order = Order.objects.filter(pk=int(order_id), is_active=True).first()
+            except (TypeError, ValueError):
+                order = None
+            if order:
+                initial['order'] = order.pk
+                initial['partner'] = order.partner_id
+                initial['tax_type'] = getattr(order, 'tax_type', TaxInvoice.TaxType.TAXABLE)
+                config = PlatformFinancialConfig.objects.filter(
+                    code=getattr(order, 'sales_channel', ''), is_enabled=True, is_active=True,
+                ).first()
+                if config and config.tax_invoice_issuer == PlatformFinancialConfig.IssuerType.PLATFORM:
+                    initial['issuer_type'] = TaxInvoice.IssuerType.PLATFORM
+                    initial['platform_name'] = config.name
         return initial
 
     def form_valid(self, form):
+        order = form.cleaned_data.get('order')
+        if order is not None:
+            channel = getattr(order, 'sales_channel', '')
+            if channel:
+                config = PlatformFinancialConfig.objects.filter(
+                    code=channel, is_enabled=True, is_active=True,
+                ).first()
+                if (config
+                        and config.tax_invoice_issuer == PlatformFinancialConfig.IssuerType.PLATFORM
+                        and form.cleaned_data.get('issuer_type') != TaxInvoice.IssuerType.PLATFORM):
+                    form.add_error(
+                        None,
+                        f'{config.name}이(가) 세금계산서를 이미 대행 발행하는 채널입니다. '
+                        f'중복발행을 차단합니다. 발행주체를 "플랫폼대행"으로 변경하거나 '
+                        f'해당 주문의 판매채널/플랫폼 설정을 확인하세요.',
+                    )
+                    return self.form_invalid(form)
         form.instance.created_by = self.request.user
         return super().form_valid(form)
 
@@ -474,6 +512,157 @@ class MonthlyPLView(ManagerRequiredMixin, TemplateView):
             'fixed_costs': sum(d['fixed_costs'] for d in monthly_data),
             'net_profit': sum(d['net_profit'] for d in monthly_data),
         }
+        return ctx
+
+
+class IncomeStatementView(ManagerRequiredMixin, TemplateView):
+    """정식 손익계산서 — VoucherLine 기반 K-GAAP 9단계.
+
+    계정과목 prefix 규약 (한국 기업회계기준):
+      4xx   매출 (REVENUE)
+      501~509 매출원가 (EXPENSE)
+      52x~58x 판매비와관리비 (EXPENSE)
+      47x   영업외수익 (REVENUE, 이자수익/수입임대료 등)
+      91x~92x 영업외비용 (EXPENSE, 이자비용/기부금 등)
+      998   법인세비용 (EXPENSE)
+
+    위 규약은 관례이며 실제 AccountCode는 사용자가 자유롭게 등록한다.
+    prefix 매칭에 해당하지 않는 REVENUE/EXPENSE는 '기타'로 분류한다.
+    """
+
+    template_name = 'accounting/income_statement.html'
+
+    REVENUE_PREFIX = ('4',)
+    COGS_PREFIXES = ('501', '502', '503', '504', '505', '506', '507', '508', '509')
+    NONOP_REVENUE_PREFIXES = ('47',)
+    NONOP_EXPENSE_PREFIXES = ('91', '92')
+    INCOME_TAX_PREFIXES = ('998', '999')
+
+    def _bucket(self, code: str, account_type: str) -> str:
+        if account_type == 'REVENUE':
+            for p in self.NONOP_REVENUE_PREFIXES:
+                if code.startswith(p):
+                    return 'nonop_revenue'
+            for p in self.REVENUE_PREFIX:
+                if code.startswith(p):
+                    return 'sales'
+            return 'nonop_revenue'
+        if account_type == 'EXPENSE':
+            for p in self.INCOME_TAX_PREFIXES:
+                if code.startswith(p):
+                    return 'income_tax'
+            for p in self.COGS_PREFIXES:
+                if code.startswith(p):
+                    return 'cogs'
+            for p in self.NONOP_EXPENSE_PREFIXES:
+                if code.startswith(p):
+                    return 'nonop_expense'
+            return 'sga'
+        return 'skip'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = date.today()
+        year = safe_int(self.request.GET.get('year'), today.year)
+        month = self.request.GET.get('month')
+        month_int = safe_int(month, 0) if month else 0
+
+        ctx['year'] = year
+        ctx['month'] = month_int
+        ctx['years'] = list(range(today.year, today.year - 5, -1))
+        ctx['months'] = list(range(1, 13))
+
+        if month_int:
+            period_start = date(year, month_int, 1)
+            if month_int == 12:
+                period_end = date(year, 12, 31)
+            else:
+                period_end = date(year, month_int + 1, 1) - timedelta(days=1)
+            ctx['period_label'] = f'{year}년 {month_int}월'
+        else:
+            period_start = date(year, 1, 1)
+            period_end = date(year, 12, 31)
+            ctx['period_label'] = f'{year}년 연간'
+
+        ctx['period_start'] = period_start
+        ctx['period_end'] = period_end
+
+        qs = VoucherLine.objects.filter(
+            is_active=True, voucher__is_active=True,
+            voucher__approval_status='APPROVED',
+            voucher__voucher_date__gte=period_start,
+            voucher__voucher_date__lte=period_end,
+            account__account_type__in=['REVENUE', 'EXPENSE'],
+        ).values(
+            'account__code', 'account__name', 'account__account_type',
+        ).annotate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit'),
+        ).order_by('account__code')
+
+        buckets = {
+            'sales': [],
+            'cogs': [],
+            'sga': [],
+            'nonop_revenue': [],
+            'nonop_expense': [],
+            'income_tax': [],
+        }
+        totals = {k: 0 for k in buckets}
+
+        for row in qs:
+            code = row['account__code']
+            name = row['account__name']
+            atype = row['account__account_type']
+            debit = int(row['total_debit'] or 0)
+            credit = int(row['total_credit'] or 0)
+            # REVENUE: 대변 - 차변 (정상 대변잔액)
+            # EXPENSE: 차변 - 대변 (정상 차변잔액)
+            if atype == 'REVENUE':
+                amount = credit - debit
+            else:
+                amount = debit - credit
+            bucket = self._bucket(code, atype)
+            if bucket == 'skip':
+                continue
+            buckets[bucket].append({
+                'code': code, 'name': name, 'amount': amount,
+            })
+            totals[bucket] += amount
+
+        # K-GAAP 9단계
+        step1_revenue = totals['sales']
+        step2_cogs = totals['cogs']
+        step3_gross = step1_revenue - step2_cogs
+        step4_sga = totals['sga']
+        step5_operating = step3_gross - step4_sga
+        step6_nonop_rev = totals['nonop_revenue']
+        step6_nonop_exp = totals['nonop_expense']
+        step7_pretax = step5_operating + step6_nonop_rev - step6_nonop_exp
+        step8_tax = totals['income_tax']
+        step9_net = step7_pretax - step8_tax
+
+        ctx['buckets'] = buckets
+        ctx['step1_revenue'] = step1_revenue
+        ctx['step2_cogs'] = step2_cogs
+        ctx['step3_gross'] = step3_gross
+        ctx['step4_sga'] = step4_sga
+        ctx['step5_operating'] = step5_operating
+        ctx['step6_nonop_rev'] = step6_nonop_rev
+        ctx['step6_nonop_exp'] = step6_nonop_exp
+        ctx['step7_pretax'] = step7_pretax
+        ctx['step8_tax'] = step8_tax
+        ctx['step9_net'] = step9_net
+
+        # 비율
+        if step1_revenue:
+            ctx['gross_margin_pct'] = round(step3_gross / step1_revenue * 100, 2)
+            ctx['operating_margin_pct'] = round(step5_operating / step1_revenue * 100, 2)
+            ctx['net_margin_pct'] = round(step9_net / step1_revenue * 100, 2)
+        else:
+            ctx['gross_margin_pct'] = 0
+            ctx['operating_margin_pct'] = 0
+            ctx['net_margin_pct'] = 0
         return ctx
 
 
@@ -3597,58 +3786,171 @@ class ExchangeGainLossView(ManagerRequiredMixin, TemplateView):
 # ── 부가세 신고서 ────────────────────────────────────────
 
 class VATReturnView(ManagerRequiredMixin, TemplateView):
-    """부가가치세 신고서 — 분기별 매출/매입 집계"""
+    """부가가치세 신고서 — 분기별 매출/매입 + 4구분(과세/영세율/면세/기타) 집계
+
+    매출 구성 (TaxInvoice.tax_type + TaxInvoice.issuer_type 고려):
+      1) 과세 자사발행 — 세금계산서 발행, 매출세액 대상
+      2) 과세 플랫폼대행 — 네이버/쿠팡 등 플랫폼 대행 발행, 자사 매출세액에서 제외
+      3) 영세율 — 공급가액만, 부가세 0원
+      4) 면세 — 공급가액만, 부가세 0원
+      5) 현금영수증 매출 — 세금계산서 미발행건 보조 집계
+
+    매입:
+      1) 과세 매입 (매입세액공제 대상)
+      2) 면세/불공제 매입
+
+    납부세액 = 과세매출세액(자사발행분) − 과세매입세액
+    """
     template_name = 'accounting/vat_return.html'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         year = safe_int(self.request.GET.get('year'), date.today().year)
         quarter = safe_int(self.request.GET.get('quarter'), (date.today().month - 1) // 3 + 1)
+        quarter = max(1, min(4, quarter))
 
         ctx['year'] = year
         ctx['quarter'] = quarter
         ctx['years'] = list(range(date.today().year, date.today().year - 5, -1))
         ctx['quarters'] = [1, 2, 3, 4]
 
+        import calendar as _cal
         m_start = (quarter - 1) * 3 + 1
         m_end = m_start + 2
+        period_start = date(year, m_start, 1)
+        period_end = date(year, m_end, _cal.monthrange(year, m_end)[1])
 
-        sales_agg = TaxInvoice.objects.filter(
+        ctx['period_start'] = period_start
+        ctx['period_end'] = period_end
+
+        # ── 매출 4구분 집계 ──
+        base_sales_qs = TaxInvoice.objects.filter(
             is_active=True,
-            invoice_type='SALES',
-            issue_date__year=year,
-            issue_date__month__gte=m_start,
-            issue_date__month__lte=m_end,
+            invoice_type=TaxInvoice.InvoiceType.SALES,
+            issue_date__gte=period_start,
+            issue_date__lte=period_end,
+        )
+
+        def _sum(qs, **filters):
+            agg = qs.filter(**filters).aggregate(
+                supply=Sum('supply_amount'),
+                tax=Sum('tax_amount'),
+                cnt=Count('pk'),
+            )
+            return {
+                'supply': agg['supply'] or 0,
+                'tax': agg['tax'] or 0,
+                'count': agg['cnt'] or 0,
+            }
+
+        sales_taxable_self = _sum(
+            base_sales_qs,
+            tax_type=TaxInvoice.TaxType.TAXABLE,
+            issuer_type=TaxInvoice.IssuerType.SELF,
+        )
+        sales_taxable_platform = _sum(
+            base_sales_qs,
+            tax_type=TaxInvoice.TaxType.TAXABLE,
+        )
+        # 위는 자사+플랫폼+세무사 통합이므로 "플랫폼/세무사분"만 별도 계산
+        sales_taxable_outsourced_agg = base_sales_qs.filter(
+            tax_type=TaxInvoice.TaxType.TAXABLE,
+        ).exclude(
+            issuer_type=TaxInvoice.IssuerType.SELF,
         ).aggregate(
             supply=Sum('supply_amount'),
             tax=Sum('tax_amount'),
+            cnt=Count('pk'),
         )
-        purchase_agg = TaxInvoice.objects.filter(
+        sales_taxable_outsourced = {
+            'supply': sales_taxable_outsourced_agg['supply'] or 0,
+            'tax': sales_taxable_outsourced_agg['tax'] or 0,
+            'count': sales_taxable_outsourced_agg['cnt'] or 0,
+        }
+
+        sales_zero_rate = _sum(base_sales_qs, tax_type=TaxInvoice.TaxType.ZERO_RATE)
+        sales_exempt = _sum(base_sales_qs, tax_type=TaxInvoice.TaxType.EXEMPT)
+
+        # ── 현금영수증 매출 (보조 집계) ──
+        from .models import CashReceipt
+        cash_receipt_agg = CashReceipt.objects.filter(
             is_active=True,
-            invoice_type='PURCHASE',
-            issue_date__year=year,
-            issue_date__month__gte=m_start,
-            issue_date__month__lte=m_end,
+            status=CashReceipt.Status.ISSUED,
+            issued_at__date__gte=period_start,
+            issued_at__date__lte=period_end,
+        ).aggregate(
+            supply=Sum('supply_amount'),
+            tax=Sum('vat'),
+            cnt=Count('pk'),
+        )
+        cash_receipts_total = {
+            'supply': cash_receipt_agg['supply'] or 0,
+            'tax': cash_receipt_agg['tax'] or 0,
+            'count': cash_receipt_agg['cnt'] or 0,
+        }
+
+        # ── 매입 2구분 ──
+        base_purchase_qs = TaxInvoice.objects.filter(
+            is_active=True,
+            invoice_type=TaxInvoice.InvoiceType.PURCHASE,
+            issue_date__gte=period_start,
+            issue_date__lte=period_end,
+        )
+        purchase_taxable = _sum(base_purchase_qs, tax_type=TaxInvoice.TaxType.TAXABLE)
+        purchase_exempt_agg = base_purchase_qs.exclude(
+            tax_type=TaxInvoice.TaxType.TAXABLE,
         ).aggregate(
             supply=Sum('supply_amount'),
             tax=Sum('tax_amount'),
+            cnt=Count('pk'),
+        )
+        purchase_exempt = {
+            'supply': purchase_exempt_agg['supply'] or 0,
+            'tax': purchase_exempt_agg['tax'] or 0,
+            'count': purchase_exempt_agg['cnt'] or 0,
+        }
+
+        # ── 매출세액(자사발행분만, 플랫폼대행은 플랫폼이 납부) ──
+        sales_output_tax = sales_taxable_self['tax']
+        purchase_input_tax = purchase_taxable['tax']
+        payable_tax = sales_output_tax - purchase_input_tax
+
+        # 총 매출(공급가액 기준) — 부가세신고서 상단 공급가액 합계
+        total_sales_supply = (
+            sales_taxable_self['supply']
+            + sales_taxable_outsourced['supply']
+            + sales_zero_rate['supply']
+            + sales_exempt['supply']
+        )
+        total_sales_tax = (
+            sales_taxable_self['tax']
+            + sales_taxable_outsourced['tax']
         )
 
-        sales_supply = sales_agg['supply'] or 0
-        sales_tax = sales_agg['tax'] or 0
-        purchase_supply = purchase_agg['supply'] or 0
-        purchase_tax = purchase_agg['tax'] or 0
-        payable_tax = sales_tax - purchase_tax
-
-        ctx['sales_supply'] = sales_supply
-        ctx['sales_tax'] = sales_tax
-        ctx['purchase_supply'] = purchase_supply
-        ctx['purchase_tax'] = purchase_tax
-        ctx['payable_tax'] = payable_tax
-        ctx['period_start'] = date(year, m_start, 1)
-        ctx['period_end'] = date(year, m_end, 1).replace(
-            day=__import__('calendar').monthrange(year, m_end)[1]
+        total_purchase_supply = (
+            purchase_taxable['supply'] + purchase_exempt['supply']
         )
+
+        ctx.update({
+            'sales_taxable_self': sales_taxable_self,
+            'sales_taxable_outsourced': sales_taxable_outsourced,
+            'sales_zero_rate': sales_zero_rate,
+            'sales_exempt': sales_exempt,
+            'cash_receipts_total': cash_receipts_total,
+            'purchase_taxable': purchase_taxable,
+            'purchase_exempt': purchase_exempt,
+            'sales_output_tax': sales_output_tax,
+            'purchase_input_tax': purchase_input_tax,
+            'payable_tax': payable_tax,
+            'total_sales_supply': total_sales_supply,
+            'total_sales_tax': total_sales_tax,
+            'total_purchase_supply': total_purchase_supply,
+            # 구버전 호환
+            'sales_supply': total_sales_supply,
+            'sales_tax': total_sales_tax,
+            'purchase_supply': total_purchase_supply,
+            'purchase_tax': purchase_input_tax,
+        })
         return ctx
 
 
@@ -4409,52 +4711,198 @@ class CashReceiptDetailView(LoginRequiredMixin, DetailView):
     def get_queryset(self):
         return CashReceipt.objects.select_related('partner', 'content_type')
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        receipt = self.object
+        # source_orders M2M 우선, 없으면 라인의 source_order_item 역추적 (레거시)
+        m2m_orders = list(
+            receipt.source_orders.select_related('partner').order_by('order_number')
+        )
+        if m2m_orders:
+            ctx['linked_orders'] = m2m_orders
+        else:
+            linked_order_ids = list(
+                receipt.items.filter(is_active=True)
+                .exclude(source_order_item__isnull=True)
+                .values_list('source_order_item__order_id', flat=True)
+                .distinct()
+            )
+            if linked_order_ids:
+                ctx['linked_orders'] = list(
+                    Order.objects.filter(pk__in=linked_order_ids)
+                    .select_related('partner')
+                    .order_by('order_number')
+                )
+            else:
+                ctx['linked_orders'] = []
+        return ctx
+
 
 class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
     model = CashReceipt
     form_class = CashReceiptForm
     template_name = 'accounting/cash_receipt_form.html'
 
-    def _resolve_source_order(self):
-        """GET source_order 파라미터 or 레거시 order_id 파라미터로 Order 로드"""
-        oid = self.request.GET.get('source_order') or self.request.GET.get('order_id')
-        if not oid:
-            return None
-        try:
-            return Order.objects.filter(is_active=True).select_related('partner').prefetch_related('items__product').get(pk=int(oid))
-        except (ValueError, Order.DoesNotExist):
-            return None
+    def _parse_order_ids(self):
+        """GET source_order (multi-value + comma-separated) + 레거시 order_id 파싱 → sorted unique int list"""
+        raw_values = []
+        raw_values.extend(self.request.GET.getlist('source_order'))
+        legacy = self.request.GET.get('order_id')
+        if legacy:
+            raw_values.append(legacy)
+        ids = []
+        seen = set()
+        for raw in raw_values:
+            if not raw:
+                continue
+            for token in str(raw).split(','):
+                token = token.strip()
+                if not token:
+                    continue
+                try:
+                    oid = int(token)
+                except ValueError:
+                    continue
+                if oid in seen:
+                    continue
+                seen.add(oid)
+                ids.append(oid)
+        return ids
+
+    def _resolve_source_orders(self):
+        """주문 ID 리스트 → Order QuerySet (조회 실패 ID는 조용히 skip)."""
+        ids = self._parse_order_ids()
+        if not ids:
+            return Order.objects.none()
+        qs = (
+            Order.objects.filter(is_active=True, pk__in=ids)
+            .select_related('partner')
+            .prefetch_related('items__product')
+        )
+        # Preserve user-supplied ID order for deterministic UX
+        order_map = {o.pk: o for o in qs}
+        ordered = [order_map[i] for i in ids if i in order_map]
+        return ordered
+
+    def _partner_mismatch(self, orders):
+        """거래처가 2종류 이상이면 True (None 은 무시)."""
+        partner_ids = {o.partner_id for o in orders if o.partner_id}
+        return len(partner_ids) > 1
 
     def get_initial(self):
         initial = super().get_initial()
         initial['issued_at'] = timezone.localtime().strftime('%Y-%m-%dT%H:%M')
-        order = self._resolve_source_order()
-        if order:
-            if order.partner_id:
-                initial['partner'] = order.partner_id
-            initial['supply_amount'] = order.total_amount
-            initial['vat'] = order.tax_total
+        orders = self._resolve_source_orders()
+        if not orders:
+            return initial
+
+        supply_sum = Decimal('0')
+        vat_sum = Decimal('0')
+        for o in orders:
+            supply_sum += Decimal(o.total_amount or 0)
+            vat_sum += Decimal(o.tax_total or 0)
+        initial['supply_amount'] = supply_sum
+        initial['vat'] = vat_sum
+
+        # 세법상 수취자 단일 원칙 — 불일치 시 경고는 get_context_data/form_valid 에서 처리
+        first_partner = next((o.partner_id for o in orders if o.partner_id), None)
+        if first_partner:
+            initial['partner'] = first_partner
+
+        order_dates = [o.order_date for o in orders if o.order_date]
+        if order_dates:
+            # 가장 늦은 주문일 00:00 로 설정 (날짜 정보만 있어 시간은 의미 없음)
+            latest = max(order_dates)
+            initial['issued_at'] = latest.strftime('%Y-%m-%dT00:00')
+
+        # sales_channel 기준 issuer 추론 — 플랫폼 대행 채널이 하나라도 있으면 PLATFORM 기본값
+        platform_name = None
+        for o in orders:
+            channel = getattr(o, 'sales_channel', '')
+            if not channel:
+                continue
+            config = PlatformFinancialConfig.objects.filter(
+                code=channel, is_enabled=True, is_active=True,
+            ).first()
+            if config and config.cash_receipt_issuer == PlatformFinancialConfig.IssuerType.PLATFORM:
+                platform_name = config.name
+                break
+        if platform_name:
+            initial['issuer_type'] = CashReceipt.IssuerType.PLATFORM
+            initial['platform_name'] = platform_name
         return initial
 
     def get_context_data(self, **kwargs):
         from django.forms.models import inlineformset_factory
         from .forms import CashReceiptItemForm
         ctx = super().get_context_data(**kwargs)
-        order = self._resolve_source_order()
+        orders = self._resolve_source_orders()
+        is_multi = len(orders) > 1
+
         if self.request.POST:
             ctx['items_formset'] = CashReceiptItemFormSet(self.request.POST, prefix='items')
         else:
+            from collections import OrderedDict
+            from decimal import ROUND_HALF_UP
+            # 단가는 VAT 포함 기준으로 통일 — 주문의 vat_included 여부에 따라 정규화
+            def to_inc(v, vat_included):
+                v = Decimal(v or 0)
+                return v if vat_included else (v * Decimal('1.1')).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+            aggregated = OrderedDict()
+            for order in orders:
+                items = list(order.items.filter(is_active=True))
+                vat_inc = bool(order.vat_included)
+                ship_inc = to_inc(order.shipping_charged, vat_inc)
+                total_qty = sum(Decimal(it.quantity or 0) for it in items)
+                ship_per_unit = Decimal('0')
+                if ship_inc and total_qty:
+                    ship_per_unit = (ship_inc / total_qty).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+                # 주문 전체에 걸쳐 (품목, 단가) 동일 라인은 합산 — 주문↔영수증 연결은
+                # CashReceipt.source_orders M2M 으로 별도 저장하므로 라인 병합 가능
+                for it in items:
+                    name = it.product.name if it.product_id else ''
+                    unit_inc = to_inc(it.unit_price, vat_inc)
+                    net_unit = int(unit_inc - ship_per_unit)
+                    key = (name, net_unit)
+                    qty = Decimal(it.quantity or 0)
+                    if key in aggregated:
+                        aggregated[key]['quantity'] += qty
+                        aggregated[key]['source_order_item'] = None
+                    else:
+                        aggregated[key] = {
+                            'name': name,
+                            'quantity': qty,
+                            'unit_price': net_unit,
+                            'source_order_item': it.pk,
+                        }
+                if ship_inc:
+                    key = ('배송비', int(ship_inc))
+                    if key in aggregated:
+                        aggregated[key]['quantity'] += Decimal('1')
+                    else:
+                        aggregated[key] = {
+                            'name': '배송비',
+                            'quantity': Decimal('1'),
+                            'unit_price': int(ship_inc),
+                            'source_order_item': None,
+                        }
             initial_items = []
-            if order:
-                for it in order.items.filter(is_active=True):
-                    initial_items.append({
-                        'name': it.product.name if it.product_id else '',
-                        'quantity': it.quantity,
-                        'unit_price': it.unit_price,
-                        'supply_amount': it.amount,
-                        'vat': it.tax_amount,
-                        'source_order_item': it.pk,
-                    })
+            for entry in aggregated.values():
+                qty = entry['quantity']
+                total_inc = Decimal(entry['unit_price']) * qty
+                supply = (total_inc / Decimal('1.1')).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+                vat = total_inc - supply
+                row = {
+                    'name': entry['name'],
+                    'quantity': qty,
+                    'unit_price': entry['unit_price'],
+                    'supply_amount': int(supply),
+                    'vat': int(vat),
+                }
+                if entry['source_order_item'] is not None:
+                    row['source_order_item'] = entry['source_order_item']
+                initial_items.append(row)
             DynamicFS = inlineformset_factory(
                 CashReceipt, CashReceiptItem,
                 form=CashReceiptItemForm,
@@ -4466,7 +4914,16 @@ class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
                 initial=initial_items,
                 queryset=CashReceiptItem.objects.none(),
             )
-        ctx['source_order'] = order
+
+        # 하위 호환 — 단일 주문일 때만 source_order 컨텍스트 유지
+        ctx['source_order'] = orders[0] if len(orders) == 1 else None
+        ctx['selected_orders'] = orders
+        ctx['is_multi_order'] = is_multi
+        if is_multi and self._partner_mismatch(orders):
+            ctx['partner_mismatch_warning'] = (
+                '선택된 주문의 거래처가 서로 다릅니다. 현금영수증은 세법상 단일 거래처에만 발행할 수 있으니 '
+                '하나의 거래처로 묶인 주문만 선택하세요.'
+            )
         return ctx
 
     def form_valid(self, form):
@@ -4474,15 +4931,50 @@ class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
         if not items_formset.is_valid():
             return self.render_to_response(self.get_context_data(form=form, items_formset=items_formset))
 
-        order = self._resolve_source_order()
+        orders = self._resolve_source_orders()
+        if len(orders) > 1 and self._partner_mismatch(orders):
+            form.add_error(
+                None,
+                '선택된 주문의 거래처가 일치하지 않습니다. 동일 거래처 주문만 묶어서 발행하세요.',
+            )
+            return self.render_to_response(self.get_context_data(form=form, items_formset=items_formset))
+
+        # 플랫폼 중복발행 차단 — sales_channel이 PLATFORM 발행 설정이면 자사 발행 차단
+        declared_issuer = form.cleaned_data.get('issuer_type')
+        if orders and declared_issuer != CashReceipt.IssuerType.PLATFORM:
+            blocking_channels = set()
+            blocking_name = None
+            for o in orders:
+                channel = getattr(o, 'sales_channel', '')
+                if not channel:
+                    continue
+                config = PlatformFinancialConfig.objects.filter(
+                    code=channel, is_enabled=True, is_active=True,
+                ).first()
+                if config and config.cash_receipt_issuer == PlatformFinancialConfig.IssuerType.PLATFORM:
+                    blocking_channels.add(channel)
+                    blocking_name = config.name
+            if blocking_channels:
+                form.add_error(
+                    None,
+                    f'{blocking_name or ", ".join(blocking_channels)} 채널은 현금영수증을 '
+                    '플랫폼이 대행 발행하는 설정입니다. 중복발행을 차단합니다. '
+                    '발행주체를 "플랫폼대행"으로 변경하거나 해당 주문을 제외하세요.',
+                )
+                return self.render_to_response(self.get_context_data(form=form, items_formset=items_formset))
+
         legacy_payment_id = self.request.GET.get('payment_id')
         legacy_voucher_id = self.request.GET.get('voucher_id')
 
         with transaction.atomic():
             form.instance.created_by = self.request.user
-            if order:
+            if len(orders) == 1:
                 form.instance.content_type = ContentType.objects.get(app_label='sales', model='order')
-                form.instance.object_id = order.pk
+                form.instance.object_id = orders[0].pk
+            elif len(orders) > 1:
+                # 다중 주문 — content_type/object_id 는 비워두고 line 단위 source_order_item 으로 추적
+                form.instance.content_type = None
+                form.instance.object_id = None
             elif legacy_payment_id:
                 form.instance.content_type = ContentType.objects.get(app_label='accounting', model='payment')
                 form.instance.object_id = int(legacy_payment_id)
@@ -4491,6 +4983,10 @@ class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
                 form.instance.object_id = int(legacy_voucher_id)
 
             self.object = form.save()
+
+            # 연결된 주문을 M2M 에 저장 (단일/다중 모두)
+            if orders:
+                self.object.source_orders.set(orders)
 
             items_formset.instance = self.object
             saved_items = items_formset.save(commit=False)
@@ -4504,23 +5000,18 @@ class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
             if self.object.items.filter(is_active=True).exists():
                 self.object.recalculate_totals()
 
-            if form.instance.content_type and form.instance.object_id:
-                existing_invoice = False
-                if form.instance.content_type.model == 'order':
-                    existing_invoice = TaxInvoice.objects.filter(
-                        is_active=True, order_id=form.instance.object_id,
-                    ).exists()
-                if existing_invoice:
-                    messages.warning(
-                        self.request,
-                        '이 거래에 이미 세금계산서가 발행되어 있습니다. '
-                        '세법상 세금계산서 발행 시 현금영수증은 중복 발행되지 않는 것이 원칙입니다.',
-                    )
+            # TaxInvoice 중복 경고는 전자세금계산서 연동(홈택스) 완성 후 재도입
 
-            messages.success(
-                self.request,
-                f'현금영수증({self.object.receipt_number})이 발행되었습니다.',
-            )
+            if len(orders) > 1:
+                messages.success(
+                    self.request,
+                    f'현금영수증({self.object.receipt_number})이 주문 {len(orders)}건에 대해 발행되었습니다.',
+                )
+            else:
+                messages.success(
+                    self.request,
+                    f'현금영수증({self.object.receipt_number})이 발행되었습니다.',
+                )
         return HttpResponseRedirect(self.get_success_url())
 
     def get_success_url(self):
@@ -4528,11 +5019,99 @@ class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
 
 
 class CashReceiptOrderLookupView(ManagerRequiredMixin, View):
-    """AJAX: Order 검색 → 거래처/공급가/부가세/라인 반환"""
+    """AJAX: Order 검색 → 거래처/공급가/부가세/라인 반환. `order_ids=1,2,3` 로 벌크 조회 지원."""
     def get(self, request):
+        import re
+        from decimal import Decimal
         from django.http import JsonResponse
         oid = request.GET.get('order_id')
-        q = (request.GET.get('q') or '').strip()
+        order_ids_param = request.GET.get('order_ids')
+        raw = (request.GET.get('search') or request.GET.get('q') or '').strip()
+
+        # 다중 주문번호 검색 모드: 쉼표/세미콜론/공백으로 구분된 2개 이상 토큰
+        tokens = [t.strip() for t in re.split(r'[,;\s]+', raw) if t.strip()]
+        seen = set()
+        unique_tokens = []
+        for t in tokens:
+            if t not in seen:
+                seen.add(t)
+                unique_tokens.append(t)
+
+        if len(unique_tokens) >= 2:
+            qs = (
+                Order.objects.filter(is_active=True, order_number__in=unique_tokens)
+                .select_related('partner')
+            )
+            order_map = {o.order_number: o for o in qs}
+            ordered = [order_map[tok] for tok in unique_tokens if tok in order_map]
+            not_found = [tok for tok in unique_tokens if tok not in order_map]
+            supply_total = sum(Decimal(o.total_amount or 0) for o in ordered)
+            vat_total = sum(Decimal(o.tax_total or 0) for o in ordered)
+            partner_ids = {o.partner_id for o in ordered if o.partner_id}
+            return JsonResponse({
+                'orders': [
+                    {
+                        'id': o.pk,
+                        'order_number': o.order_number,
+                        'partner_id': o.partner_id,
+                        'partner_name': o.partner.name if o.partner_id else '',
+                        'supply_amount': int(o.total_amount or 0),
+                        'vat_amount': int(o.tax_total or 0),
+                        'total_amount': int(o.grand_total or 0),
+                        'order_date': o.order_date.isoformat() if o.order_date else '',
+                        'status': o.status,
+                    }
+                    for o in ordered
+                ],
+                'supply_total': str(supply_total),
+                'vat_total': str(vat_total),
+                'grand_total': str(supply_total + vat_total),
+                'partner_mismatch': len(partner_ids) > 1,
+                'not_found': not_found,
+            })
+
+        q = raw  # 단일 토큰이면 기존 icontains 로직 재사용
+
+        if order_ids_param:
+            ids = []
+            for token in order_ids_param.split(','):
+                token = token.strip()
+                if not token:
+                    continue
+                try:
+                    ids.append(int(token))
+                except ValueError:
+                    continue
+            if not ids:
+                return JsonResponse({'orders': [], 'supply_total': 0, 'vat_total': 0, 'grand_total': 0})
+            qs = (
+                Order.objects.filter(is_active=True, pk__in=ids)
+                .select_related('partner')
+            )
+            order_map = {o.pk: o for o in qs}
+            ordered = [order_map[i] for i in ids if i in order_map]
+            supply_total = sum(int(o.total_amount or 0) for o in ordered)
+            vat_total = sum(int(o.tax_total or 0) for o in ordered)
+            partner_ids = {o.partner_id for o in ordered if o.partner_id}
+            return JsonResponse({
+                'orders': [
+                    {
+                        'id': o.pk,
+                        'order_number': o.order_number,
+                        'partner_id': o.partner_id,
+                        'partner_name': o.partner.name if o.partner_id else '',
+                        'order_date': o.order_date.isoformat() if o.order_date else '',
+                        'total_amount': int(o.total_amount or 0),
+                        'tax_total': int(o.tax_total or 0),
+                    }
+                    for o in ordered
+                ],
+                'supply_total': supply_total,
+                'vat_total': vat_total,
+                'grand_total': supply_total + vat_total,
+                'partner_mismatch': len(partner_ids) > 1,
+            })
+
         if oid:
             try:
                 order = Order.objects.filter(is_active=True).select_related('partner').prefetch_related('items__product').get(pk=int(oid))
@@ -4640,4 +5219,158 @@ class CashReceiptMonthlyReportView(ManagerRequiredMixin, TemplateView):
         ctx['annual_individual'] = sum(m['individual_total'] for m in months)
         ctx['annual_business'] = sum(m['business_total'] for m in months)
         ctx['annual_total'] = ctx['annual_individual'] + ctx['annual_business']
+        return ctx
+
+
+# ── 플랫폼 재무설정 ────────────────────────────────────────────
+
+
+class PlatformFinancialConfigListView(ManagerRequiredMixin, ListView):
+    model = PlatformFinancialConfig
+    template_name = 'accounting/platform_config_list.html'
+    context_object_name = 'configs'
+    paginate_by = 30
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True).order_by('code')
+
+
+class PlatformFinancialConfigCreateView(ManagerRequiredMixin, CreateView):
+    model = PlatformFinancialConfig
+    form_class = PlatformFinancialConfigForm
+    template_name = 'accounting/platform_config_form.html'
+    success_url = reverse_lazy('accounting:platform_config_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class PlatformFinancialConfigUpdateView(ManagerRequiredMixin, UpdateView):
+    model = PlatformFinancialConfig
+    form_class = PlatformFinancialConfigForm
+    template_name = 'accounting/platform_config_form.html'
+    success_url = reverse_lazy('accounting:platform_config_list')
+
+
+class PlatformFinancialConfigDetailView(ManagerRequiredMixin, DetailView):
+    model = PlatformFinancialConfig
+    template_name = 'accounting/platform_config_detail.html'
+    context_object_name = 'config'
+
+
+class PlatformFinancialConfigDeleteView(ManagerRequiredMixin, View):
+    """소프트 삭제 (is_active=False)."""
+    template_name = 'accounting/platform_config_confirm_delete.html'
+
+    def get(self, request, pk):
+        config = get_object_or_404(PlatformFinancialConfig, pk=pk, is_active=True)
+        from django.shortcuts import render
+        return render(request, self.template_name, {'config': config})
+
+    def post(self, request, pk):
+        config = get_object_or_404(PlatformFinancialConfig, pk=pk, is_active=True)
+        config.soft_delete()
+        messages.success(request, f'플랫폼 설정 "{config.name}"이(가) 삭제되었습니다.')
+        return redirect('accounting:platform_config_list')
+
+
+class AdvanceReceivedListView(ManagerRequiredMixin, ListView):
+    model = AdvanceReceived
+    template_name = 'accounting/advance_received_list.html'
+    context_object_name = 'advances'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = AdvanceReceived.objects.filter(is_active=True).select_related(
+            'partner', 'customer', 'applied_to_order',
+        )
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .models_advance import AdvanceStatus
+        ctx['status_choices'] = AdvanceStatus.choices
+        ctx['current_status'] = self.request.GET.get('status', '')
+        return ctx
+
+
+class AdvanceReceivedDetailView(ManagerRequiredMixin, DetailView):
+    model = AdvanceReceived
+    template_name = 'accounting/advance_received_detail.html'
+    context_object_name = 'advance'
+
+    def get_queryset(self):
+        return AdvanceReceived.objects.filter(is_active=True).select_related(
+            'partner', 'customer', 'received_voucher', 'applied_to_order',
+        )
+
+
+class AdvancePaidListView(ManagerRequiredMixin, ListView):
+    model = AdvancePaid
+    template_name = 'accounting/advance_paid_list.html'
+    context_object_name = 'advances'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = AdvancePaid.objects.filter(is_active=True).select_related(
+            'partner', 'applied_to_po',
+        )
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .models_advance import AdvanceStatus
+        ctx['status_choices'] = AdvanceStatus.choices
+        ctx['current_status'] = self.request.GET.get('status', '')
+        return ctx
+
+
+class AdvancePaidDetailView(ManagerRequiredMixin, DetailView):
+    model = AdvancePaid
+    template_name = 'accounting/advance_paid_detail.html'
+    context_object_name = 'advance'
+
+    def get_queryset(self):
+        return AdvancePaid.objects.filter(is_active=True).select_related(
+            'partner', 'paid_voucher', 'applied_to_po',
+        )
+
+
+# ── 대손충당금 ────────────────────────────────────────────
+
+
+class BadDebtAllowanceListView(ManagerRequiredMixin, ListView):
+    model = BadDebtAllowance
+    template_name = 'accounting/bad_debt_list.html'
+    context_object_name = 'allowances'
+    paginate_by = 30
+
+    def get_queryset(self):
+        qs = BadDebtAllowance.objects.filter(is_active=True).select_related(
+            'receivable__partner', 'voucher',
+        )
+        bucket = self.request.GET.get('bucket', '')
+        if bucket:
+            qs = qs.filter(aging_bucket=bucket)
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(receivable__partner__name__icontains=q)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['bucket_choices'] = AgingBucket.choices
+        ctx['current_bucket'] = self.request.GET.get('bucket', '')
+        from django.db.models import Sum
+        ctx['total_allowance'] = (
+            BadDebtAllowance.objects.filter(is_active=True)
+            .aggregate(total=Sum('allowance_amount'))['total'] or 0
+        )
         return ctx

@@ -12,7 +12,10 @@ from .models import (
     Company, InterCompanyTransaction, ConsolidationPeriod, ConsolidatedReport,
     BankConnection, BankStatement, BankTransaction,
     CashReceipt,
+    PlatformFinancialConfig,
 )
+from .models_baddebt import BadDebtAllowance
+from .models_advance import AdvanceReceived, AdvancePaid
 
 
 @admin.register(Currency)
@@ -256,3 +259,54 @@ class BankTransactionAdmin(SimpleHistoryAdmin):
     list_filter = ('match_status',)
     search_fields = ('description', 'counterparty', 'reference_number')
     raw_id_fields = ('statement', 'matched_voucher', 'matched_payment')
+
+
+@admin.register(PlatformFinancialConfig)
+class PlatformFinancialConfigAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'code', 'name', 'payment_method_default',
+        'settlement_cycle_days', 'commission_rate',
+        'tax_invoice_issuer', 'vat_classification_default',
+        'is_enabled', 'is_active',
+    )
+    list_filter = (
+        'tax_invoice_issuer', 'cash_receipt_issuer', 'card_receipt_issuer',
+        'vat_classification_default', 'is_enabled', 'is_active',
+    )
+    search_fields = ('code', 'name')
+
+
+@admin.register(BadDebtAllowance)
+class BadDebtAllowanceAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'receivable', 'estimated_date', 'aging_bucket',
+        'allowance_rate', 'allowance_amount', 'voucher', 'is_active',
+    )
+    list_filter = ('aging_bucket', 'is_active')
+    search_fields = ('receivable__partner__name',)
+    raw_id_fields = ('receivable', 'voucher')
+    date_hierarchy = 'estimated_date'
+
+
+@admin.register(AdvanceReceived)
+class AdvanceReceivedAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'partner', 'customer', 'amount', 'applied_amount',
+        'received_date', 'status', 'is_active',
+    )
+    list_filter = ('status', 'is_active')
+    search_fields = ('partner__name', 'customer__name')
+    raw_id_fields = ('partner', 'customer', 'received_voucher', 'applied_to_order')
+    date_hierarchy = 'received_date'
+
+
+@admin.register(AdvancePaid)
+class AdvancePaidAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'partner', 'amount', 'applied_amount',
+        'paid_date', 'status', 'is_active',
+    )
+    list_filter = ('status', 'is_active')
+    search_fields = ('partner__name',)
+    raw_id_fields = ('partner', 'paid_voucher', 'applied_to_po')
+    date_hierarchy = 'paid_date'

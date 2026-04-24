@@ -248,6 +248,11 @@ class StockMovement(BaseModel):
     )
     quantity = models.DecimalField('수량', max_digits=12, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))])
     unit_price = models.DecimalField('단가', max_digits=12, decimal_places=0, default=0, validators=[MinValueValidator(0)])
+    cogs_amount = models.DecimalField(
+        '매출원가금액', max_digits=15, decimal_places=0, default=0,
+        validators=[MinValueValidator(0)],
+        help_text='출고 시 소진된 StockLot 기반 실제 원가 합계 (FIFO/LIFO)',
+    )
     movement_date = models.DateField('입출고일')
     reference = models.CharField('참조', max_length=200, blank=True)
     lot = models.ForeignKey(

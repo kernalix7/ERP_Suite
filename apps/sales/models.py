@@ -234,6 +234,24 @@ class Order(BaseModel):
         RETURN = 'RETURN', '반품주문'
         EXCHANGE = 'EXCHANGE', '교환주문'
 
+    class PaymentMethod(models.TextChoices):
+        CARD = 'CARD', '신용카드'
+        BANK_TRANSFER = 'BANK_TRANSFER', '계좌이체'
+        CASH = 'CASH', '현금'
+        VIRTUAL_ACCOUNT = 'VIRTUAL_ACCOUNT', '가상계좌'
+        NAVER_PAY = 'NAVER_PAY', '네이버페이'
+        KAKAO_PAY = 'KAKAO_PAY', '카카오페이'
+        PLATFORM = 'PLATFORM', '플랫폼정산'
+        OTHER = 'OTHER', '기타'
+
+    class SalesChannel(models.TextChoices):
+        DIRECT = 'DIRECT', '자사몰'
+        NAVER = 'NAVER', '네이버 스마트스토어'
+        COUPANG = 'COUPANG', '쿠팡'
+        OFFLINE = 'OFFLINE', '오프라인'
+        PHONE = 'PHONE', '전화/카카오'
+        OTHER = 'OTHER', '기타'
+
     # 허용되는 상태 전환 맵
     STATUS_TRANSITIONS = {
         'DRAFT': ['CONFIRMED', 'CANCELLED'],
@@ -286,8 +304,14 @@ class Order(BaseModel):
         help_text='체크 시 입력 금액을 VAT 포함 금액으로 간주합니다.',
     )
     shipping_cost = models.DecimalField(
-        '배송비', max_digits=12, decimal_places=0, default=0,
+        '실제 배송비', max_digits=12, decimal_places=0, default=0,
         validators=[MinValueValidator(0)],
+        help_text='실제 지급한 배송비(정산용)',
+    )
+    shipping_charged = models.DecimalField(
+        '청구 배송비', max_digits=12, decimal_places=0, default=0,
+        validators=[MinValueValidator(0)],
+        help_text='고객에게 청구한 배송비(현금영수증/세금계산서 기준)',
     )
     platform_commission = models.DecimalField(
         '플랫폼 수수료', max_digits=15, decimal_places=0, default=0,
@@ -315,6 +339,24 @@ class Order(BaseModel):
     is_paid = models.BooleanField('입금완료', default=False)
     paid_date = models.DateField('입금일', null=True, blank=True)
     is_settled = models.BooleanField('정산완료', default=False)
+    payment_method = models.CharField(
+        '결제수단', max_length=32,
+        choices=PaymentMethod.choices, default=PaymentMethod.CARD,
+    )
+    sales_channel = models.CharField(
+        '판매채널', max_length=32,
+        choices=SalesChannel.choices, default=SalesChannel.DIRECT,
+    )
+
+    class TaxType(models.TextChoices):
+        TAXABLE = 'TAXABLE', '과세'
+        ZERO_RATE = 'ZERO_RATE', '영세율(수출)'
+        EXEMPT = 'EXEMPT', '면세'
+
+    tax_type = models.CharField(
+        '과세구분', max_length=16,
+        choices=TaxType.choices, default=TaxType.TAXABLE,
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -393,6 +435,10 @@ class OrderItem(BaseModel):
     tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0, default=0)
     total_with_tax = models.DecimalField('합계(세포함)', max_digits=15, decimal_places=0, default=0)
     shipped_quantity = models.PositiveIntegerField('출고수량', default=0)
+    actual_cogs = models.DecimalField(
+        '실제매출원가', max_digits=15, decimal_places=0, default=0,
+        help_text='StockLot 소진 기반 FIFO/LIFO 실제 원가 (시그널 자동 갱신)',
+    )
 
     history = HistoricalRecords()
 
@@ -447,7 +493,11 @@ class OrderItem(BaseModel):
             self.discount_amount = round(subtotal * self.discount_rate / 100)
         raw_amount = subtotal - self.discount_amount
 
-        if self.order.vat_included:
+        tax_type = getattr(self.order, 'tax_type', Order.TaxType.TAXABLE)
+        if tax_type in (Order.TaxType.ZERO_RATE, Order.TaxType.EXEMPT):
+            self.amount = raw_amount
+            self.tax_amount = 0
+        elif self.order.vat_included:
             # 입력 금액이 VAT 포함 → 역산
             self.amount = int(Decimal(str(int(raw_amount))) / Decimal('1.1'))
             self.tax_amount = int(raw_amount) - int(self.amount)

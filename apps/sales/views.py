@@ -295,18 +295,33 @@ class OrderListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         from django.contrib.contenttypes.models import ContentType
-        from apps.accounting.models import CashReceipt
+        from apps.accounting.models import CashReceipt, Payment
         ct = ContentType.objects.get_for_model(Order)
-        cash_receipt_sq = CashReceipt.objects.filter(
-            content_type=ct,
-            object_id=OuterRef('pk'),
+        # 현금영수증 3경로 — 직접 FK / source_orders M2M / 라인의 source_order_item
+        direct_sq = CashReceipt.objects.filter(
+            content_type=ct, object_id=OuterRef('pk'),
+            is_active=True, status='ISSUED',
+        )
+        m2m_sq = CashReceipt.objects.filter(
+            source_orders=OuterRef('pk'),
+            is_active=True, status='ISSUED',
+        )
+        line_sq = CashReceipt.objects.filter(
+            items__source_order_item__order=OuterRef('pk'),
+            items__is_active=True,
+            is_active=True, status='ISSUED',
+        )
+        # 카드결제 — Payment(method=CARD) → AR → Order
+        card_sq = Payment.objects.filter(
             is_active=True,
-            status='ISSUED',
+            payment_method=Payment.PaymentMethod.CARD,
+            receivable__order=OuterRef('pk'),
         )
         qs = super().get_queryset().filter(is_active=True).select_related(
             'partner', 'customer',
         ).prefetch_related('items', 'source_quotation').annotate(
-            has_cash_receipt_ann=Exists(cash_receipt_sq),
+            has_cash_receipt_ann=Exists(direct_sq) | Exists(m2m_sq) | Exists(line_sq),
+            has_card_payment_ann=Exists(card_sq),
         )
         status = self.request.GET.get('status')
         if status:
@@ -407,15 +422,15 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
             round(total_profit / total_amount * 100, 1)
             if total_amount else 0
         )
-        # 연결된 현금영수증
+        # 연결된 현금영수증 — source_orders M2M(신규) / 직접 FK(단일) / 라인 FK(레거시)
         from django.contrib.contenttypes.models import ContentType
         from apps.accounting.models import CashReceipt
         ct = ContentType.objects.get_for_model(Order)
-        cash_receipts = CashReceipt.objects.filter(
-            content_type=ct,
-            object_id=self.object.pk,
-            is_active=True,
-        ).order_by('-issued_at')
+        cash_receipts = CashReceipt.objects.filter(is_active=True).filter(
+            Q(source_orders=self.object)
+            | Q(content_type=ct, object_id=self.object.pk)
+            | Q(items__source_order_item__order=self.object, items__is_active=True)
+        ).distinct().order_by('-issued_at')
         ctx['cash_receipts'] = cash_receipts
         ctx['active_cash_receipt'] = cash_receipts.filter(status='ISSUED').first()
         ctx['can_issue_cash_receipt'] = (
@@ -776,17 +791,33 @@ class OrderModifyView(ManagerRequiredMixin, UpdateView):
             supply_amount = int(order.total_amount) if order.total_amount else 0
             tax_amount = int(order.tax_total) if order.tax_total else 0
             if supply_amount > 0 and order.partner:
-                TaxInvoice.objects.create(
-                    invoice_type='SALES',
-                    partner=order.partner,
-                    order=order,
-                    issue_date=date.today(),
-                    supply_amount=supply_amount,
-                    tax_amount=tax_amount,
-                    total_amount=supply_amount + tax_amount,
-                    description=f'주문 {order.order_number} 수정 세금계산서',
-                    created_by=self.request.user,
-                )
+                from apps.accounting.models_platform import PlatformFinancialConfig
+                issuer_type = TaxInvoice.IssuerType.SELF
+                platform_name = ''
+                channel = getattr(order, 'sales_channel', '')
+                config = None
+                if channel:
+                    config = PlatformFinancialConfig.objects.filter(
+                        code=channel, is_enabled=True, is_active=True,
+                    ).first()
+                if config and config.tax_invoice_issuer == PlatformFinancialConfig.IssuerType.PLATFORM:
+                    # 플랫폼 대행 채널은 재발행도 skip
+                    pass
+                else:
+                    TaxInvoice.objects.create(
+                        invoice_type='SALES',
+                        partner=order.partner,
+                        order=order,
+                        issue_date=date.today(),
+                        supply_amount=supply_amount,
+                        tax_amount=tax_amount,
+                        total_amount=supply_amount + tax_amount,
+                        tax_type=getattr(order, 'tax_type', TaxInvoice.TaxType.TAXABLE),
+                        issuer_type=issuer_type,
+                        platform_name=platform_name,
+                        description=f'주문 {order.order_number} 수정 세금계산서',
+                        created_by=self.request.user,
+                    )
 
         messages.success(self.request, f'주문 {order.order_number}이(가) 수정되었습니다.')
         return redirect('sales:order_detail', slug=order.order_number)
@@ -925,14 +956,16 @@ class ShipmentDeleteView(_SoftDeleteView):
         with transaction.atomic():
             # ShipmentItem 연쇄 처리: StockMovement soft delete + shipped_quantity 롤백
             for si in shipment.items.filter(is_active=True):
-                # 관련 OUT StockMovement soft delete
+                # 관련 OUT StockMovement soft delete + 실제매출원가 합산(T10)
                 from apps.inventory.models import StockMovement
                 movements = StockMovement.objects.filter(
                     movement_number__contains=f'SH{shipment.pk}-{si.pk}',
                     movement_type='OUT',
                     is_active=True,
                 )
+                cogs_to_reverse = Decimal('0')
                 for mv in movements:
+                    cogs_to_reverse += mv.cogs_amount or Decimal('0')
                     mv.is_active = False
                     mv.save(update_fields=['is_active', 'updated_at'])
 
@@ -940,6 +973,12 @@ class ShipmentDeleteView(_SoftDeleteView):
                 OrderItem.objects.filter(pk=si.order_item_id).update(
                     shipped_quantity=F('shipped_quantity') - si.quantity,
                 )
+
+                # T10 — 실제매출원가 차감 (출고가 취소되었으므로)
+                if cogs_to_reverse > 0:
+                    OrderItem.objects.filter(pk=si.order_item_id).update(
+                        actual_cogs=F('actual_cogs') - cogs_to_reverse,
+                    )
 
                 # 예약재고 복원 (출고 취소이므로 다시 예약)
                 Product.objects.filter(pk=si.order_item.product_id).update(
@@ -2713,11 +2752,24 @@ class QuotationConvertView(ManagerRequiredMixin, View):
                 'status', 'converted_order', 'updated_at',
             ])
 
-            # 마켓플레이스 주문 연결 (견적서 경유 → ERP 주문)
+            # 마켓플레이스 주문 연결 (견적서 경유 → ERP 주문) + 채널/결제수단 자동매핑
             from apps.marketplace.models import MarketplaceOrder
-            MarketplaceOrder.objects.filter(
+            mkt_qs = MarketplaceOrder.objects.filter(
                 erp_quotation=quote, is_active=True,
-            ).update(erp_order=order)
+            ).select_related('import_session')
+            mkt_qs.update(erp_order=order)
+            first_mkt = mkt_qs.first()
+            if first_mkt and first_mkt.import_session:
+                platform = (first_mkt.import_session.platform or '').upper()
+                channel_map = {
+                    'NAVER': (Order.SalesChannel.NAVER, Order.PaymentMethod.NAVER_PAY),
+                    'COUPANG': (Order.SalesChannel.COUPANG, Order.PaymentMethod.PLATFORM),
+                }
+                if platform in channel_map:
+                    order.sales_channel, order.payment_method = channel_map[platform]
+                    order.save(update_fields=[
+                        'sales_channel', 'payment_method', 'updated_at',
+                    ])
 
         messages.success(
             request,

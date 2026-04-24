@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "손익계산서" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "손익계산서 (K-GAAP 9단계)" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <div class="bg-white shadow rounded-lg p-4">
+        <form method="get" class="flex flex-wrap gap-3 items-end">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "연도" %}</label>
+                <select name="year" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}{% trans "년" %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "월 (선택)" %}</label>
+                <select name="month" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    <option value="">{% trans "연간" %}</option>
+                    {% for m in months %}
+                    <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}{% trans "월" %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary text-sm">{% trans "조회" %}</button>
+        </form>
+    </div>
+
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <div class="bg-gray-800 text-white px-6 py-4 text-center">
+            <h2 class="text-lg font-bold">{% trans "손익계산서" %}</h2>
+            <p class="text-sm text-gray-300 mt-1">{{ period_label }} ({{ period_start }} ~ {{ period_end }})</p>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <section>
+                <div class="flex justify-between items-center border-b-2 border-gray-800 pb-2 mb-2">
+                    <span class="font-bold text-gray-800">I. {% trans "매출액" %}</span>
+                    <span class="font-bold text-lg">{{ step1_revenue|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                {% for item in buckets.sales %}
+                <div class="flex justify-between text-sm text-gray-600 py-1">
+                    <span class="ml-4">[{{ item.code }}] {{ item.name }}</span>
+                    <span>{{ item.amount|floatformat:0 }}</span>
+                </div>
+                {% empty %}
+                <p class="text-sm text-gray-400 ml-4">{% trans "데이터 없음" %}</p>
+                {% endfor %}
+            </section>
+
+            <section>
+                <div class="flex justify-between items-center border-b-2 border-gray-800 pb-2 mb-2">
+                    <span class="font-bold text-gray-800">II. {% trans "매출원가" %}</span>
+                    <span class="font-bold text-lg">{{ step2_cogs|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                {% for item in buckets.cogs %}
+                <div class="flex justify-between text-sm text-gray-600 py-1">
+                    <span class="ml-4">[{{ item.code }}] {{ item.name }}</span>
+                    <span>{{ item.amount|floatformat:0 }}</span>
+                </div>
+                {% empty %}
+                <p class="text-sm text-gray-400 ml-4">{% trans "데이터 없음" %}</p>
+                {% endfor %}
+            </section>
+
+            <section class="bg-blue-50 rounded p-3">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-gray-800">III. {% trans "매출총이익" %}</span>
+                    <span class="font-bold text-xl text-blue-700">{{ step3_gross|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">{% trans "매출총이익률" %}: {{ gross_margin_pct }}%</p>
+            </section>
+
+            <section>
+                <div class="flex justify-between items-center border-b-2 border-gray-800 pb-2 mb-2">
+                    <span class="font-bold text-gray-800">IV. {% trans "판매비와관리비" %}</span>
+                    <span class="font-bold text-lg">{{ step4_sga|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                {% for item in buckets.sga %}
+                <div class="flex justify-between text-sm text-gray-600 py-1">
+                    <span class="ml-4">[{{ item.code }}] {{ item.name }}</span>
+                    <span>{{ item.amount|floatformat:0 }}</span>
+                </div>
+                {% empty %}
+                <p class="text-sm text-gray-400 ml-4">{% trans "데이터 없음" %}</p>
+                {% endfor %}
+            </section>
+
+            <section class="bg-blue-50 rounded p-3">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-gray-800">V. {% trans "영업이익" %}</span>
+                    <span class="font-bold text-xl text-blue-700">{{ step5_operating|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">{% trans "영업이익률" %}: {{ operating_margin_pct }}%</p>
+            </section>
+
+            <section>
+                <div class="flex justify-between items-center border-b border-gray-300 pb-2 mb-2">
+                    <span class="font-medium text-gray-700">VI-1. {% trans "영업외수익" %}</span>
+                    <span class="font-medium">{{ step6_nonop_rev|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                {% for item in buckets.nonop_revenue %}
+                <div class="flex justify-between text-sm text-gray-600 py-1">
+                    <span class="ml-4">[{{ item.code }}] {{ item.name }}</span>
+                    <span>{{ item.amount|floatformat:0 }}</span>
+                </div>
+                {% empty %}
+                <p class="text-sm text-gray-400 ml-4">{% trans "데이터 없음" %}</p>
+                {% endfor %}
+            </section>
+
+            <section>
+                <div class="flex justify-between items-center border-b border-gray-300 pb-2 mb-2">
+                    <span class="font-medium text-gray-700">VI-2. {% trans "영업외비용" %}</span>
+                    <span class="font-medium">{{ step6_nonop_exp|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                {% for item in buckets.nonop_expense %}
+                <div class="flex justify-between text-sm text-gray-600 py-1">
+                    <span class="ml-4">[{{ item.code }}] {{ item.name }}</span>
+                    <span>{{ item.amount|floatformat:0 }}</span>
+                </div>
+                {% empty %}
+                <p class="text-sm text-gray-400 ml-4">{% trans "데이터 없음" %}</p>
+                {% endfor %}
+            </section>
+
+            <section class="bg-gray-50 rounded p-3">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-gray-800">VII. {% trans "법인세비용 차감전 순이익" %}</span>
+                    <span class="font-bold text-lg">{{ step7_pretax|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+            </section>
+
+            <section>
+                <div class="flex justify-between items-center border-b border-gray-300 pb-2 mb-2">
+                    <span class="font-medium text-gray-700">VIII. {% trans "법인세비용" %}</span>
+                    <span class="font-medium">{{ step8_tax|floatformat:0 }}{% trans "원" %}</span>
+                </div>
+                {% for item in buckets.income_tax %}
+                <div class="flex justify-between text-sm text-gray-600 py-1">
+                    <span class="ml-4">[{{ item.code }}] {{ item.name }}</span>
+                    <span>{{ item.amount|floatformat:0 }}</span>
+                </div>
+                {% empty %}
+                <p class="text-sm text-gray-400 ml-4">{% trans "데이터 없음" %}</p>
+                {% endfor %}
+            </section>
+
+            <section class="border-2 {% if step9_net >= 0 %}border-blue-300 bg-blue-50{% else %}border-red-300 bg-red-50{% endif %} rounded-lg p-4">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-gray-800">IX. {% trans "당기순이익" %}</span>
+                    <span class="text-2xl font-bold {% if step9_net >= 0 %}text-blue-700{% else %}text-red-700{% endif %}">
+                        {{ step9_net|floatformat:0 }}{% trans "원" %}
+                    </span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">{% trans "순이익률" %}: {{ net_margin_pct }}%</p>
+            </section>
+
+            <p class="text-xs text-gray-400 mt-4">
+                {% trans "※ 계정코드 규약: 4xx 매출, 501~509 매출원가, 52x~58x 판관비, 47x 영업외수익, 91x~92x 영업외비용, 998~999 법인세. 규약 외 REVENUE/EXPENSE는 판관비/영업외비용으로 자동 분류됩니다." %}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

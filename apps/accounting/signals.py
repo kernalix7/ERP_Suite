@@ -33,19 +33,29 @@ def _generate_voucher_number():
 
 
 def _validate_closing_period(target_date):
-    """마감된 월이면 ValidationError 발생, 아니면 원본 반환"""
-    from django.core.exceptions import ValidationError
-    from .models import ClosingPeriod
-    if ClosingPeriod.objects.filter(
-        year=target_date.year,
-        month=target_date.month,
-        is_closed=True,
-        is_active=True,
-    ).exists():
-        raise ValidationError(
-            f'{target_date.year}년 {target_date.month:02d}월은 마감된 기간입니다. 전표를 생성할 수 없습니다.'
-        )
+    """마감된 월이면 ValidationError 발생, 아니면 원본 반환
+
+    공통 유틸 `apps.accounting.utils.validate_closing_period` 위임.
+    """
+    from apps.accounting.utils import validate_closing_period
+    validate_closing_period(target_date, raise_exception=True, context='전표 생성')
     return target_date
+
+
+@receiver(pre_save, sender=Voucher)
+def voucher_block_on_closed_period(sender, instance, **kwargs):
+    """수동 전표 생성/수정이 마감된 월이면 ValidationError로 차단.
+
+    자동전표(다른 시그널에서 `validate_closing_period(raise_exception=False)` 로 skip 처리)
+    는 이미 함수 내부에서 막히므로 여기까지 오지 않는다. 사용자가 수동으로
+    `Voucher.objects.create(voucher_date=...)` 한 경우에만 블록된다.
+    """
+    from apps.accounting.utils import validate_closing_period
+    validate_closing_period(
+        instance.voucher_date,
+        raise_exception=True,
+        context=f'Voucher {instance.voucher_number or "(신규)"} 수동 생성',
+    )
 
 
 def _get_expense_account(reference):
@@ -82,14 +92,15 @@ def payment_update_balance_and_voucher(sender, instance, created, **kwargs):
         acct = instance.bank_account
         acct.refresh_from_db()
         if acct.account_code and not instance.voucher:
-            try:
-                voucher_date = _validate_closing_period(instance.payment_date)
-            except Exception:
-                logger.warning(
-                    'Payment %s — closing period blocked, skipping voucher',
-                    instance.payment_number,
-                )
+            from apps.accounting.utils import validate_closing_period
+            if not validate_closing_period(
+                instance.payment_date,
+                raise_exception=False,
+                notify_user=instance.created_by,
+                context=f'Payment {instance.payment_number} 자동전표',
+            ):
                 return
+            voucher_date = instance.payment_date
             voucher = Voucher.objects.create(
                 voucher_number=_generate_voucher_number(),
                 voucher_type='RECEIPT' if instance.payment_type == 'RECEIPT' else 'PAYMENT',
@@ -170,14 +181,15 @@ def transfer_update_balance_and_voucher(sender, instance, created, **kwargs):
         to_acct.refresh_from_db()
 
         if from_acct.account_code and to_acct.account_code and not instance.voucher:
-            try:
-                voucher_date = _validate_closing_period(instance.transfer_date)
-            except Exception:
-                logger.warning(
-                    'AccountTransfer %s — closing period blocked, skipping voucher',
-                    instance.transfer_number,
-                )
+            from apps.accounting.utils import validate_closing_period
+            if not validate_closing_period(
+                instance.transfer_date,
+                raise_exception=False,
+                notify_user=instance.created_by,
+                context=f'AccountTransfer {instance.transfer_number} 자동전표',
+            ):
                 return
+            voucher_date = instance.transfer_date
             voucher = Voucher.objects.create(
                 voucher_number=_generate_voucher_number(),
                 voucher_type='TRANSFER',
@@ -352,14 +364,15 @@ def card_transaction_voucher(sender, instance, created, **kwargs):
             )
             return
 
-        try:
-            voucher_date = _validate_closing_period(instance.transaction_date)
-        except Exception:
-            logger.warning(
-                'CardTransaction %s — closing period blocked, skipping voucher',
-                instance.pk,
-            )
+        from apps.accounting.utils import validate_closing_period
+        if not validate_closing_period(
+            instance.transaction_date,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'CardTransaction {instance.pk} 자동전표',
+        ):
             return
+        voucher_date = instance.transaction_date
         voucher = Voucher.objects.create(
             voucher_number=_generate_voucher_number(),
             voucher_type='PAYMENT',
@@ -420,14 +433,15 @@ def card_transaction_cancel(sender, instance, **kwargs):
             return
 
         cancel_date = instance.cancelled_date or instance.transaction_date
-        try:
-            voucher_date = _validate_closing_period(cancel_date)
-        except Exception:
-            logger.warning(
-                'CardTransaction %s cancel — closing period blocked, skipping reverse voucher',
-                instance.pk,
-            )
+        from apps.accounting.utils import validate_closing_period
+        if not validate_closing_period(
+            cancel_date,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'CardTransaction {instance.pk} 취소 역전표',
+        ):
             return
+        voucher_date = cancel_date
         voucher = Voucher.objects.create(
             voucher_number=_generate_voucher_number(),
             voucher_type='PAYMENT',
@@ -472,14 +486,15 @@ def ar_auto_voucher_on_create(sender, instance, created, **kwargs):
             )
             return
 
-        try:
-            voucher_date = _validate_closing_period(instance.due_date)
-        except Exception:
-            logger.warning(
-                'AR %s — closing period blocked, skipping auto voucher',
-                instance.pk,
-            )
+        from apps.accounting.utils import validate_closing_period
+        if not validate_closing_period(
+            instance.due_date,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'AR pk={instance.pk} 자동전표',
+        ):
             return
+        voucher_date = instance.due_date
 
         voucher = Voucher.objects.create(
             voucher_number=_generate_voucher_number(),
@@ -562,14 +577,15 @@ def ap_auto_voucher_on_create(sender, instance, created, **kwargs):
             )
             return
 
-        try:
-            voucher_date = _validate_closing_period(instance.due_date)
-        except Exception:
-            logger.warning(
-                'AP %s — closing period blocked, skipping auto voucher',
-                instance.pk,
-            )
+        from apps.accounting.utils import validate_closing_period
+        if not validate_closing_period(
+            instance.due_date,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'AP pk={instance.pk} 자동전표',
+        ):
             return
+        voucher_date = instance.due_date
 
         voucher = Voucher.objects.create(
             voucher_number=_generate_voucher_number(),
@@ -640,14 +656,15 @@ def auto_voucher_on_settlement(sender, instance, **kwargs):
             )
             return
 
-        try:
-            voucher_date = _validate_closing_period(instance.settlement_date)
-        except Exception:
-            logger.warning(
-                'SalesSettlement %s — closing period blocked, skipping voucher',
-                instance.settlement_number,
-            )
+        from apps.accounting.utils import validate_closing_period
+        if not validate_closing_period(
+            instance.settlement_date,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'SalesSettlement {instance.settlement_number} 수수료 자동전표',
+        ):
             return
+        voucher_date = instance.settlement_date
 
         total_amount = commission + shipping
 

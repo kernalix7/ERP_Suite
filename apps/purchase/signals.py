@@ -126,6 +126,7 @@ def _auto_create_fixed_asset(receipt_item, po_item, product, goods_receipt):
 
     # 취득 전표: 차변 150(유형자산), 대변 253(미지급금)
     from apps.accounting.models import AccountCode, Voucher, VoucherLine
+    from apps.accounting.utils import validate_closing_period
     import uuid
 
     try:
@@ -133,6 +134,15 @@ def _auto_create_fixed_asset(receipt_item, po_item, product, goods_receipt):
         acct_payable = AccountCode.objects.get(code='253', is_active=True)
     except AccountCode.DoesNotExist:
         logger.warning('자산취득 전표 생성 실패: 계정과목 150 또는 253 없음')
+        return
+
+    # 마감기간 검증 — 입고일 기준
+    if not validate_closing_period(
+        goods_receipt.receipt_date,
+        raise_exception=False,
+        notify_user=goods_receipt.created_by,
+        context=f'자산취득 전표 {asset_number}',
+    ):
         return
 
     voucher_number = f'V{goods_receipt.receipt_date.strftime("%Y%m%d")}-{uuid.uuid4().hex[:6].upper()}'
@@ -165,6 +175,7 @@ def _auto_create_fixed_asset(receipt_item, po_item, product, goods_receipt):
 def _auto_create_ap(po):
     """발주 전량 입고 완료 시 매입채무(AP) 자동 생성"""
     from apps.accounting.models import AccountPayable
+    from apps.accounting.utils import validate_closing_period
 
     if not po.partner:
         return
@@ -180,6 +191,15 @@ def _auto_create_ap(po):
         return
 
     due_date = po.expected_date or (date.today() + timedelta(days=30))
+
+    # 마감기간 검증 — 입고완료 시점(오늘) 기준
+    if not validate_closing_period(
+        date.today(),
+        raise_exception=False,
+        notify_user=po.created_by,
+        context=f'발주 {po.po_number} AP 자동생성',
+    ):
+        return
 
     AccountPayable.objects.create(
         partner=po.partner,
@@ -199,6 +219,7 @@ def _auto_create_ap(po):
 def _auto_create_purchase_tax_invoice(po):
     """발주 전량 입고 완료 시 매입 세금계산서 자동 생성"""
     from apps.accounting.models import TaxInvoice
+    from apps.accounting.utils import validate_closing_period
 
     if not po.partner:
         return
@@ -219,6 +240,15 @@ def _auto_create_purchase_tax_invoice(po):
         invoice_type='PURCHASE',
         is_active=True,
     ).exists():
+        return
+
+    # 마감기간 검증 — 발행일(오늘) 기준
+    if not validate_closing_period(
+        date.today(),
+        raise_exception=False,
+        notify_user=po.created_by,
+        context=f'발주 {po.po_number} 매입 세금계산서',
+    ):
         return
 
     TaxInvoice.objects.create(

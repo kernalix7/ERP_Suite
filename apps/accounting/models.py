@@ -90,6 +90,16 @@ class TaxInvoice(BaseModel):
         REJECTED = 'REJECTED', '국세청 반려'
         CANCELLED = 'CANCELLED', '취소'
 
+    class IssuerType(models.TextChoices):
+        SELF = 'SELF', '자사발행'
+        PLATFORM = 'PLATFORM', '플랫폼대행'
+        OUTSOURCED = 'OUTSOURCED', '세무사대행'
+
+    class TaxType(models.TextChoices):
+        TAXABLE = 'TAXABLE', '과세'
+        ZERO_RATE = 'ZERO_RATE', '영세율(수출)'
+        EXEMPT = 'EXEMPT', '면세'
+
     invoice_number = models.CharField('세금계산서번호', max_length=50, unique=True, blank=True)
     invoice_type = models.CharField('유형', max_length=10, choices=InvoiceType.choices)
     partner = models.ForeignKey(
@@ -104,6 +114,15 @@ class TaxInvoice(BaseModel):
     supply_amount = models.DecimalField('공급가액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     tax_amount = models.DecimalField('부가세', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     total_amount = models.DecimalField('합계', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
+    tax_type = models.CharField(
+        '과세구분', max_length=16,
+        choices=TaxType.choices, default=TaxType.TAXABLE,
+    )
+    issuer_type = models.CharField(
+        '발행주체', max_length=16,
+        choices=IssuerType.choices, default=IssuerType.SELF,
+    )
+    platform_name = models.CharField('대행플랫폼', max_length=64, blank=True)
     description = models.TextField('적요', blank=True)
 
     # 전자세금계산서 필드
@@ -166,6 +185,11 @@ class CashReceipt(BaseModel):
         ISSUED = 'ISSUED', '발행완료'
         CANCELLED = 'CANCELLED', '취소'
 
+    class IssuerType(models.TextChoices):
+        SELF = 'SELF', '자사발행'
+        PLATFORM = 'PLATFORM', '플랫폼대행'
+        OUTSOURCED = 'OUTSOURCED', '세무사대행'
+
     receipt_number = models.CharField('현금영수증 승인번호', max_length=30, unique=True, blank=True)
     issued_at = models.DateTimeField('발행일시')
     supply_amount = models.DecimalField(
@@ -199,6 +223,11 @@ class CashReceipt(BaseModel):
         null=True, blank=True, on_delete=models.SET_NULL,
         related_name='cash_receipts',
     )
+    issuer_type = models.CharField(
+        '발행주체', max_length=16,
+        choices=IssuerType.choices, default=IssuerType.SELF,
+    )
+    platform_name = models.CharField('대행플랫폼', max_length=64, blank=True)
 
     # GenericForeignKey — Order/Payment/Voucher 중 하나와 연결 (선택)
     content_type = models.ForeignKey(
@@ -211,6 +240,12 @@ class CashReceipt(BaseModel):
     hometax_key = models.CharField(
         '홈택스 키', max_length=100, blank=True,
         help_text='홈택스 API 연동용 식별자 (향후)',
+    )
+
+    # 다중주문 집계 발행 시 연결된 주문들 (단일주문은 content_type/object_id로 충분)
+    source_orders = models.ManyToManyField(
+        'sales.Order', verbose_name='연결된 주문', blank=True,
+        related_name='cash_receipts_linked',
     )
 
     history = HistoricalRecords()
@@ -378,6 +413,11 @@ class WithholdingTax(BaseModel):
     tax_rate = models.DecimalField('세율(%)', max_digits=5, decimal_places=2, validators=[MinValueValidator(0), MaxValueValidator(100)])
     tax_amount = models.DecimalField('원천징수액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
     net_amount = models.DecimalField('실지급액', max_digits=15, decimal_places=0, validators=[MinValueValidator(0)])
+    voucher = models.ForeignKey(
+        'accounting.Voucher', verbose_name='자동전표',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='withholdings',
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -910,6 +950,7 @@ class Payment(BaseModel):
         choices=PaymentMethod.choices, default=PaymentMethod.BANK_TRANSFER,
     )
     reference = models.CharField('참조', max_length=100, blank=True)
+    is_advance = models.BooleanField('선수금/선급금 여부', default=False)
     history = HistoricalRecords()
 
     class Meta:
@@ -1676,3 +1717,9 @@ class BankTransaction(BaseModel):
 
     def __str__(self):
         return f'{self.transaction_date} {self.description} {self.amount:,}원'
+
+
+# 별도 파일의 모델 import (migration 인식)
+from .models_platform import PlatformFinancialConfig  # noqa: E402, F401
+from .models_advance import AdvanceReceived, AdvancePaid, AdvanceStatus  # noqa: E402, F401
+from .models_baddebt import BadDebtAllowance, AgingBucket  # noqa: E402, F401

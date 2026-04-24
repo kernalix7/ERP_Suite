@@ -10,7 +10,38 @@ from .models import (
     Company, InterCompanyTransaction, ConsolidationPeriod,
     BankConnection, BankStatement,
     CashReceipt, CashReceiptItem,
+    PlatformFinancialConfig,
 )
+
+
+class PlatformFinancialConfigForm(BaseForm):
+    class Meta:
+        model = PlatformFinancialConfig
+        fields = [
+            'code', 'name',
+            'payment_method_default', 'settlement_cycle_days', 'commission_rate',
+            'tax_invoice_issuer', 'cash_receipt_issuer', 'card_receipt_issuer',
+            'vat_classification_default', 'allow_zero_rate', 'is_enabled',
+            'notes',
+        ]
+
+    def clean_code(self):
+        code = self.cleaned_data.get('code', '').strip().upper()
+        if not code:
+            raise forms.ValidationError('플랫폼코드는 필수입니다.')
+        return code
+
+    def clean_commission_rate(self):
+        rate = self.cleaned_data.get('commission_rate') or 0
+        if rate < 0 or rate > 100:
+            raise forms.ValidationError('수수료율은 0~100 사이여야 합니다.')
+        return rate
+
+    def clean_settlement_cycle_days(self):
+        days = self.cleaned_data.get('settlement_cycle_days') or 0
+        if days < 0:
+            raise forms.ValidationError('정산주기는 0 이상이어야 합니다.')
+        return days
 
 
 class CurrencyForm(BaseForm):
@@ -43,7 +74,9 @@ class TaxInvoiceForm(BaseForm):
         model = TaxInvoice
         fields = [
             'invoice_number', 'invoice_type', 'partner', 'order', 'issue_date',
-            'supply_amount', 'tax_amount', 'total_amount', 'description', 'notes',
+            'supply_amount', 'tax_amount', 'total_amount',
+            'tax_type', 'issuer_type', 'platform_name',
+            'description', 'notes',
         ]
         widgets = {
             'issue_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
@@ -55,18 +88,29 @@ class CashReceiptForm(BaseForm):
         model = CashReceipt
         fields = [
             'issued_at', 'purpose', 'identifier', 'partner',
-            'supply_amount', 'vat', 'notes',
+            'supply_amount', 'vat',
+            'issuer_type', 'platform_name',
+            'notes',
         ]
         widgets = {
             'issued_at': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-input'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['issuer_type'].required = False
+        self.fields['issuer_type'].initial = CashReceipt.IssuerType.SELF
+
     def clean(self):
         cleaned = super().clean()
+        if not cleaned.get('issuer_type'):
+            cleaned['issuer_type'] = CashReceipt.IssuerType.SELF
         supply = cleaned.get('supply_amount') or 0
         vat = cleaned.get('vat') or 0
         if supply < 0 or vat < 0:
             raise forms.ValidationError('공급가액/부가세는 0 이상이어야 합니다.')
+        # total_amount 자동 계산 — CashReceipt.clean() 의 합계 검증 통과용
+        self.instance.total_amount = supply + vat
         return cleaned
 
 

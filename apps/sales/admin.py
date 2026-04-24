@@ -64,6 +64,7 @@ class OrderAdmin(SimpleHistoryAdmin):
     list_display = (
         'order_number', 'order_type', 'partner', 'customer',
         'assigned_to', 'order_date', 'status', 'total_amount',
+        'shipping_charged', 'shipping_cost',
     )
     list_filter = ('status', 'order_type')
     search_fields = ('order_number', 'partner__name', 'customer__name')

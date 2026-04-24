@@ -51,6 +51,7 @@ urlpatterns = [
     path('sales-settlements/<str:slug>/pdf/', views.SalesSettlementPDFView.as_view(), name='sales_settlement_pdf'),
     path('breakeven/', views.BreakEvenView.as_view(), name='breakeven'),
     path('monthly-pl/', views.MonthlyPLView.as_view(), name='monthly_pl'),
+    path('income-statement/', views.IncomeStatementView.as_view(), name='income_statement'),
     path('withholding/', views.WithholdingTaxListView.as_view(), name='withholding_list'),
     path('withholding/create/', views.WithholdingTaxCreateView.as_view(), name='withholding_create'),
     path('withholding/<int:pk>/edit/', views.WithholdingTaxUpdateView.as_view(), name='withholding_update'),
@@ -175,4 +176,17 @@ urlpatterns = [
     path('cash-receipts/order-lookup/', views.CashReceiptOrderLookupView.as_view(), name='cash_receipt_order_lookup'),
     path('cash-receipts/<int:pk>/', views.CashReceiptDetailView.as_view(), name='cash_receipt_detail'),
     path('cash-receipts/<int:pk>/cancel/', views.CashReceiptCancelView.as_view(), name='cash_receipt_cancel'),
+    # 플랫폼 재무설정
+    path('platform-config/', views.PlatformFinancialConfigListView.as_view(), name='platform_config_list'),
+    path('platform-config/create/', views.PlatformFinancialConfigCreateView.as_view(), name='platform_config_create'),
+    path('platform-config/<int:pk>/', views.PlatformFinancialConfigDetailView.as_view(), name='platform_config_detail'),
+    path('platform-config/<int:pk>/edit/', views.PlatformFinancialConfigUpdateView.as_view(), name='platform_config_update'),
+    path('platform-config/<int:pk>/delete/', views.PlatformFinancialConfigDeleteView.as_view(), name='platform_config_delete'),
+    # 선수금/선급금
+    path('advance-received/', views.AdvanceReceivedListView.as_view(), name='advance_received_list'),
+    path('advance-received/<int:pk>/', views.AdvanceReceivedDetailView.as_view(), name='advance_received_detail'),
+    path('advance-paid/', views.AdvancePaidListView.as_view(), name='advance_paid_list'),
+    path('advance-paid/<int:pk>/', views.AdvancePaidDetailView.as_view(), name='advance_paid_detail'),
+    # 대손충당금
+    path('bad-debt/', views.BadDebtAllowanceListView.as_view(), name='bad_debt_list'),
 ]

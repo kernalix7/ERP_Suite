@@ -464,6 +464,7 @@ def _check_credit_limit(order):
 def _auto_create_ar(order):
     """주문 확정 시 매출채권(AR) 자동 생성"""
     from apps.accounting.models import AccountReceivable
+    from apps.accounting.utils import validate_closing_period
 
     if not order.partner:
         return
@@ -474,6 +475,15 @@ def _auto_create_ar(order):
 
     # 이미 AR이 있으면 스킵
     if AccountReceivable.objects.filter(order=order, is_active=True).exists():
+        return
+
+    # 마감기간 검증 — 마감된 월이면 silent skip + 알림
+    if not validate_closing_period(
+        order.order_date,
+        raise_exception=False,
+        notify_user=order.created_by,
+        context=f'주문 {order.order_number} AR 자동생성',
+    ):
         return
 
     with transaction.atomic():
@@ -492,8 +502,15 @@ def _auto_create_ar(order):
 
 
 def _auto_create_tax_invoice(order):
-    """주문 확정 시 매출 세금계산서 자동 생성"""
+    """주문 확정 시 매출 세금계산서 자동 생성.
+
+    - 면세/영세율 주문은 tax_type을 승계해 생성 (세무신고 분류용).
+    - sales_channel이 PlatformFinancialConfig에서 tax_invoice_issuer='PLATFORM' 설정인 경우
+      플랫폼이 이미 발행했으므로 자동생성을 skip하고 담당자에게 알림만 발송한다.
+    """
     from apps.accounting.models import TaxInvoice
+    from apps.accounting.models_platform import PlatformFinancialConfig
+    from apps.accounting.utils import validate_closing_period
 
     if not order.partner:
         return
@@ -507,6 +524,51 @@ def _auto_create_tax_invoice(order):
     if TaxInvoice.objects.filter(order=order, is_active=True).exists():
         return
 
+    # 마감기간 검증 — 마감된 월이면 silent skip + 알림
+    if not validate_closing_period(
+        order.order_date,
+        raise_exception=False,
+        notify_user=order.created_by,
+        context=f'주문 {order.order_number} 매출 세금계산서',
+    ):
+        return
+
+    order_tax_type = getattr(order, 'tax_type', TaxInvoice.TaxType.TAXABLE)
+    issuer_type = TaxInvoice.IssuerType.SELF
+    platform_name = ''
+
+    channel = getattr(order, 'sales_channel', '')
+    config = None
+    if channel:
+        config = PlatformFinancialConfig.objects.filter(
+            code=channel, is_enabled=True, is_active=True,
+        ).first()
+
+    if config and config.tax_invoice_issuer == PlatformFinancialConfig.IssuerType.PLATFORM:
+        # 플랫폼 대행 발행 채널 — 자사 자동생성 skip + 알림
+        try:
+            from apps.core.notification import Notification
+            if order.created_by_id:
+                Notification.objects.create(
+                    user_id=order.created_by_id,
+                    title=f'[세금계산서 자동생성 skip] {order.order_number}',
+                    message=(
+                        f'주문 {order.order_number}: {config.name} 채널은 '
+                        f'세금계산서를 플랫폼이 대행 발행하도록 설정되어 자사 자동발행을 건너뛰었습니다.'
+                    ),
+                    noti_type=Notification.NotiType.SYSTEM,
+                )
+        except Exception:
+            logger.warning(
+                'TaxInvoice skip 알림 발송 실패 (order=%s)', order.order_number,
+                exc_info=True,
+            )
+        logger.info(
+            'Skipped TaxInvoice auto-creation for order %s (platform=%s)',
+            order.order_number, config.code,
+        )
+        return
+
     with transaction.atomic():
         inv = TaxInvoice.objects.create(
             invoice_type='SALES',
@@ -516,20 +578,29 @@ def _auto_create_tax_invoice(order):
             supply_amount=supply_amount,
             tax_amount=tax_amount,
             total_amount=supply_amount + tax_amount,
+            tax_type=order_tax_type,
+            issuer_type=issuer_type,
+            platform_name=platform_name,
             description=f'주문 {order.order_number} 매출 세금계산서',
             created_by=order.created_by,
         )
         logger.info(
-            'Auto-created TaxInvoice %s for order %s',
-            inv.invoice_number, order.order_number,
+            'Auto-created TaxInvoice %s for order %s (tax_type=%s, issuer=%s)',
+            inv.invoice_number, order.order_number, order_tax_type, issuer_type,
         )
 
 
 def _auto_create_return_stock_in(order):
-    """반품주문 확정 시 원본 주문의 출고 아이템 기준 IN(반품입고) StockMovement 생성"""
+    """반품주문 확정 시 원본 주문의 출고 아이템 기준 IN(반품입고) StockMovement 생성
+
+    T10 — 원본 OrderItem.actual_cogs 를 반품 수량 비율에 비례해 F() 차감한다.
+    차감액 = original_item.actual_cogs × return_qty / original_item.quantity
+    """
     if not order.original_order:
         logger.warning('반품주문 %s: 원본주문 미지정 — 반품입고 스킵', order.order_number)
         return
+
+    from apps.sales.models import OrderItem as _OI
 
     with transaction.atomic():
         for item in order.items.select_related('product').all():
@@ -552,12 +623,67 @@ def _auto_create_return_stock_in(order):
                 reference=f'반품입고 {order.order_number} (원본: {order.original_order.order_number})',
                 created_by=order.created_by,
             )
+
+            # T10 — 원본 주문 내 동일 product OrderItem 의 actual_cogs 비례 차감
+            _reverse_original_actual_cogs(
+                order.original_order, item.product_id, item.quantity,
+                reason=f'반품 {order.order_number}',
+            )
         logger.info('Auto-created return stock IN for order %s', order.order_number)
+
+
+def _reverse_original_actual_cogs(original_order, product_id, return_qty, *, reason=''):
+    """원본 주문의 동일 product OrderItem 에서 actual_cogs 를 비례 차감(F()).
+
+    반품/교환 공통 헬퍼. 원본 수량 기준으로 비례 배분하며,
+    반품수량이 원본수량을 초과하면 원본 전액 차감.
+    """
+    from apps.sales.models import OrderItem as _OI
+    from decimal import Decimal
+
+    orig_item = (
+        _OI.objects.filter(
+            order=original_order,
+            product_id=product_id,
+            is_active=True,
+        )
+        .order_by('pk')
+        .first()
+    )
+    if not orig_item:
+        logger.warning(
+            'Original OrderItem not found for product=%s in order=%s — '
+            'actual_cogs reversal skipped (%s)',
+            product_id, original_order.order_number, reason,
+        )
+        return
+
+    if not orig_item.actual_cogs or orig_item.quantity <= 0:
+        return
+
+    ratio_qty = min(int(return_qty), int(orig_item.quantity))
+    reverse_amount = (
+        Decimal(orig_item.actual_cogs)
+        * Decimal(ratio_qty)
+        / Decimal(orig_item.quantity)
+    ).quantize(Decimal('1'))
+
+    if reverse_amount <= 0:
+        return
+
+    _OI.objects.filter(pk=orig_item.pk).update(
+        actual_cogs=F('actual_cogs') - reverse_amount,
+    )
+    logger.info(
+        'Reversed actual_cogs -%s on original OrderItem pk=%s (qty %s/%s) [%s]',
+        reverse_amount, orig_item.pk, ratio_qty, orig_item.quantity, reason,
+    )
 
 
 def _auto_reverse_ar(order):
     """반품주문 확정 시 원본 주문의 AR 역전표(환불) 생성"""
     from apps.accounting.models import AccountReceivable
+    from apps.accounting.utils import validate_closing_period
 
     original = order.original_order
     if not original or not original.partner:
@@ -569,6 +695,15 @@ def _auto_reverse_ar(order):
 
     # 이미 역전표가 있으면 스킵
     if AccountReceivable.objects.filter(order=order, is_active=True).exists():
+        return
+
+    # 마감기간 검증 — 환불 AR 생성 시점 (order_date) 기준
+    if not validate_closing_period(
+        order.order_date,
+        raise_exception=False,
+        notify_user=order.created_by,
+        context=f'반품주문 {order.order_number} AR 역전표',
+    ):
         return
 
     with transaction.atomic():
@@ -606,14 +741,20 @@ def _auto_cancel_tax_invoice_for_return(order):
 
 
 def _auto_create_exchange_stock_movements(order):
-    """교환주문 확정 시 원본품 반품입고(IN) + 교환품 출고(OUT) StockMovement 생성"""
+    """교환주문 확정 시 원본품 반품입고(IN) + 교환품 출고(OUT) StockMovement 생성
+
+    T10 — 원본 OrderItem.actual_cogs 를 반품수량 비율만큼 차감하고,
+    교환 OUT StockMovement.cogs_amount 를 교환 OrderItem.actual_cogs 에 F() 누적.
+    """
     original = order.original_order
     if not original:
         logger.warning('교환주문 %s: 원본주문 미지정 — 교환 재고처리 스킵', order.order_number)
         return
 
+    from apps.sales.models import OrderItem as _OI
+
     with transaction.atomic():
-        # 원본 주문의 아이템: 반품입고(IN)
+        # 원본 주문의 아이템: 반품입고(IN) + 원본 actual_cogs 비례 차감
         for item in original.items.select_related('product').all():
             if not item.product.is_stockable:
                 continue
@@ -633,8 +774,12 @@ def _auto_create_exchange_stock_movements(order):
                 reference=f'교환반품입고 {order.order_number} (원본: {original.order_number})',
                 created_by=order.created_by,
             )
+            _reverse_original_actual_cogs(
+                original, item.product_id, item.quantity,
+                reason=f'교환 {order.order_number}',
+            )
 
-        # 교환 주문의 아이템: 교환출고(OUT)
+        # 교환 주문의 아이템: 교환출고(OUT) + 교환 actual_cogs 누적
         for item in order.items.select_related('product').all():
             if not item.product.is_stockable:
                 continue
@@ -643,7 +788,7 @@ def _auto_create_exchange_stock_movements(order):
                 warehouse = Warehouse.get_default()
             if not warehouse:
                 continue
-            StockMovement.objects.create(
+            movement = StockMovement.objects.create(
                 movement_number=f'OUT-EXC-{order.order_number}-{item.pk}',
                 movement_type='OUT',
                 product=item.product,
@@ -654,12 +799,19 @@ def _auto_create_exchange_stock_movements(order):
                 reference=f'교환출고 {order.order_number}',
                 created_by=order.created_by,
             )
+            # T10 — inventory signals 가 cogs_amount 를 F() update 해두므로 refresh.
+            movement.refresh_from_db(fields=['cogs_amount'])
+            if movement.cogs_amount:
+                _OI.objects.filter(pk=item.pk).update(
+                    actual_cogs=F('actual_cogs') + movement.cogs_amount,
+                )
         logger.info('Auto-created exchange stock movements for order %s', order.order_number)
 
 
 def _auto_exchange_ar_diff(order):
     """교환주문 확정 시 원본과의 AR 차액 처리"""
     from apps.accounting.models import AccountReceivable
+    from apps.accounting.utils import validate_closing_period
 
     original = order.original_order
     if not original or not original.partner:
@@ -674,6 +826,15 @@ def _auto_exchange_ar_diff(order):
 
     # 이미 AR이 있으면 스킵
     if AccountReceivable.objects.filter(order=order, is_active=True).exists():
+        return
+
+    # 마감기간 검증
+    if not validate_closing_period(
+        order.order_date,
+        raise_exception=False,
+        notify_user=order.created_by,
+        context=f'교환주문 {order.order_number} AR 차액',
+    ):
         return
 
     with transaction.atomic():
@@ -854,7 +1015,7 @@ def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
                 )
 
             # OUT 재고이동 생성
-            StockMovement.objects.create(
+            movement = StockMovement.objects.create(
                 movement_number=(
                     f'OUT-{order.order_number}'
                     f'-SH{shipment.pk}-{instance.pk}'
@@ -868,6 +1029,16 @@ def auto_stock_on_shipment_item(sender, instance, created, **kwargs):
                 reference=f'부분출고 {order.order_number}',
                 created_by=shipment.created_by,
             )
+
+            # T10 — StockLot 소진 기반 실제매출원가를 OrderItem.actual_cogs 누적.
+            # inventory.signals._consume_lots_on_outbound 가 동기 post_save 체인에서
+            # StockMovement.cogs_amount 를 F() update 해두므로 refresh 후 누적.
+            movement.refresh_from_db(fields=['cogs_amount'])
+            if movement.cogs_amount:
+                from apps.sales.models import OrderItem
+                OrderItem.objects.filter(pk=order_item.pk).update(
+                    actual_cogs=F('actual_cogs') + movement.cogs_amount,
+                )
 
             # 예약재고 해제 (출고된 수량만큼, 예약 없으면 스킵)
             prod = Product.objects.get(pk=order_item.product_id)

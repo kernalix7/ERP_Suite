@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ config.name }} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "플랫폼 재무설정 상세" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:platform_config_list' %}" class="btn btn-secondary">{% trans "목록" %}</a>
+<a href="{% url 'accounting:platform_config_update' config.pk %}" class="btn btn-primary">{% trans "수정" %}</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-800">{{ config.name }} <span class="text-sm text-gray-500 font-mono">({{ config.code }})</span></h2>
+    </div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+        <div>
+            <dt class="text-gray-500">{% trans "기본 결제수단" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.get_payment_method_default_display }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "정산주기(일)" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.settlement_cycle_days }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "수수료율(%)" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.commission_rate }}%</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "기본 과세구분" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.get_vat_classification_default_display }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "세금계산서 발행주체" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.get_tax_invoice_issuer_display }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "현금영수증 발행주체" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.get_cash_receipt_issuer_display }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "카드매출전표 발행주체" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.get_card_receipt_issuer_display }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "영세율 허용" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.allow_zero_rate|yesno:"예,아니오" }}</dd>
+        </div>
+        <div>
+            <dt class="text-gray-500">{% trans "사용여부" %}</dt>
+            <dd class="font-medium text-gray-900">{{ config.is_enabled|yesno:"사용,중지" }}</dd>
+        </div>
+        <div class="md:col-span-2">
+            <dt class="text-gray-500">{% trans "비고" %}</dt>
+            <dd class="font-medium text-gray-900 whitespace-pre-line">{{ config.notes|default:"-" }}</dd>
+        </div>
+    </div>
+</div>
+{% endblock %}

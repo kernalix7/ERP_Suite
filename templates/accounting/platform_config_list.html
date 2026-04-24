@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "플랫폼 재무설정" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "플랫폼 재무설정" %}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'accounting:platform_config_create' %}" class="btn btn-primary">
+    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    {% trans "등록" %}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left text-gray-600 font-medium">
+                    <th class="px-4 py-3">{% trans "코드" %}</th>
+                    <th class="px-4 py-3">{% trans "플랫폼명" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "결제수단" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "정산주기" %}</th>
+                    <th class="px-4 py-3 text-right">{% trans "수수료율" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "세금계산서" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "과세구분" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "사용" %}</th>
+                    <th class="px-4 py-3 text-center">{% trans "관리" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for config in configs %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-mono text-gray-900">{{ config.code }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ config.name }}</td>
+                    <td class="px-4 py-3 text-center text-gray-700">{{ config.get_payment_method_default_display }}</td>
+                    <td class="px-4 py-3 text-right text-gray-700">{{ config.settlement_cycle_days }}{% trans "일" %}</td>
+                    <td class="px-4 py-3 text-right text-gray-700">{{ config.commission_rate }}%</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if config.tax_invoice_issuer == 'SELF' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">{{ config.get_tax_invoice_issuer_display }}</span>
+                        {% elif config.tax_invoice_issuer == 'PLATFORM' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800">{{ config.get_tax_invoice_issuer_display }}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{{ config.get_tax_invoice_issuer_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center text-gray-700">{{ config.get_vat_classification_default_display }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if config.is_enabled %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800">{% trans "사용" %}</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{% trans "중지" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center space-x-2">
+                        <a href="{% url 'accounting:platform_config_detail' config.pk %}" class="text-gray-600 hover:text-gray-800 text-sm">{% trans "상세" %}</a>
+                        <a href="{% url 'accounting:platform_config_update' config.pk %}" class="text-blue-600 hover:text-blue-800 text-sm">{% trans "수정" %}</a>
+                        <a href="{% url 'accounting:platform_config_delete' config.pk %}" class="text-red-600 hover:text-red-800 text-sm">{% trans "삭제" %}</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">{% trans "등록된 플랫폼 설정이 없습니다." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-sm text-gray-500">{% trans "총" %} {{ page_obj.paginator.count }}{% trans "건" %}</p>
+        <nav class="flex flex-wrap gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "이전" %}</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}" class="px-3 py-1 text-sm rounded border {% if page_obj.number == num %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 hover:bg-gray-50{% endif %}">{{ num }}</a>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50">{% trans "다음" %}</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
