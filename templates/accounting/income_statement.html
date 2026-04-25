@@ -159,6 +159,48 @@
                 <p class="text-xs text-gray-500 mt-1">{% trans "순이익률" %}: {{ net_margin_pct }}%</p>
             </section>
 
+            {% if compare and prior %}
+            <section class="mt-6 border-t pt-4">
+                <h3 class="text-sm font-bold text-gray-700 mb-3">{% trans "비교 — " %}{{ prior_period_label }}</h3>
+                <table class="w-full text-sm border">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left">{% trans "단계" %}</th>
+                            <th class="px-3 py-2 text-right">{% trans "당기" %}</th>
+                            <th class="px-3 py-2 text-right">{% trans "전기" %}</th>
+                            <th class="px-3 py-2 text-right">{% trans "YoY (%)" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-t"><td class="px-3 py-2">{% trans "매출액" %}</td>
+                            <td class="px-3 py-2 text-right">{{ step1_revenue|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right">{{ prior.step1_revenue|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right {% if yoy.revenue and yoy.revenue >= 0 %}text-blue-700{% elif yoy.revenue %}text-red-700{% endif %}">
+                                {% if yoy.revenue is None %}—{% else %}{{ yoy.revenue }}%{% endif %}
+                            </td></tr>
+                        <tr class="border-t"><td class="px-3 py-2">{% trans "매출총이익" %}</td>
+                            <td class="px-3 py-2 text-right">{{ step3_gross|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right">{{ prior.step3_gross|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right {% if yoy.gross and yoy.gross >= 0 %}text-blue-700{% elif yoy.gross %}text-red-700{% endif %}">
+                                {% if yoy.gross is None %}—{% else %}{{ yoy.gross }}%{% endif %}
+                            </td></tr>
+                        <tr class="border-t"><td class="px-3 py-2">{% trans "영업이익" %}</td>
+                            <td class="px-3 py-2 text-right">{{ step5_operating|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right">{{ prior.step5_operating|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right {% if yoy.operating and yoy.operating >= 0 %}text-blue-700{% elif yoy.operating %}text-red-700{% endif %}">
+                                {% if yoy.operating is None %}—{% else %}{{ yoy.operating }}%{% endif %}
+                            </td></tr>
+                        <tr class="border-t font-semibold"><td class="px-3 py-2">{% trans "당기순이익" %}</td>
+                            <td class="px-3 py-2 text-right">{{ step9_net|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right">{{ prior.step9_net|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right {% if yoy.net and yoy.net >= 0 %}text-blue-700{% elif yoy.net %}text-red-700{% endif %}">
+                                {% if yoy.net is None %}—{% else %}{{ yoy.net }}%{% endif %}
+                            </td></tr>
+                    </tbody>
+                </table>
+            </section>
+            {% endif %}
+
             <p class="text-xs text-gray-400 mt-4">
                 {% trans "※ 계정코드 규약: 4xx 매출, 501~509 매출원가, 52x~58x 판관비, 47x 영업외수익, 91x~92x 영업외비용, 998~999 법인세. 규약 외 REVENUE/EXPENSE는 판관비/영업외비용으로 자동 분류됩니다." %}
             </p>

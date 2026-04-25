@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-2xl">
+  <h1 class="text-xl font-bold mb-4">{% trans "카드매출전표 신규" %}</h1>
+  <form method="post" class="bg-white border rounded p-4 space-y-3">
+    {% csrf_token %}
+    {% for field in form %}
+      <div>
+        <label class="block text-sm text-gray-700 mb-1">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="text-xs text-gray-500 mt-1">{{ field.help_text }}</p>{% endif %}
+        {% if field.errors %}<p class="text-xs text-red-600 mt-1">{{ field.errors|join:", " }}</p>{% endif %}
+      </div>
+    {% endfor %}
+    <div class="flex justify-end gap-2 pt-2">
+      <a href="{% url 'accounting:cardslip_list' %}" class="btn btn-secondary">{% trans "취소" %}</a>
+      <button type="submit" class="btn btn-primary">{% trans "저장" %}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

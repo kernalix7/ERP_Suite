@@ -726,8 +726,112 @@ class WithholdingTaxUpdateView(ManagerRequiredMixin, UpdateView):
 
 
 class WithholdingTaxReportView(ManagerRequiredMixin, TemplateView):
-    """원천세 월별 납부/신고서 — 세목별 집계 + 익월 10일 납부 기한 표시."""
+    """원천세 월별 납부/신고서 — 세목별 집계 + 익월 10일 납부 기한 표시.
+
+    `?export=excel|pdf` 로 다운로드 지원.
+    """
     template_name = 'accounting/withholding_report.html'
+
+    def get(self, request, *args, **kwargs):
+        export = request.GET.get('export', '').lower()
+        if export == 'excel':
+            return self._render_excel(request)
+        if export == 'pdf':
+            return self._render_pdf(request)
+        return super().get(request, *args, **kwargs)
+
+    def _render_excel(self, request):
+        import openpyxl
+        from openpyxl.styles import Font
+        ctx = self.get_context_data()
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = '원천세신고서'
+        bold = Font(bold=True)
+
+        ws.cell(row=1, column=1, value=f'{ctx["year"]}년 {ctx["month"]:02d}월 원천세 신고서').font = bold
+        ws.cell(row=2, column=1, value=f'납부기한: {ctx["due_date"]}')
+
+        ws.cell(row=4, column=1, value='【세목별 집계】').font = bold
+        for col, h in enumerate(['세목', '건수', '지급액', '원천징수액', '실지급액'], 1):
+            ws.cell(row=5, column=col, value=h).font = bold
+        for i, row in enumerate(ctx['by_type'], 6):
+            ws.cell(row=i, column=1, value=row['label'])
+            ws.cell(row=i, column=2, value=row['count'])
+            ws.cell(row=i, column=3, value=int(row['gross']))
+            ws.cell(row=i, column=4, value=int(row['tax']))
+            ws.cell(row=i, column=5, value=int(row['net']))
+        total_row = 6 + len(ctx['by_type'])
+        ws.cell(row=total_row, column=1, value='합계').font = bold
+        ws.cell(row=total_row, column=2, value=ctx['total_count']).font = bold
+        ws.cell(row=total_row, column=3, value=int(ctx['total_gross'])).font = bold
+        ws.cell(row=total_row, column=4, value=int(ctx['total_tax'])).font = bold
+        ws.cell(row=total_row, column=5, value=int(ctx['total_net'])).font = bold
+
+        for col in [1, 2, 3, 4, 5]:
+            ws.column_dimensions[chr(ord('A') + col - 1)].width = 18
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename=withholding_{ctx["year"]}{ctx["month"]:02d}.xlsx'
+        )
+        wb.save(response)
+        return response
+
+    def _render_pdf(self, request):
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import (
+            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+        )
+        from apps.core.pdf import _get_font
+
+        ctx = self.get_context_data()
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'attachment; filename=withholding_{ctx["year"]}{ctx["month"]:02d}.pdf'
+        )
+
+        doc = SimpleDocTemplate(response, pagesize=A4)
+        font = _get_font()
+        styles = getSampleStyleSheet()
+        styles['Title'].fontName = font
+        styles['BodyText'].fontName = font
+
+        flow = [
+            Paragraph(
+                f'{ctx["year"]}년 {ctx["month"]:02d}월 원천세 신고서',
+                styles['Title'],
+            ),
+            Paragraph(f'납부기한: {ctx["due_date"]}', styles['BodyText']),
+            Spacer(1, 12),
+        ]
+        data = [['세목', '건수', '지급액', '원천징수액', '실지급액']]
+        for row in ctx['by_type']:
+            data.append([
+                row['label'], row['count'],
+                f'{int(row["gross"]):,}', f'{int(row["tax"]):,}', f'{int(row["net"]):,}',
+            ])
+        data.append([
+            '합계', ctx['total_count'],
+            f'{int(ctx["total_gross"]):,}',
+            f'{int(ctx["total_tax"]):,}',
+            f'{int(ctx["total_net"]):,}',
+        ])
+        t = Table(data, colWidths=[120, 60, 90, 90, 90])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, 0), (-1, -1), font),
+            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.whitesmoke),
+        ]))
+        flow.append(t)
+        doc.build(flow)
+        return response
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -5709,3 +5813,85 @@ class BadDebtAllowanceListView(ManagerRequiredMixin, ListView):
             .aggregate(total=Sum('allowance_amount'))['total'] or 0
         )
         return ctx
+
+
+# ── 카드매출전표 ────────────────────────────────────────
+
+
+class CardSalesSlipListView(ManagerRequiredMixin, ListView):
+    template_name = 'accounting/card_sales_slip_list.html'
+    context_object_name = 'slips'
+    paginate_by = 30
+
+    def get_queryset(self):
+        from .models_cardslip import CardSalesSlip
+        qs = CardSalesSlip.objects.filter(is_active=True).select_related(
+            'order', 'partner', 'card_transaction',
+        )
+        status = self.request.GET.get('status', '')
+        if status:
+            qs = qs.filter(status=status)
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(slip_number__icontains=q)
+                | Q(approval_code__icontains=q)
+                | Q(merchant_number__icontains=q)
+            )
+        return qs.order_by('-approved_at')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .models_cardslip import CardSalesSlip
+        ctx['status_choices'] = CardSalesSlip.Status.choices
+        ctx['current_status'] = self.request.GET.get('status', '')
+        ctx['q'] = self.request.GET.get('q', '')
+        return ctx
+
+
+class CardSalesSlipDetailView(ManagerRequiredMixin, DetailView):
+    template_name = 'accounting/card_sales_slip_detail.html'
+    context_object_name = 'slip'
+
+    def get_queryset(self):
+        from .models_cardslip import CardSalesSlip
+        return CardSalesSlip.objects.filter(is_active=True).select_related(
+            'order', 'partner', 'card_transaction',
+        )
+
+
+class CardSalesSlipCreateView(ManagerRequiredMixin, CreateView):
+    template_name = 'accounting/card_sales_slip_form.html'
+
+    def get_form_class(self):
+        from django import forms
+        from .models_cardslip import CardSalesSlip
+        from apps.core.forms import BaseForm
+
+        class CardSalesSlipForm(BaseForm):
+            class Meta:
+                model = CardSalesSlip
+                fields = [
+                    'approved_at', 'approval_code', 'card_brand',
+                    'card_number_masked', 'merchant_number',
+                    'supply_amount', 'vat',
+                    'order', 'partner', 'card_transaction',
+                ]
+                widgets = {
+                    'approved_at': forms.DateTimeInput(
+                        attrs={'type': 'datetime-local', 'class': 'form-input'},
+                    ),
+                }
+
+        return CardSalesSlipForm
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        from django.contrib import messages
+        messages.success(self.request, '카드매출전표가 등록되었습니다.')
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        from django.urls import reverse
+        return reverse('accounting:cardslip_detail', kwargs={'pk': self.object.pk})

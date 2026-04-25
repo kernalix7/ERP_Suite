@@ -58,6 +58,70 @@ def voucher_block_on_closed_period(sender, instance, **kwargs):
     )
 
 
+@receiver(post_save, sender=VoucherLine)
+def voucher_apply_approval_policy(sender, instance, created, **kwargs):
+    """전표 라인 추가/변경 시 VoucherApprovalConfig 정책 적용 (GAP-8.1).
+
+    - 자동전표 정책 `auto_voucher_default_status` ≠ APPROVED 이면 강제 다운그레이드
+    - 합계 금액이 `auto_approval_amount_threshold` 초과 시 자동전표도 SUBMITTED 강제
+    - 수동 전표(approval_status=DRAFT)에서 라인 합계가 manual threshold 초과 시
+      ApprovalRequest 자동 생성 (이미 있으면 skip)
+    """
+    if not created:
+        return
+    from .models import VoucherApprovalConfig
+    voucher = instance.voucher
+    if not voucher or not voucher.is_active:
+        return
+    config = VoucherApprovalConfig.get_active()
+
+    total_debit = voucher.total_debit
+    auto_threshold = int(config.auto_approval_amount_threshold or 0)
+
+    # 자동전표 (APPROVED 로 생성됐을 때) 다운그레이드 정책 적용
+    if voucher.approval_status == Voucher.ApprovalStatus.APPROVED:
+        target = config.auto_voucher_default_status
+        downgrade = False
+        if target != Voucher.ApprovalStatus.APPROVED:
+            voucher.approval_status = target
+            downgrade = True
+        if auto_threshold and int(total_debit) > auto_threshold:
+            voucher.approval_status = Voucher.ApprovalStatus.SUBMITTED
+            downgrade = True
+        if downgrade:
+            Voucher.objects.filter(pk=voucher.pk).update(
+                approval_status=voucher.approval_status,
+            )
+
+    # 수동전표(DRAFT) — 한도 초과시 ApprovalRequest 자동생성
+    manual_threshold = int(config.manual_approval_amount_threshold or 0)
+    if (
+        voucher.approval_status == Voucher.ApprovalStatus.DRAFT
+        and manual_threshold and int(total_debit) > manual_threshold
+    ):
+        try:
+            from apps.approval.models import ApprovalRequest
+            if not ApprovalRequest.objects.filter(
+                content_type__model='voucher',
+                object_id=voucher.pk,
+                is_active=True,
+            ).exists():
+                from django.contrib.contenttypes.models import ContentType
+                ApprovalRequest.objects.create(
+                    title=f'전표 결재요청 — {voucher.voucher_number} ({total_debit:,}원)',
+                    category='ETC',
+                    content_type=ContentType.objects.get_for_model(Voucher),
+                    object_id=voucher.pk,
+                    requester=voucher.created_by,
+                    status='PENDING',
+                )
+        except Exception:
+            logger.warning(
+                'ApprovalRequest 자동생성 실패 (voucher=%s)',
+                voucher.voucher_number, exc_info=True,
+            )
+
+
 def _get_expense_account(reference):
     """출금 reference에 따라 적절한 비용 계정과목 반환"""
     if reference and '수수료' in reference:
@@ -158,6 +222,132 @@ def payment_update_balance_and_voucher(sender, instance, created, **kwargs):
                 )
 
             Payment.objects.filter(pk=instance.pk).update(voucher=voucher)
+
+
+@receiver(post_save, sender=Payment)
+def payment_recognize_exchange_gain_loss(sender, instance, created, **kwargs):
+    """외화 결제 시 환차손익 자동전표 (GAP-9.2).
+
+    조건:
+    - Payment.receivable.order 가 외화 주문 (currency.code != 'KRW')
+    - 주문 환율(order.exchange_rate) vs payment_date 의 ExchangeRate 차이 발생
+
+    환차익(REVENUE 470) / 환차손(EXPENSE 925) 계정 분기.
+    """
+    if not created:
+        return
+    if not instance.receivable_id:
+        return
+    try:
+        ar = instance.receivable
+        order = getattr(ar, 'order', None)
+        if not order or not getattr(order, 'currency_id', None):
+            return
+        currency = order.currency
+        if currency.code == 'KRW':
+            return
+        order_rate = order.exchange_rate or 1
+        from .models import ExchangeRate
+        try:
+            payment_rate_obj = (
+                ExchangeRate.objects.filter(
+                    currency=currency, rate_date__lte=instance.payment_date,
+                )
+                .order_by('-rate_date')
+                .first()
+            )
+        except Exception:
+            payment_rate_obj = None
+        if not payment_rate_obj:
+            return
+        payment_rate = payment_rate_obj.rate
+        if order_rate == payment_rate:
+            return
+
+        # 외화 결제 가정: payment.amount는 KRW 환산금액
+        # 차이 = (payment_rate − order_rate) × 외화금액
+        # 외화금액 ≈ payment.amount / payment_rate (KRW 역환산)
+        from decimal import Decimal
+        try:
+            foreign_amount = (Decimal(instance.amount) / Decimal(payment_rate)).quantize(
+                Decimal('0.01'),
+            )
+        except Exception:
+            return
+        diff = (Decimal(payment_rate) - Decimal(order_rate)) * foreign_amount
+        diff_int = int(diff.quantize(Decimal('1')))
+        if diff_int == 0:
+            return
+
+        from apps.accounting.utils import validate_closing_period
+        if not validate_closing_period(
+            instance.payment_date,
+            raise_exception=False,
+            notify_user=instance.created_by,
+            context=f'Payment {instance.payment_number} 외환손익',
+        ):
+            return
+
+        # 환차익(diff_int > 0, 입금이면 이득), 환차손(diff_int < 0)
+        # RECEIPT + diff>0 → 외환차익(470), RECEIPT + diff<0 → 외환차손(925)
+        # DISBURSEMENT + diff>0 → 외환차손, DISBURSEMENT + diff<0 → 외환차익
+        is_receipt = instance.payment_type == 'RECEIPT'
+        is_gain = (diff_int > 0) if is_receipt else (diff_int < 0)
+        gain_acct = _get_account_code('470')  # 외환차익
+        loss_acct = _get_account_code('925')  # 외환차손
+        if not (gain_acct and loss_acct):
+            logger.warning(
+                '외환손익 계정과목(470/925) 없음 — Payment %s skip',
+                instance.payment_number,
+            )
+            return
+
+        from .models import VoucherApprovalConfig
+        config = VoucherApprovalConfig.get_active()
+        fx_voucher = Voucher.objects.create(
+            voucher_number=_generate_voucher_number(),
+            voucher_type='TRANSFER',
+            voucher_date=instance.payment_date,
+            description=(
+                f'환차{"익" if is_gain else "손"}: {instance.payment_number} '
+                f'({currency.code} {order_rate}→{payment_rate})'
+            ),
+            approval_status=config.auto_voucher_default_status,
+            created_by=instance.created_by,
+        )
+        abs_amount = abs(diff_int)
+        if is_gain:
+            # 차변: 매출채권/예금, 대변: 외환차익(470)
+            VoucherLine.objects.create(
+                voucher=fx_voucher, account=instance.bank_account.account_code if instance.bank_account else gain_acct,
+                debit=abs_amount, credit=0,
+                description='환차익 인식',
+                created_by=instance.created_by,
+            )
+            VoucherLine.objects.create(
+                voucher=fx_voucher, account=gain_acct,
+                debit=0, credit=abs_amount,
+                description='외환차익(470)',
+                created_by=instance.created_by,
+            )
+        else:
+            VoucherLine.objects.create(
+                voucher=fx_voucher, account=loss_acct,
+                debit=abs_amount, credit=0,
+                description='외환차손(925)',
+                created_by=instance.created_by,
+            )
+            VoucherLine.objects.create(
+                voucher=fx_voucher, account=instance.bank_account.account_code if instance.bank_account else loss_acct,
+                debit=0, credit=abs_amount,
+                description='환차손 인식',
+                created_by=instance.created_by,
+            )
+    except Exception:
+        logger.warning(
+            '외환손익 자동전표 생성 실패 (payment=%s)',
+            instance.payment_number, exc_info=True,
+        )
 
 
 @receiver(post_save, sender=AccountTransfer)

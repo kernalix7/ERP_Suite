@@ -25,13 +25,26 @@ class Partner(BaseModel):
         'BOTH': 'SUS',
     }
 
+    class EntityType(models.TextChoices):
+        BUSINESS = 'BUSINESS', '사업자'
+        INDIVIDUAL = 'INDIVIDUAL', '개인'
+        FOREIGN = 'FOREIGN', '외국인/해외법인'
+
     code = models.CharField('거래처코드', max_length=30, unique=True)
     name = models.CharField('거래처명', max_length=200)
     partner_type = models.CharField(
         '유형', max_length=10,
         choices=PartnerType.choices, default=PartnerType.CUSTOMER,
     )
-    business_number = models.CharField('사업자번호', max_length=20, blank=True)
+    entity_type = models.CharField(
+        '주체구분', max_length=12,
+        choices=EntityType.choices, default=EntityType.BUSINESS,
+        help_text='증빙 발행시 사업자/개인 분기 — 세금계산서 vs 현금영수증',
+    )
+    business_number = models.CharField(
+        '사업자번호', max_length=20, blank=True,
+        help_text='entity_type=BUSINESS 시 필수 (123-45-67890 형식)',
+    )
     representative = models.CharField('대표자', max_length=50, blank=True)
     contact_name = models.CharField('담당자', max_length=50, blank=True)
     phone = EncryptedCharField('전화번호', max_length=500, blank=True)
@@ -361,6 +374,23 @@ class Order(BaseModel):
     tax_type = models.CharField(
         '과세구분', max_length=16,
         choices=TaxType.choices, default=TaxType.TAXABLE,
+    )
+
+    class RevenueRecognitionMethod(models.TextChoices):
+        DELIVERY = 'DELIVERY', '인도기준 (출고시 100%)'
+        PROGRESS = 'PROGRESS', '진행기준 (진행률에 따라 분할)'
+        COMPLETION = 'COMPLETION', '완성기준 (CLOSED 시 100%)'
+
+    revenue_recognition_method = models.CharField(
+        '수익인식방법', max_length=16,
+        choices=RevenueRecognitionMethod.choices,
+        default=RevenueRecognitionMethod.DELIVERY,
+        help_text='K-IFRS 1115호 — 진행기준 시 progress_rate 활용',
+    )
+    progress_rate = models.DecimalField(
+        '진행률(%)', max_digits=5, decimal_places=2, default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text='진행기준 수익인식 시 누적 진행률 (0-100)',
     )
     history = HistoricalRecords()
 

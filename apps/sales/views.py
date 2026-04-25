@@ -437,6 +437,15 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
             self.object.status not in ('CANCELLED',)
             and self.object.order_type not in ('RETURN',)
         )
+        # 증빙 발행현황 통합 — TaxInvoice / CardSalesSlip
+        from apps.accounting.models import TaxInvoice, CardSalesSlip
+        ctx['active_tax_invoice'] = TaxInvoice.objects.filter(
+            order=self.object, is_active=True,
+            invoice_type=TaxInvoice.InvoiceType.SALES,
+        ).order_by('-issue_date', '-pk').first()
+        ctx['active_card_slip'] = CardSalesSlip.objects.filter(
+            order=self.object, is_active=True,
+        ).order_by('-approved_at', '-pk').first()
         # 연결된 반품/교환 주문
         ctx['return_orders'] = Order.objects.filter(
             original_order=self.object, is_active=True,

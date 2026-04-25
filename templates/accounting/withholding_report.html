@@ -4,8 +4,14 @@
 <div class="container mx-auto px-4 py-6">
   <div class="flex items-center justify-between mb-4">
     <h1 class="text-xl font-bold">{% trans "원천세 월별 신고서" %}</h1>
-    <a href="{% url 'accounting:withholding_list' %}"
-       class="text-sm text-blue-600 hover:underline">{% trans "목록" %}</a>
+    <div class="flex gap-2 items-center">
+      <a href="?year={{ year }}&month={{ month }}&export=excel"
+         class="text-sm text-blue-600 hover:underline">{% trans "Excel" %}</a>
+      <a href="?year={{ year }}&month={{ month }}&export=pdf"
+         class="text-sm text-blue-600 hover:underline">{% trans "PDF" %}</a>
+      <a href="{% url 'accounting:withholding_list' %}"
+         class="text-sm text-blue-600 hover:underline">{% trans "목록" %}</a>
+    </div>
   </div>
 
   <form method="get" class="mb-4 flex flex-wrap gap-2 items-center">

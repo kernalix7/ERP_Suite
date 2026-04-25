@@ -16,9 +16,23 @@
             <input type="date" name="to_date" value="{{ to_date }}" class="form-input rounded-lg border-gray-300">
         </div>
         <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">방법</label>
+            <select name="method" class="form-input rounded-lg border-gray-300">
+                <option value="indirect" {% if method == 'indirect' %}selected{% endif %}>간접법 (순이익 ± AR/AP)</option>
+                <option value="direct" {% if method == 'direct' %}selected{% endif %}>직접법 (실제 입출금)</option>
+            </select>
+        </div>
+        <div>
             <button type="submit" class="btn btn-primary">조회</button>
         </div>
     </form>
+    {% if method == 'direct' and direct_inflow is not None %}
+    <div class="mt-3 text-xs text-gray-500">
+        <span class="font-semibold">직접법:</span>
+        영업활동 현금유입 {{ direct_inflow|intcomma }}원 / 유출 {{ direct_outflow|intcomma }}원 →
+        영업활동 순현금흐름 {{ operating|intcomma }}원
+    </div>
+    {% endif %}
 </div>
 
 <!-- 영업활동 -->

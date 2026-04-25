@@ -16,6 +16,8 @@ from .models import (
 )
 from .models_baddebt import BadDebtAllowance
 from .models_advance import AdvanceReceived, AdvancePaid
+from .models_cardslip import CardSalesSlip
+from .models_recon import BankReconRule, CardReconRule, VoucherApprovalConfig
 
 
 @admin.register(Currency)
@@ -310,3 +312,47 @@ class AdvancePaidAdmin(SimpleHistoryAdmin):
     search_fields = ('partner__name',)
     raw_id_fields = ('partner', 'paid_voucher', 'applied_to_po')
     date_hierarchy = 'paid_date'
+
+
+@admin.register(CardSalesSlip)
+class CardSalesSlipAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'slip_number', 'approved_at', 'card_brand', 'approval_code',
+        'card_number_masked', 'total_amount', 'status',
+    )
+    list_filter = ('status', 'card_brand', 'is_active')
+    search_fields = ('slip_number', 'approval_code', 'merchant_number')
+    raw_id_fields = ('order', 'partner', 'card_transaction')
+    date_hierarchy = 'approved_at'
+
+
+@admin.register(BankReconRule)
+class BankReconRuleAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'priority', 'name', 'match_field', 'pattern',
+        'amount_tolerance', 'date_tolerance_days', 'is_active_rule',
+    )
+    list_filter = ('match_field', 'is_active_rule', 'is_active')
+    search_fields = ('name', 'pattern')
+    raw_id_fields = ('bank_account', 'target_partner')
+    ordering = ('priority', 'name')
+
+
+@admin.register(CardReconRule)
+class CardReconRuleAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'priority', 'name', 'card', 'merchant_pattern', 'is_active_rule',
+    )
+    list_filter = ('is_active_rule', 'is_active')
+    search_fields = ('name', 'merchant_pattern')
+    raw_id_fields = ('card', 'target_partner', 'target_account')
+    ordering = ('priority', 'name')
+
+
+@admin.register(VoucherApprovalConfig)
+class VoucherApprovalConfigAdmin(SimpleHistoryAdmin):
+    list_display = (
+        'auto_voucher_default_status',
+        'auto_approval_amount_threshold',
+        'manual_approval_amount_threshold',
+    )

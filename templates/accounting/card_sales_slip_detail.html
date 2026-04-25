@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-3xl">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-bold">{% trans "카드매출전표 상세" %}</h1>
+    <a href="{% url 'accounting:cardslip_list' %}" class="text-sm text-blue-600 hover:underline">{% trans "목록" %}</a>
+  </div>
+
+  <div class="bg-white border rounded p-4 grid grid-cols-2 gap-3 text-sm">
+    <div><dt class="text-gray-500">{% trans "전표번호" %}</dt><dd class="font-mono font-medium">{{ slip.slip_number }}</dd></div>
+    <div><dt class="text-gray-500">{% trans "상태" %}</dt><dd>{{ slip.get_status_display }}</dd></div>
+    <div><dt class="text-gray-500">{% trans "승인일시" %}</dt><dd>{{ slip.approved_at|date:"Y-m-d H:i" }}</dd></div>
+    <div><dt class="text-gray-500">{% trans "승인번호" %}</dt><dd class="font-mono">{{ slip.approval_code }}</dd></div>
+    <div><dt class="text-gray-500">{% trans "카드사" %}</dt><dd>{{ slip.get_card_brand_display }}</dd></div>
+    <div><dt class="text-gray-500">{% trans "카드번호" %}</dt><dd class="font-mono">{{ slip.card_number_masked }}</dd></div>
+    <div><dt class="text-gray-500">{% trans "가맹점번호" %}</dt><dd class="font-mono">{{ slip.merchant_number|default:"-" }}</dd></div>
+    <div><dt class="text-gray-500">{% trans "거래처" %}</dt><dd>{{ slip.partner|default:"-" }}</dd></div>
+    <div><dt class="text-gray-500">{% trans "주문" %}</dt><dd>
+      {% if slip.order %}<a href="{% url 'sales:order_detail' slip.order.order_number %}" class="text-blue-600 hover:underline">{{ slip.order.order_number }}</a>{% else %}-{% endif %}
+    </dd></div>
+    <div><dt class="text-gray-500">{% trans "공급가액" %}</dt><dd>{{ slip.supply_amount|intcomma }}원</dd></div>
+    <div><dt class="text-gray-500">{% trans "부가세" %}</dt><dd>{{ slip.vat|intcomma }}원</dd></div>
+    <div><dt class="text-gray-500">{% trans "총금액" %}</dt><dd class="font-bold">{{ slip.total_amount|intcomma }}원</dd></div>
+    {% if slip.cancelled_at %}
+    <div class="col-span-2"><dt class="text-gray-500">{% trans "취소일시" %}</dt><dd>{{ slip.cancelled_at|date:"Y-m-d H:i" }} — {{ slip.cancel_reason }}</dd></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

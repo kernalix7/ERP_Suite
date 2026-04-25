@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-bold">{% trans "카드매출전표" %}</h1>
+    <a href="{% url 'accounting:cardslip_create' %}" class="btn btn-primary">{% trans "신규 발급" %}</a>
+  </div>
+
+  <form method="get" class="mb-4 flex flex-wrap gap-2">
+    <input type="text" name="q" value="{{ q }}" placeholder="{% trans '전표/승인번호/가맹점' %}"
+           class="form-input flex-grow max-w-md">
+    <select name="status" class="form-input">
+      <option value="">{% trans "전체 상태" %}</option>
+      {% for code, label in status_choices %}
+        <option value="{{ code }}" {% if code == current_status %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary">{% trans "검색" %}</button>
+  </form>
+
+  <div class="bg-white border rounded overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-xs">
+        <tr>
+          <th class="px-3 py-2 text-left">{% trans "전표번호" %}</th>
+          <th class="px-3 py-2 text-left">{% trans "승인일시" %}</th>
+          <th class="px-3 py-2 text-left">{% trans "카드사" %}</th>
+          <th class="px-3 py-2 text-left">{% trans "승인번호" %}</th>
+          <th class="px-3 py-2 text-right">{% trans "총금액" %}</th>
+          <th class="px-3 py-2 text-center">{% trans "상태" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for slip in slips %}
+        <tr class="border-t hover:bg-gray-50">
+          <td class="px-3 py-2 font-mono">
+            <a href="{% url 'accounting:cardslip_detail' slip.pk %}" class="text-blue-600 hover:underline">{{ slip.slip_number }}</a>
+          </td>
+          <td class="px-3 py-2">{{ slip.approved_at|date:"Y-m-d H:i" }}</td>
+          <td class="px-3 py-2">{{ slip.get_card_brand_display }}</td>
+          <td class="px-3 py-2 font-mono">{{ slip.approval_code }}</td>
+          <td class="px-3 py-2 text-right">{{ slip.total_amount|intcomma }}원</td>
+          <td class="px-3 py-2 text-center">
+            {% if slip.status == 'APPROVED' %}
+              <span class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700">{{ slip.get_status_display }}</span>
+            {% else %}
+              <span class="px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">{{ slip.get_status_display }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="px-3 py-6 text-center text-gray-400">{% trans "데이터 없음" %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% include 'includes/pagination.html' with page_obj=page_obj %}
+</div>
+{% endblock %}

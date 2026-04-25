@@ -192,4 +192,8 @@ urlpatterns = [
     path('advance-paid/<int:pk>/', views.AdvancePaidDetailView.as_view(), name='advance_paid_detail'),
     # 대손충당금
     path('bad-debt/', views.BadDebtAllowanceListView.as_view(), name='bad_debt_list'),
+    # 카드매출전표
+    path('card-slips/', views.CardSalesSlipListView.as_view(), name='cardslip_list'),
+    path('card-slips/create/', views.CardSalesSlipCreateView.as_view(), name='cardslip_create'),
+    path('card-slips/<int:pk>/', views.CardSalesSlipDetailView.as_view(), name='cardslip_detail'),
 ]

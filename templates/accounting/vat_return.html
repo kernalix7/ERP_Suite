@@ -105,8 +105,14 @@
             </section>
 
             <section>
-                <h3 class="text-sm font-bold text-gray-700 border-b border-gray-200 pb-2 mb-3">
-                    II. {% trans "매입세액 (2구분)" %}
+                <h3 class="text-sm font-bold text-gray-700 border-b border-gray-200 pb-2 mb-3 flex justify-between items-center">
+                    <span>II. {% trans "매입세액 (4구분)" %}</span>
+                    <span class="space-x-2">
+                        <a href="{% url 'accounting:vat_return_excel' %}?year={{ year }}&quarter={{ quarter }}"
+                           class="text-xs text-blue-600 hover:underline">{% trans "Excel" %}</a>
+                        <a href="{% url 'accounting:vat_return_pdf' %}?year={{ year }}&quarter={{ quarter }}"
+                           class="text-xs text-blue-600 hover:underline">{% trans "PDF" %}</a>
+                    </span>
                 </h3>
                 <table class="w-full text-sm">
                     <thead>
@@ -119,19 +125,31 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         <tr>
-                            <td class="px-4 py-3 text-gray-700">① {% trans "과세 매입 (공제대상)" %}</td>
+                            <td class="px-4 py-3 text-gray-700">① {% trans "일반매입 (공제)" %}</td>
                             <td class="px-4 py-3 text-right">{{ purchase_taxable.count }}</td>
                             <td class="px-4 py-3 text-right">{{ purchase_taxable.supply|floatformat:0 }}</td>
                             <td class="px-4 py-3 text-right text-orange-700 font-medium">{{ purchase_taxable.tax|floatformat:0 }}</td>
                         </tr>
                         <tr>
-                            <td class="px-4 py-3 text-gray-700">② {% trans "면세 / 불공제 매입" %}</td>
+                            <td class="px-4 py-3 text-gray-700">② {% trans "의제매입세액 (면세 농축수산물)" %}</td>
+                            <td class="px-4 py-3 text-right">{{ purchase_deemed.count }}</td>
+                            <td class="px-4 py-3 text-right">{{ purchase_deemed.supply|floatformat:0 }}</td>
+                            <td class="px-4 py-3 text-right text-orange-700 font-medium">{{ purchase_deemed.tax|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 text-gray-700">③ {% trans "공제받지못할매입 (접대비·사업무관)" %}</td>
+                            <td class="px-4 py-3 text-right">{{ purchase_non_deductible.count }}</td>
+                            <td class="px-4 py-3 text-right">{{ purchase_non_deductible.supply|floatformat:0 }}</td>
+                            <td class="px-4 py-3 text-right text-gray-400">{{ purchase_non_deductible.tax|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 text-gray-700">④ {% trans "면세 매입" %}</td>
                             <td class="px-4 py-3 text-right">{{ purchase_exempt.count }}</td>
                             <td class="px-4 py-3 text-right">{{ purchase_exempt.supply|floatformat:0 }}</td>
                             <td class="px-4 py-3 text-right text-gray-400">{{ purchase_exempt.tax|floatformat:0 }}</td>
                         </tr>
                         <tr class="bg-orange-50">
-                            <td class="px-4 py-3 font-semibold text-gray-800">{% trans "합계 (공제 매입세액)" %}</td>
+                            <td class="px-4 py-3 font-semibold text-gray-800">{% trans "공제 매입세액 (① + ②)" %}</td>
                             <td class="px-4 py-3 text-right font-semibold">—</td>
                             <td class="px-4 py-3 text-right font-semibold">{{ total_purchase_supply|floatformat:0 }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-orange-700">{{ purchase_input_tax|floatformat:0 }}</td>

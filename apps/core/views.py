@@ -214,7 +214,86 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             )
         context.update(chart_data)
 
+        # 세무 캘린더 위젯 (GAP-10.3)
+        context['tax_calendar'] = self._build_tax_calendar(today)
+        # 채널/결제수단 매트릭스 (GAP-10.4)
+        context['channel_payment_matrix'] = self._build_channel_payment_matrix(
+            today,
+        )
         return context
+
+    @staticmethod
+    def _build_tax_calendar(today):
+        """이번달 세무 캘린더 위젯 — VAT/원천세/결산 기한.
+
+        - 부가세: 분기 종료 익월 25일 (1월/4월/7월/10월 25일)
+        - 원천세: 매월 10일 (지급월 익월 10일 납부)
+        - 마감기간: ClosingPeriod(이번달, 다음달)
+        """
+        events = []
+        # 원천세 — 이번달 10일 (전월 지급분 납부)
+        from datetime import date as _date
+        events.append({
+            'name': '원천세 신고/납부',
+            'date': _date(today.year, today.month, 10),
+            'type': 'WITHHOLDING',
+            'is_past': _date(today.year, today.month, 10) < today,
+        })
+        # 부가세 — 분기 종료 익월 25일
+        quarter_end_month = ((today.month - 1) // 3) * 3 + 3  # 3,6,9,12
+        if today.month == quarter_end_month + 1:
+            # 분기 직후 첫 달이면 25일이 신고기한
+            vat_date = _date(today.year, today.month, 25)
+        else:
+            # 다음 분기 종료 후 25일
+            next_q_end = quarter_end_month if today.month <= quarter_end_month else quarter_end_month + 3
+            year = today.year + (1 if next_q_end > 12 else 0)
+            month = next_q_end - 12 if next_q_end > 12 else next_q_end
+            vat_date = _date(year, month % 12 + 1 if month != 12 else year + 1, 25)
+        events.append({
+            'name': '부가세 신고/납부',
+            'date': vat_date,
+            'type': 'VAT',
+            'is_past': vat_date < today,
+        })
+        # 마감기간
+        from apps.accounting.models import ClosingPeriod
+        closings = ClosingPeriod.objects.filter(
+            year=today.year,
+            month__gte=max(1, today.month - 1),
+            month__lte=min(12, today.month + 1),
+            is_closed=True,
+        ).values('year', 'month')
+        for c in closings:
+            events.append({
+                'name': f"{c['year']}년 {c['month']:02d}월 마감완료",
+                'date': _date(c['year'], c['month'], 1),
+                'type': 'CLOSED',
+                'is_past': True,
+            })
+        events.sort(key=lambda e: e['date'])
+        return events
+
+    @staticmethod
+    def _build_channel_payment_matrix(today):
+        """채널 × 결제수단 매트릭스 — 이번달 매출 합계.
+
+        Returns: list of {channel, payment_method, total, count}
+        """
+        from apps.sales.models import Order
+        from django.db.models import Sum, Count
+        rows = (
+            Order.objects.filter(
+                order_date__year=today.year,
+                order_date__month=today.month,
+                status__in=['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CLOSED'],
+                is_active=True,
+            )
+            .values('sales_channel', 'payment_method')
+            .annotate(total=Sum('grand_total'), cnt=Count('pk'))
+            .order_by('sales_channel', 'payment_method')
+        )
+        return list(rows)
 
     @staticmethod
     def _build_chart_data(today, Order, Product):
