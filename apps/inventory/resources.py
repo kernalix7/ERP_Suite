@@ -1,7 +1,7 @@
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget
 
-from .models import Product, Category, Warehouse
+from .models import Product, Category, Warehouse, StockMovement
 
 
 class ProductResource(resources.ModelResource):
@@ -48,5 +48,34 @@ class WarehouseResource(resources.ModelResource):
         model = Warehouse
         fields = ('code', 'name', 'location')
         import_id_fields = ('code',)
+        skip_unchanged = True
+        report_skipped = True
+
+
+class StockMovementResource(resources.ModelResource):
+    """재고 이동 — 기초재고 import 시 movement_type=IN 사용 권장.
+
+    시그널 통해 Product.current_stock 자동 갱신 + StockLot 생성.
+    """
+
+    product_code = fields.Field(
+        column_name='product_code',
+        attribute='product',
+        widget=ForeignKeyWidget(Product, field='code'),
+    )
+    warehouse_code = fields.Field(
+        column_name='warehouse_code',
+        attribute='warehouse',
+        widget=ForeignKeyWidget(Warehouse, field='code'),
+    )
+
+    class Meta:
+        model = StockMovement
+        fields = (
+            'movement_number', 'movement_type',
+            'product_code', 'warehouse_code',
+            'quantity', 'unit_price', 'movement_date', 'reference',
+        )
+        import_id_fields = ('movement_number',)
         skip_unchanged = True
         report_skipped = True
