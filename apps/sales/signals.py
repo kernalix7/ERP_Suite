@@ -1458,3 +1458,39 @@ def auto_create_shipment_tracking(sender, instance, **kwargs):
         tracked_at=timezone.now(),
         created_by=instance.created_by,
     )
+
+
+@receiver(post_save, sender='sales.Partner')
+def auto_seed_commission_from_platform(sender, instance, created, **kwargs):
+    """신규 거래처가 default_sales_channel 지정되어 있으면 PlatformFinancialConfig
+    수수료를 CommissionRate로 자동 복사 (단방향, 신규 시점만).
+
+    이후 사용자가 거래처별 협상가로 수정해도 채널값은 보존되고,
+    채널값을 바꿔도 기존 거래처는 영향받지 않는다 (협상가 보호).
+    """
+    if not created:
+        return
+    channel_code = (instance.default_sales_channel or '').strip()
+    if not channel_code:
+        return
+    try:
+        from apps.accounting.models import PlatformFinancialConfig
+        from apps.sales.commission import CommissionRate
+    except Exception:
+        return
+    config = PlatformFinancialConfig.objects.filter(
+        code=channel_code, is_enabled=True, is_active=True,
+    ).first()
+    if not config or not config.commission_rate or config.commission_rate <= 0:
+        return
+    # 이미 수수료가 있으면 자동복사 skip (사용자가 직접 입력했을 수 있음)
+    if CommissionRate.objects.filter(partner=instance, is_active=True).exists():
+        return
+    CommissionRate.objects.create(
+        partner=instance,
+        name=f'{config.name} 채널 기본 수수료',
+        calc_type=CommissionRate.CalcType.PERCENT,
+        base_type=CommissionRate.BaseType.SUPPLY,
+        rate=config.commission_rate,
+        created_by=instance.created_by,
+    )

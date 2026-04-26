@@ -295,7 +295,8 @@ class OrderListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         from django.contrib.contenttypes.models import ContentType
-        from apps.accounting.models import CashReceipt, Payment
+        from apps.accounting.models import CashReceipt, Payment, PlatformFinancialConfig
+        from django.db.models import Subquery
         ct = ContentType.objects.get_for_model(Order)
         # 현금영수증 3경로 — 직접 FK / source_orders M2M / 라인의 source_order_item
         direct_sq = CashReceipt.objects.filter(
@@ -317,11 +318,27 @@ class OrderListView(LoginRequiredMixin, ListView):
             payment_method=Payment.PaymentMethod.CARD,
             receivable__order=OuterRef('pk'),
         )
+        # 채널 PlatformFinancialConfig 발행주체 어노테이션 — PLATFORM 자동발행 표시용
+        platform_cr_sq = PlatformFinancialConfig.objects.filter(
+            code=OuterRef('sales_channel'),
+            is_enabled=True, is_active=True,
+        ).values('cash_receipt_issuer')[:1]
+        platform_card_sq = PlatformFinancialConfig.objects.filter(
+            code=OuterRef('sales_channel'),
+            is_enabled=True, is_active=True,
+        ).values('card_receipt_issuer')[:1]
+        platform_name_sq = PlatformFinancialConfig.objects.filter(
+            code=OuterRef('sales_channel'),
+            is_enabled=True, is_active=True,
+        ).values('name')[:1]
         qs = super().get_queryset().filter(is_active=True).select_related(
             'partner', 'customer',
         ).prefetch_related('items', 'source_quotation').annotate(
             has_cash_receipt_ann=Exists(direct_sq) | Exists(m2m_sq) | Exists(line_sq),
             has_card_payment_ann=Exists(card_sq),
+            channel_cr_issuer=Subquery(platform_cr_sq),
+            channel_card_issuer=Subquery(platform_card_sq),
+            channel_name=Subquery(platform_name_sq),
         )
         status = self.request.GET.get('status')
         if status:
@@ -438,7 +455,9 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
             and self.object.order_type not in ('RETURN',)
         )
         # 증빙 발행현황 통합 — TaxInvoice / CardSalesSlip
-        from apps.accounting.models import TaxInvoice, CardSalesSlip
+        from apps.accounting.models import (
+            TaxInvoice, CardSalesSlip, PlatformFinancialConfig,
+        )
         ctx['active_tax_invoice'] = TaxInvoice.objects.filter(
             order=self.object, is_active=True,
             invoice_type=TaxInvoice.InvoiceType.SALES,
@@ -446,6 +465,11 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
         ctx['active_card_slip'] = CardSalesSlip.objects.filter(
             order=self.object, is_active=True,
         ).order_by('-approved_at', '-pk').first()
+        # 채널 PlatformFinancialConfig — PLATFORM 대행분 자동발행 표시용
+        channel_code = (self.object.sales_channel or '').strip()
+        ctx['platform_config'] = PlatformFinancialConfig.objects.filter(
+            code=channel_code, is_enabled=True, is_active=True,
+        ).first() if channel_code else None
         # 연결된 반품/교환 주문
         ctx['return_orders'] = Order.objects.filter(
             original_order=self.object, is_active=True,

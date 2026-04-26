@@ -185,6 +185,7 @@ urlpatterns = [
     path('platform-config/<int:pk>/', views.PlatformFinancialConfigDetailView.as_view(), name='platform_config_detail'),
     path('platform-config/<int:pk>/edit/', views.PlatformFinancialConfigUpdateView.as_view(), name='platform_config_update'),
     path('platform-config/<int:pk>/delete/', views.PlatformFinancialConfigDeleteView.as_view(), name='platform_config_delete'),
+    path('platform-config/<int:pk>/sync-commission/', views.PlatformFinancialConfigSyncCommissionView.as_view(), name='platform_config_sync_commission'),
     # 선수금/선급금
     path('advance-received/', views.AdvanceReceivedListView.as_view(), name='advance_received_list'),
     path('advance-received/<int:pk>/', views.AdvanceReceivedDetailView.as_view(), name='advance_received_detail'),

@@ -3,6 +3,11 @@ from django.core.management.base import BaseCommand
 from apps.accounting.models import PlatformFinancialConfig
 
 
+# 주의: 수수료율·정산주기는 시장 표준 어림값입니다.
+# 실제 값은 사용자 사업자 등급·카테고리·정산방식·VIP 협상에 따라 달라집니다.
+# 각 거래처는 PlatformFinancialConfig 채널값과 별개로 Partner.CommissionRate에서
+# 협상가를 별도 관리할 수 있습니다 (단방향: 채널값 변경 → 신규 거래처 자동 복사).
+# 운영 전 반드시 `/accounting/platform-config/<id>/edit/` 에서 본인 계약값으로 갱신하세요.
 SEED = [
     {
         'code': 'DIRECT',
@@ -21,8 +26,10 @@ SEED = [
         'code': 'NAVER',
         'name': '네이버 스마트스토어',
         'payment_method_default': PlatformFinancialConfig.PaymentMethod.PLATFORM_SETTLEMENT,
-        'settlement_cycle_days': 3,
-        'commission_rate': 2,
+        # 정산: 구매확정+1영업일, 자동확정 보통 7~14일 → 평균 8일
+        'settlement_cycle_days': 8,
+        # 네이버페이 결제수수료 + 매출수수료 합산 평균 (2024 기준)
+        'commission_rate': 3.74,
         'tax_invoice_issuer': PlatformFinancialConfig.IssuerType.SELF,
         'cash_receipt_issuer': PlatformFinancialConfig.IssuerType.PLATFORM,
         'card_receipt_issuer': PlatformFinancialConfig.IssuerType.PLATFORM,
@@ -34,8 +41,10 @@ SEED = [
         'code': 'COUPANG',
         'name': '쿠팡',
         'payment_method_default': PlatformFinancialConfig.PaymentMethod.PLATFORM_SETTLEMENT,
-        'settlement_cycle_days': 30,
-        'commission_rate': 10,
+        # 정산: 주정산 D+15 평균 (월정산은 다음달 15일)
+        'settlement_cycle_days': 15,
+        # 카테고리별 5~13% 평균 (의류 10~12% / 식품 5~7% / 디지털 5~10%)
+        'commission_rate': 10.8,
         'tax_invoice_issuer': PlatformFinancialConfig.IssuerType.SELF,
         'cash_receipt_issuer': PlatformFinancialConfig.IssuerType.PLATFORM,
         'card_receipt_issuer': PlatformFinancialConfig.IssuerType.PLATFORM,

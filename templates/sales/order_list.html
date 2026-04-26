@@ -153,6 +153,8 @@
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700" title="현금영수증 발행 (국세청 전송)">✓ 현금영수증</span>
                         {% elif order.has_card_payment_ann %}
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700" title="카드매출전표 (카드사 자동 국세청 전송)">✓ 카드</span>
+                        {% elif order.channel_cr_issuer == 'PLATFORM' or order.channel_card_issuer == 'PLATFORM' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700" title="{{ order.channel_name }} 자동 국세청 전송">✓ {{ order.channel_name|default:"플랫폼" }} 자동</span>
                         {% else %}
                         <span class="text-gray-300">—</span>
                         {% endif %}

@@ -5697,6 +5697,57 @@ class PlatformFinancialConfigDetailView(ManagerRequiredMixin, DetailView):
     template_name = 'accounting/platform_config_detail.html'
     context_object_name = 'config'
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.sales.models import Partner
+        ctx['affected_partners'] = Partner.objects.filter(
+            default_sales_channel=self.object.code, is_active=True,
+        ).count()
+        return ctx
+
+
+class PlatformFinancialConfigSyncCommissionView(ManagerRequiredMixin, View):
+    """이 채널을 사용하는 모든 거래처의 수수료를 채널 기본값으로 일괄 동기화.
+
+    - default_sales_channel=config.code 인 모든 Partner에 대해
+    - 활성 CommissionRate가 있으면 첫 번째를 갱신, 없으면 신규 생성
+    - 협상가가 다른 거래처는 영향받기 때문에 사용자 확인 후 실행
+    """
+    def post(self, request, pk):
+        config = get_object_or_404(PlatformFinancialConfig, pk=pk, is_active=True)
+        from apps.sales.models import Partner
+        from apps.sales.commission import CommissionRate
+
+        affected = 0
+        for partner in Partner.objects.filter(
+            default_sales_channel=config.code, is_active=True,
+        ):
+            existing = CommissionRate.objects.filter(
+                partner=partner, is_active=True,
+                calc_type=CommissionRate.CalcType.PERCENT,
+            ).order_by('pk').first()
+            if existing:
+                existing.rate = config.commission_rate
+                existing.save(update_fields=['rate', 'updated_at'])
+            else:
+                CommissionRate.objects.create(
+                    partner=partner,
+                    name=f'{config.name} 채널 기본 수수료',
+                    calc_type=CommissionRate.CalcType.PERCENT,
+                    base_type=CommissionRate.BaseType.SUPPLY,
+                    rate=config.commission_rate,
+                    created_by=request.user,
+                )
+            affected += 1
+
+        messages.success(
+            request,
+            f'{config.name} 채널의 거래처 {affected}건에 수수료 {config.commission_rate}%를 일괄 적용했습니다.',
+        )
+        return HttpResponseRedirect(
+            reverse('accounting:platform_config_detail', kwargs={'pk': pk}),
+        )
+
 
 class PlatformFinancialConfigDeleteView(ManagerRequiredMixin, View):
     """소프트 삭제 (is_active=False)."""

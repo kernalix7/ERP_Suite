@@ -489,6 +489,58 @@
         재고부족 품목이 없습니다.
     </div>
     {% endif %}
+
+    {% if tax_calendar %}
+    <div class="mt-6 bg-white shadow rounded-lg border">
+        <div class="px-4 py-3 border-b">
+            <h2 class="text-lg font-semibold">이번달 세무 캘린더</h2>
+        </div>
+        <ul class="divide-y">
+            {% for evt in tax_calendar %}
+            <li class="px-4 py-2 flex justify-between items-center text-sm">
+                <span>
+                    {% if evt.type == 'VAT' %}<span class="inline-block px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-700 mr-2">부가세</span>
+                    {% elif evt.type == 'WITHHOLDING' %}<span class="inline-block px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700 mr-2">원천세</span>
+                    {% elif evt.type == 'CLOSED' %}<span class="inline-block px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 mr-2">마감</span>
+                    {% endif %}
+                    {{ evt.name }}
+                </span>
+                <span class="{% if evt.is_past %}text-gray-400{% else %}font-medium text-red-700{% endif %}">{{ evt.date|date:"Y-m-d" }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if channel_payment_matrix %}
+    <div class="mt-6 bg-white shadow rounded-lg border">
+        <div class="px-4 py-3 border-b">
+            <h2 class="text-lg font-semibold">채널 × 결제수단 (이번달)</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-xs">
+                    <tr>
+                        <th class="px-3 py-2 text-left">채널</th>
+                        <th class="px-3 py-2 text-left">결제수단</th>
+                        <th class="px-3 py-2 text-right">건수</th>
+                        <th class="px-3 py-2 text-right">매출 합계</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in channel_payment_matrix %}
+                    <tr class="border-t">
+                        <td class="px-3 py-1.5">{{ r.sales_channel }}</td>
+                        <td class="px-3 py-1.5">{{ r.payment_method }}</td>
+                        <td class="px-3 py-1.5 text-right">{{ r.cnt }}</td>
+                        <td class="px-3 py-1.5 text-right">{{ r.total|floatformat:0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <script nonce="{{ request.csp_nonce }}">

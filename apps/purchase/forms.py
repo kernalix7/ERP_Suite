@@ -9,6 +9,7 @@ class PurchaseOrderForm(BaseForm):
         fields = [
             'po_number', 'partner', 'order_date',
             'expected_date', 'is_taxable', 'vat_included',
+            'vat_deduction_type',
             'approval_request', 'attachment', 'notes',
         ]
         widgets = {

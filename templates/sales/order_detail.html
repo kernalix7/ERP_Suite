@@ -151,6 +151,11 @@
                         {% if active_tax_invoice %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">{{ active_tax_invoice.get_electronic_status_display|default:"발행" }}</span>
                             <span class="ml-1 font-mono text-xs">{{ active_tax_invoice.invoice_number }}</span>
+                        {% elif platform_config and platform_config.tax_invoice_issuer == 'PLATFORM' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">{{ platform_config.name }} 자동발행</span>
+                            <span class="ml-1 text-xs text-gray-500">(국세청 자동연동)</span>
+                        {% elif platform_config and platform_config.tax_invoice_issuer == 'OUTSOURCED' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">세무사 대행</span>
                         {% else %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">미발행</span>
                         {% endif %}
@@ -164,6 +169,9 @@
                         <a href="{% url 'accounting:cash_receipt_detail' active_cash_receipt.pk %}"
                            class="ml-1 text-xs text-blue-600 hover:underline">상세</a>
                         {% endif %}
+                        {% elif platform_config and platform_config.cash_receipt_issuer == 'PLATFORM' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">{{ platform_config.name }} 자동발행</span>
+                            <span class="ml-1 text-xs text-gray-500">(국세청 자동연동)</span>
                         {% else %}
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">미발행</span>
                         {% if user.is_manager_role and can_issue_cash_receipt %}
@@ -177,6 +185,9 @@
                         {% if active_card_slip %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">{{ active_card_slip.get_status_display }}</span>
                             <span class="ml-1 font-mono text-xs">{{ active_card_slip.slip_number }}</span>
+                        {% elif platform_config and platform_config.card_receipt_issuer == 'PLATFORM' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">{{ platform_config.name }} 자동발행</span>
+                            <span class="ml-1 text-xs text-gray-500">(국세청 자동연동)</span>
                         {% else %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">미발행</span>
                         {% endif %}

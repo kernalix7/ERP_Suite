@@ -17,7 +17,7 @@ class ProductForm(BaseForm):
         model = Product
         fields = [
             'code', 'name', 'product_type', 'category', 'unit',
-            'unit_price', 'cost_price', 'valuation_method',
+            'unit_price', 'cost_price', 'net_realizable_value', 'valuation_method',
             'safety_stock', 'specification', 'image',
             'auto_standard_cost', 'notes',
         ]

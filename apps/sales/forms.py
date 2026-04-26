@@ -13,11 +13,12 @@ class PartnerForm(BaseForm):
     class Meta:
         model = Partner
         fields = [
-            'code', 'name', 'partner_type', 'business_number',
+            'code', 'name', 'partner_type', 'entity_type', 'business_number',
             'representative', 'contact_name', 'phone', 'email',
             'address', 'address_road', 'address_detail',
             'bank_name', 'bank_account', 'bank_holder',
             'default_bank_account', 'commission_bank_account',
+            'default_sales_channel', 'default_payment_method',
             'credit_limit', 'credit_used', 'tier',
             'approval_status', 'store_module', 'notes',
         ]
@@ -89,6 +90,7 @@ class OrderForm(BaseForm):
             'order_number', 'order_type', 'partner', 'customer',
             'assigned_to', 'order_date', 'accounting_date', 'delivery_date',
             'sales_channel', 'payment_method', 'tax_type',
+            'revenue_recognition_method', 'progress_rate',
             'vat_included', 'bank_account', 'shipping_charged', 'shipping_cost',
             'shipping_address', 'shipping_address_road', 'shipping_address_detail',
             'notes',
