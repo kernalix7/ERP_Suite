@@ -79,6 +79,14 @@ class Partner(BaseModel):
         '스토어 모듈', max_length=50, blank=True, default='',
         help_text='연결된 스토어 모듈 ID (예: naver_smartstore, coupang, direct_sale)',
     )
+    default_sales_channel = models.CharField(
+        '기본 판매채널', max_length=32, blank=True, default='',
+        help_text='이 거래처로 주문 생성 시 자동 채워질 판매채널 (Order.SalesChannel 값)',
+    )
+    default_payment_method = models.CharField(
+        '기본 결제수단', max_length=32, blank=True, default='',
+        help_text='이 거래처로 주문 생성 시 자동 채워질 결제수단 (Order.PaymentMethod 값)',
+    )
     credit_limit = models.DecimalField(
         '신용한도', max_digits=15, decimal_places=0, default=0,
     )

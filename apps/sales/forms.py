@@ -101,16 +101,23 @@ class OrderForm(BaseForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # 신규 주문 + 거래처 지정 시 → 거래처 기본 계좌 자동 설정
-        if not self.instance.pk and not self.initial.get('bank_account'):
-            partner_id = self.data.get('partner') if self.is_bound else None
+        # 신규 주문 + 거래처 지정 시 → 거래처 기본값 자동 채움
+        if not self.instance.pk:
+            partner_id = (
+                self.initial.get('partner')
+                or (self.data.get('partner') if self.is_bound else None)
+            )
             if partner_id:
                 try:
                     partner = Partner.objects.get(pk=partner_id)
-                    if partner.default_bank_account_id:
-                        self.initial['bank_account'] = partner.default_bank_account_id
                 except Partner.DoesNotExist:
-                    pass
+                    return
+                if partner.default_bank_account_id and not self.initial.get('bank_account'):
+                    self.initial['bank_account'] = partner.default_bank_account_id
+                if partner.default_sales_channel and not self.initial.get('sales_channel'):
+                    self.initial['sales_channel'] = partner.default_sales_channel
+                if partner.default_payment_method and not self.initial.get('payment_method'):
+                    self.initial['payment_method'] = partner.default_payment_method
 
 
 class OrderStatusForm(BaseForm):
