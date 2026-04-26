@@ -76,6 +76,7 @@ class TaxInvoiceForm(BaseForm):
             'invoice_number', 'invoice_type', 'partner', 'order', 'issue_date',
             'supply_amount', 'tax_amount', 'total_amount',
             'tax_type', 'issuer_type', 'platform_name',
+            'vat_deduction_type',
             'description', 'notes',
         ]
         widgets = {
