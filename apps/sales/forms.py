@@ -33,6 +33,19 @@ class PartnerForm(BaseForm):
             choices=registry.choices(),
             attrs={'class': 'form-select'},
         )
+        # 기본 판매채널/결제수단 — Order의 choices 재사용 (드롭다운)
+        from apps.sales.models import Order
+        empty = [('', '-- 미설정 (모델 기본값 사용) --')]
+        self.fields['default_sales_channel'].widget = forms.Select(
+            choices=empty + list(Order.SalesChannel.choices),
+            attrs={'class': 'form-select'},
+        )
+        self.fields['default_sales_channel'].required = False
+        self.fields['default_payment_method'].widget = forms.Select(
+            choices=empty + list(Order.PaymentMethod.choices),
+            attrs={'class': 'form-select'},
+        )
+        self.fields['default_payment_method'].required = False
         # 기존 계좌 선택 드롭다운
         from apps.accounting.models import BankAccount
         active_accounts = BankAccount.objects.filter(is_active=True)

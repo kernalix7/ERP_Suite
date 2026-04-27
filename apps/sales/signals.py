@@ -74,6 +74,31 @@ def auto_fill_bank_account(sender, instance, **kwargs):
 
 
 @receiver(pre_save, sender='sales.Order')
+def auto_fill_channel_and_payment_from_partner(sender, instance, **kwargs):
+    """주문 신규 생성 시 거래처의 default_sales_channel / default_payment_method
+    가 비어있는 sales_channel / payment_method 를 덮어쓴다.
+
+    - 폼/관리자/마켓플레이스 import/API 등 모든 경로에서 일관 적용
+    - 신규(pk 없음)에만 적용 — 기존 주문 update 시는 사용자 입력 보존
+    - 거래처 default가 비어있으면 무시 (모델 default 그대로)
+    """
+    if instance.pk or not instance.partner_id:
+        return
+    try:
+        partner = instance.partner
+    except Exception:
+        return
+    # sales_channel: 모델 default 'DIRECT' 인 상태에서만 덮어쓰기 (사용자 명시 입력 보존)
+    if (instance.sales_channel == 'DIRECT'
+            and getattr(partner, 'default_sales_channel', '')):
+        instance.sales_channel = partner.default_sales_channel
+    # payment_method: 모델 default 'CARD' 인 상태에서만 덮어쓰기
+    if (instance.payment_method == 'CARD'
+            and getattr(partner, 'default_payment_method', '')):
+        instance.payment_method = partner.default_payment_method
+
+
+@receiver(pre_save, sender='sales.Order')
 def auto_stock_out_on_ship(sender, instance, **kwargs):
     """주문이 출고완료 상태로 변경되면 자동으로 출고 전표 생성"""
     if not instance.pk:
