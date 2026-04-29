@@ -9,6 +9,7 @@ from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
 from apps.core.utils import generate_document_number
+from apps.localizations import get_default_currency_code
 
 
 class Currency(BaseModel):
@@ -1594,7 +1595,7 @@ class InterCompanyTransaction(BaseModel):
         '금액', max_digits=15, decimal_places=0,
         validators=[MinValueValidator(0)],
     )
-    currency_code = models.CharField('통화', max_length=3, default='KRW')
+    currency_code = models.CharField('통화', max_length=3, default=get_default_currency_code)
     voucher_from = models.ForeignKey(
         Voucher, verbose_name='발생법인 전표',
         null=True, blank=True, on_delete=models.SET_NULL,

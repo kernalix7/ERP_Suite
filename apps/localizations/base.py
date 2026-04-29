@@ -33,6 +33,10 @@ class TaxAdapter(ABC):
     def withholding_rates(self) -> dict[str, Decimal]:
         """원천세율 — 세목별 (KR: 사업소득 0.033, 기타소득 0.088 등)."""
 
+    def local_income_tax_rate(self) -> Decimal:
+        """지방소득세율 — 소득세 대비 비율 (KR: 0.10). 국가별 오버라이드 가능."""
+        return Decimal('0.10')
+
 
 class TaxCalendarAdapter(ABC):
     """세무 신고 기한 캘린더."""

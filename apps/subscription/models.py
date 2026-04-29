@@ -3,6 +3,7 @@ from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
 from apps.core.utils import generate_document_number
+from apps.localizations import get_default_currency_code
 
 
 class SubscriptionPlan(BaseModel):
@@ -21,7 +22,7 @@ class SubscriptionPlan(BaseModel):
         choices=BillingCycle.choices, default=BillingCycle.MONTHLY,
     )
     price = models.DecimalField('가격', max_digits=15, decimal_places=0, default=0)
-    currency = models.CharField('통화', max_length=3, default='KRW')
+    currency = models.CharField('통화', max_length=3, default=get_default_currency_code)
     features = models.JSONField('기능 목록', default=list, blank=True)
 
     history = HistoricalRecords()

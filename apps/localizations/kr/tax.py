@@ -61,6 +61,10 @@ class KRTaxAdapter(TaxAdapter):
     def withholding_rates(self) -> dict[str, Decimal]:
         return dict(KR_WITHHOLDING_RATES)
 
+    def local_income_tax_rate(self) -> Decimal:
+        """지방소득세율 — 소득세법 제89조, 소득세의 10%."""
+        return Decimal('0.10')
+
     def withholding_rate(self, tax_key: str) -> Decimal:
         """세목 키로 단일 세율 조회. 미등록 키는 0.0 반환."""
         return KR_WITHHOLDING_RATES.get(tax_key, Decimal('0'))

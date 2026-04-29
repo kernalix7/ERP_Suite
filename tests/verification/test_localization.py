@@ -43,6 +43,24 @@ class LocalizationRegistryTests(TestCase):
         codes = get_registered_codes()
         self.assertIn('KR', codes)
 
+    def test_jp_registered(self):
+        """JP 스텁 어댑터 자동등록 검증."""
+        from apps.localizations import get_adapter, get_registered_codes
+        self.assertIn('JP', get_registered_codes())
+        adapter = get_adapter('JP')
+        self.assertEqual(adapter.country_code, 'JP')
+        self.assertEqual(adapter.currency_code, 'JPY')
+        self.assertEqual(adapter.locale, 'ja_JP')
+
+    def test_us_registered(self):
+        """US 스텁 어댑터 자동등록 검증."""
+        from apps.localizations import get_adapter, get_registered_codes
+        self.assertIn('US', get_registered_codes())
+        adapter = get_adapter('US')
+        self.assertEqual(adapter.country_code, 'US')
+        self.assertEqual(adapter.currency_code, 'USD')
+        self.assertEqual(adapter.locale, 'en_US')
+
     @override_settings(ACTIVE_COUNTRY='KR')
     def test_settings_active_country_priority(self):
         from apps.localizations import get_active_adapter

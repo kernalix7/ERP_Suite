@@ -48,6 +48,26 @@ def get_vat_multiplier() -> Decimal:
     return Decimal('1') + get_vat_rate()
 
 
+def get_local_income_tax_rate() -> Decimal:
+    """현재 활성 국가의 지방소득세율. 어댑터 미로드 시 KR 기본값(0.10) 반환."""
+    try:
+        return get_active_adapter().tax.local_income_tax_rate()
+    except Exception:
+        return Decimal('0.10')
+
+
+def get_default_currency_code() -> str:
+    """현재 활성 국가의 기준 통화 코드. 어댑터 미로드 시 KRW 기본값.
+
+    Currency.currency_code / Subscription.currency 등 모델 default,
+    환차손익 분기 등에서 본 헬퍼를 호출하여 다국가 분기.
+    """
+    try:
+        return get_active_adapter().currency_code
+    except Exception:
+        return 'KRW'
+
+
 __all__ = [
     'get_adapter',
     'get_active_adapter',
@@ -55,4 +75,6 @@ __all__ = [
     'register_adapter',
     'get_vat_rate',
     'get_vat_multiplier',
+    'get_local_income_tax_rate',
+    'get_default_currency_code',
 ]

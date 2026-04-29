@@ -229,7 +229,7 @@ def payment_recognize_exchange_gain_loss(sender, instance, created, **kwargs):
     """외화 결제 시 환차손익 자동전표 (GAP-9.2).
 
     조건:
-    - Payment.receivable.order 가 외화 주문 (currency.code != 'KRW')
+    - Payment.receivable.order 가 외화 주문 (currency.code != 활성 국가 통화)
     - 주문 환율(order.exchange_rate) vs payment_date 의 ExchangeRate 차이 발생
 
     환차익(REVENUE 470) / 환차손(EXPENSE 925) 계정 분기.
@@ -244,7 +244,12 @@ def payment_recognize_exchange_gain_loss(sender, instance, created, **kwargs):
         if not order or not getattr(order, 'currency_id', None):
             return
         currency = order.currency
-        if currency.code == 'KRW':
+        try:
+            from apps.localizations import get_default_currency_code
+            base_ccy = get_default_currency_code()
+        except Exception:
+            base_ccy = 'KRW'
+        if currency.code == base_ccy:
             return
         order_rate = order.exchange_rate or 1
         from .models import ExchangeRate

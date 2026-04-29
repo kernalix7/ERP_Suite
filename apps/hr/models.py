@@ -10,6 +10,7 @@ from simple_history.models import HistoricalRecords
 from apps.core.fields import EncryptedCharField, EncryptedTextField
 from apps.core.models import BaseModel
 from apps.core.utils import generate_document_number
+from apps.localizations import get_local_income_tax_rate
 
 
 class ExternalCompany(BaseModel):
@@ -444,7 +445,7 @@ class Payroll(BaseModel):
             - self.employment_insurance
         )
         self.income_tax = max(self._calculate_income_tax(taxable * 12) // 12, 0)
-        self.local_income_tax = int(self.income_tax * Decimal('0.10'))  # 소득세의 10%
+        self.local_income_tax = int(self.income_tax * get_local_income_tax_rate())
 
         self.total_deductions = (
             self.national_pension + self.health_insurance + self.long_term_care

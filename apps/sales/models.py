@@ -180,9 +180,15 @@ class Partner(BaseModel):
         if self.entity_type == self.EntityType.BUSINESS:
             if not self.business_number:
                 raise ValidationError({'business_number': '사업자번호는 필수입니다.'})
-            from apps.localizations.kr.identifier import KRIdentifierAdapter
-            if not KRIdentifierAdapter().validate_business_number(self.business_number):
-                raise ValidationError({'business_number': '유효하지 않은 사업자번호입니다.'})
+            try:
+                from apps.localizations import get_active_adapter
+                adapter = get_active_adapter()
+                if not adapter.identifier.validate_business_number(self.business_number):
+                    raise ValidationError({'business_number': '유효하지 않은 사업자번호입니다.'})
+            except ValidationError:
+                raise
+            except Exception:
+                pass
 
     def save(self, *args, **kwargs):
         if self.address_road or self.address_detail:
