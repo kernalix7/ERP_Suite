@@ -64,3 +64,4 @@ from apps.core.notification_center import (  # noqa: E402, F401
     NotificationPreference, NotificationLog, PushSubscription,
 )
 from apps.core.excel_audit import ExcelDownloadLog  # noqa: E402, F401
+from apps.core.models_holiday import Holiday  # noqa: E402, F401

@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     # Local apps
     'apps.core',
+    'apps.localizations',
     'apps.accounts',
     'apps.inventory',
     'apps.production',
@@ -387,3 +388,8 @@ if SENTRY_DSN:
         send_default_pii=False,
         environment=env('SENTRY_ENVIRONMENT', default='production'),
     )
+
+
+# ── Localization (국가팩) ─────────────────────────────────
+# prod default 한국. 다른 국가 활성화는 SystemConfig('GENERAL', 'active_country')에서.
+ACTIVE_COUNTRY = env('ACTIVE_COUNTRY', default='KR')

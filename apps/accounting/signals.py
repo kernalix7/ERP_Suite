@@ -289,16 +289,27 @@ def payment_recognize_exchange_gain_loss(sender, instance, created, **kwargs):
             return
 
         # 환차익(diff_int > 0, 입금이면 이득), 환차손(diff_int < 0)
-        # RECEIPT + diff>0 → 외환차익(470), RECEIPT + diff<0 → 외환차손(925)
+        # RECEIPT + diff>0 → 외환차익, RECEIPT + diff<0 → 외환차손
         # DISBURSEMENT + diff>0 → 외환차손, DISBURSEMENT + diff<0 → 외환차익
         is_receipt = instance.payment_type == 'RECEIPT'
         is_gain = (diff_int > 0) if is_receipt else (diff_int < 0)
-        gain_acct = _get_account_code('470')  # 외환차익
-        loss_acct = _get_account_code('925')  # 외환차손
+        # 외환차익/차손 계정코드 — 활성 국가 어댑터에 위임 (KR 기본 470/925).
+        # 어댑터는 SystemConfig('TAX','fx_*_account_code') 오버라이드를 우선 적용한다.
+        from apps.localizations import get_active_adapter
+        try:
+            tax_adp = get_active_adapter().tax
+            gain_code = tax_adp.fx_gain_code()
+            loss_code = tax_adp.fx_loss_code()
+        except Exception:
+            from apps.core.models import SystemConfig
+            gain_code = SystemConfig.get_value('TAX', 'fx_gain_account_code', '470')
+            loss_code = SystemConfig.get_value('TAX', 'fx_loss_account_code', '925')
+        gain_acct = _get_account_code(gain_code)
+        loss_acct = _get_account_code(loss_code)
         if not (gain_acct and loss_acct):
             logger.warning(
-                '외환손익 계정과목(470/925) 없음 — Payment %s skip',
-                instance.payment_number,
+                '외환손익 계정과목(%s/%s) 없음 — Payment %s skip',
+                gain_code, loss_code, instance.payment_number,
             )
             return
 

@@ -371,7 +371,8 @@ def _create_quotation_for_import(order, product_id, user=None):
     if product.unit_price:
         unit_price = product.unit_price
     else:
-        unit_price = int(Decimal(str(order.price)) / Decimal('1.1'))
+        from apps.localizations import get_vat_multiplier
+        unit_price = int(Decimal(str(order.price)) / get_vat_multiplier())
 
     QuotationItem.objects.create(
         quotation=quotation,

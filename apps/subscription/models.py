@@ -202,10 +202,10 @@ class BillingRecord(BaseModel):
                     )
 
     def save(self, *args, **kwargs):
-        from decimal import Decimal
+        from apps.localizations import get_vat_rate
         if self.amount:
             if not self.tax_amount:
-                self.tax_amount = round(self.amount * Decimal('0.1'))
+                self.tax_amount = round(self.amount * get_vat_rate())
             self.total = self.amount + self.tax_amount
         super().save(*args, **kwargs)
 

@@ -159,21 +159,23 @@ class PurchaseOrderItem(BaseModel):
         return f'{self.product.name} x {self.quantity}'
 
     def save(self, *args, **kwargs):
+        from apps.localizations import get_vat_multiplier, get_vat_rate
+
         # 금액 미입력 시 수량×단가로 자동 계산
         if not self.amount and self.quantity and self.unit_price:
             self.amount = int(self.quantity * self.unit_price)
-        # 부가세 계산
+        # 부가세 계산 — 활성 국가 어댑터의 VAT 세율 사용
         if not self.purchase_order.is_taxable:
             # 면세 거래: 부가세 없음
             self.tax_amount = 0
         elif self.purchase_order.vat_included:
             # amount = VAT 포함 총액 → 공급가액/부가세 역산
             input_total = int(self.amount)
-            self.amount = int(Decimal(str(input_total)) / Decimal('1.1'))
+            self.amount = int(Decimal(str(input_total)) / get_vat_multiplier())
             self.tax_amount = input_total - int(self.amount)
         else:
             # amount = 공급가액 그대로
-            self.tax_amount = int(self.amount * Decimal('0.1'))
+            self.tax_amount = int(self.amount * get_vat_rate())
         # 단가 = 공급가액 / 수량 (VAT 미포함 단가로 저장)
         if self.quantity and self.quantity > 0:
             self.unit_price = int(Decimal(str(int(self.amount))) / self.quantity)

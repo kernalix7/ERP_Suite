@@ -57,6 +57,7 @@ urlpatterns = [
     path('ad/', module_include('apps.ad.urls', 'ad')),
     path('advertising/', module_include('apps.advertising.urls', 'advertising')),
     path('asset/', include('apps.asset.urls')),
+    path('localizations/', include('apps.localizations.urls')),
     path('modules/', include('apps.module_manager.urls')),
     # Phase 15+: 독립 모듈 (module_include로 동적 게이팅)
     path('lms/', module_include('apps.lms.urls', 'lms')),

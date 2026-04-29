@@ -116,6 +116,20 @@ class OrderForm(BaseForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # 판매채널/결제수단 — DB 마스터(SalesChannel/PaymentMethod) 활성 항목 사용
+        try:
+            from apps.sales.models import SalesChannel, PaymentMethod
+            self.fields['sales_channel'].widget = forms.Select(
+                choices=SalesChannel.active_choices(),
+                attrs={'class': 'form-select'},
+            )
+            self.fields['payment_method'].widget = forms.Select(
+                choices=PaymentMethod.active_choices(),
+                attrs={'class': 'form-select'},
+            )
+        except Exception:
+            pass
+
         # 신규 주문 + 거래처 지정 시 → 거래처 기본값 자동 채움
         if not self.instance.pk:
             partner_id = (

@@ -98,6 +98,12 @@ class Partner(BaseModel):
         null=True, blank=True, on_delete=models.SET_NULL,
         related_name='partners',
     )
+    country = models.ForeignKey(
+        'localizations.Country', verbose_name='국가',
+        null=True, blank=True, on_delete=models.PROTECT,
+        related_name='+',
+        help_text='거래처 소속 국가 (다국가 모드용 — 미설정 시 활성 국가 적용)',
+    )
 
     class ApprovalStatus(models.TextChoices):
         PENDING = 'PENDING', '승인대기'
@@ -167,6 +173,16 @@ class Partner(BaseModel):
         """거래처 유형별 다음 코드 생성"""
         prefix = cls.TYPE_PREFIX_MAP.get(partner_type, 'CUS')
         return generate_sequential_code(cls, 'code', prefix, digits=3)
+
+    def clean(self):
+        super().clean()
+        from django.core.exceptions import ValidationError
+        if self.entity_type == self.EntityType.BUSINESS:
+            if not self.business_number:
+                raise ValidationError({'business_number': '사업자번호는 필수입니다.'})
+            from apps.localizations.kr.identifier import KRIdentifierAdapter
+            if not KRIdentifierAdapter().validate_business_number(self.business_number):
+                raise ValidationError({'business_number': '유효하지 않은 사업자번호입니다.'})
 
     def save(self, *args, **kwargs):
         if self.address_road or self.address_detail:
@@ -534,6 +550,8 @@ class OrderItem(BaseModel):
                 self.unit_price = self.product.unit_price
 
     def save(self, *args, **kwargs):
+        from apps.localizations import get_vat_multiplier, get_vat_rate
+
         self._apply_price_rule()
         subtotal = self.quantity * self.unit_price
         # 할인: 할인율 우선, 할인금액은 직접 지정 시 사용
@@ -546,12 +564,12 @@ class OrderItem(BaseModel):
             self.amount = raw_amount
             self.tax_amount = 0
         elif self.order.vat_included:
-            # 입력 금액이 VAT 포함 → 역산
-            self.amount = int(Decimal(str(int(raw_amount))) / Decimal('1.1'))
+            # 입력 금액이 VAT 포함 → 역산 (활성 국가 어댑터의 VAT 배수 사용)
+            self.amount = int(Decimal(str(int(raw_amount))) / get_vat_multiplier())
             self.tax_amount = int(raw_amount) - int(self.amount)
         else:
             self.amount = raw_amount
-            self.tax_amount = round(self.amount * Decimal('0.1'))
+            self.tax_amount = round(self.amount * get_vat_rate())
         self.total_with_tax = self.amount + self.tax_amount
         super().save(*args, **kwargs)
 
@@ -747,6 +765,8 @@ class QuotationItem(BaseModel):
                 self.unit_price = self.product.unit_price
 
     def save(self, *args, **kwargs):
+        from apps.localizations import get_vat_multiplier, get_vat_rate
+
         self._apply_price_rule()
         subtotal = self.quantity * self.unit_price
         if self.discount_rate > 0:
@@ -754,11 +774,11 @@ class QuotationItem(BaseModel):
         raw_amount = subtotal - self.discount_amount
 
         if self.quotation.vat_included:
-            self.amount = int(Decimal(str(int(raw_amount))) / Decimal('1.1'))
+            self.amount = int(Decimal(str(int(raw_amount))) / get_vat_multiplier())
             self.tax_amount = int(raw_amount) - int(self.amount)
         else:
             self.amount = raw_amount
-            self.tax_amount = round(self.amount * Decimal('0.1'))
+            self.tax_amount = round(self.amount * get_vat_rate())
         super().save(*args, **kwargs)
 
     @property
@@ -1199,3 +1219,4 @@ class CustomerSatisfaction(BaseModel):
 
 
 from apps.sales.commission import CommissionRate, CommissionRecord  # noqa
+from apps.sales.models_channel import SalesChannel, PaymentMethod  # noqa

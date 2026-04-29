@@ -226,36 +226,56 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     def _build_tax_calendar(today):
         """이번달 세무 캘린더 위젯 — VAT/원천세/결산 기한.
 
-        - 부가세: 분기 종료 익월 25일 (1월/4월/7월/10월 25일)
-        - 원천세: 매월 10일 (지급월 익월 10일 납부)
-        - 마감기간: ClosingPeriod(이번달, 다음달)
+        신고기한 계산은 활성 국가 어댑터(LocalizationAdapter.tax_calendar)에 위임 —
+        KR 의 경우 분기 종료 익월 25일(VAT)·익월 10일(원천세) 규칙이 적용되며
+        주말/공휴일은 다음 영업일로 자동 보정.
         """
-        events = []
-        # 원천세 — 이번달 10일 (전월 지급분 납부)
         from datetime import date as _date
+
+        events = []
+
+        try:
+            from apps.localizations import get_active_adapter
+            tc = get_active_adapter().tax_calendar
+        except Exception:
+            tc = None
+
+        # 원천세 — 전월 지급분 신고/납부 기한 (KR: 익월 10일)
+        if tc is not None:
+            prev_year = today.year if today.month > 1 else today.year - 1
+            prev_month = today.month - 1 if today.month > 1 else 12
+            wh_date = tc.withholding_filing_due(prev_year, prev_month)
+        else:
+            wh_date = _date(today.year, today.month, 10)
         events.append({
             'name': '원천세 신고/납부',
-            'date': _date(today.year, today.month, 10),
+            'date': wh_date,
             'type': 'WITHHOLDING',
-            'is_past': _date(today.year, today.month, 10) < today,
+            'is_past': wh_date < today,
         })
-        # 부가세 — 분기 종료 익월 25일
-        quarter_end_month = ((today.month - 1) // 3) * 3 + 3  # 3,6,9,12
-        if today.month == quarter_end_month + 1:
-            # 분기 직후 첫 달이면 25일이 신고기한
-            vat_date = _date(today.year, today.month, 25)
+
+        # 부가세 — 다가오는 분기 신고기한
+        current_quarter = (today.month - 1) // 3 + 1
+        if tc is not None:
+            vat_date = tc.vat_filing_due(today.year, current_quarter)
+            if vat_date < today:
+                # 이번 분기 기한이 이미 지났으면 다음 분기로
+                if current_quarter == 4:
+                    vat_date = tc.vat_filing_due(today.year + 1, 1)
+                else:
+                    vat_date = tc.vat_filing_due(today.year, current_quarter + 1)
         else:
-            # 다음 분기 종료 후 25일
-            next_q_end = quarter_end_month if today.month <= quarter_end_month else quarter_end_month + 3
-            year = today.year + (1 if next_q_end > 12 else 0)
-            month = next_q_end - 12 if next_q_end > 12 else next_q_end
-            vat_date = _date(year, month % 12 + 1 if month != 12 else year + 1, 25)
+            quarter_end_month = current_quarter * 3
+            year = today.year + (1 if quarter_end_month == 12 else 0)
+            month = 1 if quarter_end_month == 12 else quarter_end_month + 1
+            vat_date = _date(year, month, 25)
         events.append({
             'name': '부가세 신고/납부',
             'date': vat_date,
             'type': 'VAT',
             'is_past': vat_date < today,
         })
+
         # 마감기간
         from apps.accounting.models import ClosingPeriod
         closings = ClosingPeriod.objects.filter(

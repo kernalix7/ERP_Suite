@@ -538,7 +538,21 @@ class IncomeStatementView(ManagerRequiredMixin, TemplateView):
     NONOP_EXPENSE_PREFIXES = ('91', '92')
     INCOME_TAX_PREFIXES = ('998', '999')
 
-    def _bucket(self, code: str, account_type: str) -> str:
+    # AccountCode.PLBucket → 내부 키 매핑
+    _BUCKET_MAP = {
+        'SALES': 'sales',
+        'COGS': 'cogs',
+        'SGA': 'sga',
+        'NONOP_REVENUE': 'nonop_revenue',
+        'NONOP_EXPENSE': 'nonop_expense',
+        'INCOME_TAX': 'income_tax',
+    }
+
+    def _bucket(self, code: str, account_type: str, pl_bucket: str = '') -> str:
+        """AccountCode.pl_bucket 우선, 공란이면 prefix 매핑 fallback."""
+        if pl_bucket and pl_bucket in self._BUCKET_MAP:
+            return self._BUCKET_MAP[pl_bucket]
+        # Fallback — 기존 prefix 규약 (pl_bucket 미설정 계정 호환)
         if account_type == 'REVENUE':
             for p in self.NONOP_REVENUE_PREFIXES:
                 if code.startswith(p):
@@ -568,7 +582,8 @@ class IncomeStatementView(ManagerRequiredMixin, TemplateView):
             voucher__voucher_date__lte=period_end,
             account__account_type__in=['REVENUE', 'EXPENSE'],
         ).values(
-            'account__code', 'account__name', 'account__account_type',
+            'account__code', 'account__name',
+            'account__account_type', 'account__pl_bucket',
         ).annotate(
             total_debit=Sum('debit'),
             total_credit=Sum('credit'),
@@ -584,13 +599,14 @@ class IncomeStatementView(ManagerRequiredMixin, TemplateView):
             code = row['account__code']
             name = row['account__name']
             atype = row['account__account_type']
+            pl_bucket = row['account__pl_bucket'] or ''
             debit = int(row['total_debit'] or 0)
             credit = int(row['total_credit'] or 0)
             if atype == 'REVENUE':
                 amount = credit - debit
             else:
                 amount = debit - credit
-            bucket = self._bucket(code, atype)
+            bucket = self._bucket(code, atype, pl_bucket)
             if bucket == 'skip':
                 continue
             buckets[bucket].append({
@@ -5283,10 +5299,12 @@ class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
         else:
             from collections import OrderedDict
             from decimal import ROUND_HALF_UP
+            from apps.localizations import get_vat_multiplier
+            vat_mult = get_vat_multiplier()
             # 단가는 VAT 포함 기준으로 통일 — 주문의 vat_included 여부에 따라 정규화
             def to_inc(v, vat_included):
                 v = Decimal(v or 0)
-                return v if vat_included else (v * Decimal('1.1')).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+                return v if vat_included else (v * vat_mult).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
 
             aggregated = OrderedDict()
             for order in orders:
@@ -5330,7 +5348,7 @@ class CashReceiptCreateView(ManagerRequiredMixin, CreateView):
             for entry in aggregated.values():
                 qty = entry['quantity']
                 total_inc = Decimal(entry['unit_price']) * qty
-                supply = (total_inc / Decimal('1.1')).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+                supply = (total_inc / vat_mult).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
                 vat = total_inc - supply
                 row = {
                     'name': entry['name'],

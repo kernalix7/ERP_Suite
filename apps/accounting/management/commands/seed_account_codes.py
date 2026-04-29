@@ -12,6 +12,7 @@ from apps.accounting.models import AccountCode
 
 # 코드 prefix 규약 (IncomeStatementView K-GAAP 9단계와 정합):
 #  1xx 자산 / 2xx 부채 / 3xx 자본 / 4xx 수익 / 5~9xx 비용
+# 4번째 컬럼: pl_bucket (REVENUE/EXPENSE에만 적용, 자산/부채/자본은 '')
 SEED = [
     # ── 1xx 자산 (ASSET) ──
     ('101', '현금', 'ASSET', 'OPERATING'),
@@ -102,6 +103,30 @@ class Command(BaseCommand):
             help='기존 코드도 name/account_type/cash_flow_category 갱신',
         )
 
+    @staticmethod
+    def _infer_pl_bucket(code, account_type):
+        """code prefix 규약 기반 pl_bucket 자동 추론 — IncomeStatementView 정합."""
+        if account_type == 'REVENUE':
+            if any(code.startswith(p) for p in ('47',)):
+                return 'NONOP_REVENUE'
+            if code.startswith('4'):
+                return 'SALES'
+            return ''
+        if account_type == 'EXPENSE':
+            if any(code.startswith(p) for p in ('998', '999')):
+                return 'INCOME_TAX'
+            if any(code.startswith(p) for p in (
+                '501', '502', '503', '504', '505',
+                '506', '507', '508', '509',
+            )):
+                return 'COGS'
+            if any(code.startswith(p) for p in ('91', '92')):
+                return 'NONOP_EXPENSE'
+            if code.startswith('5'):
+                return 'SGA'
+            return ''
+        return ''
+
     def handle(self, *args, **options):
         update = options['update']
         created = 0
@@ -109,12 +134,14 @@ class Command(BaseCommand):
         updated = 0
 
         for code, name, account_type, cash_flow in SEED:
+            pl_bucket = self._infer_pl_bucket(code, account_type)
             obj, was_created = AccountCode.all_objects.get_or_create(
                 code=code,
                 defaults={
                     'name': name,
                     'account_type': account_type,
                     'cash_flow_category': cash_flow,
+                    'pl_bucket': pl_bucket,
                     'is_active': True,
                 },
             )
@@ -129,6 +156,8 @@ class Command(BaseCommand):
                     obj.account_type, changed = account_type, True
                 if obj.cash_flow_category != cash_flow:
                     obj.cash_flow_category, changed = cash_flow, True
+                if obj.pl_bucket != pl_bucket:
+                    obj.pl_bucket, changed = pl_bucket, True
                 if not obj.is_active:
                     obj.is_active, changed = True, True
                 if changed:

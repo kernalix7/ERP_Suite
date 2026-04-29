@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "국가 설정" %} - ERP Suite{% endblock %}
+{% block page_title %}{% trans "국가 설정 (Country Pack)" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+    <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "활성 국가 어댑터" %}</h3>
+    <div class="flex items-center gap-3">
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700">
+            {{ active_country_code|default:"-" }}
+        </span>
+        <span class="text-sm text-gray-500">
+            {% trans "등록된 어댑터" %}:
+            {% for code in registered_codes %}
+                <span class="font-mono text-gray-700">{{ code }}</span>{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                <span class="text-gray-400">{% trans "없음" %}</span>
+            {% endfor %}
+        </span>
+    </div>
+    <p class="mt-3 text-xs text-gray-500">
+        {% trans "활성 국가는 SystemConfig('GENERAL', 'active_country') 또는 settings.ACTIVE_COUNTRY 로 설정됩니다." %}
+    </p>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-gray-800">{% trans "국가 마스터" %}</h3>
+        <a href="/mgmt-console-x/localizations/country/" class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 hover:text-blue-900">
+            {% trans "관리자 페이지에서 편집" %} &rarr;
+        </a>
+    </div>
+    <div class="table-responsive overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{% trans "코드" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{% trans "국가명" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{% trans "통화" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{% trans "로케일" %}</th>
+                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">{% trans "기본" %}</th>
+                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">{% trans "어댑터 구현" %}</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200 text-sm">
+                {% for c in countries %}
+                <tr>
+                    <td class="px-4 py-2 font-mono">{{ c.code }}</td>
+                    <td class="px-4 py-2">{{ c.name }}</td>
+                    <td class="px-4 py-2 font-mono">{{ c.currency_code }}</td>
+                    <td class="px-4 py-2 font-mono">{{ c.locale }}</td>
+                    <td class="px-4 py-2 text-center">
+                        {% if c.is_default %}<span class="text-blue-600 font-semibold">&#10003;</span>{% else %}-{% endif %}
+                    </td>
+                    <td class="px-4 py-2 text-center">
+                        {% if c.is_supported %}<span class="text-green-600 font-semibold">&#10003;</span>{% else %}<span class="text-gray-400">-</span>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">{% trans "등록된 국가가 없습니다." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

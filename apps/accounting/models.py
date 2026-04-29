@@ -63,6 +63,12 @@ class TaxRate(BaseModel):
     is_default = models.BooleanField('기본세율', default=False)
     effective_from = models.DateField('시행일')
     effective_to = models.DateField('종료일', null=True, blank=True)
+    country = models.ForeignKey(
+        'localizations.Country', verbose_name='국가',
+        null=True, blank=True, on_delete=models.PROTECT,
+        related_name='+',
+        help_text='세율 적용 국가 (다국가 모드용)',
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -503,6 +509,14 @@ class AccountCode(BaseModel):
         INVESTING = 'INVESTING', '투자활동'
         FINANCING = 'FINANCING', '재무활동'
 
+    class PLBucket(models.TextChoices):
+        SALES = 'SALES', '매출'
+        COGS = 'COGS', '매출원가'
+        SGA = 'SGA', '판매비와관리비'
+        NONOP_REVENUE = 'NONOP_REVENUE', '영업외수익'
+        NONOP_EXPENSE = 'NONOP_EXPENSE', '영업외비용'
+        INCOME_TAX = 'INCOME_TAX', '법인세'
+
     code = models.CharField('계정코드', max_length=20, unique=True)
     name = models.CharField('계정명', max_length=100)
     account_type = models.CharField('계정유형', max_length=20, choices=AccountType.choices)
@@ -510,6 +524,17 @@ class AccountCode(BaseModel):
     cash_flow_category = models.CharField(
         '현금흐름 분류', max_length=20,
         choices=CashFlowCategory.choices, blank=True, default='',
+    )
+    pl_bucket = models.CharField(
+        '손익계산서 분류', max_length=20,
+        choices=PLBucket.choices, blank=True, default='',
+        help_text='K-GAAP 9단계 손익계산서 분류 — 공란이면 손익계산서에서 제외',
+    )
+    country = models.ForeignKey(
+        'localizations.Country', verbose_name='국가',
+        null=True, blank=True, on_delete=models.PROTECT,
+        related_name='+',
+        help_text='계정과목 적용 국가 (다국가 모드용)',
     )
     history = HistoricalRecords()
 
