@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from django.db import transaction
 from django.db.models import F
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 
 from apps.inventory.models import Product, StockMovement, Warehouse, WarehouseStock
@@ -147,6 +147,11 @@ def auto_stock_out_on_ship(sender, instance, **kwargs):
             _check_credit_limit(instance)
             _auto_create_ar(instance)
             _auto_create_tax_invoice(instance)
+    # 이미 CONFIRMED 상태에서 grand_total 변경 시 → 신용한도 재체크
+    elif (old.status == 'CONFIRMED' and instance.status == 'CONFIRMED'
+            and instance.order_type not in ('RETURN', 'EXCHANGE')
+            and int(old.grand_total or 0) != int(instance.grand_total or 0)):
+        _check_credit_limit(instance)
 
     # 취소 시 → 연쇄 처리 (재고복원, 수수료취소, AR취소)
     if old.status != 'CANCELLED' and instance.status == 'CANCELLED':
@@ -1519,3 +1524,44 @@ def auto_seed_commission_from_platform(sender, instance, created, **kwargs):
         rate=config.commission_rate,
         created_by=instance.created_by,
     )
+
+
+def _recheck_credit_limit_on_order_change(order_pk):
+    """OrderItem 변경 시 부모 주문이 CONFIRMED 면 grand_total 재계산 후 신용한도 재체크.
+
+    - update_total() 호출은 Order.save()를 트리거하여 auto_stock_out_on_ship 의
+      CONFIRMED→CONFIRMED 분기에서 _check_credit_limit() 가 실행되므로 별도 호출 불필요.
+    """
+    from apps.sales.models import Order
+    try:
+        order = Order.all_objects.get(pk=order_pk)
+    except Order.DoesNotExist:
+        return
+    if order.status != 'CONFIRMED':
+        return
+    if order.order_type in ('RETURN', 'EXCHANGE'):
+        return
+    with transaction.atomic():
+        order.update_total()
+
+
+@receiver(
+    post_save, sender='sales.OrderItem',
+    dispatch_uid='sales.OrderItem.recheck_credit_limit',
+)
+def recheck_credit_limit_on_order_item_save(sender, instance, **kwargs):
+    """주문항목 저장 시 부모 CONFIRMED 주문의 신용한도 재체크"""
+    if not instance.order_id:
+        return
+    _recheck_credit_limit_on_order_change(instance.order_id)
+
+
+@receiver(
+    post_delete, sender='sales.OrderItem',
+    dispatch_uid='sales.OrderItem.recheck_credit_limit_on_delete',
+)
+def recheck_credit_limit_on_order_item_delete(sender, instance, **kwargs):
+    """주문항목 물리 삭제 시 부모 CONFIRMED 주문의 신용한도 재체크"""
+    if not instance.order_id:
+        return
+    _recheck_credit_limit_on_order_change(instance.order_id)

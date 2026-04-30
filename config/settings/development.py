@@ -70,3 +70,6 @@ if 'test' in sys.argv:
     }
     # 테스트 병렬 실행 기본 활성화 (--parallel 없이도 자동 병렬)
     TEST_RUNNER = 'config.test_runner.ParallelTestRunner'
+    # 테스트 시 Celery 태스크는 broker 없이 동기 실행
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = False

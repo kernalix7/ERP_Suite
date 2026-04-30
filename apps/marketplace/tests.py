@@ -1374,3 +1374,57 @@ class ReverseSyncViewTest(TestCase):
             reverse('marketplace:push_shipment', kwargs={'slug': self.order.store_order_id}),
         )
         self.assertEqual(response.status_code, 403)
+
+
+class PushShippingRetryTaskTest(TestCase):
+    """push_shipping_async 재시도/최종 실패 알림 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='retryadmin', password='testpass123', role='admin',
+        )
+        self.now = timezone.now()
+        self.order = MarketplaceOrder.objects.create(
+            store_order_id='RETRY-001',
+            product_name='재시도 테스트',
+            quantity=1,
+            price=Decimal('10000'),
+            buyer_name='구매자',
+            receiver_name='수취인',
+            ordered_at=self.now,
+            delivery_company='CJ대한통운',
+            tracking_number='RETRY-TRACK-001',
+            platform_product_order_id='RETRY-PPO-001',
+            created_by=self.user,
+        )
+
+    def test_push_shipping_retry_on_failure_then_notify(self):
+        """일시 실패 시 retry 시도 → 한도 초과 시 운영자 Notification 생성"""
+        from unittest.mock import patch, MagicMock
+        from celery.exceptions import MaxRetriesExceededError
+        from apps.core.notification import Notification
+        from apps.marketplace.sync_service import PushShippingError
+        from apps.marketplace import tasks as mp_tasks
+
+        # 1) push_shipping_info가 PushShippingError 발생 → retry 시도 → 한도 초과
+        with patch(
+            'apps.marketplace.sync_service.push_shipping_info',
+            side_effect=PushShippingError('일시 API 오류'),
+        ):
+            with patch.object(
+                mp_tasks.push_shipping_async, 'retry',
+                side_effect=MaxRetriesExceededError('retry limit'),
+            ) as mock_retry:
+                result = mp_tasks.push_shipping_async.apply(
+                    args=[self.order.pk]
+                ).result
+
+        self.assertFalse(result)
+        # retry는 최소 한 번은 호출되었어야 함
+        self.assertGreaterEqual(mock_retry.call_count, 1)
+        # 최종 실패 알림 1건 이상 생성 (admin 역할 사용자에게)
+        self.assertTrue(
+            Notification.objects.filter(
+                title='마켓플레이스 배송정보 전송 최종 실패',
+            ).exists()
+        )

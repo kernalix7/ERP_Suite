@@ -529,14 +529,23 @@ class PushShipmentView(ManagerRequiredMixin, View):
                 reverse_lazy('marketplace:order_detail', kwargs={'slug': slug}),
             )
 
-        success = push_shipping_info(order)
-        if success:
-            MarketplaceOrder.objects.filter(pk=order.pk).update(
-                status=MarketplaceOrder.Status.SHIPPED,
-            )
-            messages.success(request, f'배송정보 전송 완료: {order.store_order_id}')
+        from django.conf import settings as _settings
+        from .tasks import push_shipping_async
+
+        eager = getattr(_settings, 'CELERY_TASK_ALWAYS_EAGER', False)
+        if eager:
+            result = push_shipping_async.apply(args=[order.pk]).result
+            if result:
+                messages.success(request, f'배송정보 전송 완료: {order.store_order_id}')
+            else:
+                messages.error(request, f'배송정보 전송 실패: {order.store_order_id}')
         else:
-            messages.error(request, f'배송정보 전송 실패: {order.store_order_id}')
+            push_shipping_async.delay(order.pk)
+            messages.info(
+                request,
+                f'배송정보 전송이 큐에 등록되었습니다: {order.store_order_id} '
+                '(실패 시 자동 재시도됨)',
+            )
 
         return HttpResponseRedirect(
             reverse_lazy('marketplace:order_detail', kwargs={'slug': slug}),

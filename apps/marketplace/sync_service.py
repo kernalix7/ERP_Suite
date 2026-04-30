@@ -417,11 +417,17 @@ def _get_store_modules_with_clients():
     return pairs
 
 
-def push_shipping_info(marketplace_order) -> bool:
+class PushShippingError(Exception):
+    """배송정보 PUSH 일시 실패 — Celery retry 트리거용 예외."""
+
+
+def push_shipping_info(marketplace_order, raise_on_failure: bool = False) -> bool:
     """마켓플레이스 주문의 배송정보를 스토어 모듈을 통해 API로 전송합니다.
 
     Args:
         marketplace_order: MarketplaceOrder 인스턴스
+        raise_on_failure: True면 일시 실패(API/모듈 호출) 시 PushShippingError 발생.
+            Celery task에서 retry 트리거용. 기본 False(하위호환).
 
     Returns:
         bool: 전송 성공 여부
@@ -443,6 +449,8 @@ def push_shipping_info(marketplace_order) -> bool:
     pairs = _get_store_modules_with_clients()
     if not pairs:
         logger.error('마켓플레이스 API 설정 없음 — PUSH 불가')
+        if raise_on_failure:
+            raise PushShippingError('마켓플레이스 API 설정 없음')
         return False
 
     sync_log = SyncLog(
@@ -452,13 +460,23 @@ def push_shipping_info(marketplace_order) -> bool:
     )
     sync_log.save()
 
+    last_error_message = ''
     for module, client in pairs:
-        result = module.push_shipment(
-            client,
-            marketplace_order.platform_product_order_id,
-            marketplace_order.delivery_company,
-            marketplace_order.tracking_number,
-        )
+        try:
+            result = module.push_shipment(
+                client,
+                marketplace_order.platform_product_order_id,
+                marketplace_order.delivery_company,
+                marketplace_order.tracking_number,
+            )
+        except Exception as exc:
+            last_error_message = f'{module.module_id}: {exc}'
+            logger.warning(
+                '배송정보 전송 예외 (%s, 모듈: %s): %s',
+                marketplace_order.store_order_id, module.module_id, exc,
+            )
+            continue
+
         if result.get('success'):
             sync_log.success_count = 1
             sync_log.completed_at = timezone.now()
@@ -473,6 +491,7 @@ def push_shipping_info(marketplace_order) -> bool:
                 marketplace_order.tracking_number,
             )
             return True
+        last_error_message = f'{module.module_id}: {result.get("message", "")}'
         logger.warning(
             '배송정보 전송 실패 (%s, 모듈: %s): %s',
             marketplace_order.store_order_id, module.module_id,
@@ -485,6 +504,8 @@ def push_shipping_info(marketplace_order) -> bool:
     sync_log.save(update_fields=[
         'error_count', 'error_message', 'completed_at', 'updated_at',
     ])
+    if raise_on_failure:
+        raise PushShippingError(last_error_message or '모든 모듈 전송 실패')
     return False
 
 

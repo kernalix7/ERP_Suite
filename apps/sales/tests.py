@@ -2267,6 +2267,75 @@ class PartnerCreditLimitTest(TestCase):
         self.assertEqual(partner.credit_used, 1000000)
         self.assertEqual(partner.tier, tier)
 
+    def test_order_confirmed_then_grand_total_increase_triggers_credit_check(self):
+        """CONFIRMED 주문의 grand_total 인상(OrderItem 추가)이 신용한도 재체크를 트리거"""
+        from apps.core.notification import Notification
+
+        manager = User.objects.create_user(
+            username='credit-manager', password='testpass123', role='manager',
+        )
+        partner = Partner.objects.create(
+            code='PT-CR-RECHECK', name='신용한도재체크거래처',
+            partner_type='CUSTOMER',
+            credit_limit=1000000,
+            credit_used=0,
+            created_by=self.user,
+        )
+        product = Product.objects.create(
+            code='PRD-CR-001', name='신용한도제품',
+            product_type='FINISHED',
+            unit_price=100000, cost_price=50000,
+            current_stock=100,
+            created_by=self.user,
+        )
+        order = Order.objects.create(
+            order_number='ORD-CR-RECHECK',
+            partner=partner,
+            order_date=date.today(),
+            status='DRAFT',
+            vat_included=True,
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=order, product=product,
+            quantity=9, unit_price=100000,
+            created_by=self.user,
+        )
+        order.update_total()
+        order.refresh_from_db()
+        self.assertEqual(int(order.grand_total), 900000)
+
+        Notification.objects.filter(noti_type='SYSTEM').delete()
+
+        order.status = 'CONFIRMED'
+        order.save()
+        self.assertEqual(
+            Notification.objects.filter(
+                user=manager, noti_type='SYSTEM',
+                title__startswith='[신용한도 초과]',
+            ).count(),
+            0,
+            '900,000원 (한도 1,000,000원) — 알림 없어야 함',
+        )
+
+        OrderItem.objects.create(
+            order=order, product=product,
+            quantity=2, unit_price=100000,
+            created_by=self.user,
+        )
+        order.refresh_from_db()
+        self.assertEqual(int(order.grand_total), 1100000)
+
+        notis = Notification.objects.filter(
+            user=manager, noti_type='SYSTEM',
+            title__startswith='[신용한도 초과]',
+        )
+        self.assertEqual(
+            notis.count(), 1,
+            f'OrderItem 추가로 grand_total 1,100,000원 → 알림 1건 발생 필요. '
+            f'현재 {notis.count()}건',
+        )
+
 
 class SalesTargetModelTest(TestCase):
     """영업목표 모델 테스트"""

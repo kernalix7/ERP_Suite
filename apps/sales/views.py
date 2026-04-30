@@ -1027,7 +1027,7 @@ class ShipmentDeleteView(_SoftDeleteView):
 
 
 # === 수수료율 ===
-class CommissionRateListView(LoginRequiredMixin, ListView):
+class CommissionRateListView(ManagerRequiredMixin, ListView):
     model = CommissionRate
     template_name = 'sales/commission_rate_list.html'
     context_object_name = 'commission_rates'
@@ -1058,7 +1058,7 @@ class CommissionRateUpdateView(ManagerRequiredMixin, UpdateView):
 
 
 # === 수수료내역 ===
-class CommissionRecordListView(LoginRequiredMixin, ListView):
+class CommissionRecordListView(ManagerRequiredMixin, ListView):
     model = CommissionRecord
     template_name = 'sales/commission_list.html'
     context_object_name = 'commissions'
@@ -1165,7 +1165,7 @@ class CommissionRecordSettleView(ManagerRequiredMixin, View):
         return redirect('sales:commission_list')
 
 
-class CommissionSummaryView(LoginRequiredMixin, TemplateView):
+class CommissionSummaryView(ManagerRequiredMixin, TemplateView):
     template_name = 'sales/commission_summary.html'
 
     def get_context_data(self, **kwargs):
@@ -2450,7 +2450,7 @@ def _enrich_sold_items(items):
     return result
 
 
-class SoldProductListView(LoginRequiredMixin, TemplateView):
+class SoldProductListView(ManagerRequiredMixin, TemplateView):
     template_name = 'sales/sold_product_list.html'
 
     def get_context_data(self, **kwargs):
@@ -2482,7 +2482,7 @@ class SoldProductListView(LoginRequiredMixin, TemplateView):
         return ctx
 
 
-class SoldProductDetailView(LoginRequiredMixin, DetailView):
+class SoldProductDetailView(ManagerRequiredMixin, DetailView):
     model = OrderItem
     template_name = 'sales/sold_product_detail.html'
     context_object_name = 'order_item'
@@ -2551,7 +2551,7 @@ class SoldProductDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class SoldProductExcelView(LoginRequiredMixin, View):
+class SoldProductExcelView(ManagerRequiredMixin, View):
     def get(self, request):
         from apps.core.excel import export_to_excel
 
@@ -3302,7 +3302,7 @@ class ShipmentTrackingView(LoginRequiredMixin, DetailView):
 # ── 가격규칙 ─────────────────────────────────────────────
 
 
-class PriceRuleListView(LoginRequiredMixin, ListView):
+class PriceRuleListView(ManagerRequiredMixin, ListView):
     model = PriceRule
     template_name = 'sales/price_rule_list.html'
     context_object_name = 'price_rules'
@@ -3416,7 +3416,7 @@ class CustomerAddressView(LoginRequiredMixin, View):
 # 고객등급 (CustomerTier)
 # ───────────────────────────────────────────────
 
-class CustomerTierListView(LoginRequiredMixin, ListView):
+class CustomerTierListView(ManagerRequiredMixin, ListView):
     model = CustomerTier
     template_name = 'sales/customer_tier_list.html'
     context_object_name = 'tiers'
@@ -3448,7 +3448,7 @@ class CustomerTierUpdateView(ManagerRequiredMixin, UpdateView):
 # 영업목표 (SalesTarget)
 # ───────────────────────────────────────────────
 
-class SalesTargetListView(LoginRequiredMixin, ListView):
+class SalesTargetListView(ManagerRequiredMixin, ListView):
     model = SalesTarget
     template_name = 'sales/sales_target_list.html'
     context_object_name = 'targets'
@@ -3475,7 +3475,7 @@ class SalesTargetCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class SalesTargetDashboardView(LoginRequiredMixin, TemplateView):
+class SalesTargetDashboardView(ManagerRequiredMixin, TemplateView):
     template_name = 'sales/sales_target_dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -3499,7 +3499,7 @@ class SalesTargetDashboardView(LoginRequiredMixin, TemplateView):
 # 영업리드 (SalesLead)
 # ───────────────────────────────────────────────
 
-class SalesLeadListView(LoginRequiredMixin, ListView):
+class SalesLeadListView(ManagerRequiredMixin, ListView):
     model = SalesLead
     template_name = 'sales/sales_lead_list.html'
     context_object_name = 'leads'
@@ -3532,7 +3532,7 @@ class SalesLeadCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class SalesLeadDetailView(LoginRequiredMixin, DetailView):
+class SalesLeadDetailView(ManagerRequiredMixin, DetailView):
     model = SalesLead
     template_name = 'sales/sales_lead_detail.html'
     context_object_name = 'lead'
@@ -3601,7 +3601,7 @@ class LeadConvertView(ManagerRequiredMixin, View):
         return redirect('sales:quote_detail', slug=quote.quote_number)
 
 
-class PipelineBoardView(LoginRequiredMixin, TemplateView):
+class PipelineBoardView(ManagerRequiredMixin, TemplateView):
     """영업 파이프라인 칸반 보드"""
     template_name = 'sales/pipeline_board.html'
 
@@ -3629,7 +3629,7 @@ class PipelineBoardView(LoginRequiredMixin, TemplateView):
 # 고객만족도 (CustomerSatisfaction)
 # ───────────────────────────────────────────────
 
-class CustomerSatisfactionListView(LoginRequiredMixin, ListView):
+class CustomerSatisfactionListView(ManagerRequiredMixin, ListView):
     model = CustomerSatisfaction
     template_name = 'sales/satisfaction_list.html'
     context_object_name = 'surveys'
@@ -3656,7 +3656,7 @@ class CustomerSatisfactionCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class SatisfactionDashboardView(LoginRequiredMixin, TemplateView):
+class SatisfactionDashboardView(ManagerRequiredMixin, TemplateView):
     """고객만족도 대시보드 - NPS, 카테고리별 평균"""
     template_name = 'sales/satisfaction_dashboard.html'
 
