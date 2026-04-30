@@ -466,28 +466,34 @@ def _auto_create_commission_disbursement(record):
 
 
 def _check_credit_limit(order):
-    """주문 확정 시 신용한도 초과 경고 (차단하지 않음, 알림만 생성)"""
+    """주문 확정 시 신용한도 초과 경고 (차단하지 않음, 알림만 생성).
+
+    AR(미수금) 잔액을 동적으로 집계해 누적된 미수와 신규 주문을 함께 본다.
+    """
     if not order.partner:
         return
     partner = order.partner
     if partner.credit_limit <= 0:
         return
     total = int(order.grand_total) if order.grand_total else 0
-    if partner.credit_used + total > partner.credit_limit:
+    outstanding_ar = partner.get_credit_used()
+    projected = outstanding_ar + total
+    if projected > partner.credit_limit:
         from apps.core.notification import create_notification
-        over = partner.credit_used + total - partner.credit_limit
+        over = projected - int(partner.credit_limit)
         create_notification(
             'manager',
             f'[신용한도 초과] {partner.name}',
             f'주문 {order.order_number} 확정 시 신용한도를 {over:,}원 초과합니다. '
             f'(한도: {int(partner.credit_limit):,}원, '
-            f'사용중: {int(partner.credit_used):,}원, '
-            f'주문금액: {total:,}원)',
+            f'미수금: {outstanding_ar:,}원, '
+            f'신규주문: {total:,}원, '
+            f'합계: {projected:,}원)',
             noti_type='SYSTEM',
         )
         logger.warning(
-            'Credit limit exceeded for partner %s on order %s: over %s',
-            partner.name, order.order_number, over,
+            'Credit limit exceeded for partner %s on order %s: outstanding=%s new=%s over=%s',
+            partner.name, order.order_number, outstanding_ar, total, over,
         )
 
 
@@ -1565,3 +1571,61 @@ def recheck_credit_limit_on_order_item_delete(sender, instance, **kwargs):
     if not instance.order_id:
         return
     _recheck_credit_limit_on_order_change(instance.order_id)
+
+
+@receiver(
+    post_save, sender='sales.LeadActivity',
+    dispatch_uid='sales.LeadActivity.touch_lead_last_contact',
+)
+def touch_lead_last_contact_on_activity(sender, instance, created, **kwargs):
+    """LeadActivity 생성 시 SalesLead.last_contact_date 갱신."""
+    if not created or not instance.lead_id:
+        return
+    from apps.sales.models import SalesLead
+    SalesLead.all_objects.filter(pk=instance.lead_id).update(
+        last_contact_date=instance.activity_date or timezone.now(),
+        updated_at=timezone.now(),
+    )
+
+
+@receiver(
+    post_save, sender='sales.Quotation',
+    dispatch_uid='sales.Quotation.lead_proposal_to_negotiation',
+)
+def auto_lead_proposal_to_negotiation(sender, instance, created, **kwargs):
+    """PROPOSAL 단계 리드의 partner 로 Quotation 생성되면 NEGOTIATION 으로 자동 전환."""
+    if not created or not instance.partner_id:
+        return
+    from apps.sales.models import SalesLead
+    SalesLead.objects.filter(
+        partner_id=instance.partner_id, status='PROPOSAL',
+    ).update(status='NEGOTIATION', updated_at=timezone.now())
+
+
+@receiver(
+    pre_save, sender='sales.Order',
+    dispatch_uid='sales.Order.lead_negotiation_to_won',
+)
+def auto_lead_negotiation_to_won(sender, instance, **kwargs):
+    """NEGOTIATION 리드의 partner 로 Order CONFIRMED 되면 WON 자동 전환 + won_date 설정."""
+    if not instance.pk or not instance.partner_id:
+        return
+    try:
+        old = sender.all_objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+    if old.status == 'CONFIRMED' or instance.status != 'CONFIRMED':
+        return
+    from apps.sales.models import SalesLead
+    today = timezone.now().date()
+    leads = list(SalesLead.objects.filter(
+        partner_id=instance.partner_id, status='NEGOTIATION',
+    ))
+    for lead in leads:
+        lead.status = 'WON'
+        lead.won_date = today
+        if not lead.converted_order_id:
+            lead.converted_order = instance
+        lead.save(update_fields=[
+            'status', 'won_date', 'converted_order', 'updated_at',
+        ])

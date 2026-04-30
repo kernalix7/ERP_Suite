@@ -132,6 +132,7 @@ class LocalizationAdapter(ABC):
     country_name: str  # 한국어 명칭
     currency_code: str  # ISO-4217 (KRW, USD, JPY, ...)
     locale: str  # ko_KR, en_US 등
+    timezone: str = 'UTC'  # IANA tz database (Asia/Seoul, Asia/Tokyo, America/New_York, ...)
 
     tax: TaxAdapter
     calendar: CalendarAdapter

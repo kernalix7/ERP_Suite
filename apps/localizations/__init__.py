@@ -68,6 +68,32 @@ def get_default_currency_code() -> str:
         return 'KRW'
 
 
+def get_default_country_code() -> str:
+    """현재 활성 국가의 ISO-3166 alpha-2 코드. 어댑터 미로드 시 KR 기본값.
+
+    Company.country_code / Partner.country 등 모델 default(callable)에서
+    호출하여 다국가 분기. callable로 사용해야 마이그레이션 시점이 아닌
+    런타임에 활성 어댑터가 평가됨.
+    """
+    try:
+        return get_active_adapter().country_code
+    except Exception:
+        return 'KR'
+
+
+def get_default_timezone() -> str:
+    """현재 활성 국가의 IANA 시간대. 어댑터 미로드 시 Asia/Seoul fallback.
+
+    AutomationSchedule.timezone 등 모델 default(callable)에서 호출하여
+    다국가 분기. base 어댑터 default('UTC')보다 운영 우선순위가 높은
+    fallback을 사용 — 현재 prod가 KR이므로 Asia/Seoul.
+    """
+    try:
+        return get_active_adapter().timezone
+    except Exception:
+        return 'Asia/Seoul'
+
+
 __all__ = [
     'get_adapter',
     'get_active_adapter',
@@ -77,4 +103,6 @@ __all__ = [
     'get_vat_multiplier',
     'get_local_income_tax_rate',
     'get_default_currency_code',
+    'get_default_country_code',
+    'get_default_timezone',
 ]

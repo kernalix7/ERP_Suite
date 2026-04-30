@@ -21,6 +21,7 @@ class KRAdapter(LocalizationAdapter):
     country_name = '대한민국'
     currency_code = 'KRW'
     locale = 'ko_KR'
+    timezone = 'Asia/Seoul'
 
     def __init__(self):
         self.tax = KRTaxAdapter()

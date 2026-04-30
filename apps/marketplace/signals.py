@@ -3,10 +3,48 @@ from datetime import date, timedelta
 
 from django.db import transaction
 from django.db.models import F
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(pre_save, sender='sales.Shipment', dispatch_uid='marketplace.Shipment.push_on_shipped')
+def push_marketplace_shipping_on_shipped(sender, instance, **kwargs):
+    """Shipment SHIPPED 전환 시 마켓플레이스 주문이면 push_shipping_async 호출.
+
+    - Shipment.order에 연결된 MarketplaceOrder가 있을 때만 push 큐잉
+    - 비활성/취소된 마켓 주문은 제외
+    """
+    if not instance.pk:
+        return
+    try:
+        old = sender.all_objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+    if old.status == 'SHIPPED' or instance.status != 'SHIPPED':
+        return
+
+    from .models import MarketplaceOrder
+    mkt_orders = MarketplaceOrder.objects.filter(
+        erp_order_id=instance.order_id, is_active=True,
+    ).exclude(status__in=['CANCELLED', 'RETURNED']).only('pk', 'store_order_id')
+
+    if not mkt_orders.exists():
+        return
+
+    from .tasks import push_shipping_async
+    for mkt in mkt_orders:
+        try:
+            push_shipping_async.delay(mkt.pk)
+            logger.info(
+                'Shipment %s SHIPPED → push_shipping_async queued (mkt_order=%s)',
+                instance.pk, mkt.store_order_id,
+            )
+        except Exception:
+            logger.exception(
+                'push_shipping_async 큐잉 실패 (mkt_order=%s)', mkt.store_order_id,
+            )
 
 
 @receiver(post_save, sender='marketplace.MarketplaceOrder')

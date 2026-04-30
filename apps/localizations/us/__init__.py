@@ -21,6 +21,7 @@ class USAdapter(LocalizationAdapter):
     country_name = 'United States'
     currency_code = 'USD'
     locale = 'en_US'
+    timezone = 'America/New_York'
 
     def __init__(self):
         self.tax = USTaxAdapter()

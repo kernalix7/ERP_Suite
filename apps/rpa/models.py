@@ -3,6 +3,7 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
+from apps.localizations import get_default_timezone
 
 
 class AutomationRule(BaseModel):
@@ -166,7 +167,7 @@ class AutomationSchedule(BaseModel):
         related_name='schedule', verbose_name='규칙',
     )
     cron_expression = models.CharField('Cron 표현식', max_length=100)
-    timezone = models.CharField('시간대', max_length=50, default='Asia/Seoul')
+    timezone = models.CharField('시간대', max_length=50, default=get_default_timezone)
     next_run = models.DateTimeField('다음실행', null=True, blank=True)
     is_paused = models.BooleanField('일시중지', default=False)
 

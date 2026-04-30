@@ -2337,6 +2337,157 @@ class PartnerCreditLimitTest(TestCase):
         )
 
 
+class PartnerCreditAROutstandingTest(TestCase):
+    """get_credit_used() — AR 잔액 동적 집계로 신용한도 체크"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='cr-ar-user', password='testpass123', role='staff',
+        )
+        self.manager = User.objects.create_user(
+            username='cr-ar-manager', password='testpass123', role='manager',
+        )
+        self.partner = Partner.objects.create(
+            code='PT-CR-AR', name='AR신용한도거래처',
+            partner_type='CUSTOMER',
+            credit_limit=1000000,
+            credit_used=0,
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='PRD-CR-AR', name='AR신용한도제품',
+            product_type='FINISHED',
+            unit_price=100000, cost_price=50000,
+            current_stock=100,
+            created_by=self.user,
+        )
+
+    def _make_ar(self, amount, paid=0, status=None):
+        from apps.accounting.models import AccountReceivable
+        return AccountReceivable.objects.create(
+            partner=self.partner,
+            amount=amount,
+            paid_amount=paid,
+            due_date=date.today() + timedelta(days=30),
+            status=status or AccountReceivable.Status.PENDING,
+            created_by=self.user,
+        )
+
+    def test_get_credit_used_sums_outstanding_ar(self):
+        """get_credit_used() = 미수 AR 잔액 합계 (PAID 제외)"""
+        from apps.accounting.models import AccountReceivable
+        self._make_ar(amount=500000, paid=0)
+        self._make_ar(amount=300000, paid=100000, status=AccountReceivable.Status.PARTIAL)
+        self._make_ar(amount=400000, paid=400000, status=AccountReceivable.Status.PAID)
+        self.assertEqual(self.partner.get_credit_used(), 700000)
+
+    def test_credit_check_includes_outstanding_ar(self):
+        """미수 AR + 신규 주문 grand_total > credit_limit → 알림 발생"""
+        from apps.core.notification import Notification
+        self._make_ar(amount=800000, paid=0)
+        Notification.objects.filter(noti_type='SYSTEM').delete()
+
+        order = Order.objects.create(
+            order_number='ORD-CR-AR-1',
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            vat_included=True,
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=3, unit_price=100000,
+            created_by=self.user,
+        )
+        order.update_total()
+        order.refresh_from_db()
+        self.assertEqual(int(order.grand_total), 300000)
+
+        order.status = 'CONFIRMED'
+        order.save()
+
+        notis = Notification.objects.filter(
+            user=self.manager, noti_type='SYSTEM',
+            title__startswith='[신용한도 초과]',
+        )
+        self.assertEqual(
+            notis.count(), 1,
+            f'미수 800,000 + 신규 300,000 > 한도 1,000,000 — 알림 1건 필요. 현재 {notis.count()}건',
+        )
+
+    def test_credit_check_after_ar_payment(self):
+        """AR 완납 후 미수금 0 → 신규 주문 50만원 → 한도 100만원 — 알림 없음"""
+        from apps.accounting.models import AccountReceivable
+        from apps.core.notification import Notification
+
+        ar = self._make_ar(amount=800000, paid=0)
+        ar.paid_amount = 800000
+        ar.status = AccountReceivable.Status.PAID
+        ar.save()
+        self.assertEqual(self.partner.get_credit_used(), 0)
+
+        Notification.objects.filter(noti_type='SYSTEM').delete()
+        order = Order.objects.create(
+            order_number='ORD-CR-AR-2',
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            vat_included=True,
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=5, unit_price=100000,
+            created_by=self.user,
+        )
+        order.update_total()
+        order.status = 'CONFIRMED'
+        order.save()
+
+        notis = Notification.objects.filter(
+            user=self.manager, noti_type='SYSTEM',
+            title__startswith='[신용한도 초과]',
+        )
+        self.assertEqual(
+            notis.count(), 0,
+            'AR 완납 후 신규 50만원 (한도 100만원) — 알림 없어야 함',
+        )
+
+    def test_credit_used_decreases_on_order_cancel(self):
+        """주문 취소 → AR soft delete → get_credit_used() 감소"""
+        order = Order.objects.create(
+            order_number='ORD-CR-AR-3',
+            partner=self.partner,
+            order_date=date.today(),
+            status='DRAFT',
+            vat_included=True,
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=6, unit_price=100000,
+            created_by=self.user,
+        )
+        order.update_total()
+        order.status = 'CONFIRMED'
+        order.save()
+
+        used_after_confirm = self.partner.get_credit_used()
+        self.assertGreater(
+            used_after_confirm, 0,
+            'CONFIRMED 시 _auto_create_ar 시그널이 AR을 생성해야 함',
+        )
+
+        order.status = 'CANCELLED'
+        order.save()
+
+        self.assertEqual(
+            self.partner.get_credit_used(), 0,
+            '주문 취소 시 AR soft delete → 미수금 0',
+        )
+
+
 class SalesTargetModelTest(TestCase):
     """영업목표 모델 테스트"""
 
@@ -3062,3 +3213,87 @@ class ExchangeOrderCogsTest(TestCase):
         self.original_item.refresh_from_db()
         # original.items 기준 전량 반품입고 — 원본 전액 차감
         self.assertEqual(self.original_item.actual_cogs, 0)
+
+
+class SalesLeadAutoTransitionTest(TestCase):
+    """SalesLead 자동 상태 전환 시그널 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='lead_user', password='testpass123', role='staff',
+        )
+        self.partner = Partner.objects.create(
+            code='LD-P001', name='리드거래처',
+            partner_type=Partner.PartnerType.CUSTOMER,
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='LD-PRD-001', name='리드제품', product_type='FINISHED',
+            unit_price=10000, cost_price=7000, current_stock=100,
+            created_by=self.user,
+        )
+
+    def test_lead_proposal_to_negotiation_on_quotation(self):
+        """PROPOSAL 리드의 partner 로 Quotation 생성 → NEGOTIATION 자동 전환"""
+        lead = SalesLead.objects.create(
+            company_name='리드거래처', contact_name='홍길동',
+            partner=self.partner, status='PROPOSAL',
+            created_by=self.user,
+        )
+        Quotation.objects.create(
+            quote_number='QT-LD-001', partner=self.partner,
+            quote_date=date.today(),
+            valid_until=date.today() + timedelta(days=30),
+            created_by=self.user,
+        )
+        lead.refresh_from_db()
+        self.assertEqual(lead.status, 'NEGOTIATION')
+
+    def test_lead_negotiation_to_won_on_order_confirmed(self):
+        """NEGOTIATION 리드의 partner 로 Order CONFIRMED → WON + won_date 설정"""
+        lead = SalesLead.objects.create(
+            company_name='리드거래처', contact_name='홍길동',
+            partner=self.partner, status='NEGOTIATION',
+            created_by=self.user,
+        )
+        order = Order.objects.create(
+            order_number='ORD-LD-001', partner=self.partner,
+            order_date=date.today(), status='DRAFT',
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=1, unit_price=10000, created_by=self.user,
+        )
+        order.update_total()
+        order.status = 'CONFIRMED'
+        order.save(update_fields=['status', 'updated_at'])
+
+        lead.refresh_from_db()
+        self.assertEqual(lead.status, 'WON')
+        self.assertEqual(lead.won_date, date.today())
+        self.assertEqual(lead.converted_order_id, order.pk)
+
+    def test_lead_lost_unaffected_by_order_confirmed(self):
+        """LOST 리드는 Order CONFIRMED 영향 없음"""
+        lead = SalesLead.objects.create(
+            company_name='리드거래처', contact_name='홍길동',
+            partner=self.partner, status='LOST',
+            lost_reason='경쟁사 선택', created_by=self.user,
+        )
+        order = Order.objects.create(
+            order_number='ORD-LD-002', partner=self.partner,
+            order_date=date.today(), status='DRAFT',
+            created_by=self.user,
+        )
+        OrderItem.objects.create(
+            order=order, product=self.product,
+            quantity=1, unit_price=10000, created_by=self.user,
+        )
+        order.update_total()
+        order.status = 'CONFIRMED'
+        order.save(update_fields=['status', 'updated_at'])
+
+        lead.refresh_from_db()
+        self.assertEqual(lead.status, 'LOST')
+        self.assertIsNone(lead.won_date)

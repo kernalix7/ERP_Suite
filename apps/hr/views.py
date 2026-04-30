@@ -12,6 +12,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView, T
 from apps.core.import_views import BaseImportView
 from apps.core.mixins import ManagerRequiredMixin
 from apps.core.utils import generate_document_number
+from apps.localizations import get_active_adapter
 from .models import (
     Department, ExternalCompany, Position, EmployeeProfile, PersonnelAction,
     PayrollConfig, Payroll, SeverancePay, LaborConfig, YearEndSettlement,
@@ -658,7 +659,7 @@ class LaborConfigListView(ManagerRequiredMixin, TemplateView):
         if year and min_hourly_wage:
             LaborConfig.objects.update_or_create(
                 year=year,
-                country_code='KR',
+                country_code=get_active_adapter().country_code,
                 defaults={
                     'min_hourly_wage': min_hourly_wage,
                     'max_weekly_hours': max_weekly_hours,

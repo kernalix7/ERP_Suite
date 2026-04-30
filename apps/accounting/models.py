@@ -9,7 +9,7 @@ from simple_history.models import HistoricalRecords
 
 from apps.core.models import BaseModel
 from apps.core.utils import generate_document_number
-from apps.localizations import get_default_currency_code
+from apps.localizations import get_default_country_code, get_default_currency_code
 
 
 class Currency(BaseModel):
@@ -1551,7 +1551,7 @@ class Company(BaseModel):
     code = models.CharField('법인코드', max_length=20, unique=True)
     legal_name = models.CharField('법적 명칭', max_length=200, blank=True)
     tax_id = models.CharField('사업자등록번호', max_length=20, blank=True)
-    country_code = models.CharField('국가코드', max_length=5, default='KR')
+    country_code = models.CharField('국가코드', max_length=5, default=get_default_country_code)
     currency = models.ForeignKey(
         Currency, verbose_name='기준통화',
         null=True, blank=True, on_delete=models.SET_NULL,

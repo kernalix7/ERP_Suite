@@ -198,6 +198,26 @@ class Partner(BaseModel):
     def __str__(self):
         return self.name
 
+    def get_credit_used(self):
+        """미수금(AR) 잔액 합계 — credit_limit 비교용 동적 집계.
+
+        Why: credit_used 필드는 수동 갱신이 누락되면 실제 미수와 어긋남.
+             AR(AccountReceivable) 잔액(amount - paid_amount)을 직접 합산하여
+             신용한도 체크의 단일 진실 공급원으로 사용한다.
+        """
+        from apps.accounting.models import AccountReceivable
+        from django.db.models import Sum, F
+        agg = AccountReceivable.objects.filter(
+            partner=self,
+            status__in=[
+                AccountReceivable.Status.PENDING,
+                AccountReceivable.Status.PARTIAL,
+                AccountReceivable.Status.OVERDUE,
+            ],
+            is_active=True,
+        ).aggregate(total=Sum(F('amount') - F('paid_amount')))
+        return int(agg['total'] or 0)
+
 
 class Customer(BaseModel):
     BUSINESS_KEY_FIELD = 'code'
@@ -1135,6 +1155,13 @@ class SalesLead(BaseModel):
         '예상금액', max_digits=15, decimal_places=0, default=0,
     )
     expected_close_date = models.DateField('예상수주일', null=True, blank=True)
+    partner = models.ForeignKey(
+        'sales.Partner', verbose_name='연결거래처',
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='sales_leads',
+    )
+    won_date = models.DateField('수주일', null=True, blank=True)
+    last_contact_date = models.DateTimeField('마지막접촉일', null=True, blank=True)
     converted_order = models.ForeignKey(
         Order, verbose_name='전환주문',
         null=True, blank=True, on_delete=models.SET_NULL,

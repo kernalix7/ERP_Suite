@@ -21,6 +21,7 @@ class JPAdapter(LocalizationAdapter):
     country_name = '日本'
     currency_code = 'JPY'
     locale = 'ja_JP'
+    timezone = 'Asia/Tokyo'
 
     def __init__(self):
         self.tax = JPTaxAdapter()
