@@ -6,7 +6,7 @@ from django.db.models import F, Q, Sum
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from .models import GoodsReceiptItem, GoodsReceipt, PurchaseOrder
+from .models import GoodsReceiptItem, GoodsReceipt, PurchaseOrder, RFQResponse
 
 from datetime import date, timedelta
 
@@ -374,3 +374,71 @@ def cascade_receipt_item_soft_delete(sender, instance, **kwargs):
                 product=instance.po_item.product,
                 is_active=True,
             ).update(received_quantity=F('received_quantity') - instance.received_quantity)
+
+
+@receiver(pre_save, sender=RFQResponse, dispatch_uid='purchase.RFQResponse.auto_create_po')
+def auto_create_po_on_rfq_award(sender, instance, **kwargs):
+    """RFQ 응답이 낙찰(is_selected=True)로 전환되면 PurchaseOrder 자동 생성.
+
+    트리거: is_selected False → True 전환 시 1회.
+    동작: RFQ.items 의 quantity 를 그대로 PO 라인으로 복제, 단가는
+    response.total_amount 를 RFQ 총수량으로 비례 배분. 생성된 PO 는 DRAFT 로
+    남겨 사용자가 검토/확정하도록 한다. RFQ 상태도 COMPARED 로 갱신.
+    """
+    if not instance.pk:
+        return
+    try:
+        old = sender.all_objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+
+    if old.is_selected or not instance.is_selected:
+        return
+
+    with transaction.atomic():
+        from apps.purchase.models import PurchaseOrderItem, RFQ
+        from decimal import Decimal
+
+        rfq = instance.rfq
+        rfq_items = list(rfq.items.all())
+        if not rfq_items:
+            logger.warning('RFQ %s 낙찰됐으나 항목이 없어 PO 생성 스킵', rfq.rfq_number)
+            return
+
+        # 다른 응답들의 낙찰 해제 (단일 낙찰 보장)
+        sender.objects.filter(rfq=rfq, is_selected=True).exclude(pk=instance.pk).update(
+            is_selected=False,
+        )
+
+        total_qty = sum(Decimal(str(it.quantity)) for it in rfq_items)
+        avg_unit_price = (
+            int(Decimal(str(instance.total_amount)) / total_qty)
+            if total_qty > 0 else 0
+        )
+
+        po = PurchaseOrder.objects.create(
+            partner=instance.partner,
+            order_date=instance.response_date,
+            expected_date=instance.response_date + timedelta(days=instance.delivery_days)
+            if instance.delivery_days else None,
+            status=PurchaseOrder.Status.DRAFT,
+            created_by=instance.created_by,
+        )
+        for rfq_item in rfq_items:
+            PurchaseOrderItem.objects.create(
+                purchase_order=po,
+                product=rfq_item.product,
+                quantity=int(rfq_item.quantity),
+                unit_price=avg_unit_price,
+                created_by=instance.created_by,
+            )
+        po.update_total()
+
+        # RFQ 상태 → COMPARED (이미 종결 아니면)
+        if rfq.status not in (RFQ.Status.CLOSED, RFQ.Status.COMPARED):
+            RFQ.objects.filter(pk=rfq.pk).update(status=RFQ.Status.COMPARED)
+
+        logger.info(
+            'RFQ %s 낙찰 → PO %s 자동 생성 (공급처=%s, 총액=%s)',
+            rfq.rfq_number, po.po_number, instance.partner.name, instance.total_amount,
+        )

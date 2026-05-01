@@ -5122,7 +5122,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 
-class CashReceiptListView(LoginRequiredMixin, ListView):
+class CashReceiptListView(ManagerRequiredMixin, ListView):
     model = CashReceipt
     template_name = 'accounting/cash_receipt_list.html'
     context_object_name = 'receipts'
@@ -5158,7 +5158,7 @@ class CashReceiptListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class CashReceiptDetailView(LoginRequiredMixin, DetailView):
+class CashReceiptDetailView(ManagerRequiredMixin, DetailView):
     model = CashReceipt
     template_name = 'accounting/cash_receipt_detail.html'
     context_object_name = 'receipt'

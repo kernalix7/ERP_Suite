@@ -87,7 +87,7 @@ class ProductUpdateView(ManagerRequiredMixin, UpdateView):
     success_url = reverse_lazy('inventory:product_list')
 
 
-class ProductBOMCostView(LoginRequiredMixin, View):
+class ProductBOMCostView(ManagerRequiredMixin, View):
     """BOM 원가 조회 API (HTMX/JS용)"""
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
@@ -123,7 +123,7 @@ class ProductDeleteView(ManagerRequiredMixin, DeleteView):
         return HttpResponseRedirect(self.get_success_url())
 
 
-class CategoryListView(LoginRequiredMixin, ListView):
+class CategoryListView(ManagerRequiredMixin, ListView):
     model = Category
     template_name = 'inventory/category_list.html'
     context_object_name = 'categories'
@@ -147,7 +147,7 @@ class CategoryUpdateView(ManagerRequiredMixin, UpdateView):
     success_url = reverse_lazy('inventory:category_list')
 
 
-class WarehouseListView(LoginRequiredMixin, ListView):
+class WarehouseListView(ManagerRequiredMixin, ListView):
     model = Warehouse
     template_name = 'inventory/warehouse_list.html'
     context_object_name = 'warehouses'
@@ -168,7 +168,7 @@ class WarehouseUpdateView(ManagerRequiredMixin, UpdateView):
     success_url = reverse_lazy('inventory:warehouse_list')
 
 
-class StockMovementListView(LoginRequiredMixin, ListView):
+class StockMovementListView(ManagerRequiredMixin, ListView):
     model = StockMovement
     template_name = 'inventory/movement_list.html'
     context_object_name = 'movements'
@@ -199,7 +199,7 @@ class StockMovementCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class StockMovementDetailView(LoginRequiredMixin, DetailView):
+class StockMovementDetailView(ManagerRequiredMixin, DetailView):
     model = StockMovement
     template_name = 'inventory/movement_detail.html'
     context_object_name = 'movement'
@@ -253,7 +253,7 @@ class StockOutCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class StockLotListView(LoginRequiredMixin, ListView):
+class StockLotListView(ManagerRequiredMixin, ListView):
     """StockLot 목록 — FIFO/LIFO 잔량 표시"""
     model = StockLot
     template_name = 'inventory/stocklot_list.html'
@@ -291,7 +291,7 @@ class StockLotListView(LoginRequiredMixin, ListView):
         return context
 
 
-class StockLotDetailView(LoginRequiredMixin, DetailView):
+class StockLotDetailView(ManagerRequiredMixin, DetailView):
     """StockLot 상세 — LOT 정보 + 연관 입출고 이력"""
     model = StockLot
     template_name = 'inventory/stocklot_detail.html'
@@ -312,7 +312,7 @@ class StockLotDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class StockStatusView(LoginRequiredMixin, ListView):
+class StockStatusView(ManagerRequiredMixin, ListView):
     model = Product
     template_name = 'inventory/stock_status.html'
     context_object_name = 'products'
@@ -357,7 +357,7 @@ class ProductExcelView(LoginRequiredMixin, View):
 
 
 # === 창고간 이동 ===
-class StockTransferListView(LoginRequiredMixin, ListView):
+class StockTransferListView(ManagerRequiredMixin, ListView):
     model = StockTransfer
     template_name = 'inventory/transfer_list.html'
     context_object_name = 'transfers'
@@ -637,7 +637,7 @@ class WarehouseImportSampleView(ManagerRequiredMixin, View):
 
 
 # === 재고실사 ===
-class StockCountListView(LoginRequiredMixin, ListView):
+class StockCountListView(ManagerRequiredMixin, ListView):
     model = StockCount
     template_name = 'inventory/stockcount_list.html'
     context_object_name = 'stock_counts'
@@ -693,7 +693,7 @@ class StockCountCreateView(ManagerRequiredMixin, TemplateView):
         return redirect('inventory:stockcount_detail', slug=sc.count_number)
 
 
-class StockCountDetailView(LoginRequiredMixin, DetailView):
+class StockCountDetailView(ManagerRequiredMixin, DetailView):
     model = StockCount
     template_name = 'inventory/stockcount_detail.html'
     context_object_name = 'stock_count'
@@ -780,7 +780,7 @@ class StockCountAdjustView(ManagerRequiredMixin, View):
         return redirect('inventory:stockcount_detail', slug=slug)
 
 
-class WarehouseStockView(LoginRequiredMixin, TemplateView):
+class WarehouseStockView(ManagerRequiredMixin, TemplateView):
     """창고별 재고 현황"""
     template_name = 'inventory/warehouse_stock.html'
 
@@ -811,7 +811,7 @@ class WarehouseStockView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class SerialNumberListView(LoginRequiredMixin, ListView):
+class SerialNumberListView(ManagerRequiredMixin, ListView):
     model = SerialNumber
     template_name = 'inventory/serial_list.html'
     context_object_name = 'serials'
@@ -852,7 +852,7 @@ class SerialNumberListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class SerialNumberDetailView(LoginRequiredMixin, DetailView):
+class SerialNumberDetailView(ManagerRequiredMixin, DetailView):
     model = SerialNumber
     template_name = 'inventory/serial_detail.html'
     context_object_name = 'serial'
@@ -871,7 +871,7 @@ class SerialNumberDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class InventoryValuationView(LoginRequiredMixin, TemplateView):
+class InventoryValuationView(ManagerRequiredMixin, TemplateView):
     """재고평가 보고서 — 제품별 현재고 평가금액 (AVG/FIFO/LIFO)"""
     template_name = 'inventory/valuation.html'
 

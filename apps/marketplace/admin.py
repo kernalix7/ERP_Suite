@@ -33,7 +33,7 @@ class ImportSessionAdmin(SimpleHistoryAdmin):
 
 @admin.register(SyncLog)
 class SyncLogAdmin(SimpleHistoryAdmin):
-    list_display = ('direction', 'started_at', 'completed_at', 'total_count', 'success_count', 'error_count')
+    list_display = ('direction', 'started_at', 'completed_at', 'total_count', 'success_count', 'error_count', 'retry_count')
     list_filter = ('direction', 'started_at')
 
 

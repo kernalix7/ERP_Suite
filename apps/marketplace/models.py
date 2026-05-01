@@ -195,6 +195,8 @@ class SyncLog(BaseModel):
     success_count = models.IntegerField('성공건수', default=0)
     error_count = models.IntegerField('오류건수', default=0)
     error_message = models.TextField('오류내용', blank=True)
+    retry_count = models.IntegerField('재시도횟수', default=0)
+    last_retry_at = models.DateTimeField('마지막재시도', null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:

@@ -1428,3 +1428,33 @@ class PushShippingRetryTaskTest(TestCase):
                 title='마켓플레이스 배송정보 전송 최종 실패',
             ).exists()
         )
+
+    def test_push_shipping_retry_increments_synclog_count(self):
+        """retry 호출 시 가장 최근 PUSH SyncLog의 retry_count 증가 + last_retry_at 갱신"""
+        from unittest.mock import patch
+        from celery.exceptions import MaxRetriesExceededError
+        from apps.marketplace.sync_service import PushShippingError
+        from apps.marketplace import tasks as mp_tasks
+
+        # 사전에 PUSH SyncLog 1건 생성 (push_shipping_info가 만든다고 가정)
+        push_log = SyncLog.objects.create(
+            direction=SyncLog.Direction.PUSH,
+            started_at=timezone.now(),
+            total_count=1,
+        )
+        self.assertEqual(push_log.retry_count, 0)
+        self.assertIsNone(push_log.last_retry_at)
+
+        with patch(
+            'apps.marketplace.sync_service.push_shipping_info',
+            side_effect=PushShippingError('일시 API 오류'),
+        ):
+            with patch.object(
+                mp_tasks.push_shipping_async, 'retry',
+                side_effect=MaxRetriesExceededError('retry limit'),
+            ):
+                mp_tasks.push_shipping_async.apply(args=[self.order.pk])
+
+        push_log.refresh_from_db()
+        self.assertEqual(push_log.retry_count, 1)
+        self.assertIsNotNone(push_log.last_retry_at)

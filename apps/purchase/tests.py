@@ -10,6 +10,7 @@ from apps.inventory.models import Product, Warehouse, StockMovement
 from apps.sales.models import Partner
 from apps.purchase.models import (
     PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem,
+    RFQ, RFQItem, RFQResponse, VendorScore,
 )
 
 User = get_user_model()
@@ -574,3 +575,160 @@ class APDuplicatePreventionTest(TestCase):
             purchase_order=po, is_active=True,
         )
         self.assertEqual(ap.count(), 1)
+
+
+class VendorScoreAutoCalcTest(TestCase):
+    """공급처 평가 종합점수 자동 계산"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='vsuser', password='testpass123', role='manager',
+        )
+        self.partner = Partner.objects.create(
+            code='VS-SUP-001', name='평가공급처',
+            partner_type=Partner.PartnerType.SUPPLIER,
+            created_by=self.user,
+        )
+
+    def test_vendor_score_total_auto_calc(self):
+        """save() 시 4항목 평균이 overall_score 에 자동 반영"""
+        vs = VendorScore.objects.create(
+            partner=self.partner,
+            evaluation_date=date.today(),
+            delivery_score=5,
+            quality_score=4,
+            price_score=3,
+            service_score=4,
+            evaluator=self.user,
+            created_by=self.user,
+        )
+        # (5+4+3+4)/4 = 4.0
+        self.assertEqual(vs.overall_score, Decimal('4.0'))
+
+        # 점수 변경 시 재계산
+        vs.delivery_score = 3
+        vs.quality_score = 3
+        vs.price_score = 3
+        vs.service_score = 3
+        vs.save()
+        vs.refresh_from_db()
+        self.assertEqual(vs.overall_score, Decimal('3.0'))
+
+    def test_vendor_score_quantize_to_one_decimal(self):
+        """비정수 평균은 소수 1자리로 양자화"""
+        vs = VendorScore.objects.create(
+            partner=self.partner,
+            evaluation_date=date.today(),
+            delivery_score=5, quality_score=4, price_score=4, service_score=4,
+            evaluator=self.user, created_by=self.user,
+        )
+        # (5+4+4+4)/4 = 4.25 → 4.2 또는 4.3 (ROUND_HALF_EVEN: 4.2)
+        self.assertEqual(vs.overall_score.as_tuple().exponent, -1)
+
+
+class RFQAwardAutoCreatePOTest(TestCase):
+    """RFQResponse 낙찰 시 PurchaseOrder 자동 생성"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='rfquser', password='testpass123', role='manager',
+        )
+        self.partner = Partner.objects.create(
+            code='RFQ-SUP-001', name='RFQ공급처',
+            partner_type=Partner.PartnerType.SUPPLIER,
+            created_by=self.user,
+        )
+        self.partner_b = Partner.objects.create(
+            code='RFQ-SUP-002', name='RFQ공급처B',
+            partner_type=Partner.PartnerType.SUPPLIER,
+            created_by=self.user,
+        )
+        self.product = Product.objects.create(
+            code='RFQ-PRD-001', name='견적제품',
+            product_type='RAW', unit_price=0, cost_price=1000,
+            created_by=self.user,
+        )
+        self.rfq = RFQ.objects.create(
+            title='Q1 자재 견적', requested_by=self.user,
+            status=RFQ.Status.SENT, created_by=self.user,
+        )
+        RFQItem.objects.create(
+            rfq=self.rfq, product=self.product, quantity=Decimal('100'),
+            created_by=self.user,
+        )
+
+    def test_rfq_response_select_creates_po(self):
+        """is_selected False → True 전환 시 PO 자동 생성"""
+        response = RFQResponse.objects.create(
+            rfq=self.rfq, partner=self.partner,
+            response_date=date.today(),
+            total_amount=Decimal('500000'),
+            delivery_days=7,
+            is_selected=False,
+            created_by=self.user,
+        )
+        self.assertEqual(PurchaseOrder.objects.count(), 0)
+
+        response.is_selected = True
+        response.save()
+
+        po_qs = PurchaseOrder.objects.filter(partner=self.partner)
+        self.assertEqual(po_qs.count(), 1)
+        po = po_qs.first()
+        self.assertEqual(po.status, PurchaseOrder.Status.DRAFT)
+        self.assertEqual(po.items.count(), 1)
+        item = po.items.first()
+        self.assertEqual(item.quantity, 100)
+        # 500000 / 100 = 5000 단가
+        self.assertEqual(item.unit_price, 5000)
+
+        # RFQ 상태 → COMPARED
+        self.rfq.refresh_from_db()
+        self.assertEqual(self.rfq.status, RFQ.Status.COMPARED)
+
+    def test_rfq_response_already_selected_no_duplicate(self):
+        """이미 낙찰된 응답 재저장은 PO 중복 생성하지 않음"""
+        response = RFQResponse.objects.create(
+            rfq=self.rfq, partner=self.partner,
+            response_date=date.today(),
+            total_amount=Decimal('500000'),
+            delivery_days=7,
+            is_selected=True,
+            created_by=self.user,
+        )
+        # 최초 생성(pk 없는 시점)에는 시그널 무시 → PO 0개
+        self.assertEqual(PurchaseOrder.objects.count(), 0)
+
+        # 재저장 — 이미 True 상태 유지 → 추가 PO 없음
+        response.total_amount = Decimal('600000')
+        response.save()
+        self.assertEqual(PurchaseOrder.objects.count(), 0)
+
+    def test_rfq_award_unselects_other_responses(self):
+        """낙찰 시 다른 응답의 is_selected 자동 해제"""
+        r1 = RFQResponse.objects.create(
+            rfq=self.rfq, partner=self.partner,
+            response_date=date.today(),
+            total_amount=Decimal('500000'), delivery_days=7,
+            is_selected=False, created_by=self.user,
+        )
+        r2 = RFQResponse.objects.create(
+            rfq=self.rfq, partner=self.partner_b,
+            response_date=date.today(),
+            total_amount=Decimal('480000'), delivery_days=10,
+            is_selected=False, created_by=self.user,
+        )
+        # r1 낙찰
+        r1.is_selected = True
+        r1.save()
+        # r2 낙찰 — r1 해제되고 PO 는 r2 의 partner_b 로 생성
+        r2.is_selected = True
+        r2.save()
+
+        r1.refresh_from_db()
+        r2.refresh_from_db()
+        self.assertFalse(r1.is_selected)
+        self.assertTrue(r2.is_selected)
+
+        po_b = PurchaseOrder.objects.filter(partner=self.partner_b)
+        self.assertEqual(po_b.count(), 1)

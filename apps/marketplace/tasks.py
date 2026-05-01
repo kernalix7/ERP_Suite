@@ -29,6 +29,7 @@ def push_shipping_async(self, marketplace_order_id: int) -> bool:
         retries = self.request.retries
         try:
             countdown = 60 * (2 ** retries)
+            _bump_retry_count(order, retries)
             raise self.retry(exc=exc, countdown=countdown)
         except MaxRetriesExceededError:
             logger.error(
@@ -42,6 +43,20 @@ def push_shipping_async(self, marketplace_order_id: int) -> bool:
         from .models import MarketplaceOrder as _MO
         _MO.objects.filter(pk=order.pk).update(status=_MO.Status.SHIPPED)
     return success
+
+
+def _bump_retry_count(marketplace_order, retries: int) -> None:
+    """가장 최근 PUSH SyncLog에 재시도 카운트/시각을 기록."""
+    from apps.marketplace.models import SyncLog
+    from django.utils import timezone
+
+    log = SyncLog.objects.filter(
+        direction=SyncLog.Direction.PUSH,
+    ).order_by('-started_at').first()
+    if log:
+        log.retry_count = retries + 1
+        log.last_retry_at = timezone.now()
+        log.save(update_fields=['retry_count', 'last_retry_at', 'updated_at'])
 
 
 def _notify_push_shipping_failure(marketplace_order, reason: str) -> None:
