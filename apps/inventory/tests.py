@@ -1107,7 +1107,7 @@ class InventoryValuationViewTest(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            username='valuser', password='testpass123', role='staff',
+            username='valuser', password='testpass123', role='manager',
         )
         self.client.force_login(self.user)
 

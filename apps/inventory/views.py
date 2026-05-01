@@ -168,7 +168,7 @@ class WarehouseUpdateView(ManagerRequiredMixin, UpdateView):
     success_url = reverse_lazy('inventory:warehouse_list')
 
 
-class StockMovementListView(ManagerRequiredMixin, ListView):
+class StockMovementListView(LoginRequiredMixin, ListView):
     model = StockMovement
     template_name = 'inventory/movement_list.html'
     context_object_name = 'movements'
@@ -199,7 +199,7 @@ class StockMovementCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class StockMovementDetailView(ManagerRequiredMixin, DetailView):
+class StockMovementDetailView(LoginRequiredMixin, DetailView):
     model = StockMovement
     template_name = 'inventory/movement_detail.html'
     context_object_name = 'movement'
@@ -253,7 +253,7 @@ class StockOutCreateView(ManagerRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class StockLotListView(ManagerRequiredMixin, ListView):
+class StockLotListView(LoginRequiredMixin, ListView):
     """StockLot 목록 — FIFO/LIFO 잔량 표시"""
     model = StockLot
     template_name = 'inventory/stocklot_list.html'
@@ -291,7 +291,7 @@ class StockLotListView(ManagerRequiredMixin, ListView):
         return context
 
 
-class StockLotDetailView(ManagerRequiredMixin, DetailView):
+class StockLotDetailView(LoginRequiredMixin, DetailView):
     """StockLot 상세 — LOT 정보 + 연관 입출고 이력"""
     model = StockLot
     template_name = 'inventory/stocklot_detail.html'
@@ -312,7 +312,7 @@ class StockLotDetailView(ManagerRequiredMixin, DetailView):
         return context
 
 
-class StockStatusView(ManagerRequiredMixin, ListView):
+class StockStatusView(LoginRequiredMixin, ListView):
     model = Product
     template_name = 'inventory/stock_status.html'
     context_object_name = 'products'
@@ -811,7 +811,7 @@ class WarehouseStockView(ManagerRequiredMixin, TemplateView):
         return context
 
 
-class SerialNumberListView(ManagerRequiredMixin, ListView):
+class SerialNumberListView(LoginRequiredMixin, ListView):
     model = SerialNumber
     template_name = 'inventory/serial_list.html'
     context_object_name = 'serials'
@@ -852,7 +852,7 @@ class SerialNumberListView(ManagerRequiredMixin, ListView):
         return ctx
 
 
-class SerialNumberDetailView(ManagerRequiredMixin, DetailView):
+class SerialNumberDetailView(LoginRequiredMixin, DetailView):
     model = SerialNumber
     template_name = 'inventory/serial_detail.html'
     context_object_name = 'serial'
