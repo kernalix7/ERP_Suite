@@ -150,7 +150,7 @@ class PortalInvoiceListView(ModuleRequiredMixin, PortalAccessMixin, ListView):
             portal_user=portal_user,
             document_type=PortalDocument.DocumentType.INVOICE,
             is_active=True,
-        ).order_by('-created_at')
+        ).select_related('portal_user').order_by('-created_at')
 
 
 class PortalDeliveryConfirmView(ModuleRequiredMixin, PortalAccessMixin, View):
@@ -177,7 +177,7 @@ class SupplierPOListView(ModuleRequiredMixin, PortalAccessMixin, ListView):
     def get_queryset(self):
         from apps.purchase.models import PurchaseOrder
         partner = self.get_partner()
-        qs = PurchaseOrder.objects.filter(partner=partner, is_active=True).order_by('-created_at')
+        qs = PurchaseOrder.objects.filter(partner=partner, is_active=True).select_related('partner').order_by('-created_at')
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
@@ -198,6 +198,7 @@ class SupplierDeliveryScheduleView(ModuleRequiredMixin, PortalAccessMixin, ListV
                 partner=partner, is_active=True,
                 status__in=['CONFIRMED', 'PARTIAL_RECEIVED'],
             )
+            .select_related('partner')
             .order_by('expected_date')
         )
 

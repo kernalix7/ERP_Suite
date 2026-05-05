@@ -57,11 +57,13 @@ def apply_personnel_action(sender, instance, created, **kwargs):
                 existing_user.save(update_fields=['is_active'])
             else:
                 # 새 User 생성 (사번=username)
+                if not emp.employee_number:
+                    raise ValueError('PersonnelAction HIRE: employee_number 누락 — User 계정 생성 불가')
                 password = emp.employee_number + '!'
                 new_user = User.objects.create_user(
                     username=emp.employee_number,
                     password=password,
-                    name=emp.user.name if hasattr(emp, 'user') and emp.user_id else '',
+                    name=f'직원_{emp.employee_number}',
                     role='staff',
                     is_active=True,
                 )

@@ -145,7 +145,7 @@ class CarbonEmissionListView(ModuleRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = CarbonEmission.objects.filter(is_active=True)
+        qs = CarbonEmission.objects.filter(is_active=True).select_related('created_by')
         scope = self.request.GET.get('scope')
         if scope:
             qs = qs.filter(scope=scope)
@@ -180,7 +180,7 @@ class SafetyIncidentListView(ModuleRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = SafetyIncident.objects.filter(is_active=True)
+        qs = SafetyIncident.objects.filter(is_active=True).select_related('reported_by', 'created_by')
         severity = self.request.GET.get('severity')
         if severity:
             qs = qs.filter(severity=severity)
@@ -297,7 +297,7 @@ class ESGReportListView(ModuleRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return ESGReport.objects.filter(is_active=True)
+        return ESGReport.objects.filter(is_active=True).select_related('created_by')
 
 
 class ESGReportCreateView(ModuleRequiredMixin, ManagerRequiredMixin, CreateView):

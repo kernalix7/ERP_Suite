@@ -1158,3 +1158,65 @@ class SeverancePayTest(TestCase):
 
         self.assertEqual(sp.total_days, 730)
         self.assertEqual(sp.years_of_service, Decimal('2.0'))
+
+
+class PersonnelActionHireSignalTest(TestCase):
+    """PersonnelAction HIRE 신규 User 생성 시 name 안정성 검증.
+
+    EmployeeProfile.user 는 NOT NULL OneToOne 이라 실제로는 user 없는 emp 생성 불가.
+    대신 신호 핸들러의 신규 User 생성 분기를 mock으로 직접 검증.
+    """
+
+    def test_create_user_uses_employee_number_placeholder(self):
+        """username + name 모두 employee_number 기반 placeholder 사용 검증."""
+        from unittest.mock import patch, MagicMock
+        from apps.hr.signals import apply_personnel_action
+
+        emp = MagicMock()
+        emp.employee_number = 'EMP-MOCK-001'
+        emp.user_id = None
+        emp.user = None
+        emp.status = 'PENDING'
+
+        instance = MagicMock()
+        instance.action_type = 'HIRE'
+        instance.employee = emp
+        instance.is_active = True
+        instance.to_department = None
+        instance.to_position = None
+        instance.effective_date = date.today()
+
+        with patch('apps.hr.signals.User.objects.create_user') as mock_create:
+            new_user = MagicMock()
+            new_user.pk = 999
+            mock_create.return_value = new_user
+            apply_personnel_action(sender=None, instance=instance, created=True)
+
+        # create_user 호출 검증
+        mock_create.assert_called_once()
+        kwargs = mock_create.call_args.kwargs
+        self.assertEqual(kwargs['username'], 'EMP-MOCK-001')
+        self.assertNotEqual(kwargs['name'], '')
+        self.assertIn('EMP-MOCK-001', kwargs['name'])
+
+    def test_blank_employee_number_raises(self):
+        """employee_number 빈 문자열이면 ValueError로 차단."""
+        from unittest.mock import patch, MagicMock
+        from apps.hr.signals import apply_personnel_action
+
+        emp = MagicMock()
+        emp.employee_number = ''
+        emp.user_id = None
+        emp.user = None
+        emp.status = 'PENDING'
+
+        instance = MagicMock()
+        instance.action_type = 'HIRE'
+        instance.employee = emp
+        instance.is_active = True
+        instance.to_department = None
+        instance.to_position = None
+        instance.effective_date = date.today()
+
+        with self.assertRaises(ValueError):
+            apply_personnel_action(sender=None, instance=instance, created=True)

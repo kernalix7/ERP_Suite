@@ -13,6 +13,13 @@ from .models import ServiceRequest, RepairRecord
 from .forms import ServiceRequestForm, RepairRecordForm
 
 
+def _filter_by_user_role(qs, user):
+    """admin/manager → 전체, staff → 본인 created_by 만 노출."""
+    if getattr(user, 'role', None) in ('admin', 'manager'):
+        return qs
+    return qs.filter(created_by=user)
+
+
 class ServiceRequestListView(LoginRequiredMixin, ListView):
     model = ServiceRequest
     template_name = 'service/request_list.html'
@@ -20,11 +27,13 @@ class ServiceRequestListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(is_active=True).select_related('product', 'customer', 'order')
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'product', 'customer', 'order', 'created_by',
+        )
         status = self.request.GET.get('status')
         if status:
             qs = qs.filter(status=status)
-        return qs
+        return _filter_by_user_role(qs, self.request.user)
 
 
 class ServiceRequestCreateView(ManagerRequiredMixin, CreateView):
@@ -86,6 +95,12 @@ class ServiceRequestDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'service_request'
     slug_field = 'request_number'
     slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(is_active=True).select_related(
+            'product', 'customer', 'order', 'created_by',
+        )
+        return _filter_by_user_role(qs, self.request.user)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

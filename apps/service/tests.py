@@ -458,3 +458,74 @@ class WarrantySerialAutoVerificationTest(TestCase):
         )
         self.assertFalse(sr.is_warranty)
         self.assertEqual(sr.product, self.product)
+
+
+class ServiceRequestAccessControlTests(TestCase):
+    """ServiceRequest List/Detail 뷰 사용자 역할별 격리 검증."""
+
+    def setUp(self):
+        self.product = Product.objects.create(
+            code='PRD-AC1', name='AC 테스트 제품',
+            product_type=Product.ProductType.FINISHED,
+        )
+        self.customer = Customer.objects.create(
+            code='CUST-AC1', name='AC 고객', phone='010-0000-0001',
+        )
+        self.staff_a = User.objects.create_user(
+            username='staff_a', password='pw', role='staff',
+        )
+        self.staff_b = User.objects.create_user(
+            username='staff_b', password='pw', role='staff',
+        )
+        self.manager = User.objects.create_user(
+            username='svc_manager', password='pw', role='manager',
+        )
+        self.req_a = ServiceRequest.objects.create(
+            request_number='AS-AC-001',
+            customer=self.customer, product=self.product,
+            symptom='증상 A', received_date=date.today(),
+            created_by=self.staff_a,
+        )
+        self.req_b = ServiceRequest.objects.create(
+            request_number='AS-AC-002',
+            customer=self.customer, product=self.product,
+            symptom='증상 B', received_date=date.today(),
+            created_by=self.staff_b,
+        )
+
+    def test_staff_cannot_see_others_service_request(self):
+        """staff B 가 staff A 접수 detail → 404"""
+        self.client.force_login(self.staff_b)
+        resp = self.client.get(f'/service/requests/{self.req_a.request_number}/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_creator_staff_sees_own_request(self):
+        """본인 접수 detail → 200"""
+        self.client.force_login(self.staff_a)
+        resp = self.client.get(f'/service/requests/{self.req_a.request_number}/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_manager_sees_all_service_requests(self):
+        """manager 모든 detail → 200"""
+        self.client.force_login(self.manager)
+        for r in (self.req_a, self.req_b):
+            resp = self.client.get(f'/service/requests/{r.request_number}/')
+            self.assertEqual(resp.status_code, 200)
+
+    def test_list_filters_by_creator_for_staff(self):
+        """staff ListView 본인 것만 노출"""
+        self.client.force_login(self.staff_a)
+        resp = self.client.get('/service/requests/')
+        self.assertEqual(resp.status_code, 200)
+        nums = [r.request_number for r in resp.context['requests']]
+        self.assertIn(self.req_a.request_number, nums)
+        self.assertNotIn(self.req_b.request_number, nums)
+
+    def test_list_returns_all_for_manager(self):
+        """manager ListView 전체 노출"""
+        self.client.force_login(self.manager)
+        resp = self.client.get('/service/requests/')
+        self.assertEqual(resp.status_code, 200)
+        nums = [r.request_number for r in resp.context['requests']]
+        self.assertIn(self.req_a.request_number, nums)
+        self.assertIn(self.req_b.request_number, nums)
