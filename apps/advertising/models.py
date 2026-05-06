@@ -58,13 +58,14 @@ class AdCampaign(BaseModel):
         ('PROMOTION', '프로모션'),
     ]
 
-    STATUS_CHOICES = [
-        ('DRAFT', '초안'),
-        ('ACTIVE', '진행중'),
-        ('PAUSED', '일시정지'),
-        ('COMPLETED', '완료'),
-        ('ARCHIVED', '보관'),
-    ]
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', '초안'
+        ACTIVE = 'ACTIVE', '진행중'
+        PAUSED = 'PAUSED', '일시정지'
+        COMPLETED = 'COMPLETED', '완료'
+        ARCHIVED = 'ARCHIVED', '보관'
+
+    STATUS_CHOICES = Status.choices
 
     platform = models.ForeignKey(
         AdPlatform, on_delete=models.PROTECT,

@@ -26,7 +26,7 @@ class AdvertisingDashboardView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         active_campaigns = AdCampaign.objects.filter(
-            status='ACTIVE', is_active=True
+            status=AdCampaign.Status.ACTIVE, is_active=True
         )
         context['active_campaign_count'] = active_campaigns.count()
 

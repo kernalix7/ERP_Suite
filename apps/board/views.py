@@ -10,6 +10,7 @@ from django.views.generic import (
     ListView, CreateView, UpdateView, DeleteView, DetailView,
 )
 
+from apps.accounts.models import User
 from .models import Board, Post, Comment
 from .forms import PostForm, CommentForm
 
@@ -81,9 +82,9 @@ class PostDetailView(ModuleRequiredMixin, DetailView):
 def _check_board_permission(board, user):
     """게시판 글쓰기 권한 확인"""
     level = board.permission_level
-    if level == Board.PermissionLevel.ADMIN and user.role != 'admin':
+    if level == Board.PermissionLevel.ADMIN and user.role != User.Role.ADMIN:
         raise PermissionDenied('관리자만 글을 작성할 수 있습니다.')
-    if level == Board.PermissionLevel.MANAGER and user.role not in ('admin', 'manager'):
+    if level == Board.PermissionLevel.MANAGER and user.role not in (User.Role.ADMIN, User.Role.MANAGER):
         raise PermissionDenied('매니저 이상만 글을 작성할 수 있습니다.')
 
 
@@ -133,7 +134,7 @@ class PostUpdateView(ModuleRequiredMixin, UpdateView):
 
     def dispatch(self, request, *args, **kwargs):
         obj = self.get_object()
-        if obj.author != request.user and request.user.role not in ('admin', 'manager'):
+        if obj.author != request.user and request.user.role not in (User.Role.ADMIN, User.Role.MANAGER):
             raise PermissionDenied('본인 글만 수정할 수 있습니다.')
         return super().dispatch(request, *args, **kwargs)
 
@@ -158,7 +159,7 @@ class PostDeleteView(ModuleRequiredMixin, DeleteView):
 
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
-        if self.object.author != request.user and request.user.role not in ('admin', 'manager'):
+        if self.object.author != request.user and request.user.role not in (User.Role.ADMIN, User.Role.MANAGER):
             raise PermissionDenied('본인 글만 삭제할 수 있습니다.')
         return super().dispatch(request, *args, **kwargs)
 
@@ -200,7 +201,7 @@ class CommentDeleteView(ModuleRequiredMixin, View):
 
     def post(self, request, pk, comment_pk):
         comment = get_object_or_404(Comment, pk=comment_pk, post_id=pk, is_active=True)
-        if comment.author != request.user and not request.user.role == 'admin':
+        if comment.author != request.user and not request.user.role == User.Role.ADMIN:
             messages.error(request, '삭제 권한이 없습니다.')
             return redirect('board:post_detail', pk=pk)
         comment.is_active = False
