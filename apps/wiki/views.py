@@ -191,6 +191,13 @@ class WikiArticleUpdateView(ModuleRequiredMixin, UpdateView):
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if getattr(user, 'role', None) in ('admin', 'manager'):
+            return qs
+        return qs.filter(author=user)
+
     def get_success_url(self):
         return reverse('wiki:article_detail', kwargs={'slug': self.object.slug})
 

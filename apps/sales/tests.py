@@ -3271,7 +3271,8 @@ class SalesLeadAutoTransitionTest(TestCase):
 
         lead.refresh_from_db()
         self.assertEqual(lead.status, 'WON')
-        self.assertEqual(lead.won_date, date.today())
+        # 자정 경계 회피: setUp~assertion 사이 날짜가 바뀔 수 있어 today / today-1 둘 다 허용
+        self.assertIn(lead.won_date, (date.today(), date.today() - timedelta(days=1)))
         self.assertEqual(lead.converted_order_id, order.pk)
 
     def test_lead_lost_unaffected_by_order_confirmed(self):

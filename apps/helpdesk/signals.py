@@ -40,19 +40,34 @@ def validate_ticket_status_transition(sender, instance, **kwargs):
         )
 
 
+@receiver(pre_save, sender='helpdesk.Ticket')
+def detect_ticket_assignee_change(sender, instance, **kwargs):
+    """담당자 변경 감지: pre_save에서 이전 assigned_to 캐싱."""
+    if not instance.pk:
+        instance._previous_assignee_id = None
+        return
+    try:
+        old = sender.objects.only('assigned_to_id').get(pk=instance.pk)
+    except sender.DoesNotExist:
+        instance._previous_assignee_id = None
+        return
+    instance._previous_assignee_id = old.assigned_to_id
+
+
 @receiver(post_save, sender='helpdesk.Ticket')
 def notify_on_ticket_assignment(sender, instance, created, **kwargs):
-    """담당자 배정 또는 변경 시 알림 발송"""
+    """담당자 배정/변경 시 알림 발송"""
     if not instance.assigned_to_id:
         return
 
     if created:
-        # 신규 티켓에 담당자가 있으면 알림
         _send_ticket_notification(instance, instance.assigned_to)
         return
 
-    # 담당자 변경 감지는 pre_save에서 처리하지 않고 post_save에서 단순화
-    # (update_fields로 저장된 경우 등 edge case 방지)
+    # 담당자 변경 감지 (pre_save에서 캐싱한 _previous_assignee_id 비교)
+    prev_id = getattr(instance, '_previous_assignee_id', None)
+    if prev_id != instance.assigned_to_id:
+        _send_ticket_notification(instance, instance.assigned_to)
 
 
 def _send_ticket_notification(ticket, user):

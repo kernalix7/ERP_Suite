@@ -4,7 +4,7 @@ from django.db.models import Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from .models import CarbonEmission, ESGMetric
+from .models import CarbonEmission, ESGMetric, ESGRecord
 
 logger = logging.getLogger(__name__)
 
@@ -58,3 +58,38 @@ def _notify_carbon_exceeded(metric, actual, year):
             'Carbon emission notification failed — metric=%s, actual=%s',
             metric.code, actual, exc_info=True,
         )
+
+
+@receiver(post_save, sender=ESGRecord)
+def esg_record_target_check(sender, instance, created, **kwargs):
+    """ESG 실적 기록 시 해당 지표 누적값 vs 목표 비교 — 초과 시 알림."""
+    if not created or not instance.is_active:
+        return
+    metric = instance.metric
+    if not metric or not metric.target_value:
+        return
+
+    # 같은 metric 의 누적 측정값
+    cumulative = ESGRecord.objects.filter(
+        is_active=True,
+        metric=metric,
+    ).aggregate(total=Sum('value'))['total'] or 0
+
+    if cumulative > metric.target_value:
+        try:
+            from apps.core.notification import create_notification
+            create_notification(
+                users='manager',
+                title=f'ESG 지표 목표 초과: {metric.name}',
+                message=(
+                    f'ESG 지표 [{metric.name}] 누적 {cumulative} '
+                    f'(목표 {metric.target_value} 대비 {cumulative - metric.target_value} 초과)'
+                ),
+                noti_type='SYSTEM',
+                link='/esg/records/',
+            )
+        except Exception:
+            logger.warning(
+                'ESG record notification failed — metric=%s, cumulative=%s',
+                metric.code, cumulative, exc_info=True,
+            )

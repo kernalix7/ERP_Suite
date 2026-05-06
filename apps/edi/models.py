@@ -178,6 +178,13 @@ class EDIMapping(BaseModel):
         verbose_name = 'EDI 매핑'
         verbose_name_plural = 'EDI 매핑'
         ordering = ['document_type', 'source_field']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['document_type', 'source_field', 'target_model', 'target_field'],
+                condition=models.Q(is_active=True),
+                name='uq_edi_mapping_doc_src_tgt',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.source_field} -> {self.target_model}.{self.target_field}'
