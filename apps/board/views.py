@@ -23,7 +23,7 @@ class BoardListView(ModuleRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return Board.objects.filter(is_active=True)
+        return Board.objects.filter(is_active=True).select_related('created_by')
 
 
 class PostListView(ModuleRequiredMixin, ListView):

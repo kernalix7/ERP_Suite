@@ -87,15 +87,17 @@ class ChatRoomView(ModuleRequiredMixin, DetailView):
         return ChatRoom.objects.filter(
             chatparticipant__user=self.request.user,
             is_active=True,
-        )
+        ).prefetch_related('participants')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         room = self.object
         user = self.request.user
 
-        # 최근 메시지 100건
-        ctx['messages'] = room.messages.select_related('sender').order_by('-sent_at')[:100][::-1]
+        # 최근 메시지 100건 (역순 슬라이스 후 list 변환으로 메모리 효율 개선)
+        ctx['messages'] = list(
+            reversed(list(room.messages.select_related('sender').order_by('-sent_at')[:100]))
+        )
         ctx['display_name'] = room.get_display_name(user)
         ctx['participants'] = room.participants.all()
 

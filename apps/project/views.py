@@ -91,8 +91,8 @@ class TaskListView(ModuleRequiredMixin, ListView):
 
     def get_queryset(self):
         qs = Task.objects.filter(is_active=True).select_related(
-            'project', 'assignee', 'milestone',
-        )
+            'project', 'assignee', 'milestone', 'parent_task', 'reporter',
+        ).prefetch_related('sub_tasks')
         project_id = self.request.GET.get('project')
         if project_id:
             qs = qs.filter(project_id=project_id)
